@@ -19,7 +19,7 @@ function runtime(options={}){
     const file=localRequire.resolve('./native-presentation-desktop.cjs');
     vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='node:process'?{...actual,platform:options.platform||'win32'}:name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
   }
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='./macos-process-audio.cjs'&&options.macAudioProbe?{probeMacProcessAudio:options.macAudioProbe}:name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='./macos-protocol-registration.cjs'?{registerMacProtocols:options.macProtocolRegistration||(()=>Promise.resolve({ok:true,code:'REGISTERED'}))}:name==='./macos-process-audio.cjs'&&options.macAudioProbe?{probeMacProcessAudio:options.macAudioProbe}:name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -234,9 +234,22 @@ test('macOS has native application and edit menus',async()=>{
  }finally{state.cleanup();}
 });
 
-test('bundled macOS native helpers register all four implemented protocols',()=>{
- const state=runtime({platform:'darwin',packaged:true,buildInfo:{developmentCandidate:true,nativeHelpersBundled:true}});
- try{assert.deepEqual(state.app.protocols.map(args=>args[0]),['castlink-remote','castlink-presenter','castlink-share','castlink']);}finally{state.cleanup();}
+test('packaged macOS registers its exact installed copy after readiness without blocking launcher',async()=>{
+ let finish;
+ const calls=[],state=runtime({platform:'darwin',ready:true,packaged:true,execPath:'/Applications/CastLink.app/Contents/MacOS/CastLink',buildInfo:{developmentCandidate:true,nativeHelpersBundled:true},macProtocolRegistration:value=>{calls.push(value);return new Promise(resolve=>{finish=resolve;});}});
+ try{
+  assert.equal(calls.length,0);await tick();
+  assert.equal(calls.length,1);assert.equal(calls[0].executable,'/Applications/CastLink.app/Contents/MacOS/CastLink');assert.equal(calls[0].resourcesPath,state.app.getPath());
+  assert.equal(state.app.protocols.length,0,'Mac uses exact installed URL, not bundle-ID-only selection');
+  assert.ok(state.windows.some(window=>window.webContents.mainFrame.url.endsWith('/start.html')),'launcher is available while registration completes');
+  finish({ok:true,code:'REGISTERED'});await tick();assert.equal(state.prompts.length,0);
+ }finally{finish?.({ok:true,code:'REGISTERED'});state.cleanup();}
+});
+test('failed macOS installed registration gives a bounded hint and keeps launcher usable',async()=>{
+ for(const outcome of [()=>Promise.resolve({ok:false,code:'REGISTRATION_UNAVAILABLE'}),()=>Promise.reject(Error('/private/sensitive-path')),()=>{throw Error('/private/sensitive-path');}]){
+  const state=runtime({platform:'darwin',ready:true,packaged:true,buildInfo:{nativeHelpersBundled:true},macProtocolRegistration:outcome});
+  try{await tick();await tick();assert.equal(state.prompts.length,1);const warning=state.prompts[0][0];assert.equal(warning.type,'warning');assert.match(warning.message,/Applications/);assert.ok(!JSON.stringify(warning).includes('sensitive'));assert.ok(state.windows.some(window=>!window.isDestroyed()&&window.webContents.mainFrame.url.endsWith('/start.html')));}finally{state.cleanup();}
+ }
 });
 
 test('macOS full bundle handles browser share links as a leased isolated component',()=>{

@@ -166,10 +166,16 @@ Run `CastLink.WindowSlides --browser-fixture` on macOS for the real optional
 browser fixture. It discovers installed Chrome/Edge, checks existing
 Accessibility permission without prompting, and launches each browser in a
 new owned temporary profile with a generated two-page PDF. Only that empty
-profile gets Chromium's `--enable-automation`, `--use-mock-keychain` (Apple
+profile gets Chromium's `--use-mock-keychain` (Apple
 testing flag preventing host-keychain blocking dialogs) and
 `--disable-search-engine-choice-screen` (documented testing/automation flag).
 The PDF extension and browser security boundaries stay enabled.
+`--enable-automation` is omitted: Chromium's process-singleton callback rejects
+URL handoff when either instance has that switch, defeating the same-URL tab
+fixture, and its infobar is not a blocking prompt. The replacement proof now
+requires an actually new same-window/same-document AX root/viewer before
+checking stale authority, and records the secondary process exit.
+https://github.com/chromium/chromium/blob/main/chrome/browser/chrome_browser_main.cc
 `--password-store=basic` is Linux-specific and is not used as a macOS fix.
 Upstream references:
 https://github.com/chromium/chromium/blob/main/components/os_crypt/common/os_crypt_switches.h
@@ -184,9 +190,11 @@ window/ancestry. The observed Intel Chrome AXUnknown alert window with one
 direct AXApplicationAlertDialog child is also recognized when its focused UI
 element is unavailable. The one-Escape budget is shared across activation and
 post-click recovery and final pre-navigation readiness; it never approves a prompt or sends input to external/system
-prompts. Production focus guards are unchanged. It waits up to four seconds each for a baseline and resulting content
-change in only the retained trusted viewer subtree. The baseline must be stable
-for three consecutive observations. Navigation requires an existing common
+prompts. Production focus guards are unchanged. It waits up to twelve seconds for three consecutive stable baseline reads
+and up to four seconds for resulting content change in only the retained trusted viewer subtree. The baseline must be stable
+for three consecutive observations; sample/consecutive/reset counts, elapsed
+time and remaining phase/work time distinguish slow AX reads from layout
+changes without reducing that requirement. Navigation requires an existing common
 marker to move upward while window/surface geometry and marker X/width remain
 stable. Scroll values remain diagnostic only until retained vertical-scrollbar
 identity is available; reordering an array of control values cannot prove
@@ -200,9 +208,14 @@ this actual pre-effect check is the focus proof, while initial acquisition
 status/diagnostics are retained. No content click or navigation is repeated during final focus revalidation.
 If a proven owned dialog appears late, the same one-Escape total budget can
 cancel it here, followed by one owned PDF content refocus and a fresh baseline
-before any navigation, within a hard eight-second phase bound. If the one
+before any navigation, within a hard twenty-second phase bound. If the one
 Escape was consumed during acquisition, the same refocus occurs here with the
-Escape budget already spent. Fixture mouse events set clickState=1. Actual
+Escape budget already spent. Fixture mouse events set clickState=1 and record a scoped public AX hit-test.
+The exact inner PDF content's AXFocused setter is queried; when supported, the
+owned fixture sets it and awaits actual focused-element identity. Extension
+viewer focus alone cannot authorize this fixture's sole navigation. Browser
+versions and setter/readback results are recorded. No global-input fallback
+is used. Actual
 owned synthetic marker rectangles and scroll values, plus immediate pre-effect
 focus and owned modal-window metadata, are recorded for effect diagnosis. The fixture records one navigation call and never retries
 that call, including after a foreground refusal. The editable-control negative proof waits

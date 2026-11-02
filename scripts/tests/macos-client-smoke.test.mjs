@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import https from 'node:https';
-import {connectCdp,isPackagedPage,readMacUriHandlers,verifyMacUriRegistration,claimHelperProfile,createUriRejectionFixture} from '../macos-client-smoke.mjs';
+import {connectCdp,isPackagedPage,registrationObserver,readMacUriHandlers,verifyMacUriRegistration,claimHelperProfile,createUriRejectionFixture} from '../macos-client-smoke.mjs';
 class FakeSocket extends EventTarget{
  static instances=[];
  constructor(url){super();this.url=String(url);this.sent=[];this.closed=false;FakeSocket.instances.push(this);queueMicrotask(()=>this.dispatchEvent(new Event('open')));}
@@ -89,6 +89,25 @@ test('URI diagnostics stay canonical when the temporary directory is reached thr
  await assert.rejects(verifyMacUriRegistration({bundle:aliasBundle,run:run(aliasOther)}),error=>{
   const diagnostic=JSON.parse(error.message.slice(error.message.indexOf('{')));assert.equal(diagnostic.expectedPath,bundle);assert.equal(diagnostic.actualPath,aliasOther);assert.equal(diagnostic.canonicalActualPath,other);assert.equal(diagnostic.canonicalPathMatches,false);return true;
  });
+});
+test('asynchronous product registration is awaited with read-only queries and no synthesized selection',async t=>{
+ const root=directory(t),bundle=path.join(root,'CastLink.app');fs.mkdirSync(bundle);const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];let reads=0;
+ const run=(file,args,options)=>{
+  assert.ok(['/usr/bin/plutil','/usr/bin/osascript'].includes(file));assert.ok(options.timeout>0&&options.timeout<=10000);
+  if(file==='/usr/bin/plutil')return JSON.stringify([{CFBundleURLSchemes:schemes}]);reads++;return JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,reads<2?null:bundle])));
+ };
+ assert.equal((await verifyMacUriRegistration({bundle,run,timeoutMs:1000})).status,'PASS');assert.equal(reads,2);
+ await assert.rejects(verifyMacUriRegistration({bundle,timeoutMs:1,run:file=>JSON.stringify(file==='/usr/bin/plutil'?[{CFBundleURLSchemes:schemes}]:Object.fromEntries(schemes.map(scheme=>[scheme,null])))}),/does not resolve/);
+});
+test('owned app output retains only bounded typed registration markers and drops raw process diagnostics',()=>{
+ const observer=registrationObserver(),prefix='CASTLINK_PROTOCOL_REGISTRATION_RESULT ';
+ observer.consume('stdout',Buffer.from('PRIVATE SERVER URL\n'+prefix+'{"ok":false,"code":"REGISTRATION_'));
+ observer.consume('stderr',Buffer.from('PRIVATE TICKET\n'));
+ observer.consume('stdout',Buffer.from('FAILED","nativeStatus":-10814,"nativeDomain":"NSOSStatusErrorDomain","privatePath":"PRIVATE"}\n'));
+ assert.deepEqual(observer.result,{ok:false,code:'REGISTRATION_FAILED',nativeStatus:-10814,nativeDomain:'NSOSStatusErrorDomain'});
+ observer.consume('stderr',Buffer.from(prefix+'{"ok":true,"code":"PRIVATE"}\n'+prefix+'invalid-json\n'+prefix+JSON.stringify({ok:true,code:'REGISTERED',raw:'PRIVATE'.repeat(1000)})+'\n'));
+ assert.equal(observer.result.ok,false);assert.doesNotMatch(JSON.stringify(observer.result),/PRIVATE/);
+ observer.consume('stdout',Buffer.from(prefix+'{"ok":true,"code":"REGISTERED"}\n'));assert.deepEqual(observer.result,{ok:true,code:'REGISTERED'});
 });
 test('helper profiles are claimed only when absent and cleaned only with intact ownership',t=>{
  const root=directory(t),owned=path.join(root,'owned'),cleanup=claimHelperProfile(owned);fs.mkdirSync(path.join(owned,'session'));cleanup();assert.equal(fs.existsSync(owned),false);

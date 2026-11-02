@@ -53,25 +53,47 @@ export function isPackagedPage(target,bundle,file){
 }
 
 const URI_SCHEMES=Object.freeze(['castlink','castlink-remote','castlink-presenter','castlink-share']);
-export async function readMacUriHandlers({run=execFileSync}={}){
+export function registrationObserver(){
+ const buffers={stdout:'',stderr:''},codes=new Set(['REGISTERED','BUNDLE_LOCATION','BUNDLE_IDENTITY','MAIN_EXECUTABLE','REGISTRATION_ARGUMENTS','REGISTRATION_TIMEOUT','REGISTRATION_FAILED','SELECTION_MISMATCH','UNSUPPORTED_PLATFORM','REGISTRATION_PROTOCOL','REGISTRATION_UNAVAILABLE']);let observed;
+ return {consume(stream,chunk){
+  if(!Object.hasOwn(buffers,stream))return;
+  const lines=(buffers[stream]+chunk.toString('utf8')).split(/\r?\n/);buffers[stream]=lines.pop().slice(-4096);
+  for(const line of lines){
+   const prefix='CASTLINK_PROTOCOL_REGISTRATION_RESULT ';if(!line.startsWith(prefix)||line.length>1024)continue;
+   try{const value=JSON.parse(line.slice(prefix.length));if(typeof value.ok!=='boolean'||!codes.has(value.code))continue;
+    observed={ok:value.ok,code:value.code,...(Number.isInteger(value.nativeStatus)&&value.nativeStatus>=-2147483648&&value.nativeStatus<=2147483647?{nativeStatus:value.nativeStatus,nativeDomain:['NSOSStatusErrorDomain','NSCocoaErrorDomain'].includes(value.nativeDomain)?value.nativeDomain:'OTHER'}:{})};
+   }catch{}
+  }
+ },get result(){return observed;}};
+}
+export async function readMacUriHandlers({run=execFileSync,timeoutMs=10000}={}){
  const query="ObjC.import('AppKit'); const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share']; const handlers={}; for(const scheme of schemes){const application=$.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.URLWithString(scheme+'://connect')); handlers[scheme]=!application||application.isNil()?null:ObjC.unwrap(application.path);} JSON.stringify(handlers);";
- const handlers=JSON.parse(await run('/usr/bin/osascript',['-l','JavaScript','-e',query],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:65536,killSignal:'SIGKILL'}));
+ const handlers=JSON.parse(await run('/usr/bin/osascript',['-l','JavaScript','-e',query],{encoding:'utf8',shell:false,timeout:timeoutMs,maxBuffer:65536,killSignal:'SIGKILL'}));
  if(!handlers||URI_SCHEMES.some(scheme=>handlers[scheme]!==null&&(typeof handlers[scheme]!=='string'||handlers[scheme].length>4096)))throw Error('Invalid native URI handler mapping');
  return handlers;
 }
-export async function verifyMacUriRegistration({bundle,run=execFileSync}){
+export async function verifyMacUriRegistration({bundle,run=execFileSync,timeoutMs=0}){
+ if(!Number.isInteger(timeoutMs)||timeoutMs<0||timeoutMs>15000)throw Error('Bounded native URI selection wait required');
  const options={encoding:'utf8',shell:false,timeout:10000,maxBuffer:65536,killSignal:'SIGKILL'};
  const declarations=JSON.parse(await run('/usr/bin/plutil',['-extract','CFBundleURLTypes','json','-o','-',path.join(bundle,'Contents/Info.plist')],options));
  const schemes=Array.isArray(declarations)?declarations.flatMap(value=>Array.isArray(value.CFBundleURLSchemes)?value.CFBundleURLSchemes:[]):[];
  if(JSON.stringify([...schemes].sort())!==JSON.stringify([...URI_SCHEMES].sort()))throw Error('Packaged URI declarations do not contain exactly the four CastLink schemes');
- const handlers=await readMacUriHandlers({run}),candidate=fs.realpathSync(bundle);
- for(const scheme of URI_SCHEMES){
-  let resolved,resolutionError;try{if(handlers[scheme]!==null)resolved=fs.realpathSync(handlers[scheme]);}catch(error){resolutionError=error.code;}
-  if(resolved!==candidate){
-   const bounded=(value,limit)=>typeof value==='string'?value.replace(/[\x00-\x1f\x7f]/g,'?').slice(0,limit):null;
-   const diagnostic={scheme,expectedPath:bounded(candidate,256),actualPath:bounded(handlers[scheme],256),canonicalActualPath:bounded(resolved,256),expectedBasename:bounded(path.basename(candidate),64),actualBasename:bounded(typeof handlers[scheme]==='string'?path.basename(handlers[scheme]):null,64),actualResolved:typeof resolved==='string',canonicalPathMatches:false,resolutionError:bounded(resolutionError,32)};
-   throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
+ const candidate=fs.realpathSync(bundle),deadline=Date.now()+timeoutMs;let diagnostic;
+ while(true){
+  if(diagnostic&&Date.now()>=deadline)throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
+  const handlers=await readMacUriHandlers({run,timeoutMs:timeoutMs?Math.max(1,Math.min(10000,deadline-Date.now())):10000});diagnostic=undefined;
+  for(const scheme of URI_SCHEMES){
+   let resolved,resolutionError;try{if(handlers[scheme]!==null)resolved=fs.realpathSync(handlers[scheme]);}catch(error){resolutionError=error.code;}
+   if(resolved!==candidate){
+    const bounded=(value,limit)=>typeof value==='string'?value.replace(/[\x00-\x1f\x7f]/g,'?').slice(0,limit):null;
+    diagnostic={scheme,expectedPath:bounded(candidate,256),actualPath:bounded(handlers[scheme],256),canonicalActualPath:bounded(resolved,256),expectedBasename:bounded(path.basename(candidate),64),actualBasename:bounded(typeof handlers[scheme]==='string'?path.basename(handlers[scheme]):null,64),actualResolved:typeof resolved==='string',canonicalPathMatches:false,resolutionError:bounded(resolutionError,32)};break;
+   }
   }
+  if(!diagnostic)break;
+  if(Date.now()>=deadline)throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
+  // The product performs asynchronous registration after ready. Only query
+  // its result here: the smoke never sets a handler or retries an effect.
+  await delay(Math.min(100,Math.max(1,deadline-Date.now())));
  }
  return {status:'PASS',schemes:[...URI_SCHEMES],selectedHandlers:'PASS',delivery:'NOT VERIFIED'};
 }
@@ -174,7 +196,7 @@ export async function runPackagedSmoke({bundle,expectedArch,output}){
  fs.writeFileSync(path.join(path.dirname(output),'packaged-resources.json'),JSON.stringify(packagedResources,null,2)+'\n');
  const server=net.createServer();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
  const port=server.address().port;await new Promise(resolve=>server.close(resolve));
- const profile=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-smoke-')),sessions=[];
+ const profile=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-macos-smoke-')),sessions=[],registration=registrationObserver();
  let child,exitCode=null,spawnError;
  function assertRunning(){if(spawnError)throw spawnError;if(exitCode!==null)throw Error(`Candidate exited early: ${exitCode}`);}
  async function targets(){
@@ -198,13 +220,14 @@ export async function runPackagedSmoke({bundle,expectedArch,output}){
  }
  function signalOwned(signal){try{if(child?.pid)process.kill(-child.pid,signal);}catch{}}
  try{
-  child=spawn(executable,[`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',`--user-data-dir=${profile}`],{stdio:'ignore',detached:true});
+  child=spawn(executable,[`--remote-debugging-port=${port}`,'--remote-debugging-address=127.0.0.1',`--user-data-dir=${profile}`],{stdio:['ignore','pipe','pipe'],detached:true});
+  child.stdout.on('data',chunk=>registration.consume('stdout',chunk));child.stderr.on('data',chunk=>registration.consume('stderr',chunk));
   child.once('error',error=>spawnError=error);child.once('exit',code=>exitCode=code??-1);
   const launcherTarget=await waitForTarget('start.html'),launcher=await connectCdp(launcherTarget,port);sessions.push(launcher);
   const launcherState=await inspect(launcher,"({ready:document.readyState,title:document.title,buttons:document.querySelectorAll('button').length,nodeExposed:typeof process!=='undefined'||typeof require!=='undefined',settingsReady:Boolean(document.getElementById('version')?.textContent),preloadReady:typeof window.castlinkLauncher?.settings==='function'&&typeof window.castlinkLauncher?.setup==='function'})",value=>['interactive','complete'].includes(value?.ready)&&value.settingsReady,'Packaged launcher');
   console.log('Launcher observation:',JSON.stringify(launcherState));
   if(launcherState.buttons<1||launcherState.nodeExposed||!launcherState.preloadReady)throw Error('Launcher DOM, preload or sandbox failed');
-  const uriRegistration=await verifyMacUriRegistration({bundle:path.resolve(bundle)});
+  const uriRegistration=await verifyMacUriRegistration({bundle:path.resolve(bundle),timeoutMs:15000});
   const panels=await launcher.evaluate(`(()=>{
    const get=id=>document.getElementById(id),locale=get('locale');locale.value='en';locale.dispatchEvent(new Event('change',{bubbles:true}));
    get('open-help').click();const helpOpened=!get('help-panel').hidden&&document.activeElement.id==='close-help';
@@ -244,9 +267,11 @@ export async function runPackagedSmoke({bundle,expectedArch,output}){
   if(!setupControls||setupControls.nodeExposed||!['local','options','remote','privateKey','password','restored','idle','consentsUntouched'].every(key=>setupControls[key]===true)||!['ru','zh-CN','en'].every(locale=>setupControls.translations?.[locale]===true))throw Error('Setup target controls, translations or idle state failed');
   console.log('Setup observation:',JSON.stringify({dom:setupState,preload:setupApi,controls:setupControls}));
   const uriRejectionBootstrap=await verifyUriRejectionModes({bundle:path.resolve(bundle),executable,directory:profile});
-  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',launcherPanels:'PASS',packagedSetup:'PASS',setupTranslations:['en','ru','zh-CN'],setupTargetControls:'PASS',setupPreload:'PASS',sandbox:'PASS',setupOperations:'NOT RUN',uriRegistration,uriRejectionBootstrap,successfulUriModes:'NOT VERIFIED',nativeFeatures:'NOT VERIFIED'},null,2)+'\n');
+  if(registration.result?.ok!==true||registration.result.code!=='REGISTERED')throw Error('Product protocol registration did not report successful completion');
+  fs.writeFileSync(output,JSON.stringify({arch:expectedArch,packagedLauncher:'PASS',launcherPanels:'PASS',packagedSetup:'PASS',setupTranslations:['en','ru','zh-CN'],setupTargetControls:'PASS',setupPreload:'PASS',sandbox:'PASS',setupOperations:'NOT RUN',protocolRegistration:registration.result,uriRegistration,uriRejectionBootstrap,successfulUriModes:'NOT VERIFIED',nativeFeatures:'NOT VERIFIED'},null,2)+'\n');
   console.log('Packaged launcher, setup UI and renderer isolation PASS');
- }finally{
+ }catch(error){throw Error(error.message+'; product protocol registration: '+JSON.stringify(registration.result||{code:'NOT_OBSERVED'}),{cause:error});}
+ finally{
   for(const session of sessions)session.close();
   if(child?.pid){signalOwned('SIGTERM');if(exitCode===null)await Promise.race([new Promise(resolve=>child.once('exit',resolve)),delay(3000)]);signalOwned('SIGKILL');}
   fs.rmSync(profile,{recursive:true,force:true});

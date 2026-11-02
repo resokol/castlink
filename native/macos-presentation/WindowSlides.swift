@@ -456,13 +456,23 @@ func fixtureStableCount(previous: String?, current: String?, count: Int) -> Int 
     return previous == current ? count+1 : 1
 }
 func fixtureStableBaseline(_ target: Target, deadline: Date, observed: (([String:Any]) -> Void)? = nil) -> FixturePDFObservation? {
-    var previous: FixturePDFObservation?, stable = 0
+    let started = Date()
+    var previous: FixturePDFObservation?, stable = 0, samples = 0, resets = 0
     repeat {
-        if let current = fixtureObservation(target,observed:observed) {
-            stable = fixtureStableCount(previous:previous?.stateKey,current:current.stateKey,count:stable)
-            previous = current
-            if stable >= 3 { return current }
-        } else { previous = nil; stable = 0 }
+        var metadata: [String:Any] = [:]
+        let current = fixtureObservation(target) { metadata = $0 }
+        samples += 1
+        if let current = current {
+            let next = fixtureStableCount(previous:previous?.stateKey,current:current.stateKey,count:stable)
+            if stable > 0 && next == 1 { resets += 1 }
+            stable = next; previous = current
+        } else { if stable > 0 { resets += 1 }; previous = nil; stable = 0 }
+        metadata["baselineSamples"] = samples; metadata["baselineConsecutive"] = stable; metadata["baselineResets"] = resets
+        metadata["baselineElapsedMilliseconds"] = Int(Date().timeIntervalSince(started)*1000)
+        metadata["baselineRemainingMilliseconds"] = max(0,Int(deadline.timeIntervalSinceNow*1000))
+        if let work = fixtureWorkDeadline { metadata["fixtureRemainingMilliseconds"] = max(0,Int(work.timeIntervalSinceNow*1000)) }
+        observed?(metadata)
+        if stable >= 3 { return previous }
         RunLoop.current.run(until:Date().addingTimeInterval(0.1))
     } while Date() < deadline && fixtureHasWork()
     return nil
@@ -470,7 +480,7 @@ func fixtureStableBaseline(_ target: Target, deadline: Date, observed: (([String
 // Chromium testing switches apply only to this newly generated empty profile.
 // Apple's mock keychain avoids host keychain dialogs; no PDF extension or
 // browser security boundary is disabled. password-store=basic is Linux-only.
-let fixtureBrowserFlags = ["--no-first-run","--no-default-browser-check","--disable-background-mode","--force-renderer-accessibility","--enable-automation","--use-mock-keychain","--disable-search-engine-choice-screen"]
+let fixtureBrowserFlags = ["--no-first-run","--no-default-browser-check","--disable-background-mode","--force-renderer-accessibility","--use-mock-keychain","--disable-search-engine-choice-screen"]
 func ownedBrowser(_ executable: URL, _ profile: URL, _ url: URL, newWindow: Bool = true) throws -> Process {
     guard fixtureHasWork() else { throw Refusal.command }
     let process = Process(); process.executableURL = executable
@@ -671,6 +681,33 @@ func fixturePDFContent(_ target: Target) -> AXUIElement? {
     }
     return content
 }
+func fixtureExactContentFocus(_ target: Target, _ content: AXUIElement) throws {
+    try focusedPDF(target)
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    guard let actual = element(application,kAXFocusedUIElementAttribute), CFEqual(actual,content) else { throw Refusal.foreground }
+}
+func fixtureHitTest(_ target: Target, _ content: AXUIElement, _ point: CGPoint) -> [String:Any] {
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    var hit: AXUIElement?
+    let code = AXUIElementCopyElementAtPosition(application,Float(point.x),Float(point.y),&hit)
+    var report: [String:Any] = ["code":code.rawValue,"pointX":Double(point.x),"pointY":Double(point.y)]
+    guard code == .success, let found = hit else { return report }
+    report["role"] = string(found,kAXRoleAttribute) ?? "unavailable"
+    report["subrole"] = string(found,kAXSubroleAttribute) ?? "none"
+    var current: AXUIElement? = found
+    var inContent = false, inViewer = false, inWindow = false
+    for _ in 0..<40 {
+        guard let node = current else { break }
+        inContent = inContent || CFEqual(node,content)
+        if let viewer = target.evidence.viewer { inViewer = inViewer || CFEqual(node,viewer) }
+        if CFEqual(node,target.window) { inWindow = true; break }
+        current = element(node,kAXParentAttribute)
+    }
+    report["withinContent"] = inContent; report["withinViewer"] = inViewer; report["withinSelectedWindow"] = inWindow
+    return report
+}
 func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any] {
     guard let content = fixturePDFContent(target) else { return ["status":"FAILED","reason":"Owned PDF content tree unavailable"] }
     let activationAccepted = target.app.activate(options:[.activateIgnoringOtherApps])
@@ -696,10 +733,17 @@ func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any]
           let down = CGEvent(mouseEventSource:nil,mouseType:.leftMouseDown,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
           let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
           processBirthMilliseconds(target.pid) == target.launched else { result["status"] = "FAILED"; result["reason"] = "Owned PDF click geometry or lifetime changed"; return result }
+    result["clickHitTest"] = fixtureHitTest(target,content,CGPoint(x:visible.midX,y:visible.midY))
     down.flags = []; up.flags = []
     down.setIntegerValueField(.mouseEventClickState,value:1); up.setIntegerValueField(.mouseEventClickState,value:1)
     down.postToPid(target.pid); up.postToPid(target.pid)
     result["mouseClickState"] = 1
+    var settable = DarwinBoolean(false)
+    let settableCode = AXUIElementIsAttributeSettable(content,kAXFocusedAttribute as CFString,&settable)
+    result["innerFocusSettableCode"] = settableCode.rawValue; result["innerFocusSettable"] = settable.boolValue
+    if settableCode == .success && settable.boolValue && fixtureHasWork(), processBirthMilliseconds(target.pid) == target.launched {
+        result["innerFocusSetCode"] = AXUIElementSetAttributeValue(content,kAXFocusedAttribute as CFString,kCFBooleanTrue).rawValue
+    }
     let postClickDeadline = fixtureUntil(2)
     var postClickStates: [[String:Any]] = []
     repeat {
@@ -707,8 +751,8 @@ func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any]
         let state = fixtureFocusState(target,content)
         if postClickStates.count == 12 { postClickStates.removeFirst() }; postClickStates.append(state)
         do {
-            try focusedPDF(target)
-            result["status"] = "VERIFIED"; result["method"] = "owned-process-pdf-content-click"; result.removeValue(forKey:"reason")
+            try fixtureExactContentFocus(target,content)
+            result["status"] = "VERIFIED"; result["method"] = "owned-process-content-acquisition-and-exact-AX-readback"; result.removeValue(forKey:"reason")
             break
         } catch { result["status"] = "NOT VERIFIED"; result["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
         if !escaped, fixtureEscapeOwnedDialog(target) {
@@ -792,6 +836,7 @@ func browserFixture() throws -> Any {
         var report: [String:Any] = ["browser":bundleID,"osOperationVerified":false,"automationFlags":fixtureBrowserFlags]
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier:bundleID), let executable = Bundle(url:appURL)?.executableURL else { report["installed"] = false; report["status"] = "NOT VERIFIED"; report["reason"] = "Browser not installed"; reports.append(report); continue }
         report["installed"] = true
+        if let version = Bundle(url:appURL)?.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String { report["browserVersion"] = String(version.prefix(80)) }
         guard AXIsProcessTrusted() else { report["status"] = "NOT VERIFIED"; report["reason"] = "Accessibility permission unavailable"; reports.append(report); continue }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("castlink-browser-pdf-"+UUID().uuidString,isDirectory:true)
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
@@ -838,14 +883,14 @@ func browserFixture() throws -> Any {
             report["documentIdentity"] = "VERIFIED"
             report["contentFocus"] = fixtureContentFocus(target)
             RunLoop.current.run(until:Date().addingTimeInterval(0.1))
-            var before = fixtureStableBaseline(target,deadline:fixtureUntil(4)) { report["navigationBaselineObservation"] = $0 }
+            var before = fixtureStableBaseline(target,deadline:fixtureUntil(12)) { report["navigationBaselineObservation"] = $0 }
             report["navigationBaselineAvailable"] = before != nil
             do {
                 // A delayed owned alert can settle during content readiness.
                 // Revalidate actual focus before the sole navigation. A late
                 // owned first-run alert may consume the same one-Escape budget
                 // as acquisition; there is never a second navigation effect.
-                let focusHardDeadline = fixtureUntil(8)
+                let focusHardDeadline = fixtureUntil(20)
                 var focusDeadline = fixtureUntil(2)
                 var focusValidated = false
                 var usedEscapes = (report["contentFocus"] as? [String:Any])?["ownedDialogEscapeCount"] as? Int ?? 0
@@ -861,12 +906,15 @@ func browserFixture() throws -> Any {
                         recovery["postDialogContentRefocus"] = reacquired
                         report["contentFocus"] = recovery
                         RunLoop.current.run(until:Date().addingTimeInterval(0.1))
-                        before = fixtureStableBaseline(target,deadline:min(focusHardDeadline,fixtureUntil(2))) { report["navigationBaselineObservation"] = $0 }
+                        before = fixtureStableBaseline(target,deadline:min(focusHardDeadline,fixtureUntil(12))) { report["navigationBaselineObservation"] = $0 }
                         report["navigationBaselineRebasedAfterDialog"] = true
                         report["navigationBaselineAvailable"] = before != nil
                         focusDeadline = min(focusHardDeadline,fixtureUntil(2))
                     }
-                    do { try focusedPDF(target); focusValidated = true; break } catch {}
+                    do {
+                        guard let content = fixturePDFContent(target) else { throw Refusal.foreground }
+                        try fixtureExactContentFocus(target,content); focusValidated = true; break
+                    } catch {}
                     if fixtureEscapeAvailable(usedEscapes), fixtureEscapeOwnedDialog(target) {
                         usedEscapes += 1
                         var recovery = report["contentFocus"] as? [String:Any] ?? [:]
@@ -929,14 +977,33 @@ func browserFixture() throws -> Any {
             }
             let other = try ownedBrowser(executable,profile,pdf,newWindow:false)
             defer { finishOwned(other) }
-            let replacedDeadline = fixtureUntil(3)
-            var stale = false
+            let replacedDeadline = fixtureUntil(8)
+            var replacementObserved = false, stale = false
+            var replacement: [String:Any] = [:]
             while Date() < replacedDeadline {
-                do { _ = try bound(["status",String(target.number),target.binding]) }
-                catch { stale = true; break }
-                Thread.sleep(forTimeInterval:0.1)
+                let current = try targets(onlyPID:target.pid)
+                for candidate in current where candidate.number == target.number && candidate.document == target.document && candidate.launched == target.launched && CFEqual(candidate.window,target.window) {
+                    let rootChanged = !CFEqual(candidate.evidence.root,target.evidence.root)
+                    let viewerChanged: Bool
+                    if let old = target.evidence.viewer, let fresh = candidate.evidence.viewer { viewerChanged = !CFEqual(old,fresh) } else { viewerChanged = false }
+                    if rootChanged || viewerChanged {
+                        replacementObserved = true
+                        replacement = ["sameWindow":CFEqual(candidate.window,target.window),"sameDocument":true,"rootReplaced":rootChanged,"viewerReplaced":viewerChanged,"kernelBirthMatches":candidate.launched == target.launched]
+                        break
+                    }
+                }
+                if replacementObserved {
+                    do { _ = try bound(["status",String(target.number),target.binding]) }
+                    catch { stale = (error as? Refusal) == .stale }
+                    if stale { break }
+                }
+                RunLoop.current.run(until:Date().addingTimeInterval(0.1))
             }
-            report["sameURLTabRefusal"] = stale ? "VERIFIED" : "NOT VERIFIED"
+            replacement["observed"] = replacementObserved; replacement["oldBindingRefused"] = stale
+            replacement["secondaryExited"] = !other.isRunning
+            if !other.isRunning { replacement["secondaryExitCode"] = Int(other.terminationStatus) }
+            report["sameURLReplacement"] = replacement
+            report["sameURLTabRefusal"] = replacementObserved && stale ? "VERIFIED" : "NOT VERIFIED"
             var proofs = Dictionary(uniqueKeysWithValues:browserRequiredProofs.map { ($0,report[$0] as? String ?? "NOT VERIFIED") })
             proofs["contentFocus"] = (report["contentFocus"] as? [String:Any])?["status"] as? String ?? "NOT VERIFIED"
             let permission = AXIsProcessTrusted(); report["accessibilityPermission"] = permission
@@ -995,7 +1062,7 @@ func run(_ args: [String]) throws -> Any {
               !fixtureObservedMovement(partial,grown), fixtureObservedMovement(baseline,moved),
               !fixtureObservedMovement(baseline,opposite), !fixtureObservedMovement(baseline,resized), !fixtureObservedMovement(baseline,shifted),
               !fixtureObservedMovement(scrollBefore,scrollAfter), !fixtureObservedMovement(scrollAfter,scrollBefore),
-              fixtureBrowserFlags.contains("--enable-automation"), fixtureBrowserFlags.contains("--use-mock-keychain"), fixtureBrowserFlags.contains("--disable-search-engine-choice-screen"),
+              !fixtureBrowserFlags.contains("--enable-automation"), fixtureBrowserFlags.contains("--use-mock-keychain"), fixtureBrowserFlags.contains("--disable-search-engine-choice-screen"),
               !fixtureBrowserFlags.contains(where:{ ["--disable-extensions","--no-sandbox","--disable-web-security"].contains($0) }),
               !fixtureAXReady(finishedLaunching:false,roleCode:.success,windowsCode:.success,windows:1),
               fixtureAXReady(finishedLaunching:true,roleCode:.success,windowsCode:.success,windows:1),

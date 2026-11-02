@@ -30,7 +30,7 @@ function fixture(t,arch='arm64'){
  put('Contents/Resources/icon.icns',icns);
  put('Contents/Resources/castlink-icon.json',JSON.stringify({schemaVersion:1,source:CASTLINK_ICON_SOURCE,sourceSha256:hash(sourceSvg),sha256:hash(icns),format:'icns',converter:'electron-builder@26.15.3/icons@1.1.0',sizes:[16,32,64,128,256,512,1024]}));
  put('Contents/Resources/app.asar');
- for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity'])put('Contents/Resources/'+file,'helper',0o755);
+ for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','registration/CastLink.ProtocolRegistration'])put('Contents/Resources/'+file,'helper',0o755);
  put('Contents/Resources/powerpoint/PowerPoint.js','JXA script');
  const files={};
  for(const relative of [...MAC_SETUP_SOURCE_FILES,'node_modules/ssh2/package.json']){
@@ -53,6 +53,7 @@ function fixture(t,arch='arm64'){
   if(file==='/usr/bin/lipo')return (arch==='x64'?'x86_64':'arm64')+'\n';
   if(file.endsWith('CastLink.ProcessAudio'))return JSON.stringify({protocol:'CLPA0001',sampleRate:48000,channels:2,maxPacketFrames:4800});
   if(file.endsWith('CastLink.WindowSlides')||file.endsWith('CastLink.PowerPointIdentity'))return JSON.stringify({protocol:1,selfTest:'passed',osOperationVerified:false});
+  if(file.endsWith('CastLink.ProtocolRegistration'))return JSON.stringify({protocol:1,selfTest:'passed',schemes:['castlink','castlink-remote','castlink-presenter','castlink-share'],registrationPerformed:false,osOperationVerified:false});
   if(file.endsWith('CastLink.RemoteInput'))return JSON.stringify({id:1,ok:true,state:{resourceVersion:'CastLink.RemoteInput/full-input-pause/2',captureId:null,active:false,ready:false,pointerReady:false,stopped:true,needsEmptyReset:true,geometry:{width:1,height:1,revision:1}}})+'\n';
   if(file.endsWith('/python3'))return JSON.stringify({version:pin.version,machine:arch==='x64'?'x86_64':'arm64',system:'Darwin'});
   if(file===executable)return JSON.stringify(closure);
@@ -64,8 +65,8 @@ for(const arch of ['arm64','x64'])test(`verifies the signed final ${arch} resour
  const f=fixture(t,arch),result=await verifyMacPackagedResources({bundle:f.bundle,arch,run:f.run});
  assert.equal(result.status,'PASS');assert.equal(result.arch,arch);assert.equal(result.sourceCommit,'a'.repeat(40));assert.equal(result.osOperationVerified,false);assert.equal(result.branding,'PASS');
  assert.deepEqual(f.calls[0].args,['--verify','--deep','--strict',f.bundle]);assert.equal(f.calls[0].file,'/usr/bin/codesign');
- assert.equal(f.calls.filter(call=>call.file==='/usr/bin/lipo').length,6);
- assert.equal(f.calls.filter(call=>call.args[0]==='--self-test').length,3);
+ assert.equal(f.calls.filter(call=>call.file==='/usr/bin/lipo').length,7);
+ assert.equal(f.calls.filter(call=>call.args[0]==='--self-test').length,4);
  const input=f.calls.find(call=>call.file.endsWith('CastLink.RemoteInput'));
  assert.deepEqual(input.args,[]);assert.deepEqual(JSON.parse(input.options.input),{id:1,op:'stop'});
  assert.ok(f.calls.every(call=>call.options.shell===false&&call.options.timeout>0&&call.options.timeout<=30000&&call.options.maxBuffer<=1048576&&call.options.killSignal==='SIGKILL'));
@@ -89,12 +90,13 @@ test('rejects fallback icons and changed CastLink provenance in the final bundle
  }
 });
 test('rejects any helper architecture and protocol mismatch',async t=>{
- for(const target of ['lipo','audio','slides','powerpoint','input']){
+ for(const target of ['lipo','audio','slides','powerpoint','input','registration']){
   const f=fixture(t);f.override=(file,args)=>{
    if(target==='lipo'&&file==='/usr/bin/lipo'&&args[1].endsWith('CastLink.RemoteInput'))return 'x86_64';
    if(target==='audio'&&file.endsWith('CastLink.ProcessAudio'))return JSON.stringify({protocol:'CLPA0002',sampleRate:48000,channels:2,maxPacketFrames:4800});
    if(target==='slides'&&file.endsWith('CastLink.WindowSlides')||target==='powerpoint'&&file.endsWith('CastLink.PowerPointIdentity'))return JSON.stringify({protocol:2,selfTest:'passed',osOperationVerified:false});
    if(target==='input'&&file.endsWith('CastLink.RemoteInput'))return JSON.stringify({id:1,ok:true,state:{resourceVersion:'old',active:true,stopped:false}});
+   if(target==='registration'&&file.endsWith('CastLink.ProtocolRegistration'))return JSON.stringify({protocol:1,selfTest:'passed',schemes:['castlink','castlink-remote','castlink-presenter','castlink-share'],registrationPerformed:true,osOperationVerified:false});
   };
   await assert.rejects(verifyMacPackagedResources({bundle:f.bundle,arch:f.arch,run:f.run}),/architecture|protocol/i,target);
  }

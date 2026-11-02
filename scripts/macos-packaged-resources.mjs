@@ -11,7 +11,7 @@ const {MAC_PYTHON_RUNTIMES,PYTHON_RELEASE,validatePythonIdentity}=require('../ap
 const {MAC_SETUP_SOURCE_FILES}=require('../apps/desktop/scripts/macos-setup-resources.cjs');
 const {verifyMacBundleIcon}=require('../apps/desktop/scripts/macos-icon.cjs');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-const helpers=Object.freeze({audio:'process-audio/CastLink.ProcessAudio',input:'remote-input/CastLink.RemoteInput',slides:'window-slides/CastLink.WindowSlides',powerpoint:'powerpoint/CastLink.PowerPointIdentity'});
+const helpers=Object.freeze({audio:'process-audio/CastLink.ProcessAudio',input:'remote-input/CastLink.RemoteInput',slides:'window-slides/CastLink.WindowSlides',powerpoint:'powerpoint/CastLink.PowerPointIdentity',registration:'registration/CastLink.ProtocolRegistration'});
 function jsonFile(file){return JSON.parse(fs.readFileSync(file,'utf8'));}
 function regular(file,{executable=false}={}){
  const stat=fs.lstatSync(file);if(!stat.isFile()||executable&&(stat.mode&0o111)===0)throw Error('Required packaged resource is not a regular '+(executable?'executable':'file')+': '+file);
@@ -126,6 +126,8 @@ export async function verifyMacPackagedResources({bundle,arch,run=execFileSync}=
   const probe=JSON.parse(await command(path.join(resources,helpers[name]),['--self-test']));
   if(probe.protocol!==1||probe.selfTest!=='passed'||probe.osOperationVerified!==false)throw Error('Final '+name+' helper protocol mismatch');
  }
+ const registration=JSON.parse(await command(path.join(resources,helpers.registration),['--self-test']));
+ if(registration.protocol!==1||registration.selfTest!=='passed'||registration.registrationPerformed!==false||registration.osOperationVerified!==false||!isDeepStrictEqual(registration.schemes,['castlink','castlink-remote','castlink-presenter','castlink-share']))throw Error('Final registration helper passive protocol mismatch');
  // No capture source or authority is created. stop on a fresh process only
  // returns its inert state and exits; it cannot release any remote holds.
  const inputOutput=await command(path.join(resources,helpers.input),[],{input:JSON.stringify({id:1,op:'stop'})+'\n'});

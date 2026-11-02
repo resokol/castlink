@@ -41,7 +41,7 @@ function stageMacPackage(root,destination,commit,arch,{distribution=false}={}){
   return info;
 }
 function completeMacPackage(stage,info,resources,pythonRuntime){
-  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
+  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','registration/CastLink.ProtocolRegistration','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
     let valid=false;try{valid=fs.statSync(path.join(resources,file)).isFile();}catch{}
     if(!valid)throw Error('Missing required macOS resource: '+file);
   }

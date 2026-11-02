@@ -33,7 +33,7 @@ test('native capability manifest is enabled only after the complete resource clo
  try{
   const info=api().stageMacPackage(root,stage,'a'.repeat(40),'arm64');
   assert.throws(()=>completeMacPackage(stage,info,resources,{}),/resource/);
-  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
+  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity','powerpoint/PowerPoint.js','registration/CastLink.ProtocolRegistration','setup/manifest.json','setup/python/bin/python3','setup/python/runtime-manifest.json']){
    fs.mkdirSync(path.dirname(path.join(resources,file)),{recursive:true});fs.writeFileSync(path.join(resources,file),'fixture');
   }
   const final=completeMacPackage(stage,info,resources,{version:'3.12.12',arch:'arm64'});

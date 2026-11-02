@@ -39,9 +39,9 @@ const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(_
 const macPermissions=process.platform==='darwin'?require('./macos-platform.cjs').createMacPermissionAdapter({systemPreferences,openSettings:url=>shell.openExternal(url),inputMonitoring:require('./macos-input-permissions.cjs').createMacInputPermissions({resourcesPath:resourcesRoot()})}):null;
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
-  ru: { connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
-  en: { connect:'Connecting…', server:'Server', change:'Change server…', exit:'Exit', close:'Exit CastLink?', warning:'This connection will close. This application’s camera, microphone and screen share will stop.', cancel:'Cancel', allow:'Allow', deny:'Deny', permission:'Device permission', microphone:'Microphone', camera:'Camera', display:'Screen or window selection', output:'Audio output selection', fullscreen:'Fullscreen', error:'Could not open the server. Check your connection and HTTPS certificate trust.' },
-  'zh-CN': { connect:'正在连接…', server:'服务器', change:'更换服务器…', exit:'退出', close:'退出 CastLink？', warning:'连接将关闭。此应用的摄像头、麦克风和屏幕共享将停止。', cancel:'取消', allow:'允许', deny:'拒绝', permission:'设备权限', microphone:'麦克风', camera:'摄像头', display:'选择屏幕或窗口', output:'选择音频输出设备', fullscreen:'全屏', error:'无法打开服务器。请检查网络连接及 HTTPS 证书信任。' },
+  ru: { protocolError:'Не удалось включить открытие ссылок CastLink. Откройте приложение из папки Applications и перезапустите его.', connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
+  en: { protocolError:'CastLink links could not be enabled. Open the app from Applications and restart it.', connect:'Connecting…', server:'Server', change:'Change server…', exit:'Exit', close:'Exit CastLink?', warning:'This connection will close. This application’s camera, microphone and screen share will stop.', cancel:'Cancel', allow:'Allow', deny:'Deny', permission:'Device permission', microphone:'Microphone', camera:'Camera', display:'Screen or window selection', output:'Audio output selection', fullscreen:'Fullscreen', error:'Could not open the server. Check your connection and HTTPS certificate trust.' },
+  'zh-CN': { protocolError:'无法启用 CastLink 链接。请从 Applications 文件夹打开应用并重新启动。', connect:'正在连接…', server:'服务器', change:'更换服务器…', exit:'退出', close:'退出 CastLink？', warning:'连接将关闭。此应用的摄像头、麦克风和屏幕共享将停止。', cancel:'取消', allow:'允许', deny:'拒绝', permission:'设备权限', microphone:'麦克风', camera:'摄像头', display:'选择屏幕或窗口', output:'选择音频输出设备', fullscreen:'全屏', error:'无法打开服务器。请检查网络连接及 HTTPS 证书信任。' },
 }[settings.locale]);
 
 function preferences(role) {
@@ -247,7 +247,7 @@ if(remoteHelperMode){
 } else if (!app.requestSingleInstanceLock()) app.quit();
 else {
   require('./private-test-basic-auth.cjs').installPrivateTestAuth({app,enabled:pptxTestBuild&&!presenterBuild,file:process.env.CASTLINK_PRIVATE_TEST_AUTH_FILE,getClient:()=>client,getOrigin:()=>settings.serverOrigin});
-  if(app.isPackaged&&!pptxTestBuild){
+  if(app.isPackaged&&!pptxTestBuild&&!(process.platform==='darwin'&&buildInfo.nativeHelpersBundled)){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
     for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate&&!buildInfo.nativeHelpersBundled?['castlink']:['castlink-remote','castlink-presenter',...(process.platform==='darwin'?['castlink-share']:[]),'castlink']){
@@ -295,6 +295,22 @@ else {
     });
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;
+    if(process.platform==='darwin'&&app.isPackaged&&!pptxTestBuild&&buildInfo.nativeHelpersBundled){
+      // Select this installed URL; a bundle-ID-only default can resolve to a
+      // different copy or no app. Registration must not block the launcher.
+      const unavailable=()=>{if(!quitting)void dialog.showMessageBox({type:'warning',message:labels().protocolError}).catch(()=>{});};
+      void Promise.resolve().then(()=>require('./macos-protocol-registration.cjs').registerMacProtocols({resourcesPath:resourcesRoot(),executable:process.execPath})).then(result=>{
+        const ok=result?.ok===true,code=typeof result?.code==='string'&&/^[A-Z_]{1,48}$/.test(result.code)?result.code:'REGISTRATION_UNAVAILABLE';
+        const diagnostic={ok,code};
+        if(Number.isInteger(result?.nativeStatus)&&result.nativeStatus>=-2147483648&&result.nativeStatus<=2147483647)diagnostic.nativeStatus=result.nativeStatus;
+        if(['NSOSStatusErrorDomain','NSCocoaErrorDomain','OTHER'].includes(result?.nativeDomain))diagnostic.nativeDomain=result.nativeDomain;
+        console.info('CASTLINK_PROTOCOL_REGISTRATION_RESULT '+JSON.stringify(diagnostic));
+        if(!ok)unavailable();
+      }).catch(()=>{
+        console.info('CASTLINK_PROTOCOL_REGISTRATION_RESULT '+JSON.stringify({ok:false,code:'REGISTRATION_UNAVAILABLE'}));
+        unavailable();
+      });
+    }
     if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}
     if(app.isPackaged&&!pptxTestBuild)void updateController.check().finally(configureMenu);
   });
