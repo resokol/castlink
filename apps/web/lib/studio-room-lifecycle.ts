@@ -3,13 +3,13 @@ import { Room, RoomEvent } from "livekit-client";
 export type StudioRoomLifecycleHandlers = {
   onUpdate: () => void;
   onParticipantDeparted: (identity: string) => void;
-  onActiveSpeakersChanged: () => void;
+  onActiveSpeakersChanged?: () => void;
   onDataReceived: (...args: any[]) => void;
 };
 
 export function bindStudioRoomLifecycle(room: Room, handlers: StudioRoomLifecycleHandlers) {
   const departed = (participant: { identity: string }) => handlers.onParticipantDeparted(participant.identity);
-  const speakers = () => handlers.onActiveSpeakersChanged();
+  const speakers = () => handlers.onActiveSpeakersChanged?.();
 
   room.on(RoomEvent.ParticipantConnected, handlers.onUpdate);
   room.on(RoomEvent.ParticipantDisconnected, departed);

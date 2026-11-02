@@ -5,7 +5,7 @@ import { sessionHttpBearer } from "../lib/session-http-bearer";
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
-import { mean, sumRates, type AudioHistoryResponse, type HistoryResponse, type MetricPoint, type TelemetryRole } from "@/lib/telemetry-types";
+import { mean, sumRates, type AudioHistoryResponse, type HistoryResponse, type MetricPoint, type TelemetryRole, type RuntimeHistoryResponse } from "@/lib/telemetry-types";
 import { statisticsReport } from "@/lib/stats-report";
 import { audioHistoryCsv, historyCsv, connectionsCsv } from "@/lib/stats-csv";
 
@@ -14,6 +14,40 @@ const roles: Record<TelemetryRole, string> = { studio: "Студия", admin: "�
 const formatValue = (value: number | null | undefined, digits = 1, locale = "ru") => value == null ? "—" : value.toLocaleString(locale, { maximumFractionDigits: digits });
 const formatTime = (at: number, locale = "ru") => new Date(at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 type Line = { key: keyof Omit<MetricPoint, "at">; label: string; color: string };
+
+/** Keep one time window across pages and cap the actual UTF-8 download, including its envelope. */
+export async function runtimeHistoryJson(statsUrl: string, fetchPage: typeof fetch = fetch) {
+  const samples: string[] = [], cursors = new Set<string>();
+  const encoder = new TextEncoder();
+  const maxBytes = 20 * 1024 * 1024, maxSamples = 50000;
+  let cursor: string | null = null, from = 0, to: number | undefined, bytes = 0, partial = false, pages = 0;
+  do {
+    const url = new URL(statsUrl, "http://localhost");
+    url.searchParams.set("diagnostics", "runtime"); url.searchParams.set("limit", "2000");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    if (to !== undefined) url.searchParams.set("to", String(to));
+    const response = await fetchPage(url.pathname + url.search, { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw Error("Не удалось выгрузить диагностику студии. Повторите после обновления статистики.");
+    const page: RuntimeHistoryResponse = await response.json();
+    if (!Array.isArray(page.samples) || !Number.isFinite(page.from) || !Number.isFinite(page.to) || to !== undefined && page.to !== to)
+      throw Error("Сервер вернул некорректную страницу диагностики студии.");
+    if (to === undefined) { from = page.from; to = page.to; }
+    // Reserve room for all metadata, including the longer false literal.
+    const envelopeBytes = encoder.encode(JSON.stringify({ schemaVersion: 1, from, to, partial: false, samples: [] })).length;
+    for (const sample of page.samples) {
+      const content = JSON.stringify(sample), size = encoder.encode(content).length + (samples.length ? 1 : 0);
+      if (samples.length >= maxSamples || envelopeBytes + bytes + size > maxBytes) { partial = true; break; }
+      samples.push(content); bytes += size;
+    }
+    pages++;
+    if (page.nextCursor && cursors.has(page.nextCursor)) throw Error("Сервер не продолжил диагностику студии.");
+    cursor = page.nextCursor;
+    if (cursor) cursors.add(cursor);
+    if (page.limited && !cursor || cursor && (samples.length >= maxSamples || pages >= 100)) partial = true;
+  } while (cursor && !partial);
+  const metadata = JSON.stringify({ schemaVersion: 1, from, to, partial });
+  return { content: metadata.slice(0, -1) + ',"samples":[' + samples.join(",") + "]}", count: samples.length, partial };
+}
 
 export function statisticsTokenRefreshUrl(roomName: string, studioRole: "primary" | "moderator", studioClientId: string, studioEpoch: number, studioId = "studio-default") {
   const params = new URLSearchParams({
@@ -99,7 +133,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     (!roleFilter || connection.role === roleFilter) &&
     (!participantFilter || connection.identity === participantFilter) &&
     (!session || connection.session === session));
-  const download = async (kind: "history" | "connections" | "report" | "audio" | "chat") => {
+  const download = async (kind: "history" | "connections" | "report" | "audio" | "chat" | "runtime") => {
     if (exporting || kind !== "chat" && !history) return;
     setExporting(true);
     setExportNote("");
@@ -116,6 +150,16 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         return;
       }
       if (!history) return;
+      if (kind === "runtime") {
+        const report = await runtimeHistoryJson(statsUrl());
+        const url = URL.createObjectURL(new Blob([report.content], { type: "application/json;charset=utf-8" }));
+        const anchor = document.createElement("a"); anchor.href = url;
+        anchor.download = `castlink-studio-runtime-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min${report.partial ? "-partial" : ""}.json`;
+        document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setExportNote(t(report.partial ? "Выгружена часть диагностики студии: {count} замеров. Выберите более короткий период или отдельную сессию для полной выгрузки." :
+          "Диагностика студии выгружена: {count} замеров за выбранный период и фильтры.", { count: report.count.toLocaleString(locale) }));
+        return;
+      }
       if (kind === "audio") {
         const parts: string[] = [];
         let cursor: string | null = null, to: number | undefined, count = 0, bytes = 0, complete = false;
@@ -164,6 +208,17 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     } catch (e) { setError(e instanceof Error ? e.message : "Ошибка выгрузки"); }
     finally { setExporting(false); }
   };
+  const downloadLocalRuntime = async () => {
+    try {
+      const { localRuntimeDiagnosticReport } = await import("@/lib/browser-runtime-diagnostics");
+      const content = JSON.stringify(localRuntimeDiagnosticReport(), null, 2);
+      const url = URL.createObjectURL(new Blob([content], { type: "application/json;charset=utf-8" }));
+      const anchor = document.createElement("a"); anchor.href = url;
+      anchor.download = `castlink-tab-runtime-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setExportNote(t("Журнал этой вкладки сохранён."));
+    } catch { setError(t("Не удалось сохранить журнал этой вкладки.")); }
+  };
   // The studio may have been open for hours before this tab is mounted.
   const bearer = useRef({ token, at: 0 });
   useEffect(() => { bearer.current = { token, at: 0 }; }, [token, studioRole, studioClientId, studioEpoch]);
@@ -197,6 +252,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const sessionOptions = roleConnections.filter(connection => !participantFilter || connection.identity === participantFilter);
   const visibleConnections = history ? filterConnections(history) : [];
+  const studioConnections = visibleConnections.filter(connection => connection.role === "studio");
   const selected = history?.connections.find((c) => c.session === session);
   const live = history ? visibleConnections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) : [];
   return <div className="statistics-dashboard">
@@ -236,6 +292,8 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         <button disabled={!history || exporting} onClick={() => void download("history")}>{t("Графики → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("connections")}>{t("Участники и потоки → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("audio")}>{t("История аудио → CSV")}</button>
+        <button disabled={!history || exporting} onClick={() => void download("runtime")}>{t("Диагностика студии → JSON")}</button>
+        <button onClick={() => void downloadLocalRuntime()}>{t("Журнал этой вкладки → JSON")}</button>
         {!platformNodeId && <button disabled={exporting} onClick={() => void download("chat")}>{t("Скачать чат · 24 часа")}</button>}
       </div>
       {exportNote && <p className="muted" role="status">{translateWorkspaceMessage(t, exportNote)}</p>}
@@ -255,6 +313,31 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         <p>{t("Замеров аудио:")} {format(history.audioSummary.samples, 0)}{t(". С потерями:")} {format(history.audioSummary.lossIntervals, 0)}{t("; с concealment:")} {format(history.audioSummary.concealmentIntervals, 0)}{t("; без прироста принятых samples:")} {format(history.audioSummary.noSampleProgressIntervals, 0)}{t(". Замеров с паузой, ошибкой или отсутствием подписки:")} {format(history.audioSummary.playbackWarnings, 0)}{t(". Попыток восстановления по счётчикам сессий:")} {format(history.audioSummary.recoveryAttempts, 0)}.</p>
         <p className="muted">{t("Это числа замеров, а не отдельных происшествий. Счётчики восстановления накоплены с начала сессии и могут включать попытки до выбранного периода. Для разбора выберите роль «Выход vMix», участника и сессию, затем скачайте историю аудио.")}</p>
       </div>}
+      <details className="panel stats-table-wrap">
+        <summary>{t("Диагностика студии")} · {studioConnections.length}</summary>
+        <p className="muted">{t("Последний замер каждой студии в выбранных фильтрах. Нет свежих замеров — состояние могло измениться. Неподдерживаемые метрики отмечены прочерком.")}</p>
+        {!studioConnections.length ? <p>{t("В выбранной выборке нет соединений студии.")}</p> : <table className="stats-table">
+          <caption>{t("Последние замеры студии")}</caption>
+          <thead><tr><th>{t("Участник / последний замер")}</th><th>{t("Браузер / среда")}</th><th>{t("Видимость вкладки")}</th><th>{t("Задержка цикла / максимум, мс")}</th><th>{t("Долгие задачи / максимум, мс")}</th><th>{t("Память / лимит, МиБ")}</th><th>{t("Ошибки / отклонённые Promise")}</th></tr></thead>
+          <tbody>{studioConnections.map(connection => {
+            const runtime = connection.latest.runtime;
+            const stale = (historyDay ? history.to : Date.now()) - connection.lastSeen > 35_000;
+            return <tr key={connection.session}><td>{connection.name}<small>{new Date(connection.lastSeen).toLocaleString(locale)}</small>
+              {stale && <small>{t("Нет свежих замеров")}</small>}
+              {runtime && runtime.events.length > 0 && <details><summary>{t("События вкладки")} · {runtime.events.length}</summary>
+                <ul>{runtime.events.map((event, index) => <li key={`${event.at}-${index}`}><time>{new Date(event.at).toLocaleString(locale)}</time> · {event.kind}</li>)}</ul>
+              </details>}</td>
+              {!runtime ? <td colSpan={6}>{t("Клиент не передал диагностику студии.")}</td> : <>
+                <td>{runtime.browser || "—"}<small>{runtime.environment || "—"}</small></td>
+                <td>{runtime.visibility === "visible" ? t("Видима") : runtime.visibility === "hidden" ? t("Скрыта") : runtime.visibility || "—"}</td>
+                <td>{format(runtime.loopLagMs)} / {format(runtime.maxLoopLagMs)}</td>
+                <td>{format(runtime.longTasks, 0)} / {format(runtime.longTaskMaxMs)}</td>
+                <td>{format(runtime.heapUsedBytes == null ? null : runtime.heapUsedBytes / 1048576)} / {format(runtime.heapLimitBytes == null ? null : runtime.heapLimitBytes / 1048576)}</td>
+                <td>{format(runtime.errors, 0)} / {format(runtime.rejections, 0)}</td>
+              </>}</tr>;
+          })}</tbody>
+        </table>}
+      </details>
       {!history.retainedFrom ? <div className="panel">{t("Замеров пока нет. Подключите гостя или выход vMix. История сохраняется на сервере и начинает накапливаться после обновления клиентов.")}</div> : <>
         <div className="stats-chart-grid">
           <HistoryChart title={t("Битрейт")} unit={t("кбит/с")} history={history} lines={[{ key: "inbound", label: t("Входящие"), color: "#60a5fa" }, { key: "outbound", label: t("Исходящие"), color: "#34d399" }]} />

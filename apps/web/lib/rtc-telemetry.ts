@@ -1,6 +1,7 @@
 "use client";
 
 import { retainSessionHttpBearer } from "./session-http-bearer";
+import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { readTrackStats } from "./media-stats";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track } from "livekit-client";
@@ -26,6 +27,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   const scope = telemetryContext(initialToken, roomName);
   const httpBearer = retainSessionHttpBearer(initialToken);
   const session = crypto.randomUUID();
+  const runtime = studioControl?.role === "studio-panel" ? startBrowserRuntimeDiagnostics(session) : undefined;
   const started = Date.now();
   const previous = new Map<string, Counter>();
   const previousAudio = new Map<string, AudioCounters>();
@@ -34,9 +36,14 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   const identity = room.localParticipant.identity;
   const role: TelemetrySample["role"] = identity.startsWith("studio-panel-") ? "studio" :
     identity.startsWith("output-") ? "output" : identity.startsWith("monitor-") ? "monitor" : "guest";
-  const onReconnect = () => { reconnects++; };
+  const onReconnect = () => { reconnects++; runtime?.event("reconnecting"); };
+  const onSignalReconnect = () => { reconnects++; runtime?.event("signal-reconnecting"); };
+  const onReconnected = () => runtime?.event("reconnected");
+  const onDisconnected = () => runtime?.event("disconnected");
   room.on(RoomEvent.Reconnecting, onReconnect);
-  room.on(RoomEvent.SignalReconnecting, onReconnect);
+  room.on(RoomEvent.SignalReconnecting, onSignalReconnect);
+  room.on(RoomEvent.Reconnected, onReconnected);
+  room.on(RoomEvent.Disconnected, onDisconnected);
 
   const playback = () => { try { return sanitizeAudioPlayback(playbackDiagnostic?.()); } catch { return undefined; } };
   const base = (): Omit<TelemetrySample, "streams"> => ({
@@ -44,6 +51,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
     session, role, state: room.state, quality: room.localParticipant.connectionQuality,
     reconnects, uptimeSec: Math.round((Date.now() - started) / 1000),
     audioPlayback: playback(),
+    runtime: runtime?.snapshot(),
   });
   const send = (sample: TelemetrySample, keepalive = false) => fetch("/api/stats", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -136,9 +144,12 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   return () => {
     stopped = true;
     httpBearer.release();
+    runtime?.stop();
     if (timer) clearTimeout(timer);
     room.off(RoomEvent.Reconnecting, onReconnect);
-    room.off(RoomEvent.SignalReconnecting, onReconnect);
+    room.off(RoomEvent.SignalReconnecting, onSignalReconnect);
+    room.off(RoomEvent.Reconnected, onReconnected);
+    room.off(RoomEvent.Disconnected, onDisconnected);
     void send({ ...base(), state: "disconnected", streams: [] }, true).catch(() => undefined);
   };
 }

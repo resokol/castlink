@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — primary studio diagnostics
+
+- Removed redundant whole-studio updates driven by audio-meter animation; microphone replacement and participant/stat changes remain visible.
+- Added bounded primary-studio browser runtime telemetry, current/previous tab snapshots, latest metrics and filtered JSON export. Existing server retention and access checks apply; no media recording is added.
+- Reload the studio after the server is updated. Other standalone servers need an updated server build. See [Русский](distribution/STUDIO_DIAGNOSTICS.md), [English](distribution/docs/en/STUDIO_DIAGNOSTICS.md), [简体中文](distribution/docs/zh-CN/STUDIO_DIAGNOSTICS.md). Existing published installers are unchanged.
+
+
 ## 2026-10-27 — камера, H.265 и рабочая область / Camera, H.265 and workspace / 摄像头、H.265 与工作区
 
 - RU: в проверке перед входом кастер выбирает разрешение камеры (Авто, 720p, 1080p) и частоту кадров. Выбор можно запомнить вместе с именем; настройки студии имеют приоритет. Запрашиваемые параметры зависят от возможностей камеры и браузера.

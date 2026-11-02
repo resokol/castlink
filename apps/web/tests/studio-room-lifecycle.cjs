@@ -9,7 +9,6 @@ for (const snippet of [
   "bindStudioRoomLifecycle",
   "const unbindRoomLifecycle = bindStudioRoomLifecycle(room, {",
   "onUpdate: update",
-  "onActiveSpeakersChanged: updateMeterTargets",
   "onDataReceived: onData",
   "unbindRoomLifecycle();",
 ]) assert.ok(page.includes(snippet), `missing lifecycle wiring: ${snippet}`);

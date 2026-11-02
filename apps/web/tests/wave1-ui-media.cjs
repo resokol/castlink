@@ -21,7 +21,8 @@ assert.match(rotation, /resize\.observe\(frame\)/, "rotation must react to paren
 assert.match(rotation, /applyContainedVideoFit/, "rotation uses tested decoded-frame geometry");
 
 assert.match(studio, /import \{ GuestAudioMeter \} from "@\/components\/GuestAudioMeter"/, "studio uses the extracted guest PCM meter");
-assert.match(studio, /<GuestAudioMeter track=\{room\.remoteParticipants\.get\(g\.identity\)\?\.getTrackPublication\(Track\.Source\.Microphone\)\?\.track/, "the rendered meter receives the current remote microphone publication");
+assert.match(studio, /microphoneTrack: micPub\?\.track/, "roster snapshots retain the current remote microphone publication");
+assert.match(studio, /<GuestAudioMeter track=\{g\.microphoneTrack\}/, "the rendered meter receives the tracked microphone publication");
 assert.match(guestMeter, /observePcmTrack\(mediaTrack, setDb/, "guest meter observes the actual remote media track");
 assert.match(pcmMeter, /analyser\.fftSize = 2048/, "participant meter preserves the analyser resolution");
 assert.match(pcmMeter, /new MediaStream\(\[track\]\)/, "PCM observer reads the supplied live track");

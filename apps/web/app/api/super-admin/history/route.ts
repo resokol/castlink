@@ -18,7 +18,8 @@ export async function GET(request:NextRequest) {
     if(node.nodeId===ownNodeId()) return NextResponse.json(await localNodeHistory(params),{headers});
     if(!node.endpoint) throw new Error("node_endpoint_missing");
     const data=await signedNodeFetch(node.endpoint,node.nodeId,`/v1/node/history?${params}`);
-    if(data.nodeId!==node.nodeId || (params.get("diagnostics")==="audio" ? !Array.isArray(data.history?.samples) :
+    const diagnostics=params.get("diagnostics");
+    if(data.nodeId!==node.nodeId || (diagnostics==="audio" || diagnostics==="runtime" ? !Array.isArray(data.history?.samples) :
       !Array.isArray(data.history?.connections) || !Array.isArray(data.history?.series))) throw new Error("invalid_history");
     return NextResponse.json(data.history,{headers});
   } catch {return NextResponse.json({error:"История этой ноды временно недоступна"},{status:503,headers});}

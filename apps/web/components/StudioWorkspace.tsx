@@ -72,6 +72,7 @@ import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalAudioTrac
 
 type GuestStat = {
   identity: string;
+  participantSid: string;
   name: string;
   resolution: string;
   bitrateKbps: number;
@@ -82,13 +83,12 @@ type GuestStat = {
   stability: "Хорошая" | "Средняя" | "Плохая";
   camera: boolean;
   microphone: boolean;
+  microphoneTrack?: RemoteAudioTrack;
   cameraDevice?: string;
   cpu?: string;
   gpu?: string;
   platform?: string;
   sampleRate?: number;
-  signalLevel?: number;
-  signalDb?: number;
 };
 
 const moderatorStudioMonitorDefaults: Record<string, MonitorPreference> = {
@@ -374,8 +374,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const returnSenderStatsRef = useRef(createStudioSenderStatsState());
   const clientInfoRef = useRef<Record<string, { camera?: string; cpu?: string; gpu?: string; platform?: string; sampleRate?: number }>>({});
   const guestCameraOutboundRef = useRef<Record<string, ReceivedGuestCameraOutbound & { sid: string }>>({});
-  const guestMeterTargetsRef = useRef<Record<string, number>>({});
-  const guestMeterDisplayRef = useRef<Record<string, number>>({});
   const [savedDevices] = useState(() => readStudioDeviceChoices(studioDeviceStorage(), studioId));
   const [returnVideoDevice, setReturnVideoDevice] = useState(savedDevices.videoDeviceId);
   const [returnAudioDevice, setReturnAudioDevice] = useState(savedDevices.audioDeviceId);
@@ -517,7 +515,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | undefined;
-    let meterRaf = 0;
     let stopTelemetry: (() => void) | undefined;
     let releaseClientLock: (() => void) | undefined;
     setSessionToken(undefined);
@@ -532,7 +529,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     setGuests([]);
     guestCameraOutboundRef.current = {};
     const previous = new Map<string, { bytes: number; ts: number }>();
-    const previousAudio = new Map<string, { energy: number; duration: number }>();
 
     let refreshBusy = false;
     const refresh = async () => {
@@ -573,8 +569,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         let packetLoss = 0;
         let jitterMs = 0;
         let rttMs = 0;
-        let signalDb = -60;
-        let signalLevel = 0;
 
         if (cameraPub?.track) {
           const report = await readTrackStats(cameraPub.track, "getRTCStatsReport").catch(() => undefined);
@@ -595,18 +589,13 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           });
         }
 
-        if (micPub?.track) {
-          const linear = Number(participant.audioLevel || 0);
-          signalDb = linear > 0 ? Math.max(-60, Math.min(0, 20 * Math.log10(linear))) : -60;
-          signalLevel = Math.round(Math.max(0, Math.min(100, linear * 100)));
-        }
-
         const stability: GuestStat["stability"] =
           packetLoss > 10 || jitterMs > 60 || rttMs > 300 ? "Плохая" :
           packetLoss > 2 || jitterMs > 30 || rttMs > 150 ? "Средняя" : "Хорошая";
 
         rows.push({
           identity: participant.identity,
+          participantSid: participant.sid,
           name: participant.name || participant.identity.replace(/^guest-/, ""),
           resolution,
           bitrateKbps,
@@ -617,13 +606,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           stability,
           camera: !!cameraPub && !cameraPub.isMuted,
           microphone: !!micPub && !micPub.isMuted,
+          microphoneTrack: micPub?.track as RemoteAudioTrack | undefined,
           cameraDevice: clientInfoRef.current[participant.identity]?.camera,
           cpu: clientInfoRef.current[participant.identity]?.cpu,
           gpu: clientInfoRef.current[participant.identity]?.gpu,
           platform: clientInfoRef.current[participant.identity]?.platform,
           sampleRate: clientInfoRef.current[participant.identity]?.sampleRate,
-          signalLevel,
-          signalDb,
         });
       }
       if (!cancelled) {
@@ -634,7 +622,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
               .map(row => [row.identity, row])
           ).values()
         );
-        setGuests(unique);
+        setGuests(current => {
+          const unchanged = current.length === unique.length && unique.every((guest, index) =>
+            Object.entries(guest).every(([key, value]) => current[index][key as keyof GuestStat] === value));
+          return unchanged ? current : unique;
+        });
       }
       } catch {
         // Leave the last real sample to age out; telemetry must not interrupt media.
@@ -692,34 +684,12 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (!cancelled) setStatus("Онлайн");
         timer = setInterval(() => void refresh(), 2000);
         void refresh();
-        const animateMeters = () => {
-          if (cancelled) return;
-          setGuests((current) => current.map((g) => {
-            const target = guestMeterTargetsRef.current[g.identity] ?? 0;
-            const shown = guestMeterDisplayRef.current[g.identity] ?? 0;
-            const next = target > shown
-              ? shown + (target - shown) * 0.72
-              : shown + (target - shown) * 0.12;
-            const settled = next < 0.0005 ? 0 : next;
-            guestMeterDisplayRef.current[g.identity] = settled;
-            const signalDb = settled > 0 ? Math.max(-60, Math.min(0, 20 * Math.log10(settled))) : -60;
-            return { ...g, signalDb, signalLevel: Math.round(settled * 100) };
-          }));
-          meterRaf = requestAnimationFrame(animateMeters);
-        };
-        meterRaf = requestAnimationFrame(animateMeters);
       } catch (error) {
         if (!cancelled) setStatus(error instanceof Error ? error.message : "Ошибка подключения");
       }
     })();
 
     const update = () => void refresh();
-    const updateMeterTargets = () => {
-      for (const participant of room.remoteParticipants.values()) {
-        if (!participant.identity.startsWith("guest-")) continue;
-        guestMeterTargetsRef.current[participant.identity] = Number(participant.audioLevel || 0);
-      }
-    };
     const onData = (payload: Uint8Array, participant?: { identity: string; metadata?: string; sid?: string }, _kind?: unknown, topic?: string) => {
       if (topic === GUEST_CAMERA_OUTBOUND_TOPIC && participant) {
         const sample = parseGuestCameraOutbound(payload, participant);
@@ -736,19 +706,18 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     const unbindRoomLifecycle = bindStudioRoomLifecycle(room, {
       onUpdate: update,
       onParticipantDeparted: (identity: string) => {
-        setGuests(current => current.filter(g => g.identity !== identity));
+        setGuests(current => current.some(g => g.identity === identity) ? current.filter(g => g.identity !== identity) : current);
         delete clientInfoRef.current[identity];
         delete guestCameraOutboundRef.current[identity];
-        delete guestMeterTargetsRef.current[identity];
-        delete guestMeterDisplayRef.current[identity];
         update();
       },
-      onActiveSpeakersChanged: updateMeterTargets,
       onDataReceived: onData,
     });
     const clearGuestCameraOutbound = () => {
       guestCameraOutboundRef.current = {};
-      setGuests(current => current.map(guest => ({ ...guest, roomSendBitrateKbps: null })));
+      setGuests(current => current.some(guest => guest.roomSendBitrateKbps != null)
+        ? current.map(guest => guest.roomSendBitrateKbps == null ? guest : { ...guest, roomSendBitrateKbps: null })
+        : current);
     };
     const outboundResetEvents = [RoomEvent.Reconnecting, RoomEvent.SignalReconnecting, RoomEvent.Reconnected, RoomEvent.Disconnected];
     outboundResetEvents.forEach(event => room.on(event, clearGuestCameraOutbound));
@@ -761,7 +730,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       releaseClientLock?.();
       if (timer) clearInterval(timer);
       stopTelemetry?.();
-      cancelAnimationFrame(meterRaf);
       unbindRoomLifecycle();
     };
   }, [room, roomName]);
@@ -1754,7 +1722,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           receiveBitrate={receiveFor(g.identity)}
           preference={monitoring.preferences[g.identity]}
           preview={<GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={patch => monitoring.change(g.identity, patch)} />}
-          meter={<GuestAudioMeter track={room.remoteParticipants.get(g.identity)?.getTrackPublication(Track.Source.Microphone)?.track as RemoteAudioTrack | undefined} fallbackDb={g.signalDb} />}
+          meter={<GuestAudioMeter track={g.microphoneTrack} />}
           onCopy={() => { void navigator.clipboard.writeText(outputUrl(g.identity)).then(() => { setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }); }}
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}

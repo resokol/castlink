@@ -37,6 +37,24 @@ export type AudioHistoryResponse = {
 
 export type TelemetryRole = "guest" | "admin" | "moderator" | "studio" | "output" | "monitor";
 
+export type RuntimeEventKind = "started" | "hidden" | "visible" | "offline" | "online" | "reconnecting" |
+  "signal-reconnecting" | "reconnected" | "disconnected" | "error" | "rejection" | "pagehide" | "pageshow" | "loop-stall";
+
+export type RuntimeDiagnostic = {
+  visibility: "visible" | "hidden" | "prerender" | "unknown";
+  browser: "chrome" | "edge" | "firefox" | "safari" | "other";
+  environment: "browser" | "desktop";
+  loopLagMs: number | null; maxLoopLagMs: number | null;
+  longTasks: number | null; longTaskMaxMs: number | null;
+  heapUsedBytes: number | null; heapLimitBytes: number | null;
+  errors: number; rejections: number;
+  events: { at: number; kind: RuntimeEventKind }[];
+};
+
+export type RuntimeHistoryResponse = {
+  from: number; to: number; samples: TelemetrySample[]; nextCursor: string | null; limited: boolean;
+};
+
 export type TelemetrySample = {
   at: number; room: string; identity: string; name: string; session: string;
   role: TelemetryRole;
@@ -44,6 +62,7 @@ export type TelemetrySample = {
   streams: StreamStat[];
   clientAt?: number;
   audioPlayback?: AudioPlaybackDiagnostic;
+  runtime?: RuntimeDiagnostic;
 };
 
 export type MetricPoint = {
