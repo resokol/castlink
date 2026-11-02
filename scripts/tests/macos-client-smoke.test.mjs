@@ -99,6 +99,15 @@ test('asynchronous product registration is awaited with read-only queries and no
  assert.equal((await verifyMacUriRegistration({bundle,run,timeoutMs:1000})).status,'PASS');assert.equal(reads,2);
  await assert.rejects(verifyMacUriRegistration({bundle,timeoutMs:1,run:file=>JSON.stringify(file==='/usr/bin/plutil'?[{CFBundleURLSchemes:schemes}]:Object.fromEntries(schemes.map(scheme=>[scheme,null])))}),/does not resolve/);
 });
+test('registration deadline preserves the last native mapping instead of starting a tiny final query',async t=>{
+ const root=directory(t),bundle=path.join(root,'CastLink.app');fs.mkdirSync(bundle);const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];let queries=0;
+ await assert.rejects(verifyMacUriRegistration({bundle,timeoutMs:120,run:file=>{
+  if(file==='/usr/bin/plutil')return JSON.stringify([{CFBundleURLSchemes:schemes}]);
+  if(++queries>1)throw Object.assign(Error('tiny final query must not run'),{code:'ETIMEDOUT'});
+  return JSON.stringify(Object.fromEntries(schemes.map(scheme=>[scheme,null])));
+ }}),error=>/does not resolve/.test(error.message)&&error.message.includes('"actualPath":null'));
+ assert.equal(queries,1);
+});
 test('owned app output retains only bounded typed registration markers and drops raw process diagnostics',()=>{
  const observer=registrationObserver(),prefix='CASTLINK_PROTOCOL_REGISTRATION_RESULT ';
  observer.consume('stdout',Buffer.from('PRIVATE SERVER URL\n'+prefix+'{"ok":false,"code":"REGISTRATION_'));
@@ -108,6 +117,8 @@ test('owned app output retains only bounded typed registration markers and drops
  observer.consume('stderr',Buffer.from(prefix+'{"ok":true,"code":"PRIVATE"}\n'+prefix+'invalid-json\n'+prefix+JSON.stringify({ok:true,code:'REGISTERED',raw:'PRIVATE'.repeat(1000)})+'\n'));
  assert.equal(observer.result.ok,false);assert.doesNotMatch(JSON.stringify(observer.result),/PRIVATE/);
  observer.consume('stdout',Buffer.from(prefix+'{"ok":true,"code":"REGISTERED"}\n'));assert.deepEqual(observer.result,{ok:true,code:'REGISTERED'});
+ const selection=['castlink','castlink-remote','castlink-presenter','castlink-share'].map(scheme=>({scheme,state:'none',bundleMatches:false,location:'none',privatePath:'PRIVATE'}));
+ observer.consume('stdout',Buffer.from(prefix+JSON.stringify({ok:false,code:'SELECTION_MISMATCH',claimsStatus:0,selection})+'\n'));assert.equal(observer.result.claimsStatus,0);assert.equal(observer.result.selection.length,4);assert.doesNotMatch(JSON.stringify(observer.result),/PRIVATE/);
 });
 test('helper profiles are claimed only when absent and cleaned only with intact ownership',t=>{
  const root=directory(t),owned=path.join(root,'owned'),cleanup=claimHelperProfile(owned);fs.mkdirSync(path.join(owned,'session'));cleanup();assert.equal(fs.existsSync(owned),false);

@@ -304,6 +304,9 @@ else {
         const diagnostic={ok,code};
         if(Number.isInteger(result?.nativeStatus)&&result.nativeStatus>=-2147483648&&result.nativeStatus<=2147483647)diagnostic.nativeStatus=result.nativeStatus;
         if(['NSOSStatusErrorDomain','NSCocoaErrorDomain','OTHER'].includes(result?.nativeDomain))diagnostic.nativeDomain=result.nativeDomain;
+        if(Number.isInteger(result?.claimsStatus)&&result.claimsStatus>=-2147483648&&result.claimsStatus<=2147483647)diagnostic.claimsStatus=result.claimsStatus;
+        const schemes=['castlink','castlink-remote','castlink-presenter','castlink-share'];
+        if(Array.isArray(result?.selection)&&result.selection.length===4&&result.selection.every((entry,index)=>entry?.scheme===schemes[index]&&typeof entry.bundleMatches==='boolean'&&['candidate','none','unresolved','other-castlink','other-application'].includes(entry.state)&&['candidate','none','staged','mounted','temporary','applications','other'].includes(entry.location)))diagnostic.selection=result.selection.map(({scheme,state,bundleMatches,location})=>({scheme,state,bundleMatches,location}));
         console.info('CASTLINK_PROTOCOL_REGISTRATION_RESULT '+JSON.stringify(diagnostic));
         if(!ok)unavailable();
       }).catch(()=>{

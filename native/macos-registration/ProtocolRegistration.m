@@ -2,8 +2,10 @@
 // bundle-identifier-only setter cannot establish a newly copied app location.
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
+#import <CoreServices/CoreServices.h>
 #include <mach-o/dyld.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -14,6 +16,9 @@ static BOOL RegistrationAttempted = NO;
 static BOOL HasNativeStatus = NO;
 static NSInteger NativeStatus = 0;
 static NSString *NativeDomain = nil;
+static BOOL HasClaimsStatus = NO;
+static OSStatus ClaimsStatus = 0;
+static NSArray *SelectionDiagnostics = nil;
 static NSString *Canonical(NSString *path) {
     if (![path isKindOfClass:NSString.class] || !path.isAbsolutePath) return nil;
     char *resolved = realpath(path.fileSystemRepresentation, NULL);
@@ -37,6 +42,8 @@ static int Emit(BOOL ok, NSString *code) {
     NSMutableDictionary *value = [@{@"protocol": @1, @"ok": @(ok), @"code": code,
         @"schemes": Schemes(), @"selectedPathMatches": @(ok), @"registrationPerformed": @(RegistrationAttempted)} mutableCopy];
     if (HasNativeStatus) { value[@"nativeStatus"] = @(NativeStatus); value[@"nativeDomain"] = NativeDomain ?: @"OTHER"; }
+    if (HasClaimsStatus) value[@"claimsStatus"] = @(ClaimsStatus);
+    if (SelectionDiagnostics) value[@"selection"] = SelectionDiagnostics;
     NSData *json = [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];
     if (json) { [[NSFileHandle fileHandleWithStandardOutput] writeData:json]; [[NSFileHandle fileHandleWithStandardOutput] writeData:[@"\n" dataUsingEncoding:NSUTF8StringEncoding]]; }
     return ok ? 0 : 1;
@@ -59,6 +66,17 @@ static BOOL DeclaresOnlyCastLinkSchemes(NSBundle *bundle) {
 static void PumpRunLoop(void) {
     [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
     [NSThread sleepForTimeInterval:0.005];
+}
+static NSString *Location(NSString *path, NSString *application) {
+    if (!path) return @"none";
+    if ([path isEqual:application]) return @"candidate";
+    NSString *parent = path.stringByDeletingLastPathComponent.lastPathComponent;
+    if ([parent isEqual:@"mac"] || [parent isEqual:@"mac-arm64"]) return @"staged";
+    if ([path hasPrefix:@"/Volumes/"]) return @"mounted";
+    NSString *temporary = Canonical(NSTemporaryDirectory());
+    if (temporary && [path hasPrefix:[temporary stringByAppendingString:@"/"]]) return @"temporary";
+    if ([path hasPrefix:@"/Applications/"] || [path hasPrefix:[NSHomeDirectory() stringByAppendingString:@"/Applications/"]]) return @"applications";
+    return @"other";
 }
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
@@ -89,8 +107,15 @@ int main(int argc, const char *argv[]) {
         if (!expectedMain || ![Canonical(macOS) isEqual:macOS] || ![expectedMain.stringByDeletingLastPathComponent isEqual:macOS] || ![suppliedMain isEqual:expectedMain] || ![Canonical(bundle.executablePath) isEqual:expectedMain] ||
             !RegularExecutable(expectedMain) || !RegularExecutable(own)) return Emit(NO, @"MAIN_EXECUTABLE");
         NSURL *applicationURL = [NSURL fileURLWithPath:application isDirectory:YES];
-        NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
         const NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + 8.0;
+        if (NSProcessInfo.processInfo.systemUptime >= deadline) return Emit(NO, @"REGISTRATION_TIMEOUT");
+        // Public LSInfo.h: LSRegisterURL adds a bundle's document and URL
+        // claims to the catalog. Selecting a default is a separate operation.
+        // Register only our verified own URL, once, refreshing copied metadata.
+        RegistrationAttempted = YES; HasClaimsStatus = YES;
+        ClaimsStatus = LSRegisterURL((__bridge CFURLRef)applicationURL, true);
+        if (ClaimsStatus != noErr) { HasNativeStatus = YES; NativeStatus = ClaimsStatus; NativeDomain = @"NSOSStatusErrorDomain"; return Emit(NO, @"CLAIMS_REGISTRATION_FAILED"); }
+        NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
         for (NSString *scheme in Schemes()) {
             if (NSProcessInfo.processInfo.systemUptime >= deadline) return Emit(NO, @"REGISTRATION_TIMEOUT");
             NSLock *lock = [NSLock new]; __block BOOL done = NO; __block BOOL failed = NO; __block NSInteger status = 0; __block NSString *domain = nil;
@@ -109,11 +134,17 @@ int main(int argc, const char *argv[]) {
         // Completion and selection are distinct. Read-only convergence checks
         // do not repeat a registration effect or substitute bundle-ID matching.
         do {
-            BOOL matches = YES;
+            BOOL matches = YES; NSMutableArray *diagnostics = [NSMutableArray array];
             for (NSString *scheme in Schemes()) {
                 NSURL *selected = [workspace URLForApplicationToOpenURL:[NSURL URLWithString:[scheme stringByAppendingString:@"://connect"]]];
-                if (![Canonical(selected.path) isEqual:application]) { matches = NO; break; }
+                NSString *resolved = Canonical(selected.path);
+                BOOL exact = [resolved isEqual:application];
+                BOOL bundleMatches = resolved && [[NSBundle bundleWithPath:resolved].bundleIdentifier isEqual:@"ru.castlink.client"];
+                NSString *state = !selected ? @"none" : !resolved ? @"unresolved" : exact ? @"candidate" : bundleMatches ? @"other-castlink" : @"other-application";
+                [diagnostics addObject:@{@"scheme": scheme, @"state": state, @"bundleMatches": @(bundleMatches), @"location": Location(resolved, application)}];
+                if (!exact) matches = NO;
             }
+            SelectionDiagnostics = diagnostics;
             if (matches) return Emit(YES, @"REGISTERED");
             PumpRunLoop();
         } while (NSProcessInfo.processInfo.systemUptime < deadline);

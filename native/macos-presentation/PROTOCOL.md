@@ -212,8 +212,15 @@ before any navigation, within a hard twenty-second phase bound. If the one
 Escape was consumed during acquisition, the same refocus occurs here with the
 Escape budget already spent. Fixture mouse events set clickState=1 and record a scoped public AX hit-test.
 The exact inner PDF content's AXFocused setter is queried; when supported, the
-owned fixture sets it and awaits actual focused-element identity. Extension
-viewer focus alone cannot authorize this fixture's sole navigation. Browser
+owned fixture sets it and awaits actual focus at that exact element or a proven
+noneditable descendant whose parent chain reaches the retained inner content
+and then the exact window. Chromium focuses its PDF root (AXGroup) under the
+inner AXWebArea, so element equality alone is not universal. Every ancestor
+retains editable/modal rejection; extension-viewer/sidebar ancestors outside
+inner content cannot authorize the sole navigation. Role/subrole ancestry and
+the independent production focus-guard result are recorded.
+https://github.com/chromium/chromium/blob/main/chrome/browser/pdf/pdf_extension_accessibility_test.cc
+https://github.com/chromium/chromium/blob/main/ui/accessibility/platform/ax_platform_node_cocoa.mm Browser
 versions and setter/readback results are recorded. No global-input fallback
 is used. Actual
 owned synthetic marker rectangles and scroll values, plus immediate pre-effect

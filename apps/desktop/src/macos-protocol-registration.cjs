@@ -3,16 +3,24 @@ const fs=require('node:fs'),path=require('node:path');
 const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const SCHEMES=Object.freeze(['castlink','castlink-remote','castlink-presenter','castlink-share']);
-const CODES=new Set(['BUNDLE_LOCATION','BUNDLE_IDENTITY','MAIN_EXECUTABLE','REGISTRATION_ARGUMENTS','REGISTRATION_TIMEOUT','REGISTRATION_FAILED','SELECTION_MISMATCH']);
+const CODES=new Set(['BUNDLE_LOCATION','BUNDLE_IDENTITY','MAIN_EXECUTABLE','REGISTRATION_ARGUMENTS','REGISTRATION_TIMEOUT','REGISTRATION_FAILED','CLAIMS_REGISTRATION_FAILED','SELECTION_MISMATCH']);
 const execute=promisify(execFile);
 const failed=(code,nativeStatus,nativeDomain)=>({ok:false,code,schemes:[...SCHEMES],selectedPathMatches:false,...(Number.isInteger(nativeStatus)&&nativeStatus>=-2147483648&&nativeStatus<=2147483647?{nativeStatus,nativeDomain:['NSOSStatusErrorDomain','NSCocoaErrorDomain'].includes(nativeDomain)?nativeDomain:'OTHER'}:{})});
+function diagnostics(value){
+ const clean={};
+ if(Number.isInteger(value.claimsStatus)&&value.claimsStatus>=-2147483648&&value.claimsStatus<=2147483647)clean.claimsStatus=value.claimsStatus;
+ const states=['candidate','none','unresolved','other-castlink','other-application'],locations=['candidate','none','staged','mounted','temporary','applications','other'];
+ if(Array.isArray(value.selection)&&value.selection.length===4&&value.selection.every((entry,i)=>entry&&entry.scheme===SCHEMES[i]&&states.includes(entry.state)&&typeof entry.bundleMatches==='boolean'&&locations.includes(entry.location)))clean.selection=value.selection.map(({scheme,state,bundleMatches,location})=>({scheme,state,bundleMatches,location}));
+ return clean;
+}
 function result(stdout){
  try{
   if(typeof stdout!=='string'||Buffer.byteLength(stdout)>16384)return null;
   const value=JSON.parse(stdout);
   if(value.protocol!==1||JSON.stringify(value.schemes)!==JSON.stringify(SCHEMES)||typeof value.registrationPerformed!=='boolean')return null;
-  if(value.ok===true&&value.code==='REGISTERED'&&value.selectedPathMatches===true&&value.registrationPerformed===true)return {ok:true,code:'REGISTERED',schemes:[...SCHEMES],selectedPathMatches:true};
-  if(value.ok===false&&value.selectedPathMatches===false&&CODES.has(value.code))return failed(value.code,value.nativeStatus,value.nativeDomain);
+  const selected=diagnostics(value);
+  if(value.ok===true&&value.code==='REGISTERED'&&value.selectedPathMatches===true&&value.registrationPerformed===true&&selected.claimsStatus===0&&selected.selection&&selected.selection.every(entry=>entry.state==='candidate'&&entry.bundleMatches&&entry.location==='candidate'))return {ok:true,code:'REGISTERED',schemes:[...SCHEMES],selectedPathMatches:true,...selected};
+  if(value.ok===false&&value.selectedPathMatches===false&&CODES.has(value.code))return {...failed(value.code,value.nativeStatus,value.nativeDomain),...selected};
  }catch{}
  return null;
 }

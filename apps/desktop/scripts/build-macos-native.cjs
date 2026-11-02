@@ -18,7 +18,7 @@ function buildMacNative({root,resourcesPath,arch,platform=process.platform,hostA
   for(const file of sources)if(!fs.lstatSync(file).isFile())throw Error('Native source must be a regular file');
   const out=path.join(resourcesPath,dest);fs.mkdirSync(path.dirname(out),{recursive:true});
   const target=`${arch==='x64'?'x86_64':arch}-apple-macos13.0`;
-  const flags=compiler==='clang'?['clang','-fobjc-arc','-fblocks','-fmodules','-O2','-target',target,'-framework','AppKit','-framework','Foundation']:['swiftc','-swift-version','5','-O','-parse-as-library','-target',target];
+  const flags=compiler==='clang'?['clang','-fobjc-arc','-fblocks','-fmodules','-O2','-target',target,'-framework','AppKit','-framework','Foundation','-framework','CoreServices']:['swiftc','-swift-version','5','-O','-parse-as-library','-target',target];
   run('/usr/bin/xcrun',[...flags,...sources,'-o',out],{shell:false,encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});
   if(!fs.lstatSync(out).isFile())throw Error('Native compiler did not produce helper');
   fs.chmodSync(out,0o755);result[name]=out;

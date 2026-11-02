@@ -661,6 +661,10 @@ func fixtureFocusState(_ target: Target, _ content: AXUIElement?) -> [String:Any
         report["focusedElementMatchesRoot"] = CFEqual(focused,target.evidence.root)
         report["focusedElementMatchesViewer"] = target.evidence.viewer.map { CFEqual(focused,$0) } ?? false
     }
+    let ancestry = fixtureInnerAncestry(target,content)
+    report["focusedWithinInnerContent"] = ancestry.0; report["focusedAncestry"] = ancestry.1
+    do { try focusedPDF(target); report["productionFocusGuard"] = "VERIFIED" }
+    catch { report["productionFocusGuard"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
     if let dialog = fixtureOwnedDialog(target) { report["ownedDialogFocused"] = dialog }
     else { report["ownedDialogMetadata"] = "unavailable" }
     if let content = contentBounds, let window = windowBounds { report["intersectionRect"] = fixtureRect(content.intersection(window)) }
@@ -681,11 +685,36 @@ func fixturePDFContent(_ target: Target) -> AXUIElement? {
     }
     return content
 }
-func fixtureExactContentFocus(_ target: Target, _ content: AXUIElement) throws {
-    try focusedPDF(target)
+func fixtureInnerMembership(reachedContent: Bool, reachedWindow: Bool, blocked: Bool) -> Bool {
+    reachedContent && reachedWindow && !blocked
+}
+func fixtureInnerAncestry(_ target: Target, _ content: AXUIElement?) -> (Bool,[[String:Any]]) {
     let application = AXUIElementCreateApplication(target.pid)
     AXUIElementSetMessagingTimeout(application,0.75)
-    guard let actual = element(application,kAXFocusedUIElementAttribute), CFEqual(actual,content) else { throw Refusal.foreground }
+    var current = element(application,kAXFocusedUIElementAttribute)
+    var reachedContent = false, blocked = false
+    var path: [[String:Any]] = []
+    for _ in 0..<40 {
+        guard let node = current, let role = string(node,kAXRoleAttribute) else { break }
+        let subrole = string(node,kAXSubroleAttribute)
+        let isContent = content.map { CFEqual(node,$0) } ?? false
+        let isWindow = CFEqual(node,target.window)
+        reachedContent = reachedContent || isContent
+        let editable = (attribute(node,"AXEditable") as? Bool) == true
+        blocked = blocked || blockedFocus(role,subrole) || editable
+        var link: [String:Any] = ["role":role,"contentMatches":isContent,"windowMatches":isWindow,"editable":editable]
+        if let subrole = subrole { link["subrole"] = subrole }
+        link["viewerMatches"] = target.evidence.viewer.map { CFEqual(node,$0) } ?? false
+        link["rootMatches"] = CFEqual(node,target.evidence.root)
+        path.append(link)
+        if isWindow { return (fixtureInnerMembership(reachedContent:reachedContent,reachedWindow:true,blocked:blocked),path) }
+        current = element(node,kAXParentAttribute)
+    }
+    return (false,path)
+}
+func fixtureInnerContentFocus(_ target: Target, _ content: AXUIElement) throws {
+    try focusedPDF(target)
+    guard fixtureInnerAncestry(target,content).0 else { throw Refusal.foreground }
 }
 func fixtureHitTest(_ target: Target, _ content: AXUIElement, _ point: CGPoint) -> [String:Any] {
     let application = AXUIElementCreateApplication(target.pid)
@@ -751,8 +780,8 @@ func fixtureContentFocus(_ target: Target, escapesUsed: Int = 0) -> [String:Any]
         let state = fixtureFocusState(target,content)
         if postClickStates.count == 12 { postClickStates.removeFirst() }; postClickStates.append(state)
         do {
-            try fixtureExactContentFocus(target,content)
-            result["status"] = "VERIFIED"; result["method"] = "owned-process-content-acquisition-and-exact-AX-readback"; result.removeValue(forKey:"reason")
+            try fixtureInnerContentFocus(target,content)
+            result["status"] = "VERIFIED"; result["method"] = "owned-process-content-acquisition-and-inner-AX-ancestry-readback"; result.removeValue(forKey:"reason")
             break
         } catch { result["status"] = "NOT VERIFIED"; result["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
         if !escaped, fixtureEscapeOwnedDialog(target) {
@@ -913,7 +942,7 @@ func browserFixture() throws -> Any {
                     }
                     do {
                         guard let content = fixturePDFContent(target) else { throw Refusal.foreground }
-                        try fixtureExactContentFocus(target,content); focusValidated = true; break
+                        try fixtureInnerContentFocus(target,content); focusValidated = true; break
                     } catch {}
                     if fixtureEscapeAvailable(usedEscapes), fixtureEscapeOwnedDialog(target) {
                         usedEscapes += 1
@@ -1055,7 +1084,11 @@ func run(_ args: [String]) throws -> Any {
         let scrollBefore = FixturePDFObservation(markers:[],scroll:[0],window:oracleWindow,surface:oracleSurface,stateKey:"s0")
         let scrollAfter = FixturePDFObservation(markers:[],scroll:[0.2],window:oracleWindow,surface:oracleSurface,stateKey:"s1")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
-        guard fixtureStableCount(previous:nil,current:"a",count:0) == 1,
+        guard fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:false),
+              !fixtureInnerMembership(reachedContent:false,reachedWindow:true,blocked:false),
+              !fixtureInnerMembership(reachedContent:true,reachedWindow:false,blocked:false),
+              !fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:true),
+              fixtureStableCount(previous:nil,current:"a",count:0) == 1,
               fixtureStableCount(previous:"a",current:"b",count:2) == 1,
               fixtureStableCount(previous:"a",current:nil,count:2) == 0,
               fixtureStableCount(previous:"a",current:"a",count:2) == 3,

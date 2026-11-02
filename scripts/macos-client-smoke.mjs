@@ -54,14 +54,16 @@ export function isPackagedPage(target,bundle,file){
 
 const URI_SCHEMES=Object.freeze(['castlink','castlink-remote','castlink-presenter','castlink-share']);
 export function registrationObserver(){
- const buffers={stdout:'',stderr:''},codes=new Set(['REGISTERED','BUNDLE_LOCATION','BUNDLE_IDENTITY','MAIN_EXECUTABLE','REGISTRATION_ARGUMENTS','REGISTRATION_TIMEOUT','REGISTRATION_FAILED','SELECTION_MISMATCH','UNSUPPORTED_PLATFORM','REGISTRATION_PROTOCOL','REGISTRATION_UNAVAILABLE']);let observed;
+ const buffers={stdout:'',stderr:''},codes=new Set(['REGISTERED','BUNDLE_LOCATION','BUNDLE_IDENTITY','MAIN_EXECUTABLE','REGISTRATION_ARGUMENTS','REGISTRATION_TIMEOUT','REGISTRATION_FAILED','CLAIMS_REGISTRATION_FAILED','SELECTION_MISMATCH','UNSUPPORTED_PLATFORM','REGISTRATION_PROTOCOL','REGISTRATION_UNAVAILABLE']);let observed;
  return {consume(stream,chunk){
   if(!Object.hasOwn(buffers,stream))return;
   const lines=(buffers[stream]+chunk.toString('utf8')).split(/\r?\n/);buffers[stream]=lines.pop().slice(-4096);
   for(const line of lines){
    const prefix='CASTLINK_PROTOCOL_REGISTRATION_RESULT ';if(!line.startsWith(prefix)||line.length>1024)continue;
    try{const value=JSON.parse(line.slice(prefix.length));if(typeof value.ok!=='boolean'||!codes.has(value.code))continue;
-    observed={ok:value.ok,code:value.code,...(Number.isInteger(value.nativeStatus)&&value.nativeStatus>=-2147483648&&value.nativeStatus<=2147483647?{nativeStatus:value.nativeStatus,nativeDomain:['NSOSStatusErrorDomain','NSCocoaErrorDomain'].includes(value.nativeDomain)?value.nativeDomain:'OTHER'}:{})};
+    const states=['candidate','none','unresolved','other-castlink','other-application'],locations=['candidate','none','staged','mounted','temporary','applications','other'];
+    const selection=Array.isArray(value.selection)&&value.selection.length===4&&value.selection.every((entry,i)=>entry&&entry.scheme===URI_SCHEMES[i]&&states.includes(entry.state)&&typeof entry.bundleMatches==='boolean'&&locations.includes(entry.location))?value.selection.map(({scheme,state,bundleMatches,location})=>({scheme,state,bundleMatches,location})):undefined;
+    observed={ok:value.ok,code:value.code,...(Number.isInteger(value.nativeStatus)&&value.nativeStatus>=-2147483648&&value.nativeStatus<=2147483647?{nativeStatus:value.nativeStatus,nativeDomain:['NSOSStatusErrorDomain','NSCocoaErrorDomain'].includes(value.nativeDomain)?value.nativeDomain:'OTHER'}:{}),...(Number.isInteger(value.claimsStatus)&&value.claimsStatus>=-2147483648&&value.claimsStatus<=2147483647?{claimsStatus:value.claimsStatus}:{}),...(selection?{selection}:{})};
    }catch{}
   }
  },get result(){return observed;}};
@@ -80,8 +82,14 @@ export async function verifyMacUriRegistration({bundle,run=execFileSync,timeoutM
  if(JSON.stringify([...schemes].sort())!==JSON.stringify([...URI_SCHEMES].sort()))throw Error('Packaged URI declarations do not contain exactly the four CastLink schemes');
  const candidate=fs.realpathSync(bundle),deadline=Date.now()+timeoutMs;let diagnostic;
  while(true){
-  if(diagnostic&&Date.now()>=deadline)throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
-  const handlers=await readMacUriHandlers({run,timeoutMs:timeoutMs?Math.max(1,Math.min(10000,deadline-Date.now())):10000});diagnostic=undefined;
+  if(diagnostic&&deadline-Date.now()<250)throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify(diagnostic));
+  let handlers;
+  try{handlers=await readMacUriHandlers({run,timeoutMs:timeoutMs?Math.max(1,Math.min(10000,deadline-Date.now())):10000});}
+  catch(error){
+   if(diagnostic&&timeoutMs&&Date.now()>=deadline&&(error.code==='ETIMEDOUT'||error.signal==='SIGKILL'||error.killed))throw Error('macOS URI handler does not resolve to this candidate: '+JSON.stringify({...diagnostic,nativeQueryDeadlineExceeded:true}),{cause:error});
+   throw error;
+  }
+  diagnostic=undefined;
   for(const scheme of URI_SCHEMES){
    let resolved,resolutionError;try{if(handlers[scheme]!==null)resolved=fs.realpathSync(handlers[scheme]);}catch(error){resolutionError=error.code;}
    if(resolved!==candidate){
