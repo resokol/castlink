@@ -38,7 +38,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
     try{
       const value=await operation();const result={name,scope,...(value||{status:'VERIFIED'})};
       nativeStatus(result);summary.checks.push(result);write();return result;
-    }catch(error){const result={name,scope,status:'FAILED',reason:error.message};summary.checks.push(result);write();return result;}
+    }catch(error){const result={name,scope,status:'FAILED',reason:error.message,...(error.evidence?{evidence:error.evidence}:{})};summary.checks.push(result);write();return result;}
   }
   async function command(name,executable,args,timeoutMs){
     const result=await execute(executable,args,{cwd:root,timeoutMs});
@@ -76,7 +76,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
       const artifact=path.join(evidenceDir,'native-input.json');
       const result=await command('input-native-run',process.execPath,[path.join(root,'native/macos-remote-input/native-fixture.cjs'),helpers.input,fixture,artifact],90000);
       const evidence=nativeStatus(readJsonFile(artifact));
-      if(result.code!==0||evidence.status==='FAILED')throw Error('Native input fixture failed; see native-input.json and input-native-run logs');
+      if(result.code!==0||evidence.status==='FAILED')throw Object.assign(Error('Native input fixture failed; see native-input.json and input-native-run logs'),{evidence});
       return {...evidence,artifact:'native-input.json'};
     });
     for(const [name,key]of [['powerpoint-identity','powerpoint'],['window-slides','slides']]){
@@ -98,7 +98,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
       if(evidence.protocol!==1||evidence.fixture!=='isolated-browser-pdf'||!Array.isArray(evidence.browsers)||evidence.browsers.length>2)throw Error('Unexpected browser PDF fixture protocol');
       for(const browser of evidence.browsers)nativeStatus(browser);
       fs.writeFileSync(path.join(evidenceDir,'native-browser-pdf.json'),JSON.stringify(evidence,null,2)+'\n');
-      if(result.code!==0||evidence.status==='FAILED')throw Error('Browser PDF fixture failed; see native-browser-pdf.json and browser-pdf-run logs');
+      if(result.code!==0||evidence.status==='FAILED')throw Object.assign(Error('Browser PDF fixture failed; see native-browser-pdf.json and browser-pdf-run logs'),{evidence});
       return {...evidence,artifact:'native-browser-pdf.json',osOperationVerified:evidence.browsers.some(browser=>browser.osOperationVerified===true)};
     });
     await check('audio-native','real-application-audio-spectral-isolation',async()=>{
@@ -108,7 +108,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
       const result=await command('audio-native-run',process.execPath,['-e',entry,path.join(root,'native/macos-process-audio/smoke.cjs'),helpers.audio],90000);
       const evidence=nativeStatus(JSON.parse(result.stdout.trim()));
       fs.writeFileSync(path.join(evidenceDir,'native-audio.json'),JSON.stringify(evidence,null,2)+'\n');
-      if(evidence.status==='FAILED'||result.code!==0&&!(result.code===3&&evidence.status==='NOT VERIFIED'))throw Error('Native audio fixture failed; see native-audio.json and audio-native-run logs');
+      if(evidence.status==='FAILED'||result.code!==0&&!(result.code===3&&evidence.status==='NOT VERIFIED'))throw Object.assign(Error('Native audio fixture failed; see native-audio.json and audio-native-run logs'),{evidence});
       return {...evidence,artifact:'native-audio.json'};
     });
   }

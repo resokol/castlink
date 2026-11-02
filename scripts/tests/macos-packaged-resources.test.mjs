@@ -5,16 +5,30 @@ import path from 'node:path';
 import os from 'node:os';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 import {verifyMacPackagedResources} from '../macos-packaged-resources.mjs';
 const require=createRequire(import.meta.url);
 const {MAC_PYTHON_RUNTIMES,PYTHON_RELEASE}=require('../../apps/desktop/scripts/macos-python-runtime.cjs');
 const {MAC_SETUP_SOURCE_FILES}=require('../../apps/desktop/scripts/macos-setup-resources.cjs');
+const {ICNS_ENTRIES,CASTLINK_ICON_SOURCE}=require('../../apps/desktop/scripts/macos-icon.cjs');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+function iconBytes(){
+ const chunks=[];
+ for(const [type,size]of Object.entries(ICNS_ENTRIES)){
+  const png=Buffer.alloc(58);Buffer.from('89504e470d0a1a0a','hex').copy(png);png.writeUInt32BE(13,8);png.write('IHDR',12);png.writeUInt32BE(size,16);png.writeUInt32BE(size,20);png[24]=8;png[25]=6;png.writeUInt32BE(1,33);png.write('IDAT',37);png.write('IEND',50);
+  const header=Buffer.alloc(8);header.write(type);header.writeUInt32BE(8+png.length,4);chunks.push(header,png);
+ }
+ const body=Buffer.concat(chunks),header=Buffer.alloc(8);header.write('icns');header.writeUInt32BE(body.length+8,4);return Buffer.concat([header,body]);
+}
 function fixture(t,arch='arm64'){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-packaged-resources-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const bundle=path.join(root,'CastLink.app'),resources=path.join(bundle,'Contents/Resources'),calls=[],commit='a'.repeat(40),pin=MAC_PYTHON_RUNTIMES[arch];
  function put(relative,body='fixture',mode=0o644){const target=path.join(bundle,relative);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,body,{mode});fs.chmodSync(target,mode);return target;}
  const executable=put('Contents/MacOS/CastLink Client Development','executable',0o755);
+ put('Contents/Info.plist','plist');
+ const icns=iconBytes(),sourceSvg=fs.readFileSync(fileURLToPath(new URL('../../apps/desktop/assets/castlink-icon.svg',import.meta.url)));
+ put('Contents/Resources/icon.icns',icns);
+ put('Contents/Resources/castlink-icon.json',JSON.stringify({schemaVersion:1,source:CASTLINK_ICON_SOURCE,sourceSha256:hash(sourceSvg),sha256:hash(icns),format:'icns',converter:'electron-builder@26.15.3/icons@1.1.0',sizes:[16,32,64,128,256,512,1024]}));
  put('Contents/Resources/app.asar');
  for(const file of ['process-audio/CastLink.ProcessAudio','remote-input/CastLink.RemoteInput','window-slides/CastLink.WindowSlides','powerpoint/CastLink.PowerPointIdentity'])put('Contents/Resources/'+file,'helper',0o755);
  put('Contents/Resources/powerpoint/PowerPoint.js','JXA script');
@@ -35,6 +49,7 @@ function fixture(t,arch='arm64'){
  f.run=(file,args,options)=>{
   calls.push({file,args,options});const overridden=f.override?.(file,args,options);if(overridden!==undefined)return overridden;
   if(file==='/usr/bin/codesign')return '';
+  if(file==='/usr/libexec/PlistBuddy')return 'icon.icns\n';
   if(file==='/usr/bin/lipo')return (arch==='x64'?'x86_64':'arm64')+'\n';
   if(file.endsWith('CastLink.ProcessAudio'))return JSON.stringify({protocol:'CLPA0001',sampleRate:48000,channels:2,maxPacketFrames:4800});
   if(file.endsWith('CastLink.WindowSlides')||file.endsWith('CastLink.PowerPointIdentity'))return JSON.stringify({protocol:1,selfTest:'passed',osOperationVerified:false});
@@ -47,7 +62,7 @@ function fixture(t,arch='arm64'){
 }
 for(const arch of ['arm64','x64'])test(`verifies the signed final ${arch} resources using bounded passive commands`,async t=>{
  const f=fixture(t,arch),result=await verifyMacPackagedResources({bundle:f.bundle,arch,run:f.run});
- assert.equal(result.status,'PASS');assert.equal(result.arch,arch);assert.equal(result.sourceCommit,'a'.repeat(40));assert.equal(result.osOperationVerified,false);
+ assert.equal(result.status,'PASS');assert.equal(result.arch,arch);assert.equal(result.sourceCommit,'a'.repeat(40));assert.equal(result.osOperationVerified,false);assert.equal(result.branding,'PASS');
  assert.deepEqual(f.calls[0].args,['--verify','--deep','--strict',f.bundle]);assert.equal(f.calls[0].file,'/usr/bin/codesign');
  assert.equal(f.calls.filter(call=>call.file==='/usr/bin/lipo').length,6);
  assert.equal(f.calls.filter(call=>call.args[0]==='--self-test').length,3);
@@ -60,6 +75,18 @@ for(const arch of ['arm64','x64'])test(`verifies the signed final ${arch} resour
 test('rejects code signature failures before executing resource programs',async t=>{
  const f=fixture(t);f.override=file=>{if(file==='/usr/bin/codesign')throw Error('invalid nested signature');};
  await assert.rejects(verifyMacPackagedResources({bundle:f.bundle,arch:f.arch,run:f.run}),/invalid nested signature/);assert.equal(f.calls.length,1);
+});
+test('rejects fallback icons and changed CastLink provenance in the final bundle',async t=>{
+ for(const corruption of ['reference','source','artifact']){
+  const f=fixture(t);
+  if(corruption==='reference')f.override=file=>file==='/usr/libexec/PlistBuddy'?'electron.icns':undefined;
+  else{
+   const manifest=JSON.parse(fs.readFileSync(path.join(f.resources,'castlink-icon.json')));
+   manifest[corruption==='source'?'sourceSha256':'sha256']='b'.repeat(64);
+   f.put('Contents/Resources/castlink-icon.json',JSON.stringify(manifest));
+  }
+  await assert.rejects(verifyMacPackagedResources({bundle:f.bundle,arch:f.arch,run:f.run}),/icon.*configured|icon.*provenance/i,corruption);
+ }
 });
 test('rejects any helper architecture and protocol mismatch',async t=>{
  for(const target of ['lipo','audio','slides','powerpoint','input']){

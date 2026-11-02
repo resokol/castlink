@@ -9,6 +9,7 @@ import {isDeepStrictEqual} from 'node:util';
 const require=createRequire(import.meta.url);
 const {MAC_PYTHON_RUNTIMES,PYTHON_RELEASE,validatePythonIdentity}=require('../apps/desktop/scripts/macos-python-runtime.cjs');
 const {MAC_SETUP_SOURCE_FILES}=require('../apps/desktop/scripts/macos-setup-resources.cjs');
+const {verifyMacBundleIcon}=require('../apps/desktop/scripts/macos-icon.cjs');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const helpers=Object.freeze({audio:'process-audio/CastLink.ProcessAudio',input:'remote-input/CastLink.RemoteInput',slides:'window-slides/CastLink.WindowSlides',powerpoint:'powerpoint/CastLink.PowerPointIdentity'});
 function jsonFile(file){return JSON.parse(fs.readFileSync(file,'utf8'));}
@@ -99,6 +100,7 @@ export async function verifyMacPackagedResources({bundle,arch,run=execFileSync}=
  // Verify the completed Electron seal, including nested dylibs and helpers,
  // before invoking anything from the signed resource tree.
  await command('/usr/bin/codesign',['--verify','--deep','--strict',bundle],{timeout:30000});
+ await verifyMacBundleIcon({bundle,run});
  regular(path.join(resources,'app.asar'));regular(path.join(resources,'powerpoint/PowerPoint.js'));
  const source=verifySourceTree(path.join(resources,'setup'));
  const pythonDirectory=path.join(resources,'setup/python');
@@ -137,5 +139,5 @@ export async function verifyMacPackagedResources({bundle,arch,run=execFileSync}=
  if(closure.sourceCommit!==source.sourceCommit)throw Error('Packaged build and setup source manifest do not match');
  if(!isDeepStrictEqual(closure.pythonRuntime,python))throw Error('Packaged build and Python runtime manifest do not match');
  if(closure.sshLoaded!==true||closure.transportLoaded!==true||!isDeepStrictEqual(closure.packages,source.packages))throw Error('Packaged SSH dependency closure mismatch');
- return {schemaVersion:1,status:'PASS',arch,sourceCommit:source.sourceCommit,signature:'PASS',nativeArchitectures:'PASS',nativeProtocols:'PASS',pythonRuntime:'PASS',setupSourceIntegrity:'PASS',sshClosure:'PASS',osOperationVerified:false};
+ return {schemaVersion:1,status:'PASS',arch,sourceCommit:source.sourceCommit,signature:'PASS',branding:'PASS',nativeArchitectures:'PASS',nativeProtocols:'PASS',pythonRuntime:'PASS',setupSourceIntegrity:'PASS',sshClosure:'PASS',osOperationVerified:false};
 }

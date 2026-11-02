@@ -16,10 +16,13 @@ async function main(){
     fs.copyFileSync(path.join(root,'native/macos-presentation/PowerPoint.js'),path.join(resources,'powerpoint/PowerPoint.js'));
     require('./macos-setup-resources.cjs').stageMacSetupResources(root,resources,commit);
     const python=await require('./macos-python-runtime.cjs').stageMacPythonRuntime({resourcesPath:resources,arch});
+    const icon=await require('./macos-icon.cjs').stageMacIcon({root,destination:path.join(work,'icon')});
+    fs.copyFileSync(path.join(path.dirname(icon),'castlink-icon.json'),path.join(resources,'castlink-icon.json'));
     const info=completeMacPackage(stage,initial,resources,python.manifest);
     // Resolve the desktop-local builder; never inherit Windows resources or targets.
     const builder=require('electron-builder');
     const config=applyMacSigningPolicy(createMacConfig(root,stage,out,info,arch,resources),signingPolicy);
+    config.mac.icon=icon;
     const options=createMacBuildOptions(desktop,work,config,builder.Platform.MAC.createTarget(['dir','zip','dmg'],builder.Arch[arch]));
     const files=await builder.build(options);
     const manifestInfo=signingPolicy.distribution?{...info,...verifyMacDistributionBundle(path.join(out,arch==='arm64'?'mac-arm64':'mac',config.productName+'.app'),signingPolicy)}:info;
