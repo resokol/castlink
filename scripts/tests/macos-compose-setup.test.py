@@ -154,6 +154,67 @@ class BackendTests(unittest.TestCase):
    folder=Path(tmp).resolve();(folder/'compose.json').write_text(json.dumps({'services':{'web':{'image':'web:fixed'}},'volumes':{}}))
    with self.assertRaises(ValueError):m.remove_resources(Engine(),folder,{'project':'project'},False)
   self.assertFalse(any(command[0] in ('stop','rm') for command in calls))
+ def test_install_prepares_only_empty_current_user_selected_directory_as_private(self):
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   folder=Path(tmp).resolve()/'picked';folder.mkdir(mode=0o755);folder.chmod(0o755);identity=folder.stat();result=m.validate_folder(folder,create=True)
+   self.assertEqual(result,folder);self.assertEqual(folder.stat().st_mode&0o777,0o700);self.assertEqual(folder.stat().st_ino,identity.st_ino)
+ def test_directory_preparation_does_not_chmod_existing_data_or_non_install_operations(self):
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve();folder=root/'existing';folder.mkdir(mode=0o755);folder.chmod(0o755);(folder/'foreign.txt').write_text('keep me')
+   with self.assertRaises(ValueError):m.validate_folder(folder,create=True)
+   self.assertEqual(folder.stat().st_mode&0o777,0o755);self.assertEqual((folder/'foreign.txt').read_text(),'keep me')
+   empty=root/'empty';empty.mkdir(mode=0o755);empty.chmod(0o755)
+   with self.assertRaises(ValueError):m.validate_folder(empty,create=False)
+   self.assertEqual(empty.stat().st_mode&0o777,0o755)
+ def test_directory_preparation_refuses_replaced_inode_and_closes_its_descriptor(self):
+  from unittest.mock import patch
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve();folder=root/'picked';folder.mkdir(mode=0o755);folder.chmod(0o755);moved=root/'moved';opened=[];real_open=m.os.open
+   def swap(file,flags,*args,**kwargs):
+    fd=real_open(file,flags,*args,**kwargs);opened.append(fd);self.assertTrue(flags&m.os.O_DIRECTORY);self.assertTrue(flags&m.os.O_NOFOLLOW);folder.rename(moved);folder.mkdir(mode=0o755);folder.chmod(0o755);return fd
+   with patch.object(m.os,'open',side_effect=swap):
+    with self.assertRaises(ValueError):m.validate_folder(folder,create=True)
+   self.assertEqual(folder.stat().st_mode&0o777,0o755);self.assertEqual(moved.stat().st_mode&0o777,0o755);self.assertEqual(len(opened),1)
+   with self.assertRaises(OSError):m.os.fstat(opened[0])
+ def test_directory_preparation_refuses_symlinks_or_foreign_ownership(self):
+  from unittest.mock import patch
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve();folder=root/'picked';folder.mkdir(mode=0o755);folder.chmod(0o755);link=root/'link';link.symlink_to(folder,target_is_directory=True)
+   with self.assertRaises(ValueError):m.validate_folder(link,create=True)
+   with patch.object(m.os,'geteuid',return_value=m.os.geteuid()+1):
+    with self.assertRaises(ValueError):m.validate_folder(folder,create=True)
+   self.assertEqual(folder.stat().st_mode&0o777,0o755)
+ def test_directory_preparation_rechecks_contents_before_chmod_and_preserves_private_installs(self):
+  from unittest.mock import patch
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp).resolve();folder=root/'picked';folder.mkdir(mode=0o755);folder.chmod(0o755);real_listdir=m.os.listdir;observed=[]
+   def add_content(descriptor):
+    result=real_listdir(descriptor);observed.append(descriptor)
+    if len(observed)==1:(folder/'foreign.txt').write_text('preserve')
+    return result
+   with patch.object(m.os,'listdir',side_effect=add_content):
+    with self.assertRaises(ValueError):m.validate_folder(folder,create=True)
+   self.assertEqual(folder.stat().st_mode&0o777,0o755);self.assertEqual((folder/'foreign.txt').read_text(),'preserve')
+   private=root/'owned';private.mkdir(mode=0o700);(private/m.RECEIPT).write_text('existing-owner')
+   with patch.object(m.os,'fchmod',side_effect=AssertionError('Existing private installation must not be chmodded')):self.assertEqual(m.validate_folder(private,create=True),private)
+ def test_directory_preparation_rechecks_descriptor_owner_before_permission_write(self):
+  from unittest.mock import patch
+  from types import SimpleNamespace
+  m=self.module()
+  with tempfile.TemporaryDirectory() as tmp:
+   folder=Path(tmp).resolve()/'picked';folder.mkdir(mode=0o755);folder.chmod(0o755);real_fstat=m.os.fstat;seen=[]
+   def changed_owner(descriptor):
+    value=real_fstat(descriptor);seen.append(descriptor)
+    return value if len(seen)==1 else SimpleNamespace(st_dev=value.st_dev,st_ino=value.st_ino,st_uid=m.os.geteuid()+1,st_mode=value.st_mode)
+   with patch.object(m.os,'fstat',side_effect=changed_owner),patch.object(m.os,'fchmod',wraps=m.os.fchmod) as chmod:
+    with self.assertRaises(ValueError):m.validate_folder(folder,create=True)
+    chmod.assert_not_called()
+   self.assertEqual(folder.stat().st_mode&0o777,0o755)
 
 class WindowsAdoptionTests(unittest.TestCase):
  def setUp(self):

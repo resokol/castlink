@@ -12,8 +12,24 @@ def validate_folder(folder,create=False):
  for parent in (folder,*folder.parents):
   if parent.is_symlink():raise ValueError('Installation folder cannot contain symbolic links')
  if create:folder.mkdir(parents=True,exist_ok=True,mode=0o700)
- info=folder.stat()
- if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.geteuid() or stat.S_IMODE(info.st_mode)&0o077:raise ValueError('Installation folder must be owned by this user with private permissions (0700)')
+ info=folder.lstat()
+ if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.geteuid():raise ValueError('Installation folder must be owned by this user with private permissions (0700)')
+ if create and stat.S_IMODE(info.st_mode)&0o077:
+  # Native folder pickers create ordinary 0755 directories. Only an empty,
+  # current-user directory may be made private; existing contents and owned
+  # installation permissions are never silently changed.
+  descriptor=os.open(folder,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+  try:
+   opened=os.fstat(descriptor);current=folder.lstat()
+   if (opened.st_dev,opened.st_ino)!=(info.st_dev,info.st_ino) or (current.st_dev,current.st_ino)!=(opened.st_dev,opened.st_ino) or not stat.S_ISDIR(opened.st_mode) or opened.st_uid!=os.geteuid() or current.st_uid!=opened.st_uid or stat.S_IMODE(opened.st_mode)!=stat.S_IMODE(info.st_mode) or os.listdir(descriptor):raise ValueError('Selected installation folder changed or is not empty')
+   # Recheck through the held descriptor immediately before the permission write.
+   current=folder.lstat();held=os.fstat(descriptor)
+   if (current.st_dev,current.st_ino)!=(held.st_dev,held.st_ino) or (held.st_dev,held.st_ino)!=(opened.st_dev,opened.st_ino) or held.st_uid!=os.geteuid() or current.st_uid!=held.st_uid or stat.S_IMODE(held.st_mode)!=stat.S_IMODE(info.st_mode) or os.listdir(descriptor):raise ValueError('Selected installation folder changed or is not empty')
+   os.fchmod(descriptor,0o700);prepared=os.fstat(descriptor);current=folder.lstat()
+   if (current.st_dev,current.st_ino)!=(prepared.st_dev,prepared.st_ino) or prepared.st_uid!=os.geteuid() or stat.S_IMODE(prepared.st_mode)!=0o700:raise ValueError('Selected installation folder changed')
+  finally:os.close(descriptor)
+  info=folder.lstat()
+ if stat.S_IMODE(info.st_mode)&0o077:raise ValueError('Installation folder must be owned by this user with private permissions (0700)')
  return folder
 
 def validate_request(data):

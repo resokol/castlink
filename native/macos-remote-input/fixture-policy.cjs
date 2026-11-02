@@ -33,3 +33,26 @@ function assertCornerFiducials(capture,{width,height,scale}){
  return {scheme:capture.markerScheme,comparison:'black-white-per-channel',threshold,corners:names};
 }
 module.exports.assertCornerFiducials=assertCornerFiducials;
+
+async function waitForReceiverWatchdog({readEvents,readState,keyCode,afterIndex,heartbeatSentMonotonic,leaseDeadlineMonotonic,geometryRevision,now=()=>performance.now(),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),timeoutMs=1500}){
+ const assert=require('node:assert/strict'),deadline=now()+timeoutMs;
+ let state;
+ do{
+  const released=readEvents().slice(afterIndex).find(value=>value.event==='keyUp'&&value.keyCode===keyCode);
+  if(released){
+   assert.ok(Number.isFinite(released.observedMonotonic),'watchdog key-up must have an observation timestamp');
+   assert.ok(released.observedMonotonic-heartbeatSentMonotonic>=450,'key was released before the receiver-timeout probe');
+   assert.ok(released.observedMonotonic<leaseDeadlineMonotonic,'key-up arrived at '+released.observedMonotonic+' after the700ms proof deadline '+leaseDeadlineMonotonic+'; receiver watchdog is not proved');
+  }
+  state=readState();
+  if(released&&state?.needsEmptyReset===true&&state.active===false){
+   assert.equal(state.geometry?.revision,geometryRevision,'geometry changed during watchdog probe');
+   assert.ok(state.ready===true&&state.pointerReady===true,'source lost readiness during watchdog probe');
+   assert.ok(['REMOTE_INPUT_REPLAY','REMOTE_INPUT_LEASE'].includes(state.error),'receiver pause must carry a watchdog diagnostic');
+   return {keyUpObservedMonotonic:released.observedMonotonic,keyUpAfterHeartbeatMs:released.observedMonotonic-heartbeatSentMonotonic,serverLeaseDeadlineMonotonic:leaseDeadlineMonotonic,state};
+  }
+  await wait(10);
+ }while(now()<deadline);
+ throw Error('receiver watchdog did not deliver both native key-up and paused helper state within '+timeoutMs+'ms; last state='+JSON.stringify(state));
+}
+module.exports.waitForReceiverWatchdog=waitForReceiverWatchdog;

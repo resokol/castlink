@@ -82,3 +82,20 @@ test('binary corner fiducials prove orientation and geometry without display pri
  rejects(v=>v.width++);
  const permitted=structuredClone(capture);permitted.fiducials[0].samples[0]=[0.149,0.149,0.149];permitted.fiducials[1].samples[1]=[0.851,0.851,0.851];assertCornerFiducials(permitted,{width:1280,height:960,scale:2});
 });
+
+test('native watchdog fixture joins independent key-up/state streams and refuses lease-expiry substitutes',async()=>{
+ const {waitForReceiverWatchdog}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ let now=500,polls=0,state={active:true,needsEmptyReset:false,ready:true,pointerReady:true,geometry:{revision:5}};
+ const up={event:'keyUp',keyCode:8,observedMonotonic:500};
+ const result=await waitForReceiverWatchdog({readEvents:()=>[up],readState:()=>state,keyCode:8,afterIndex:0,heartbeatSentMonotonic:0,leaseDeadlineMonotonic:700,geometryRevision:5,now:()=>now,wait:async()=>{now+=25;if(++polls===2)state={...state,active:false,needsEmptyReset:true,error:'REMOTE_INPUT_REPLAY'};},timeoutMs:100});
+ assert.equal(polls,2,'observed UP must wait for the independent state pipe');assert.equal(result.keyUpAfterHeartbeatMs,500);assert.equal(result.state.needsEmptyReset,true);
+ const paused={...state};
+ async function rejected(events,extra={}){let time=500;await assert.rejects(waitForReceiverWatchdog({readEvents:()=>events,readState:()=>paused,keyCode:8,afterIndex:0,heartbeatSentMonotonic:0,leaseDeadlineMonotonic:700,geometryRevision:5,now:()=>time,wait:async()=>{time+=25;},timeoutMs:50,...extra}));}
+ await rejected([{...up,observedMonotonic:700}]);
+ await rejected([{...up,observedMonotonic:200}]);
+ await rejected([up],{afterIndex:1});
+ await rejected([up],{geometryRevision:6});
+ await rejected([]);
+ await rejected([up],{readState:()=>({...paused,active:true,needsEmptyReset:false})});
+ await rejected([{...up,observedMonotonic:NaN}]);
+});

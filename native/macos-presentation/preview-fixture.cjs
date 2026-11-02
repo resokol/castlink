@@ -71,13 +71,13 @@ async function runPreviewFixture({helper,fixture,artifact}){
     assert.equal((await broker.request(['activate',...identity])).binding,target.binding);
     // LaunchServices/window binding can become ready before PDFKit's AX tree.
     // Require the same owned document's real snapshot within a bounded wait.
-    const startup=await snap(8000);evidence.startupSnapshot={nodeCount:startup.nodeCount,roles:startup.roles,focus:startup.focus};
+    const startup=await snap(8000);evidence.startupSnapshot={nodeCount:startup.nodeCount,roles:startup.roles,focus:startup.focus,pdfContentFocused:startup.pdfContentFocused};
     let focused=false;evidence.focusAttempts=[];
     for(let attempt=0;attempt<8;attempt++){
       const result=await owner.request('focus');
       const trace={attempt,action:result};evidence.focusAttempts.push(trace);
       await delay(150);const state=await snap(2000);trace.observed=state.focus;
-      if(result.ok&&state.frontmostMatches&&['AXScrollArea','AXLayoutArea'].includes(state.focusRole)){focused=true;break;}
+      if(result.ok&&state.frontmostMatches&&state.pdfContentFocused===true){focused=true;break;}
     }
     if(!focused)evidence.ownedAXDiagnostics=await owner.request('diagnostics');
     assert.equal(focused,true,'Preview PDF content focus could not be established');

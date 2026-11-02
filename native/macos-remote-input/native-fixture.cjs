@@ -3,7 +3,7 @@
 // Run after compiling the helper and fixture; no permissions are changed here.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {spawn,execFileSync}=require('node:child_process');
-const {startFailure,assertCornerFiducials}=require('./fixture-policy.cjs');
+const {startFailure,assertCornerFiducials,waitForReceiverWatchdog}=require('./fixture-policy.cjs');
 const root=path.resolve(__dirname,'../..');
 const helper=process.argv[2],fixture=process.argv[3],artifact=process.argv[4]||path.join(root,'artifacts/macos-input-native.json');
 const evidence={schemaVersion:1,platform:process.platform,arch:process.arch,status:'NOT VERIFIED',checks:[],physicalHolds:'NOT VERIFIED: requires physical keyboard/mouse',spaces:'NOT VERIFIED: requires interactive Space switching',mixedRetinaDisplays:'NOT VERIFIED: requires multiple displays'};
@@ -12,7 +12,7 @@ function traceNative(command,reply){evidence.nativeTrace??=[];evidence.nativeTra
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function processLines(executable,args=[]){
  const child=spawn(executable,args,{shell:false,stdio:['pipe','pipe','pipe']});let buffer='',sequence=0;const pending=new Map(),events=[];
- child.stdout.on('data',chunk=>{buffer+=chunk;while(buffer.includes('\n')){const i=buffer.indexOf('\n'),line=buffer.slice(0,i);buffer=buffer.slice(i+1);let value;try{value=JSON.parse(line);}catch{continue;}events.push(value);if(pending.has(value.id)){const p=pending.get(value.id);pending.delete(value.id);clearTimeout(p.timer);p.resolve(value);}}});
+ child.stdout.on('data',chunk=>{buffer+=chunk;while(buffer.includes('\n')){const i=buffer.indexOf('\n'),line=buffer.slice(0,i);buffer=buffer.slice(i+1);let value;try{value=JSON.parse(line);}catch{continue;}Object.defineProperty(value,'observedMonotonic',{value:performance.now()});events.push(value);if(pending.has(value.id)){const p=pending.get(value.id);pending.delete(value.id);clearTimeout(p.timer);p.resolve(value);}}});
  child.stderr.resume();child.on('error',error=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(error);}pending.clear();});
  return{child,events,request(op,fields={}){const id=++sequence;return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(id);reject(Error('native fixture command timeout'));},2500);pending.set(id,{resolve,reject,timer});child.stdin.write(JSON.stringify({id,op,...fields})+'\n');});},async until(predicate){for(let count=0;count<400;count++){const value=events.find(predicate);if(value)return value;await delay(25);}throw Error('native fixture event timeout');}};
 }
@@ -28,11 +28,11 @@ function processLines(executable,args=[]){
   let r=await a.request('start',{captureId:'native-fixture',source:{kind:'window',windowId:ready.windowId},video:{width:ready.width,height:ready.height},mapping:{kind:'macos-window'},fullInputPause:true});
   evidence.initialNativeState=r.state;evidence.bindingDiagnostic=r.diagnostic;
   const initialFailure=startFailure(r,evidence.helperPermissions);if(initialFailure){Object.assign(evidence,initialFailure);if(evidence.status==='FAILED')process.exitCode=1;return;}
-  let state=r.state,seq=0,serial=0,heldKeys=[],heldButtons=[];
-  const refresh=()=>{for(const v of a.events)if(v.state)state=v.state;};
+  let state=r.state,seq=0,serial=0,heldKeys=[],heldButtons=[],lastLeaseDeadlineMonotonic=0,lastHeartbeatSentMonotonic=0;
+  const refresh=()=>{for(const v of a.events)if(v.state)state=v.state;evidence.lastObservedNativeState=state;};
   const frame=(event,overrides={})=>{refresh();return{captureId:'native-fixture',grantId:'fixture-grant',revision:1,geometryRevision:state.geometry.revision,lane:'reliable',seq:++seq,moveBarrier:0,expiresAt:Date.now()+500,event,...overrides};};
-  const send=async(event,overrides={})=>{const request=frame(event,overrides),result=await a.request('input',request);traceNative({op:'input',type:event.type,...(event.code?{code:event.code}:{}),...(event.down!==undefined?{down:event.down}:{}),seq:request.seq,geometryRevision:request.geometryRevision},result);if(result.state)state=result.state;return result;};
-  const renew=async(activate=false,extra={})=>{refresh();const result=await a.request('renew',{captureId:'native-fixture',grantId:'fixture-grant',revision:1,leaseSerial:++serial,geometryRevision:state.geometry.revision,expiresAt:Date.now()+700,activate,...extra});traceNative({op:'renew',activate,serial},result);if(result.state)state=result.state;return result;};
+  const send=async(event,overrides={})=>{const started=performance.now(),request=frame(event,overrides),result=await a.request('input',request);traceNative({op:'input',type:event.type,...(event.code?{code:event.code}:{}),...(event.down!==undefined?{down:event.down}:{}),seq:request.seq,geometryRevision:request.geometryRevision},result);if(result.state)state=result.state;if(result.ok&&event.type==='heartbeat')lastHeartbeatSentMonotonic=started;return result;};
+  const renew=async(activate=false,extra={})=>{const started=performance.now();refresh();const result=await a.request('renew',{captureId:'native-fixture',grantId:'fixture-grant',revision:1,leaseSerial:++serial,geometryRevision:state.geometry.revision,expiresAt:Date.now()+700,activate,...extra});traceNative({op:'renew',activate,serial},result);if(result.state)state=result.state;if(result.ok)lastLeaseDeadlineMonotonic=started+700;return result;};
   const arm=async(activate=false)=>{assert.equal((await renew(activate)).ok,true);assert.equal((await send({type:'heartbeat',pressedKeys:heldKeys,pressedButtons:heldButtons})).ok,true);};
   const check=name=>evidence.checks.push(name);
   assert.equal((await send({type:'key',code:'KeyA',down:true,repeat:false})).error,'REMOTE_INPUT_LEASE');seq=0;check('no input before explicit grant');
@@ -45,7 +45,8 @@ function processLines(executable,args=[]){
   await arm();assert.equal((await send({type:'key',code:'KeyB',down:true,repeat:false})).ok,true);heldKeys=['KeyB'];await b.until(v=>v.event==='keyDown'&&v.keyCode===11);assert.equal((await a.request('releaseAll')).ok,true);heldKeys=[];await b.until(v=>v.event==='keyUp'&&v.keyCode===11);check('revoke releases native held key');
   const oldRevision=state.geometry.revision;await b.request('move');await delay(150);refresh();assert.ok(state.geometry.revision>oldRevision);assert.equal((await send({type:'key',code:'KeyA',down:true,repeat:false},{geometryRevision:oldRevision})).error,'REMOTE_INPUT_GEOMETRY');seq--;check('window translation invalidates geometry authority');
   await arm();await b.request('occlude');await delay(150);refresh();assert.equal(state.pointerReady,false);const blocked=await send({type:'key',code:'KeyA',down:true,repeat:false});assert.equal(blocked.ok,false);seq--;check('occluded or unfocused window fails closed');
-  await b.request('focus');await delay(150);await arm();assert.equal((await send({type:'key',code:'KeyC',down:true,repeat:false})).ok,true);heldKeys=['KeyC'];await b.until(v=>v.event==='keyDown'&&v.keyCode===8);await delay(550);await b.until(v=>v.event==='keyUp'&&v.keyCode===8);heldKeys=[];refresh();assert.equal(state.needsEmptyReset,true);check('independent 500ms receiver watchdog releases held key');
+  await b.request('focus');await delay(150);await arm();const watchdogEventStart=b.events.length;assert.equal((await send({type:'key',code:'KeyC',down:true,repeat:false})).ok,true);heldKeys=['KeyC'];await b.until(v=>v.event==='keyDown'&&v.keyCode===8);
+  evidence.receiverWatchdog=await waitForReceiverWatchdog({readEvents:()=>b.events,readState:()=>{refresh();return state;},keyCode:8,afterIndex:watchdogEventStart,heartbeatSentMonotonic:lastHeartbeatSentMonotonic,leaseDeadlineMonotonic:lastLeaseDeadlineMonotonic,geometryRevision:state.geometry.revision});heldKeys=[];check('independent 500ms receiver watchdog releases held key before server lease expiry and asynchronously reports pause');
   const capture=await b.request('capture');evidence.captureFiducials=capture;
   evidence.captureOracle=assertCornerFiducials(capture,{width:ready.width,height:ready.height,scale:ready.scale});check('real ScreenCaptureKit window crop preserves four distinct binary corner IDs, orientation, sample positions and backing extent');
   await arm();assert.equal((await send({type:'key',code:'KeyE',down:true,repeat:false})).ok,true);await b.until(v=>v.event==='keyDown'&&v.keyCode===14);await a.request('stop');await b.until(v=>v.event==='keyUp'&&v.keyCode===14);check('native stop releases real held key');

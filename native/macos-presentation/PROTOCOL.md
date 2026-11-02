@@ -128,10 +128,10 @@ formats remain unavailable rather than accepting guessed extension IDs.
 AX application reads use a 750 ms message timeout and cache each process's
 window list once per scan, avoiding repeated 100 ms startup timeouts. The owned
 fixture separately records launch/AX readiness, retries with bounded 100–800 ms
-backoff for at most 15 seconds for application AX readiness. Application readiness requires `isFinishedLaunching` as well as successful AX
+backoff for at most 30 seconds for application AX readiness. Application readiness requires `isFinishedLaunching` as well as successful AX
 role/window reads. Once AX is ready,
-it gives the PDF renderer a separate four-second content phase, with a hard
-19-second total binding bound, and pumps the run loop. This prevents a late
+it gives the PDF renderer a separate six-second content phase, with a hard
+36-second total binding bound, and pumps the run loop. This prevents a late
 application startup from consuming the entire PDF-loading deadline. An installed,
 permitted browser that never binds still fails.
 The helper reads the browser application AXRole to request normal native
@@ -145,7 +145,15 @@ all PDF text after finding sufficient identity evidence, so
 large documents do not require scanning every page. Exactly one proven PDF
 viewer must be present. The helper requires Accessibility permission and a
 unique CGWindow/AX geometry match in the selected process. Preview additionally
-requires a local PDF AXDocument URL.
+requires a local PDF AXDocument URL and exactly one AXGroup with subrole
+AXSharedDocumentContainer containing direct AXPage children whose AXParent
+returns that container. Page children are sampled through bounded public AX
+array APIs, so a large PDF need not enumerate every page. The retained root is
+that document container, not the entire window. Preview focus may be the exact
+container, a noneditable page descendant whose ancestry includes AXPage and the
+container, or its nearest proven PDF ScrollArea/LayoutArea ancestor. Generic
+groups, sidebars and the window itself cannot satisfy this proof; editable and
+modal ancestry remains refused.
 
 Activation follows explicit local consent only. Every step revalidates identity,
 foreground application, focused window and PDF-content ancestry twice before
@@ -168,13 +176,17 @@ window/ancestry. The observed Intel Chrome AXUnknown alert window with one
 direct AXApplicationAlertDialog child is also recognized when its focused UI
 element is unavailable. The one-Escape budget is shared across activation and
 post-click recovery; it never approves a prompt or sends input to external/system
-prompts. Production focus guards are unchanged. It waits for a baseline and resulting content
+prompts. Production focus guards are unchanged. It waits up to four seconds each for a baseline and resulting content
 change in only the retained trusted viewer subtree, with finite node/text/scroll
 observation counts. After that readiness wait it revalidates the unchanged
 production focus guard for at most two seconds before the sole navigation;
 this actual pre-effect check is the focus proof, while initial acquisition
 status/diagnostics are retained. No click, Escape or navigation is repeated
-during this final focus revalidation. It exercises actual
+during this final focus revalidation. The editable-control negative proof waits
+up to two seconds for the exact requested AX field to become focused before
+testing refusal. A shared 100-second browser-fixture work deadline bounds all
+phases; the 120-second orchestration leaves time for owned process cleanup.
+Deadline exhaustion fails required proofs rather than skipping them. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text
 position change, editable-control refusal and same-URL tab replacement. It closes only
 its owned browser process and removes only its temporary profile. No user

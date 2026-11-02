@@ -34,7 +34,10 @@ function fixture(t,{change,arch='arm64'}={}){
    if(args[0]==='info')return plist({images:attached?[{'image-path':change==='foreign-mount'?path.join(root,'foreign.dmg'):dmg,'image-alias':Buffer.from('native CFData alias'),'system-entities':[{'dev-entry':'/dev/disk42s1','mount-point':mount}]}]:[]});
    if(args[0]==='detach'){assert.equal(args[1],mount);assert.equal(args.includes('-force'),false);if(change==='detach')throw Error('volume busy');attached=false;return '';}
   }
-  if(command==='/usr/sbin/diskutil')return plist({MountPoint:mount,DeviceNode:'/dev/disk42s1',ReadOnlyVolume:change!=='writable',ReadOnlyMedia:change!=='writable'});
+  if(command==='/usr/sbin/diskutil'){
+   const flags=change==='legacy-readonly'?{ReadOnlyVolume:true,ReadOnlyMedia:true}:change==='string-readonly'?{VolumeReadOnly:'true',MediaReadOnly:'true'}:{VolumeReadOnly:!['writable','media-only'].includes(change),MediaReadOnly:!['writable','volume-only'].includes(change)};
+   return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:change==='volume-only',VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
+  }
   if(command==='/usr/bin/plutil'){
    return plist({CFBundleIdentifier:'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
   }
@@ -75,6 +78,24 @@ test('mount, app identity, copy and full smoke failures still detach only the ow
   await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}));
   assert.equal(f.attached(),false,change);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[],change);
   assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json'))).status,'FAILED');
+ }
+});
+test('real diskutil volume-only and media-only read-only flags both establish a read-only mount',async t=>{
+ for(const change of ['volume-only','media-only']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
+  assert.equal(result.readOnlyMount,'PASS');assert.equal(result.ownedDiskProperties.flags.VolumeReadOnly,change==='volume-only');assert.equal(result.ownedDiskProperties.flags.MediaReadOnly,change==='media-only');
+ }
+});
+test('missing/invalid read-only fields or mismatched native identity fail with bounded selected diagnostics',async t=>{
+ for(const change of ['legacy-readonly','string-readonly','wrong-device','wrong-mount','writable','long-metadata']){
+  const f=fixture(t,{change});let failure;
+  await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}),error=>{failure=error;return /DMG mount was not verified read-only:.*expectedMountPoint/.test(error.message);});
+  const evidence=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));
+  assert.equal(evidence.status,'FAILED');assert.ok(evidence.ownedDiskProperties);assert.ok(failure.message.length<2000);assert.doesNotMatch(failure.message,/PRIVATE VOLUME|PRIVATE SERIAL/);
+  assert.deepEqual(Object.keys(evidence.ownedDiskProperties).sort(),['DeviceNode','MountPoint','deviceNodeMatches','expectedDeviceNode','expectedMountPoint','flags','mountPointMatches'].sort());
+  assert.ok(Object.values(evidence.ownedDiskProperties.flags).every(value=>value===null||typeof value==='boolean'));
+  assert.equal(evidence.ownedDiskProperties.deviceNodeMatches,!['wrong-device','long-metadata'].includes(change));assert.equal(evidence.ownedDiskProperties.mountPointMatches,!['wrong-mount','long-metadata'].includes(change));
+  assert.equal(f.smokes(),0);assert.equal(f.attached(),false);assert.deepEqual(fs.readdirSync(f.temporaryRoot),[]);
  }
 });
 test('a busy or foreign mount is never forced or recursively removed',async t=>{

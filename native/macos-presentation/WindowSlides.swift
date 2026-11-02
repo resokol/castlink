@@ -15,6 +15,12 @@ enum Refusal: String, Error {
     case permission = "WINDOW_SLIDES_ACCESSIBILITY_PERMISSION"
     case ambiguous = "WINDOW_SLIDES_AMBIGUOUS"
 }
+// Set only by the owned browser fixture; normal broker operations have no
+// fixture deadline. Reserve the outer command's final20 seconds for cleanup.
+var fixtureWorkDeadline: Date?
+func fixtureHasWork() -> Bool { fixtureWorkDeadline.map { Date() < $0 } ?? true }
+func fixtureBound(_ deadline: Date) -> Date { fixtureWorkDeadline.map { min(deadline,$0) } ?? deadline }
+func fixtureUntil(_ seconds: Double) -> Date { fixtureBound(Date().addingTimeInterval(seconds)) }
 func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     var result: CFTypeRef?
     guard AXUIElementCopyAttributeValue(element, name as CFString, &result) == .success else { return nil }
@@ -158,7 +164,7 @@ func browserTree(_ window: AXUIElement, _ ids: Set<String>, includeContent: Bool
     var queue: [(AXUIElement,Int?,Int)] = [(window,nil,0)]
     var offset = 0
     while offset < queue.count {
-        guard queue.count <= 1024 else { return nil }
+        guard fixtureHasWork(), queue.count <= 1024 else { return nil }
         let (node,parent,depth) = queue[offset]; offset += 1
         guard depth <= 32, let role = string(node,kAXRoleAttribute) else { return nil }
         let index = nodes.count
@@ -214,10 +220,55 @@ func browserDocument(_ window: AXUIElement, _ app: NSRunningApplication) -> Docu
     guard proofs.count == 1 else { return nil }
     return proofs[0]
 }
+func previewChildren(_ node: AXUIElement, maximum: Int, allowSample: Bool = false) -> [AXUIElement]? {
+    var count: CFIndex = 0
+    let counted = AXUIElementGetAttributeValueCount(node,kAXChildrenAttribute as CFString,&count)
+    if counted == .noValue || counted == .attributeUnsupported { return [] }
+    guard counted == .success, count >= 0, allowSample || count <= maximum else { return nil }
+    if count == 0 { return [] }
+    var values: CFArray?
+    guard AXUIElementCopyAttributeValues(node,kAXChildrenAttribute as CFString,0,min(count,maximum),&values) == .success,
+          let children = values as? [AXUIElement] else { return nil }
+    return children
+}
+func previewDocumentRoot(_ window: AXUIElement) -> AXUIElement? {
+    var queue: [(AXUIElement,Int)] = [(window,0)], offset = 0
+    var candidates: [AXUIElement] = []
+    while offset < queue.count {
+        guard queue.count <= 256 else { return nil }
+        let (node,depth) = queue[offset]; offset += 1
+        guard depth <= 16, let role = string(node,kAXRoleAttribute) else { return nil }
+        if role == "AXGroup", string(node,kAXSubroleAttribute) == "AXSharedDocumentContainer" {
+            guard let children = previewChildren(node,maximum:32,allowSample:true), children.contains(where:{ page in
+                guard string(page,kAXRoleAttribute) == "AXPage", let parent = element(page,kAXParentAttribute) else { return false }
+                return CFEqual(parent,node)
+            }) else { return nil }
+            candidates.append(node); continue
+        }
+        if ["AXPage","AXOutline","AXTable","AXList","AXRow","AXCell","AXStaticText","AXImage","AXButton","AXTextField","AXTextArea"].contains(role) { continue }
+        guard let children = previewChildren(node,maximum:64) else { return nil }
+        for child in children { queue.append((child,depth+1)) }
+    }
+    guard candidates.count == 1 else { return nil }
+    return candidates[0]
+}
+func previewNearestScroller(_ root: AXUIElement, _ window: AXUIElement) -> AXUIElement? {
+    var parent = element(root,kAXParentAttribute)
+    for _ in 0..<16 {
+        guard let node = parent, !CFEqual(node,window), let role = string(node,kAXRoleAttribute), !blockedFocus(role,string(node,kAXSubroleAttribute)) else { return nil }
+        if ["AXScrollArea","AXLayoutArea"].contains(role) { return node }
+        parent = element(node,kAXParentAttribute)
+    }
+    return nil
+}
+func previewFocusMember(exactContainer: Bool, reachedContainer: Bool, pageAncestor: Bool, nearestScroller: Bool) -> Bool {
+    exactContainer || (reachedContainer && pageAncestor) || nearestScroller
+}
 func documentEvidence(_ window: AXUIElement, _ app: NSRunningApplication) -> DocumentEvidence? {
     if app.bundleIdentifier == "com.apple.Preview" {
-        guard let document = string(window,kAXDocumentAttribute), let url = pdfURL(document), url.isFileURL else { return nil }
-        return DocumentEvidence(document: url.absoluteString,root: window,viewer: nil)
+        guard let document = string(window,kAXDocumentAttribute), let url = pdfURL(document), url.isFileURL,
+              let root = previewDocumentRoot(window) else { return nil }
+        return DocumentEvidence(document: url.absoluteString,root: root,viewer: nil)
     }
     guard brokerMode, browserBundles.contains(app.bundleIdentifier ?? "") else { return nil }
     return browserDocument(window,app)
@@ -286,7 +337,7 @@ func bound(_ args: [String]) throws -> Target {
     return matches[0]
 }
 func safeContentRole(_ role: String, browser: Bool) -> Bool {
-    (browser ? ["AXWebArea","AXGroup","AXScrollArea","AXLayoutArea","AXStaticText"] : ["AXScrollArea","AXLayoutArea"]).contains(role)
+    (browser ? ["AXWebArea","AXGroup","AXScrollArea","AXLayoutArea","AXStaticText"] : ["AXGroup","AXPage","AXStaticText","AXImage","AXScrollArea","AXLayoutArea"]).contains(role)
 }
 func blockedFocus(_ role: String, _ subrole: String?) -> Bool {
     ["AXTextField","AXTextArea","AXComboBox","AXSearchField","AXSheet","AXDialog"].contains(role) ||
@@ -301,14 +352,20 @@ func focusedPDF(_ target: Target) throws {
           let focused = element(axApp,kAXFocusedUIElementAttribute),
           let role = string(focused,kAXRoleAttribute),
           safeContentRole(role,browser: target.evidence.viewer.map { _ in true } ?? false) else { throw Refusal.foreground }
+    let browser = target.evidence.viewer.map { _ in true } ?? false
+    let ownScroller = !browser && previewNearestScroller(target.evidence.root,target.window).map { CFEqual($0,focused) } == true
     var parent: AXUIElement? = focused
-    var sawRoot = false
-    var sawViewer = target.evidence.viewer.map { _ in false } ?? true
+    var sawRoot = ownScroller, sawPage = false
+    var sawViewer = !browser
     for _ in 0..<40 {
         guard let node = parent, let nodeRole = string(node,kAXRoleAttribute) else { break }
         let subrole = string(node,kAXSubroleAttribute)
         if blockedFocus(nodeRole,subrole) || (attribute(node,"AXEditable") as? Bool) == true { throw Refusal.foreground }
-        if CFEqual(node,target.evidence.root) { sawRoot = true }
+        if nodeRole == "AXPage" { sawPage = true }
+        if CFEqual(node,target.evidence.root) {
+            sawRoot = true
+            if !browser, !previewFocusMember(exactContainer:CFEqual(focused,node),reachedContainer:true,pageAncestor:sawPage,nearestScroller:ownScroller) { throw Refusal.foreground }
+        }
         if let viewer = target.evidence.viewer, CFEqual(node,viewer) { sawViewer = true }
         if CFEqual(node,target.window) {
             guard sawRoot && sawViewer else { throw Refusal.foreground }
@@ -355,6 +412,7 @@ func fixtureObservation(_ target: Target, observed: (([String:Any]) -> Void)? = 
     return SHA256.hash(data:Data(values.sorted().joined(separator:"\n").utf8)).map { String(format:"%02x",$0) }.joined()
 }
 func ownedBrowser(_ executable: URL, _ profile: URL, _ url: URL, newWindow: Bool = true) throws -> Process {
+    guard fixtureHasWork() else { throw Refusal.command }
     let process = Process(); process.executableURL = executable
     process.arguments = ["--user-data-dir="+profile.path,"--no-first-run","--no-default-browser-check","--disable-background-mode","--force-renderer-accessibility"] + (newWindow ? ["--new-window"] : []) + [url.absoluteString]
     process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
@@ -413,7 +471,7 @@ func fixtureDiagnostics(_ owned: Process, _ fixture: URL) -> [String:Any] {
         var records: [[String:Any]] = []
         var queue: [(AXUIElement,Int?,Int)] = [(window,nil,0)]
         var offset = 0
-        while offset < queue.count && offset < 256 {
+        while offset < queue.count && offset < 256 && fixtureHasWork() {
             let (node,parent,depth) = queue[offset]; let index = offset; offset += 1
             var record: [String:Any] = ["index":index,"depth":depth,"role":string(node,kAXRoleAttribute) ?? "unavailable"]
             if let parent = parent { record["parent"] = parent }
@@ -445,13 +503,14 @@ func fixtureDiagnostics(_ owned: Process, _ fixture: URL) -> [String:Any] {
 }
 func fixtureBackoff(_ attempt: Int) -> Double { [0.1,0.2,0.4,0.8][min(max(attempt,0),3)] }
 func fixtureBindingDeadline(_ started: Date, _ ready: Date?) -> Date {
-    min(started.addingTimeInterval(19),ready?.addingTimeInterval(4) ?? started.addingTimeInterval(15))
+    fixtureBound(min(started.addingTimeInterval(36),ready?.addingTimeInterval(6) ?? started.addingTimeInterval(30)))
 }
 func fixtureAXReady(finishedLaunching: Bool, roleCode: AXError, windowsCode: AXError, windows: Int) -> Bool {
     finishedLaunching && roleCode == .success && windowsCode == .success && windows > 0
 }
 func fixtureReadiness(_ owned: Process) -> (Bool,[String:Any]) {
     let started = Date()
+    guard fixtureHasWork() else { return (false,["stage":"fixture-work-deadline"]) }
     var report: [String:Any] = ["running":owned.isRunning,"accessibilityPermission":AXIsProcessTrusted(),"timeoutMilliseconds":750]
     guard owned.isRunning, let app = NSRunningApplication(processIdentifier:owned.processIdentifier) else { report["stage"] = "launch-services-pending"; return (false,report) }
     report["finishedLaunching"] = app.isFinishedLaunching; report["active"] = app.isActive
@@ -503,7 +562,7 @@ func fixtureOwnedDialog(_ target: Target) -> Bool? {
     return nil
 }
 func fixtureEscapeOwnedDialog(_ target: Target) -> Bool {
-    guard fixtureOwnedDialog(target) == true, processBirthMilliseconds(target.pid) == target.launched,
+    guard fixtureHasWork(), fixtureOwnedDialog(target) == true, processBirthMilliseconds(target.pid) == target.launched,
           CGEventSource.flagsState(.hidSystemState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift]).isEmpty,
           !CGEventSource.keyState(.hidSystemState,key:CGKeyCode(kVK_Escape)),
           let down = CGEvent(keyboardEventSource:nil,virtualKey:CGKeyCode(kVK_Escape),keyDown:true),
@@ -514,6 +573,7 @@ func fixtureEscapeOwnedDialog(_ target: Target) -> Bool {
     return true
 }
 func fixtureFocusState(_ target: Target, _ content: AXUIElement) -> [String:Any] {
+    guard fixtureHasWork() else { return ["reason":"fixture-work-deadline"] }
     let application = AXUIElementCreateApplication(target.pid)
     AXUIElementSetMessagingTimeout(application,0.75)
     let focusedWindow = element(application,kAXFocusedWindowAttribute)
@@ -545,7 +605,7 @@ func fixtureContentFocus(_ target: Target) -> [String:Any] {
     }
     let activationAccepted = target.app.activate(options:[.activateIgnoringOtherApps])
     let raiseCode = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
-    let deadline = Date().addingTimeInterval(2)
+    let deadline = fixtureUntil(2)
     var states: [[String:Any]] = [], escaped = false
     repeat {
         let state = fixtureFocusState(target,content)
@@ -567,7 +627,7 @@ func fixtureContentFocus(_ target: Target) -> [String:Any] {
           let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
           processBirthMilliseconds(target.pid) == target.launched else { result["status"] = "FAILED"; result["reason"] = "Owned PDF click geometry or lifetime changed"; return result }
     down.flags = []; up.flags = []; down.postToPid(target.pid); up.postToPid(target.pid)
-    let postClickDeadline = Date().addingTimeInterval(2)
+    let postClickDeadline = fixtureUntil(2)
     var postClickStates: [[String:Any]] = []
     repeat {
         RunLoop.current.run(until:Date().addingTimeInterval(0.1))
@@ -595,6 +655,9 @@ func browserFixtureVerdict(installed: Bool, accessibilityPermission: Bool, proof
     return browserRequiredProofs.allSatisfy { proofs[$0] == "VERIFIED" } ? "VERIFIED" : "FAILED"
 }
 func browserFixture() throws -> Any {
+    let previousDeadline = fixtureWorkDeadline
+    fixtureWorkDeadline = Date().addingTimeInterval(100)
+    defer { fixtureWorkDeadline = previousDeadline }
     var reports: [[String:Any]] = []
     for bundleID in browserBundles {
         var report: [String:Any] = ["browser":bundleID,"osOperationVerified":false]
@@ -647,7 +710,7 @@ func browserFixture() throws -> Any {
             report["contentFocus"] = fixtureContentFocus(target)
             RunLoop.current.run(until:Date().addingTimeInterval(0.1))
             var before = fixtureObservation(target) { report["navigationBaselineObservation"] = $0 }
-            let contentDeadline = Date().addingTimeInterval(3)
+            let contentDeadline = fixtureUntil(4)
             while before == nil && Date() < contentDeadline {
                 RunLoop.current.run(until:Date().addingTimeInterval(0.1)); before = fixtureObservation(target) { report["navigationBaselineObservation"] = $0 }
             }
@@ -656,13 +719,13 @@ func browserFixture() throws -> Any {
                 // A delayed owned alert can settle during content readiness.
                 // Revalidate actual focus without another click/Escape or any
                 // navigation retry; this is the authoritative pre-effect proof.
-                let focusDeadline = Date().addingTimeInterval(2)
+                let focusDeadline = fixtureUntil(2)
                 var focusValidated = false
                 repeat {
                     do { try focusedPDF(target); focusValidated = true; break } catch {}
                     RunLoop.current.run(until:Date().addingTimeInterval(0.1))
                 } while Date() < focusDeadline
-                guard focusValidated else { throw Refusal.foreground }
+                guard focusValidated, fixtureHasWork() else { throw Refusal.foreground }
                 var focus = report["contentFocus"] as? [String:Any] ?? [:]
                 focus["acquisitionStatus"] = focus["status"]
                 if let reason = focus["reason"] { focus["acquisitionReason"] = reason; focus.removeValue(forKey:"reason") }
@@ -670,7 +733,7 @@ func browserFixture() throws -> Any {
                 report["contentFocus"] = focus
                 _ = try run(["step",String(target.number),target.binding,"next",String(Int(Date().timeIntervalSince1970*1000)+2500)])
                 var after: String?
-                let effectDeadline = Date().addingTimeInterval(1)
+                let effectDeadline = fixtureUntil(4)
                 repeat {
                     RunLoop.current.run(until:Date().addingTimeInterval(0.1)); after = fixtureObservation(target) { report["navigationAfterObservation"] = $0 }
                     if let first = before, let last = after, first != last { break }
@@ -682,16 +745,25 @@ func browserFixture() throws -> Any {
             // Focus an editable browser control, not its PDF renderer. The
             // production focus fence must refuse a PageDown in that control.
             if let nodes = browserTree(target.window,viewers(target.app)), let editable = nodes.first(where:{ ["AXTextField","AXComboBox"].contains($0.role) }) {
-                if AXUIElementSetAttributeValue(editable.element,kAXFocusedAttribute as CFString,kCFBooleanTrue) == .success {
-                    if let actual = element(AXUIElementCreateApplication(target.pid),kAXFocusedUIElementAttribute), CFEqual(actual,editable.element) {
-                        do { try focusedPDF(target); report["editableFocusRefusal"] = "FAILED" }
-                        catch { report["editableFocusRefusal"] = "VERIFIED" }
-                    } else { report["editableFocusRefusal"] = "NOT VERIFIED" }
+                let focusSet = AXUIElementSetAttributeValue(editable.element,kAXFocusedAttribute as CFString,kCFBooleanTrue)
+                report["editableFocusSetCode"] = focusSet.rawValue
+                var actualMatches = false
+                if focusSet == .success {
+                    let deadline = fixtureUntil(2)
+                    repeat {
+                        if let actual = element(AXUIElementCreateApplication(target.pid),kAXFocusedUIElementAttribute), CFEqual(actual,editable.element) { actualMatches = true; break }
+                        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+                    } while Date() < deadline
+                }
+                report["editableFocusActualMatches"] = actualMatches
+                if actualMatches {
+                    do { try focusedPDF(target); report["editableFocusRefusal"] = "FAILED" }
+                    catch { report["editableFocusRefusal"] = "VERIFIED" }
                 } else { report["editableFocusRefusal"] = "NOT VERIFIED" }
             }
             let other = try ownedBrowser(executable,profile,pdf,newWindow:false)
             defer { finishOwned(other) }
-            let replacedDeadline = Date().addingTimeInterval(3)
+            let replacedDeadline = fixtureUntil(3)
             var stale = false
             while Date() < replacedDeadline {
                 do { _ = try bound(["status",String(target.number),target.binding]) }
@@ -745,9 +817,9 @@ func run(_ args: [String]) throws -> Any {
               browserFixtureVerdict(installed:false,accessibilityPermission:true,proofs:[:]) == "NOT VERIFIED",
               browserFixtureVerdict(installed:true,accessibilityPermission:false,proofs:completeProofs) == "NOT VERIFIED",
               redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
-              fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 15,
-              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:14)).timeIntervalSince1970 == 18,
-              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:18)).timeIntervalSince1970 == 19,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 30,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:28)).timeIntervalSince1970 == 34,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:35)).timeIntervalSince1970 == 36,
               uniqueModalChild([("AXGroup","AXApplicationAlertDialog")]),
               !uniqueModalChild([("AXGroup",nil)]),
               !uniqueModalChild([("AXGroup","AXApplicationAlertDialog"),("AXGroup","AXApplicationAlertDialog")]),
@@ -755,6 +827,11 @@ func run(_ args: [String]) throws -> Any {
               !modalMetadata("AXTextField",nil), !modalMetadata("AXWindow","AXStandardWindow"),
               fixtureRect(CGRect.null)["available"] as? Bool == false,
               fixtureBackoff(-1) == 0.1, fixtureBackoff(0) == 0.1, fixtureBackoff(1) == 0.2, fixtureBackoff(1000) == 0.8,
+              previewFocusMember(exactContainer:true,reachedContainer:true,pageAncestor:false,nearestScroller:false),
+              previewFocusMember(exactContainer:false,reachedContainer:true,pageAncestor:true,nearestScroller:false),
+              !previewFocusMember(exactContainer:false,reachedContainer:true,pageAncestor:false,nearestScroller:false),
+              !previewFocusMember(exactContainer:false,reachedContainer:false,pageAncestor:true,nearestScroller:false),
+              previewFocusMember(exactContainer:false,reachedContainer:false,pageAncestor:false,nearestScroller:true),
               processBirthSelfTest(), builtinViewerIDs("com.google.Chrome") == [id], builtinViewerIDs("com.microsoft.edgemac") == [id], builtinViewerIDs("com.example.fake").isEmpty,
               !prunePDFContent(role:"AXGroup",url:"file:///tmp/fixture.pdf",originalWebAreaFound:true,ids:[id],includeContent:false),
               prunePDFContent(role:"AXWebArea",url:viewer.url,originalWebAreaFound:true,ids:[id],includeContent:false),
@@ -800,7 +877,7 @@ func run(_ args: [String]) throws -> Any {
     // pair of process-targeted events. There is no foreground stealing here.
     let verified = try bound(args)
     try focusedPDF(verified)
-    guard deadline > Date().timeIntervalSince1970 * 1000, liveOwner() else { throw Refusal.command }
+    guard deadline > Date().timeIntervalSince1970 * 1000, liveOwner(), fixtureHasWork() else { throw Refusal.command }
     let code: CGKeyCode = args[3] == "next" ? 121 : 116
     guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
           let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else { throw Refusal.unavailable }

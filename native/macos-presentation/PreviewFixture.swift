@@ -142,6 +142,33 @@ import Darwin
         result["ok"] = true; result["nodes"] = records; result["boundReached"] = offset < queue.count || records.count == 128
         return result
     }
+    static func pdfContainers(_ nodes: [AXUIElement]) -> [AXUIElement] {
+        nodes.filter { item in
+            guard value(item,kAXRoleAttribute) as? String == "AXGroup",
+                  value(item,kAXSubroleAttribute) as? String == "AXSharedDocumentContainer",
+                  let children = value(item,kAXChildrenAttribute) as? [AXUIElement], !children.isEmpty, children.count <= 256 else { return false }
+            // Observed native Preview PDFKit container: real AXPage children,
+            // distinct from the thumbnail sidebar's AXList/AXImage subtree.
+            return children.allSatisfy { value($0,kAXRoleAttribute) as? String == "AXPage" }
+        }
+    }
+    static func pdfContentFocused(_ current: AXUIElement, _ nodes: [AXUIElement]) -> Bool {
+        guard foregroundWindow() != nil, let app = application(), let focused = node(app,kAXFocusedUIElementAttribute) else { return false }
+        let containers = pdfContainers(nodes)
+        guard containers.count == 1, let container = containers.first else { return false }
+        var sawContainer = false, ancestor: AXUIElement? = focused
+        for _ in 0..<28 {
+            guard let item = ancestor, let role = value(item,kAXRoleAttribute) as? String else { return false }
+            let subrole = value(item,kAXSubroleAttribute) as? String ?? ""
+            if ["AXTextField","AXTextArea","AXComboBox","AXSearchField","AXSheet","AXDialog"].contains(role) ||
+               ["AXDialog","AXSystemDialog","AXApplicationDialog","AXApplicationAlertDialog"].contains(subrole) ||
+               value(item,"AXEditable") as? Bool == true { return false }
+            if CFEqual(item,container) { sawContainer = true }
+            if CFEqual(item,current) { return sawContainer }
+            ancestor = node(item,kAXParentAttribute)
+        }
+        return false
+    }
     static func snapshot() -> [String:Any] {
         guard let current = ownWindow() else { return ["ok":false,"error":"owned-window-not-ready","ownedProcessValid":isOwned()] }
         guard let nodes = tree(current) else { return ["ok":false,"error":"owned-tree-unavailable","tree":lastTreeDiagnostics,"focus":focusDiagnostics(current)] }
@@ -169,7 +196,7 @@ import Darwin
         return ["ok":true,"observations":observations.sorted(),"nodeCount":nodes.count,"roles":roles,
                 "frontmostMatches":NSWorkspace.shared.frontmostApplication?.processIdentifier == owned?.processIdentifier,
                 "focusRole":focused.flatMap { value($0,kAXRoleAttribute) as? String } ?? "unavailable",
-                "focus":focusDiagnostics(current)]
+                "focus":focusDiagnostics(current),"pdfContentFocused":pdfContentFocused(current,nodes)]
     }
     static func foregroundWindow() -> AXUIElement? {
         guard let app = application(), let current = ownWindow(),
@@ -188,9 +215,14 @@ import Darwin
     static func focusContent() -> [String:Any] {
         guard let current = ownWindow() else { return ["ok":false,"error":"owned-window-unavailable"] }
         guard foregroundWindow() != nil, let nodes = tree(current), let pid = owned?.processIdentifier, let outer = frame(current) else { return ["ok":false,"error":"owned-window-not-focused","focus":focusDiagnostics(current)] }
-        // Prefer PDFKit's layout area over its surrounding scroll area; the
-        // sidebar may also expose a scroll area. No production guard is changed.
-        let choices = nodes.filter { ["AXScrollArea","AXLayoutArea"].contains(value($0,kAXRoleAttribute) as? String ?? "") }
+        // Preserve Preview's real initial PDF focus. Focusing its enclosing
+        // scroll area moves AX focus to the window on macOS 26, so do not alter
+        // a proven shared PDF document container that already owns focus.
+        let containers = pdfContainers(nodes)
+        if pdfContentFocused(current,nodes) {
+            return ["ok":true,"method":"preserved-owned-PDF-container-focus","containerCount":containers.count,"focus":focusDiagnostics(current)]
+        }
+        let choices = containers.isEmpty ? nodes.filter { ["AXScrollArea","AXLayoutArea"].contains(value($0,kAXRoleAttribute) as? String ?? "") } : containers
         let content = choices.compactMap { item -> (AXUIElement,CGRect)? in
             guard let bounds = frame(item) else { return nil }; let visible = bounds.intersection(outer)
             return visible.isNull || visible.width < 100 || visible.height < 100 ? nil : (item,visible)
@@ -202,7 +234,7 @@ import Darwin
         guard let (item,bounds) = content else { return ["ok":false,"error":"owned-pdf-content-unavailable","focus":focusDiagnostics(current)] }
         let focusCode = AXUIElementSetAttributeValue(item,kAXFocusedAttribute as CFString,kCFBooleanTrue)
         if let app = application(), let focused = node(app,kAXFocusedUIElementAttribute),
-           CFEqual(focused,item), ["AXScrollArea","AXLayoutArea"].contains(value(focused,kAXRoleAttribute) as? String ?? "") {
+           CFEqual(focused,item), pdfContentFocused(current,nodes) {
             return ["ok":true,"method":"owned-content-AX-focus","selectedContent":metadata(item),"visibleRect":rectMetadata(bounds),"focusSetCode":focusCode.rawValue,"candidateCount":choices.count,"focus":focusDiagnostics(current)]
         }
         // Click in visible content, always process-targeted and birth-checked.

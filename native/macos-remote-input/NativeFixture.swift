@@ -76,17 +76,33 @@ final class FixtureView: NSView {
             let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
             let representation = NSBitmapImageRep(cgImage: image)
             if let path = screenshotPath, let data = representation.representation(using: .png, properties: [:]) { try data.write(to: URL(fileURLWithPath: path)) }
-            let scaleX = Double(image.width) / Double(window.frame.width), scaleY = Double(image.height) / Double(window.frame.height)
-            let names = ["top-left","top-right","bottom-left","bottom-right"]
-            let fiducials = names.enumerated().map { (index, name) -> [String: Any] in
-                let right = index % 2 == 1, bottom = index >= 2
-                let y = Int((bottom ? Double(image.height) - 60 * scaleY : 20 * scaleY).rounded())
-                let pixels = [20.0,44.0].map { offset -> [Int] in [Int((right ? Double(image.width) - (80 - offset) * scaleX : offset * scaleX).rounded()), y] }
-                let samples = pixels.map { pixel -> [Double] in
-                    guard let color = representation.colorAt(x: pixel[0], y: pixel[1])?.usingColorSpace(.sRGB) else { return [] }
-                    return [color.redComponent,color.greenComponent,color.blueComponent]
+            let scaleX: Double = Double(image.width) / Double(window.frame.width)
+            let scaleY: Double = Double(image.height) / Double(window.frame.height)
+            let names: [String] = ["top-left","top-right","bottom-left","bottom-right"]
+            let offsets: [Double] = [20,44]
+            var fiducials: [[String: Any]] = []
+            for index in 0..<names.count {
+                let right: Bool = index % 2 == 1
+                let bottom: Bool = index >= 2
+                var physicalY: Double = 20 * scaleY
+                if bottom { physicalY = Double(image.height) - 60 * scaleY }
+                let pixelY: Int = Int(physicalY.rounded())
+                var pixels: [[Int]] = []
+                var samples: [[Double]] = []
+                for offset in offsets {
+                    var physicalX: Double = offset * scaleX
+                    if right { physicalX = Double(image.width) - (80 - offset) * scaleX }
+                    let pixelX: Int = Int(physicalX.rounded())
+                    pixels.append([pixelX,pixelY])
+                    if let color = representation.colorAt(x: pixelX, y: pixelY)?.usingColorSpace(.sRGB) {
+                        let red: Double = Double(color.redComponent)
+                        let green: Double = Double(color.greenComponent)
+                        let blue: Double = Double(color.blueComponent)
+                        samples.append([red,green,blue])
+                    } else { samples.append([]) }
                 }
-                return ["corner":name,"pixels":pixels,"samples":samples]
+                let marker: [String: Any] = ["corner":names[index],"pixels":pixels,"samples":samples]
+                fiducials.append(marker)
             }
             emit(["id":id,"event":"screenshot","verified":true,"width":image.width,"height":image.height,"sampleColorSpace":"sRGB","markerScheme":"castlink-binary-corners-v1","fiducials":fiducials])
         } catch { emit(["id":id,"event":"screenshot","verified":false,"reason":"capture-failed"]) }

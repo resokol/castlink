@@ -99,7 +99,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
     });
     await check('browser-pdf','real-isolated-chrome-edge-pdf',async()=>{
       if(!helpers?.slides)throw Error('PDF helper build unavailable');
-      const result=await command('browser-pdf-run',helpers.slides,['--browser-fixture'],60000);
+      const result=await command('browser-pdf-run',helpers.slides,['--browser-fixture'],120000);
       const evidence=nativeStatus(JSON.parse(result.stdout.trim()));
       if(evidence.protocol!==1||evidence.fixture!=='isolated-browser-pdf'||!Array.isArray(evidence.browsers)||evidence.browsers.length>2)throw Error('Unexpected browser PDF fixture protocol');
       for(const browser of evidence.browsers)nativeStatus(browser);

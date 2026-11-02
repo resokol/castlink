@@ -82,7 +82,12 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   const ownership=await mountsAtOwnedPoint();
   if(ownership.length!==1||!samePath(ownership[0].image['image-path'],dmg)||ownership[0].entity['dev-entry']!==volumes[0]['dev-entry'])throw Error('DMG image ownership was not verified');
   const disk=await decodePlist(await command('/usr/sbin/diskutil',['info','-plist',mount]));
-  if(!samePath(disk.MountPoint,mount)||disk.DeviceNode!==volumes[0]['dev-entry']||disk.ReadOnlyVolume!==true&&disk.ReadOnlyMedia!==true)throw Error('DMG mount was not verified read-only');
+  const bounded=(value,limit)=>typeof value==='string'?value.replace(/[\x00-\x1f\x7f]/g,'?').slice(0,limit):null;
+  const mountPointMatches=samePath(disk.MountPoint,mount),deviceNodeMatches=disk.DeviceNode===volumes[0]['dev-entry'];
+  // diskutil uses VolumeReadOnly/MediaReadOnly in its plist. Writable alone
+  // describes media capability and does not prove how this volume was mounted.
+  report.ownedDiskProperties={expectedMountPoint:bounded(mount,256),MountPoint:bounded(disk.MountPoint,256),expectedDeviceNode:bounded(volumes[0]['dev-entry'],64),DeviceNode:bounded(disk.DeviceNode,64),mountPointMatches,deviceNodeMatches,flags:Object.fromEntries(['VolumeReadOnly','MediaReadOnly','Writable','WritableVolume','WritableMedia','ReadOnlyVolume','ReadOnlyMedia','Mounted'].map(key=>[key,typeof disk[key]==='boolean'?disk[key]:null]))};
+  if(!mountPointMatches||!deviceNodeMatches||disk.VolumeReadOnly!==true&&disk.MediaReadOnly!==true)throw Error('DMG mount was not verified read-only: '+JSON.stringify(report.ownedDiskProperties));
   report.readOnlyMount='PASS';
   const apps=fs.readdirSync(mount).filter(name=>/\.app$/i.test(name));
   if(apps.length!==1||apps[0]!=='CastLink Client Development.app'||!fs.lstatSync(path.join(mount,apps[0])).isDirectory())throw Error('DMG must contain exactly the expected CastLink application');
