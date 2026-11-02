@@ -35,8 +35,17 @@ function fixture(t,{change,arch='arm64'}={}){
    if(args[0]==='detach'){assert.equal(args[1],mount);assert.equal(args.includes('-force'),false);if(change==='detach')throw Error('volume busy');attached=false;return '';}
   }
   if(command==='/usr/sbin/diskutil'){
-   const flags=change==='legacy-readonly'?{ReadOnlyVolume:true,ReadOnlyMedia:true}:change==='string-readonly'?{VolumeReadOnly:'true',MediaReadOnly:'true'}:{VolumeReadOnly:!['writable','media-only'].includes(change),MediaReadOnly:!['writable','volume-only'].includes(change)};
-   return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:change==='volume-only',VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
+   let flags=change==='legacy-readonly'?{ReadOnlyVolume:true,ReadOnlyMedia:true}:change==='string-readonly'?{VolumeReadOnly:'true',MediaReadOnly:'true'}:{VolumeReadOnly:!['writable','media-only'].includes(change),MediaReadOnly:!['writable','volume-only'].includes(change)};
+   if(change==='actual-3f')flags={WritableVolume:false,WritableMedia:false};
+   if(change==='negative-volume-only')flags={WritableVolume:false};
+   if(change==='negative-media-only')flags={WritableMedia:false};
+   if(change==='missing-negative')flags={};
+   if(change==='string-negative')flags={WritableVolume:'false',WritableMedia:'false'};
+   if(change==='conflicting-volume')flags={WritableVolume:true,WritableMedia:false};
+   if(change==='conflicting-media')flags={WritableVolume:false,WritableMedia:true};
+   if(change==='conflicting-general')flags={Writable:true,WritableVolume:false,WritableMedia:false};
+   if(change==='conflicting-positive')flags={VolumeReadOnly:true,WritableVolume:true};
+   return plist({MountPoint:change==='long-metadata'?'\\'.repeat(3000):change==='wrong-mount'?path.join(root,'other-owned-mount'):mount,DeviceNode:change==='long-metadata'?'"'.repeat(3000):change==='wrong-device'?'/dev/disk99s9':'/dev/disk42s1',Writable:false,VolumeName:'PRIVATE VOLUME LABEL MUST NOT BE LOGGED',SerialNumber:'PRIVATE SERIAL MUST NOT BE LOGGED',...flags});
   }
   if(command==='/usr/bin/plutil'){
    return plist({CFBundleIdentifier:'ru.castlink.client',CFBundleShortVersionString:'1.2.3'});
@@ -86,8 +95,15 @@ test('real diskutil volume-only and media-only read-only flags both establish a 
   assert.equal(result.readOnlyMount,'PASS');assert.equal(result.ownedDiskProperties.flags.VolumeReadOnly,change==='volume-only');assert.equal(result.ownedDiskProperties.flags.MediaReadOnly,change==='media-only');
  }
 });
+test('actual 3f native Writable:false/WritableVolume:false/WritableMedia:false schema proves read-only',async t=>{
+ for(const change of ['actual-3f','negative-volume-only','negative-media-only']){
+  const f=fixture(t,{change}),result=await runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot});
+  assert.equal(result.readOnlyMount,'PASS');assert.equal(result.ownedDiskProperties.flags.Writable,false);assert.equal(result.ownedDiskProperties.flags.VolumeReadOnly,null);assert.equal(result.ownedDiskProperties.flags.MediaReadOnly,null);
+  assert.equal(result.ownedDiskProperties.flags.WritableVolume,change==='negative-media-only'?null:false);assert.equal(result.ownedDiskProperties.flags.WritableMedia,change==='negative-volume-only'?null:false);
+ }
+});
 test('missing/invalid read-only fields or mismatched native identity fail with bounded selected diagnostics',async t=>{
- for(const change of ['legacy-readonly','string-readonly','wrong-device','wrong-mount','writable','long-metadata']){
+ for(const change of ['legacy-readonly','string-readonly','missing-negative','string-negative','conflicting-volume','conflicting-media','conflicting-general','conflicting-positive','wrong-device','wrong-mount','writable','long-metadata']){
   const f=fixture(t,{change});let failure;
   await assert.rejects(runDmgSmoke({artifactDirectory:f.artifactDirectory,expectedArch:'arm64',output:f.output},{run:f.run,smoke:f.smoke,temporaryRoot:f.temporaryRoot}),error=>{failure=error;return /DMG mount was not verified read-only:.*expectedMountPoint/.test(error.message);});
   const evidence=JSON.parse(fs.readFileSync(path.join(path.dirname(f.output),'dmg-install.json')));

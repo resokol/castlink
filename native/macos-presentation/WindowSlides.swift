@@ -561,6 +561,7 @@ func fixtureOwnedDialog(_ target: Target) -> Bool? {
     }
     return nil
 }
+func fixtureEscapeAvailable(_ used: Int) -> Bool { used == 0 }
 func fixtureEscapeOwnedDialog(_ target: Target) -> Bool {
     guard fixtureHasWork(), fixtureOwnedDialog(target) == true, processBirthMilliseconds(target.pid) == target.launched,
           CGEventSource.flagsState(.hidSystemState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift]).isEmpty,
@@ -717,12 +718,25 @@ func browserFixture() throws -> Any {
             report["navigationBaselineAvailable"] = before != nil
             do {
                 // A delayed owned alert can settle during content readiness.
-                // Revalidate actual focus without another click/Escape or any
-                // navigation retry; this is the authoritative pre-effect proof.
-                let focusDeadline = fixtureUntil(2)
+                // Revalidate actual focus before the sole navigation. A late
+                // owned first-run alert may consume the same one-Escape budget
+                // as acquisition; there is never a second navigation effect.
+                let focusHardDeadline = fixtureUntil(4)
+                var focusDeadline = fixtureUntil(2)
                 var focusValidated = false
+                var usedEscapes = (report["contentFocus"] as? [String:Any])?["ownedDialogEscapeCount"] as? Int ?? 0
                 repeat {
                     do { try focusedPDF(target); focusValidated = true; break } catch {}
+                    if fixtureEscapeAvailable(usedEscapes), fixtureEscapeOwnedDialog(target) {
+                        usedEscapes += 1
+                        var recovery = report["contentFocus"] as? [String:Any] ?? [:]
+                        recovery["ownedDialogEscapeCount"] = usedEscapes
+                        recovery["preNavigationOwnedDialogRecovery"] = true
+                        report["contentFocus"] = recovery
+                        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+                        _ = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
+                        focusDeadline = min(focusHardDeadline,fixtureUntil(2))
+                    }
                     RunLoop.current.run(until:Date().addingTimeInterval(0.1))
                 } while Date() < focusDeadline
                 guard focusValidated, fixtureHasWork() else { throw Refusal.foreground }
@@ -731,6 +745,7 @@ func browserFixture() throws -> Any {
                 if let reason = focus["reason"] { focus["acquisitionReason"] = reason; focus.removeValue(forKey:"reason") }
                 focus["status"] = "VERIFIED"; focus["preNavigationFocusGuard"] = "VERIFIED"
                 report["contentFocus"] = focus
+                report["navigationCalls"] = 1
                 _ = try run(["step",String(target.number),target.binding,"next",String(Int(Date().timeIntervalSince1970*1000)+2500)])
                 var after: String?
                 let effectDeadline = fixtureUntil(4)
@@ -820,6 +835,7 @@ func run(_ args: [String]) throws -> Any {
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 30,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:28)).timeIntervalSince1970 == 34,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:35)).timeIntervalSince1970 == 36,
+              fixtureEscapeAvailable(0), !fixtureEscapeAvailable(1), !fixtureEscapeAvailable(2), !fixtureEscapeAvailable(-1),
               uniqueModalChild([("AXGroup","AXApplicationAlertDialog")]),
               !uniqueModalChild([("AXGroup",nil)]),
               !uniqueModalChild([("AXGroup","AXApplicationAlertDialog"),("AXGroup","AXApplicationAlertDialog")]),

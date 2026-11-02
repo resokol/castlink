@@ -175,14 +175,17 @@ when the focused dialog is proven to belong to its own browser PID and AX
 window/ancestry. The observed Intel Chrome AXUnknown alert window with one
 direct AXApplicationAlertDialog child is also recognized when its focused UI
 element is unavailable. The one-Escape budget is shared across activation and
-post-click recovery; it never approves a prompt or sends input to external/system
+post-click recovery and final pre-navigation readiness; it never approves a prompt or sends input to external/system
 prompts. Production focus guards are unchanged. It waits up to four seconds each for a baseline and resulting content
 change in only the retained trusted viewer subtree, with finite node/text/scroll
 observation counts. After that readiness wait it revalidates the unchanged
 production focus guard for at most two seconds before the sole navigation;
 this actual pre-effect check is the focus proof, while initial acquisition
-status/diagnostics are retained. No click, Escape or navigation is repeated
-during this final focus revalidation. The editable-control negative proof waits
+status/diagnostics are retained. No content click or navigation is repeated during final focus revalidation.
+If a proven owned dialog appears late, the same one-Escape total budget can
+cancel it here, followed by exact PDF focus revalidation within a hard four-
+second phase bound. The fixture records one navigation call and never retries
+that call, including after a foreground refusal. The editable-control negative proof waits
 up to two seconds for the exact requested AX field to become focused before
 testing refusal. A shared 100-second browser-fixture work deadline bounds all
 phases; the 120-second orchestration leaves time for owned process cleanup.
