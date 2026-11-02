@@ -69,6 +69,9 @@ function terminateOwnedApplication({executable,appURL,identity}){
 function assertDirectOwnerRefusal(result){
   if(result.timedOut===true||result.exitCode!==4||result.signal!==null||result.stdoutBytes!==0||!/^process-audio-refused:source-launch-services$/m.test(result.stderr))throw Error('Direct-launched source was not refused before native output');
 }
+function assertTonePlayersAlive(children){
+  if(children.length!==3||children.some(child=>child.exitCode!==null||child.signalCode!==null))throw Error('QA tone stopped during capture');
+}
 function rawRefusal(helper,args){
   return new Promise((resolve,reject)=>{
     const child=spawn(helper,args,{shell:false,stdio:['pipe','pipe','pipe']});let stdoutBytes=0,stderr=Buffer.alloc(0),timedOut=false;
@@ -168,7 +171,7 @@ async function run({helper,durationMs=3200,launchMode='launchservices',outsiderL
     await delay(durationMs);capture.stop();
     if(streamError)throw Error('Native audio capture stopped');
     if(metadata.pid!==players[0].pid)throw Error('Wrong native source identity');
-    if(owned.slice(0,3).some(child=>child.exitCode!==null))throw Error('QA tone stopped during capture');
+    assertTonePlayersAlive(owned.slice(0,3));
     const captureEvidence={sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames};
     const playerEvidence=players.map(({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable})=>({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable}));
     const analysis=assessNativeCapture(Buffer.concat(chunks),{launchMode,outsiderLaunchMode,capture:captureEvidence,players:playerEvidence});
@@ -196,7 +199,7 @@ async function run({helper,durationMs=3200,launchMode='launchservices',outsiderL
     fs.rmSync(directory,{recursive:true,force:true});
   }
 }
-module.exports={run,NotVerified,toneReady,toneFileReady,assessNativeCapture,assertDirectOwnerRefusal};
+module.exports={run,NotVerified,toneReady,toneFileReady,assessNativeCapture,assertDirectOwnerRefusal,assertTonePlayersAlive};
 if(require.main===module){
   const args=process.argv.slice(2);
   if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}

@@ -6,3 +6,30 @@ function startFailure(reply,permissions){
  return {status:missing&&permissionFailure?'NOT VERIFIED':'FAILED',reason:reply?.error||reply?.state?.error||'native fixture source did not become ready',...(reply?.diagnostic?{bindingDiagnostic:reply.diagnostic}:{})};
 }
 module.exports={startFailure};
+
+// This is a geometry/crop oracle, not a test of display primary color accuracy.
+// Distinct black/white IDs survive a display profile's primary conversion while
+// preserving the original strict 0.15 per-channel pixel threshold.
+function assertCornerFiducials(capture,{width,height,scale}){
+ const assert=require('node:assert/strict'),threshold=0.15;
+ assert.ok(Number.isFinite(scale)&&scale>0,'invalid backing scale');
+ assert.equal(capture.verified,true,'real ScreenCaptureKit capture unavailable');
+ assert.equal(capture.width,width,'capture backing width differs');assert.equal(capture.height,height,'capture backing height differs');
+ assert.equal(capture.sampleColorSpace,'sRGB','fiducial samples must declare explicit sRGB conversion');
+ assert.equal(capture.markerScheme,'castlink-binary-corners-v1','unknown fiducial scheme');
+ assert.ok(Array.isArray(capture.fiducials)&&capture.fiducials.length===4,'four corner fiducials required');
+ const names=['top-left','top-right','bottom-left','bottom-right'],bits=[[0,0],[0,1],[1,0],[1,1]];
+ for(let corner=0;corner<4;corner++){
+  const marker=capture.fiducials[corner],right=corner%2===1,bottom=corner>=2;
+  assert.equal(marker.corner,names[corner],'corner identity or orientation differs');
+  const y=Math.round(bottom?height-60*scale:20*scale),pixels=[20,44].map(x=>[Math.round(right?width-(80-x)*scale:x*scale),y]);
+  assert.deepEqual(marker.pixels,pixels,names[corner]+' sample coordinates differ from the backing transform');
+  assert.ok(Array.isArray(marker.samples)&&marker.samples.length===2,names[corner]+' needs two measured cells');
+  for(let bit=0;bit<2;bit++){
+   const rgb=marker.samples[bit],expected=bits[corner][bit];
+   assert.ok(Array.isArray(rgb)&&rgb.length===3&&rgb.every(n=>Number.isFinite(n)&&Math.abs(n-expected)<threshold),names[corner]+' cell '+bit+' expected '+(expected?'white':'black')+' within '+threshold+' per channel, measured '+JSON.stringify(rgb));
+  }
+ }
+ return {scheme:capture.markerScheme,comparison:'black-white-per-channel',threshold,corners:names};
+}
+module.exports.assertCornerFiducials=assertCornerFiducials;

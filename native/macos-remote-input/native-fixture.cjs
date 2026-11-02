@@ -3,7 +3,7 @@
 // Run after compiling the helper and fixture; no permissions are changed here.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {spawn,execFileSync}=require('node:child_process');
-const {startFailure}=require('./fixture-policy.cjs');
+const {startFailure,assertCornerFiducials}=require('./fixture-policy.cjs');
 const root=path.resolve(__dirname,'../..');
 const helper=process.argv[2],fixture=process.argv[3],artifact=process.argv[4]||path.join(root,'artifacts/macos-input-native.json');
 const evidence={schemaVersion:1,platform:process.platform,arch:process.arch,status:'NOT VERIFIED',checks:[],physicalHolds:'NOT VERIFIED: requires physical keyboard/mouse',spaces:'NOT VERIFIED: requires interactive Space switching',mixedRetinaDisplays:'NOT VERIFIED: requires multiple displays'};
@@ -46,8 +46,8 @@ function processLines(executable,args=[]){
   const oldRevision=state.geometry.revision;await b.request('move');await delay(150);refresh();assert.ok(state.geometry.revision>oldRevision);assert.equal((await send({type:'key',code:'KeyA',down:true,repeat:false},{geometryRevision:oldRevision})).error,'REMOTE_INPUT_GEOMETRY');seq--;check('window translation invalidates geometry authority');
   await arm();await b.request('occlude');await delay(150);refresh();assert.equal(state.pointerReady,false);const blocked=await send({type:'key',code:'KeyA',down:true,repeat:false});assert.equal(blocked.ok,false);seq--;check('occluded or unfocused window fails closed');
   await b.request('focus');await delay(150);await arm();assert.equal((await send({type:'key',code:'KeyC',down:true,repeat:false})).ok,true);heldKeys=['KeyC'];await b.until(v=>v.event==='keyDown'&&v.keyCode===8);await delay(550);await b.until(v=>v.event==='keyUp'&&v.keyCode===8);heldKeys=[];refresh();assert.equal(state.needsEmptyReset,true);check('independent 500ms receiver watchdog releases held key');
-  const capture=await b.request('capture');assert.equal(capture.verified,true,'real ScreenCaptureKit capture unavailable');assert.equal(capture.width,ready.width);assert.equal(capture.height,ready.height);assert.equal(capture.sampleColorSpace,'sRGB','fixture marker comparison must use explicit sRGB');
-  const expected=[[1,0,0],[0,1,0],[0,0,1],[1,1,0]];assert.ok(capture.samples.every((rgb,i)=>rgb.length===3&&rgb.every((n,c)=>Math.abs(n-expected[i][c])<0.15)),JSON.stringify(capture.samples));check('real ScreenCaptureKit window crop preserves four corner markers and backing extent');
+  const capture=await b.request('capture');evidence.captureFiducials=capture;
+  evidence.captureOracle=assertCornerFiducials(capture,{width:ready.width,height:ready.height,scale:ready.scale});check('real ScreenCaptureKit window crop preserves four distinct binary corner IDs, orientation, sample positions and backing extent');
   await arm();assert.equal((await send({type:'key',code:'KeyE',down:true,repeat:false})).ok,true);await b.until(v=>v.event==='keyDown'&&v.keyCode===14);await a.request('stop');await b.until(v=>v.event==='keyUp'&&v.keyCode===14);check('native stop releases real held key');
   a=processLines(helper);r=await a.request('start',{captureId:'native-fixture',source:{kind:'window',windowId:ready.windowId},video:{width:ready.width,height:ready.height},mapping:{kind:'macos-window'},fullInputPause:true});assert.equal(r.ok,true);state=r.state;seq=0;serial=0;heldKeys=[];heldButtons=[];await arm(true);assert.equal((await send({type:'key',code:'KeyD',down:true,repeat:false})).ok,true);await b.until(v=>v.event==='keyDown'&&v.keyCode===2);a.child.stdin.end();await b.until(v=>v.event==='keyUp'&&v.keyCode===2);check('stdin EOF releases real held key');evidence.status='VERIFIED';
  }catch(error){evidence.status='FAILED';const failed=evidence.nativeTrace?.at(-1);evidence.reason=(failed?JSON.stringify(failed.command)+': ':'')+error.message;if(failed)evidence.failedNativeReply=failed.reply;process.exitCode=1;}

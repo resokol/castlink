@@ -59,3 +59,26 @@ test('native fixture fails on real binding defects instead of calling granted pe
  assert.equal(startFailure({ok:false,error:'REMOTE_INPUT_UNAVAILABLE'},{...granted,screen:false}).status,'NOT VERIFIED');
  assert.equal(startFailure({ok:true,state:{ready:true,pointerReady:true}},granted),null);
 });
+
+test('binary corner fiducials prove orientation and geometry without display primary color assumptions',()=>{
+ const {assertCornerFiducials}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ const capture={verified:true,width:1280,height:960,sampleColorSpace:'sRGB',markerScheme:'castlink-binary-corners-v1',fiducials:[
+  {corner:'top-left',pixels:[[40,40],[88,40]],samples:[[0,0,0],[0,0,0]]},
+  {corner:'top-right',pixels:[[1160,40],[1208,40]],samples:[[0,0,0],[1,1,1]]},
+  {corner:'bottom-left',pixels:[[40,840],[88,840]],samples:[[1,1,1],[0,0,0]]},
+  {corner:'bottom-right',pixels:[[1160,840],[1208,840]],samples:[[1,1,1],[1,1,1]]},
+ ]};
+ assertCornerFiducials(capture,{width:1280,height:960,scale:2});
+ const rejects=change=>{const altered=structuredClone(capture);change(altered);assert.throws(()=>assertCornerFiducials(altered,{width:1280,height:960,scale:2}));};
+ rejects(v=>[v.fiducials[1],v.fiducials[2]]=[v.fiducials[2],v.fiducials[1]]);
+ rejects(v=>v.fiducials.pop());
+ rejects(v=>v.fiducials[1].samples=[[0,0,0],[0,0,0]]);
+ rejects(v=>v.fiducials[0].samples=[[1,1,1],[1,1,1]]);
+ rejects(v=>v.fiducials[0].samples[0]=[0.5,0.5,0.5]);
+ rejects(v=>v.fiducials[0].samples[0]=[0.01684,0.19834,1]);
+ rejects(v=>v.fiducials[0].samples[0]=[0.151,0,0]);
+ rejects(v=>v.fiducials[1].samples[1]=[0.849,1,1]);
+ rejects(v=>v.fiducials[0].pixels[0][0]++);
+ rejects(v=>v.width++);
+ const permitted=structuredClone(capture);permitted.fiducials[0].samples[0]=[0.149,0.149,0.149];permitted.fiducials[1].samples[1]=[0.851,0.851,0.851];assertCornerFiducials(permitted,{width:1280,height:960,scale:2});
+});

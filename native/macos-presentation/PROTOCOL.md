@@ -160,9 +160,13 @@ new owned temporary profile with a generated two-page PDF. Only after verifying 
 viewer ancestry does the fixture focus the inner PDF web area using a bounded
 process-targeted mouse pair. Activation is awaited for at most two seconds,
 with finite frontmost/focused-window/role and content/window/intersection
-geometry diagnostics. The fixture may send one process-targeted Escape only
+geometry diagnostics. After its single content click it awaits focus for at
+most two further seconds before any navigation, without retrying PageDown. The fixture may send one process-targeted Escape only
 when the focused dialog is proven to belong to its own browser PID and AX
-window/ancestry; it never approves a prompt or sends input to external/system
+window/ancestry. The observed Intel Chrome AXUnknown alert window with one
+direct AXApplicationAlertDialog child is also recognized when its focused UI
+element is unavailable. The one-Escape budget is shared across activation and
+post-click recovery; it never approves a prompt or sends input to external/system
 prompts. Production focus guards are unchanged. It waits for a baseline and resulting content
 change without retrying the navigation effect. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text

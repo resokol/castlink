@@ -28,6 +28,9 @@ function injectedRunner(t,{failedCommand}={}){
     if(args[0]===path.join(root,'native/macos-remote-input/native-fixture.cjs')){
       fs.writeFileSync(args[3],JSON.stringify({status:'NOT VERIFIED',reason:'Accessibility permission unavailable',checks:[]}));
     }
+    if(args[0]===path.join(root,'native/macos-presentation/preview-fixture.cjs')){
+      fs.writeFileSync(args[3],JSON.stringify({fixture:'owned-preview-pdf',status:'NOT VERIFIED',reason:'Accessibility permission unavailable',checks:[]}));
+    }
     if(args[0]==='--browser-fixture')return {code:0,signal:null,stdout:JSON.stringify({protocol:1,fixture:'isolated-browser-pdf',status:'NOT VERIFIED',browsers:[{browser:'com.google.Chrome',installed:true,status:'NOT VERIFIED',reason:'Accessibility permission unavailable',osOperationVerified:false},{browser:'com.microsoft.edgemac',installed:false,status:'NOT VERIFIED',reason:'Browser not installed',osOperationVerified:false}]}),stderr:''};
     if(args[0]==='-e')return {code:3,signal:null,stdout:JSON.stringify({status:'NOT VERIFIED',reason:'Screen Recording permission unavailable'}),stderr:''};
     const stdout=args[0]==='--self-test'?JSON.stringify(executable===helpers.audio?{protocol:'CLPA0001',sampleRate:48000,channels:2,maxPacketFrames:4800,processBirthVerified:true}:{protocol:1,selfTest:'passed',osOperationVerified:false}):'fixture-command-completed\n';
@@ -40,11 +43,11 @@ test('injected native runner coordinates every proof and preserves unavailable O
   const summary=await runNativeSmoke({arch:'arm64',root,evidenceDir:f.evidenceDir},f.dependencies);
   assert.equal(summary.status,'NOT VERIFIED');assert.equal(summary.platform,'darwin');assert.equal(summary.arch,'arm64');
   assert.equal(f.builds.length,1);assert.equal(f.builds[0].arch,'arm64');assert.equal(f.builds[0].resourcesPath,path.join(f.evidenceDir,'resources'));
-  assert.deepEqual(summary.checks.map(check=>[check.name,check.status]),[['native-build','VERIFIED'],['audio-protocol','VERIFIED'],['input-core','VERIFIED'],['input-native','NOT VERIFIED'],['powerpoint-identity','VERIFIED'],['window-slides','VERIFIED'],['powerpoint-jxa','VERIFIED'],['browser-pdf','NOT VERIFIED'],['audio-native','NOT VERIFIED'],['interactive-acceptance','NOT VERIFIED']]);
-  const compiles=f.commands.filter(command=>command.executable==='/usr/bin/xcrun');assert.equal(compiles.length,2);
+  assert.deepEqual(summary.checks.map(check=>[check.name,check.status]),[['native-build','VERIFIED'],['audio-protocol','VERIFIED'],['input-core','VERIFIED'],['input-native','NOT VERIFIED'],['powerpoint-identity','VERIFIED'],['window-slides','VERIFIED'],['powerpoint-jxa','VERIFIED'],['browser-pdf','NOT VERIFIED'],['preview-pdf','NOT VERIFIED'],['audio-native','NOT VERIFIED'],['interactive-acceptance','NOT VERIFIED']]);
+  const compiles=f.commands.filter(command=>command.executable==='/usr/bin/xcrun');assert.equal(compiles.length,3);
   assert.ok(compiles.every(command=>command.args.includes('arm64-apple-macos15.0')));
   assert.ok(f.commands.some(command=>command.executable==='/usr/bin/osacompile'&&command.args.includes(path.join(root,'native/macos-presentation/PowerPoint.js'))));
-  assert.equal(f.commands.length,10);assert.ok(f.commands.every(command=>command.options.timeoutMs>0&&command.options.timeoutMs<=180000));
+  assert.equal(f.commands.length,12);assert.ok(f.commands.every(command=>command.options.timeoutMs>0&&command.options.timeoutMs<=180000));
   assert.equal(summary.checks.find(check=>check.name==='powerpoint-jxa').officeLaunched,false);
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.evidenceDir,'native-audio.json'),'utf8')).status,'NOT VERIFIED');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.evidenceDir,'native-smoke.json'),'utf8')),summary);
@@ -54,6 +57,7 @@ test('injected compiler failure remains FAILED while independent proofs still ru
   const summary=await runNativeSmoke({arch:'arm64',root,evidenceDir:f.evidenceDir},f.dependencies);
   assert.equal(summary.status,'FAILED');assert.equal(summary.checks.find(check=>check.name==='input-core').status,'FAILED');
   assert.equal(summary.checks.find(check=>check.name==='input-native').status,'FAILED');assert.equal(summary.checks.find(check=>check.name==='powerpoint-jxa').status,'VERIFIED');
+  assert.equal(summary.checks.find(check=>check.name==='preview-pdf').status,'FAILED');
   assert.equal(fs.readFileSync(path.join(f.evidenceDir,'input-core-compile.stderr.log'),'utf8'),'compiler refusal');
   assert.equal(summary.checks.find(check=>check.name==='audio-native').status,'NOT VERIFIED');
 });

@@ -466,6 +466,7 @@ func fixtureRect(_ value: CGRect?) -> [String:Any] {
 func modalMetadata(_ role: String, _ subrole: String?) -> Bool {
     ["AXSheet","AXDialog"].contains(role) || ["AXDialog","AXSystemDialog","AXApplicationDialog","AXApplicationAlertDialog"].contains(subrole ?? "")
 }
+func uniqueModalChild(_ children: [(String,String?)]) -> Bool { children.filter { modalMetadata($0.0,$0.1) }.count == 1 }
 func fixtureOwnedDialog(_ target: Target) -> Bool? {
     let application = AXUIElementCreateApplication(target.pid)
     AXUIElementSetMessagingTimeout(application,0.75)
@@ -473,8 +474,18 @@ func fixtureOwnedDialog(_ target: Target) -> Bool? {
           let window = element(application,kAXFocusedWindowAttribute),
           let windows = attribute(application,kAXWindowsAttribute) as? [AXUIElement], windows.contains(where:{ CFEqual($0,window) }) else { return nil }
     var windowPID: pid_t = 0
-    guard AXUIElementGetPid(window,&windowPID) == .success, windowPID == target.pid else { return nil }
-    var ancestor = element(application,kAXFocusedUIElementAttribute) ?? window
+    guard AXUIElementGetPid(window,&windowPID) == .success, windowPID == target.pid,
+          let windowRole = string(window,kAXRoleAttribute) else { return nil }
+    if modalMetadata(windowRole,string(window,kAXSubroleAttribute)) { return true }
+    // Intel Chrome's owned alert has AXWindow/AXUnknown with exactly one
+    // AXApplicationAlertDialog child and no focused UI element. That direct
+    // public AX child proves the dialog even when focus ancestry is absent.
+    guard let children = attribute(window,kAXChildrenAttribute) as? [AXUIElement], children.count <= 64 else { return nil }
+    var metadata: [(String,String?)] = []
+    for child in children { guard let role = string(child,kAXRoleAttribute) else { return nil }; metadata.append((role,string(child,kAXSubroleAttribute))) }
+    if uniqueModalChild(metadata) { return true }
+    guard !metadata.contains(where:{ modalMetadata($0.0,$0.1) }),
+          var ancestor = element(application,kAXFocusedUIElementAttribute) else { return nil }
     var modal = false
     for _ in 0..<32 {
         guard let role = string(ancestor,kAXRoleAttribute) else { return nil }
@@ -506,6 +517,7 @@ func fixtureFocusState(_ target: Target, _ content: AXUIElement) -> [String:Any]
         "active":target.app.isActive,"focusedWindowReadable":focusedWindow != nil,
         "focusedWindowMatches":focusedWindow.map { CFEqual($0,target.window) } ?? false,
         "focusedElementReadable":focused != nil,"contentRect":fixtureRect(contentBounds),"windowRect":fixtureRect(windowBounds)]
+    if let window = focusedWindow { report["focusedWindowRole"] = string(window,kAXRoleAttribute) ?? "unavailable"; report["focusedWindowSubrole"] = string(window,kAXSubroleAttribute) ?? "none"; report["focusedWindowRect"] = fixtureRect(rect(window)) }
     if let focused = focused { report["focusedElementRole"] = string(focused,kAXRoleAttribute) ?? "unavailable"; report["focusedElementSubrole"] = string(focused,kAXSubroleAttribute) ?? "none" }
     if let dialog = fixtureOwnedDialog(target) { report["ownedDialogFocused"] = dialog }
     else { report["ownedDialogMetadata"] = "unavailable" }
@@ -549,10 +561,26 @@ func fixtureContentFocus(_ target: Target) -> [String:Any] {
           let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
           processBirthMilliseconds(target.pid) == target.launched else { result["status"] = "FAILED"; result["reason"] = "Owned PDF click geometry or lifetime changed"; return result }
     down.flags = []; up.flags = []; down.postToPid(target.pid); up.postToPid(target.pid)
-    RunLoop.current.run(until:Date().addingTimeInterval(0.15))
-    result["afterClick"] = fixtureFocusState(target,content)
-    do { try focusedPDF(target); result["status"] = "VERIFIED"; result["method"] = "owned-process-pdf-content-click" }
-    catch { result["status"] = "NOT VERIFIED"; result["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+    let postClickDeadline = Date().addingTimeInterval(2)
+    var postClickStates: [[String:Any]] = []
+    repeat {
+        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+        let state = fixtureFocusState(target,content)
+        if postClickStates.count == 12 { postClickStates.removeFirst() }; postClickStates.append(state)
+        do {
+            try focusedPDF(target)
+            result["status"] = "VERIFIED"; result["method"] = "owned-process-pdf-content-click"; result.removeValue(forKey:"reason")
+            break
+        } catch { result["status"] = "NOT VERIFIED"; result["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+        if !escaped, fixtureEscapeOwnedDialog(target) {
+            escaped = true
+            RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+            _ = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
+        }
+    } while Date() < postClickDeadline
+    result["afterClick"] = postClickStates.last ?? [:]
+    result["postClickStates"] = postClickStates
+    result["ownedDialogEscapeCount"] = escaped ? 1 : 0
     return result
 }
 func browserFixture() throws -> Any {
@@ -669,6 +697,9 @@ func run(_ args: [String]) throws -> Any {
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 15,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:14)).timeIntervalSince1970 == 18,
               fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:18)).timeIntervalSince1970 == 19,
+              uniqueModalChild([("AXGroup","AXApplicationAlertDialog")]),
+              !uniqueModalChild([("AXGroup",nil)]),
+              !uniqueModalChild([("AXGroup","AXApplicationAlertDialog"),("AXGroup","AXApplicationAlertDialog")]),
               modalMetadata("AXGroup","AXApplicationAlertDialog"), modalMetadata("AXSheet",nil),
               !modalMetadata("AXTextField",nil), !modalMetadata("AXWindow","AXStandardWindow"),
               fixtureRect(CGRect.null)["available"] as? Bool == false,

@@ -158,3 +158,15 @@ test('direct-owner proof requires the exact native refusal, exit4 and zero stdou
   assert.doesNotThrow(()=>assertDirectOwnerRefusal(correct));
   for(const mutation of [{exitCode:0},{stdoutBytes:24},{stderr:'process-audio-refused:source\n'},{signal:'SIGKILL',exitCode:null},{timedOut:true}])assert.throws(()=>assertDirectOwnerRefusal({...correct,...mutation}),/Direct-launched source was not refused/);
 });
+test('signal-terminated tone cannot count as a live isolation competitor',{timeout:5000},async t=>{
+  const {spawn}=require('node:child_process'),{once}=require('node:events');
+  const {assertTonePlayersAlive}=require('../../../native/macos-process-audio/smoke.cjs');
+  const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+  t.after(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');});
+  await once(child,'spawn');
+  const players=[child,{exitCode:null,signalCode:null},{exitCode:null,signalCode:null}];
+  assert.doesNotThrow(()=>assertTonePlayersAlive(players));
+  const closed=once(child,'close');child.kill('SIGTERM');await closed;
+  assert.equal(child.exitCode,null);assert.equal(child.signalCode,'SIGTERM');
+  assert.throws(()=>assertTonePlayersAlive(players),/QA tone stopped during capture/);
+});

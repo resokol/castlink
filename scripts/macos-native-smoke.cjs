@@ -101,6 +101,17 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
       if(result.code!==0||evidence.status==='FAILED')throw Object.assign(Error('Browser PDF fixture failed; see native-browser-pdf.json and browser-pdf-run logs'),{evidence});
       return {...evidence,artifact:'native-browser-pdf.json',osOperationVerified:evidence.browsers.some(browser=>browser.osOperationVerified===true)};
     });
+    await check('preview-pdf','real-owned-system-preview-pdf',async()=>{
+      if(!helpers?.slides)throw Error('PDF helper build unavailable');
+      const fixture=path.join(evidenceDir,'PreviewNativeFixture');
+      await compile('preview-fixture-compile',['macos-common/ProcessBirth.swift','macos-presentation/PreviewFixture.swift'],fixture);
+      const artifact=path.join(evidenceDir,'native-preview-pdf.json');
+      const result=await command('preview-pdf-run',process.execPath,[path.join(root,'native/macos-presentation/preview-fixture.cjs'),helpers.slides,fixture,artifact],110000);
+      const evidence=nativeStatus(readJsonFile(artifact));
+      if(evidence.fixture!=='owned-preview-pdf')throw Error('Unexpected Preview fixture identity');
+      if(result.code!==0||evidence.status==='FAILED')throw Object.assign(Error('Preview PDF fixture failed; see native-preview-pdf.json and preview-pdf-run logs'),{evidence});
+      return {...evidence,artifact:'native-preview-pdf.json'};
+    });
     await check('audio-native','real-application-audio-spectral-isolation',async()=>{
       if(!helpers?.audio)throw Error('Audio helper build unavailable');
       // A child process bounds the API and its owned tone/helper process group.

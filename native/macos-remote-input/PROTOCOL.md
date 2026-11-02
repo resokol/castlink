@@ -90,7 +90,11 @@ opens its own distinct synthetic app window, binds only that CGWindowID and send
 actual CGEvents after an explicit fixture grant. It measures received key/text and
 pointer events, revoke key-up, replay denial, foreground/occlusion, geometry revision
 and receiver timeout. It captures that real window using ScreenCaptureKit and
-checks four colored corner markers plus the real backing extent, saving a PNG.
+checks four distinct two-bit black/white corner fiducials (00/01/10/11), their
+orientation and exact backing-pixel sample positions plus the real backing extent,
+saving a PNG. Each RGB channel must remain within the same strict 0.15 threshold
+of black or white. Colorful corner quads remain visual; the fixture tests
+crop/geometry and makes no display primary color-accuracy claim.
 Missing permission or GUI/window identity is `NOT VERIFIED`, never a successful
 OS input claim. `CASTLINK_REQUIRE_NATIVE_INPUT=1` makes unavailable permission fail.
 The native fixture never grants TCC, changes other apps, or uses PowerPoint.

@@ -21,7 +21,16 @@ final class FixtureView: NSView {
             NSColor(srgbRed: 1, green: 1, blue: 0, alpha: 1)
         ]
         let positions = [NSPoint(x: 0, y: 0), NSPoint(x: bounds.width - 80, y: 0), NSPoint(x: 0, y: bounds.height - 80), NSPoint(x: bounds.width - 80, y: bounds.height - 80)]
-        for (index, point) in positions.enumerated() { colors[index].setFill(); NSRect(origin: point, size: NSSize(width: 80, height: 80)).fill() }
+        for (index, point) in positions.enumerated() {
+            colors[index].setFill(); NSRect(origin: point, size: NSSize(width: 80, height: 80)).fill()
+            // Unique two-bit corner IDs: 00, 01, 10, 11. Black/white endpoints
+            // establish geometry without assuming a display's primary conversion.
+            for cell in 0..<2 {
+                let level: CGFloat = ((index >> (1 - cell)) & 1) == 0 ? 0 : 1
+                NSColor(srgbRed: level, green: level, blue: level, alpha: 1).setFill()
+                NSRect(x: point.x + CGFloat(cell == 0 ? 12 : 36), y: point.y + 12, width: 16, height: 16).fill()
+            }
+        }
     }
     private func emit(_ kind: String, _ event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -67,11 +76,19 @@ final class FixtureView: NSView {
             let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
             let representation = NSBitmapImageRep(cgImage: image)
             if let path = screenshotPath, let data = representation.representation(using: .png, properties: [:]) { try data.write(to: URL(fileURLWithPath: path)) }
-            let positions = [(20,20),(image.width-20,20),(20,image.height-20),(image.width-20,image.height-20)]
-            let samples = positions.map { (x,y) -> [Double] in
-                guard let color = representation.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return [] }; return [color.redComponent,color.greenComponent,color.blueComponent]
+            let scaleX = Double(image.width) / Double(window.frame.width), scaleY = Double(image.height) / Double(window.frame.height)
+            let names = ["top-left","top-right","bottom-left","bottom-right"]
+            let fiducials = names.enumerated().map { (index, name) -> [String: Any] in
+                let right = index % 2 == 1, bottom = index >= 2
+                let y = Int((bottom ? Double(image.height) - 60 * scaleY : 20 * scaleY).rounded())
+                let pixels = [20.0,44.0].map { offset -> [Int] in [Int((right ? Double(image.width) - (80 - offset) * scaleX : offset * scaleX).rounded()), y] }
+                let samples = pixels.map { pixel -> [Double] in
+                    guard let color = representation.colorAt(x: pixel[0], y: pixel[1])?.usingColorSpace(.sRGB) else { return [] }
+                    return [color.redComponent,color.greenComponent,color.blueComponent]
+                }
+                return ["corner":name,"pixels":pixels,"samples":samples]
             }
-            emit(["id":id,"event":"screenshot","verified":true,"width":image.width,"height":image.height,"sampleColorSpace":"sRGB","samples":samples])
+            emit(["id":id,"event":"screenshot","verified":true,"width":image.width,"height":image.height,"sampleColorSpace":"sRGB","markerScheme":"castlink-binary-corners-v1","fiducials":fiducials])
         } catch { emit(["id":id,"event":"screenshot","verified":false,"reason":"capture-failed"]) }
     }
     static func main() {
