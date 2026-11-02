@@ -4,7 +4,7 @@ const {execFileSync}=require('node:child_process');
 const {resolveTrack,assertSource}=require('./release-track.cjs');
 const sha256=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const CANONICAL_RELEASE_REPOSITORY='resokol/castlink';
-// Immutable package metadata keeps the legacy updater URL alias across the repository rename.
+// New builds use canonical metadata; existing published packages remain immutable.
 function releaseDestination(choice='primary'){
   if(choice==='primary')return CANONICAL_RELEASE_REPOSITORY;
   throw Error('Unsupported release destination; only the canonical CastLink repository is allowed');
@@ -83,8 +83,8 @@ function publish(track,directory){
     gh(['api',`https://uploads.github.com/repos/${destination}/releases/${releaseId}/assets?name=${encodeURIComponent(file.name)}`,'--method','POST','-H','Content-Type: application/octet-stream','--input',file.file]);
   }
   verifyUploaded(readDraft(),info,files);
-  // Global /latest remains the legacy combined channel. Consumers select a track.
-  const published=gh(['api',endpoint,'--method','PATCH','-F','draft=false','-f','make_latest=false','-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
+  // GitHub Latest follows Linux; product update consumers still select their own track.
+  const published=gh(['api',endpoint,'--method','PATCH','-F','draft=false','-f','make_latest='+(track==='linux'?'true':'false'),'-f',`body=${fs.readFileSync(notesFile,'utf8')}`],true);
   if(published.id!==releaseId||published.tag_name!==info.tag||published.draft!==false)throw Error('Release publication was not confirmed');
   console.log(`Published ${info.track}: https://github.com/${destination}/releases/tag/${info.tag}`);
 }

@@ -91,5 +91,15 @@ const originalInterval=global.setInterval,originalClear=global.clearInterval;glo
  calls.length=0;requests.length=0;let resolveLateStart;const originalFetch=global.fetch;
  global.fetch=async(url,options={})=>options.method==='POST'&&JSON.parse(options.body||'{}').target?new Promise(resolve=>{resolveLateStart=()=>resolve({ok:true,json:async()=>({sessionId:'late-server-session',token:'private-token'})});}):originalFetch(url,options);
  const lateStaff=renderer(TalkbackControls);tree=lateStaff.render(props);nodes(tree).find(node=>node.type==='select'&&node.props['aria-label']==='Кому говорить').props.onChange({target:{value:'guest-selected'}});tree=lateStaff.render(props);nodes(tree).find(node=>node.type==='button'&&node.props.children==='Говорить приватно').props.onClick();await settle();lateStaff.unmount();resolveLateStart();await settle();assert.ok(requests.some(req=>req.method==='DELETE'&&req.body.sessionId==='late-server-session'),'late staff start ACK is parsed and its exact server session is deleted');assert.equal(calls.some(c=>c[0]==='capture'),false);global.fetch=originalFetch;
+ // The parent connector can stop telemetry while asynchronous private cleanup is still running.
+ const http=require('../lib/session-http-bearer'),epoch=Math.floor(Date.now()/1000);
+ const httpJwt=exp=>'header.'+Buffer.from(JSON.stringify({iss:'test',sub:'guest-cleanup',exp,video:{room:'qa'},metadata:JSON.stringify({role:'guest',studioId:'studio'})})).toString('base64url')+'.signature';
+ const oldHttp=httpJwt(epoch-60),newHttp=httpJwt(epoch+7200),telemetryOwner=http.retainSessionHttpBearer(oldHttp);
+ requests.length=0;active=true;const terminal=renderer(GuestPrivateTalkback);terminal.render({...guestProps,token:oldHttp});await settle();
+ const terminalRoom=rooms.at(-1);let finishDisconnect;terminalRoom.disconnect=async()=>{await new Promise(resolve=>finishDisconnect=resolve);terminalRoom.state='disconnected';};
+ telemetryOwner.update(newHttp);terminal.unmount();await settle();assert.equal(typeof finishDisconnect,'function');
+ telemetryOwner.release();assert.equal(http.sessionHttpBearer(oldHttp),newHttp,'async private cleanup retains fresh auth after parent telemetry stops');
+ finishDisconnect();await settle();assert.equal(requests.findLast(req=>req.method==='DELETE').headers.authorization,'Bearer '+newHttp,'terminal DELETE uses fresh auth across awaited reply/disconnect');
+ assert.equal(http.sessionHttpBearer(oldHttp),oldHttp,'private cleanup releases its final credential owner');
  console.log('PRIVATE_TALKBACK_CONTROLS_PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{global.setInterval=originalInterval;global.clearInterval=originalClear;});

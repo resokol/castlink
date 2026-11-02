@@ -61,7 +61,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
    }else assert.deepEqual(bytes,await fs.readFile(name),name+' exact source documentation');
    assert.deepEqual(readZip(path.join(output,'CastLink-Windows.zip'),name),bytes,name+' same documentation in both archives');
   }
-  assert.equal(release.distributionRepository,'resokol/castlink-releases');
+  assert.equal(release.distributionRepository,'resokol/castlink');
   assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/simple-easy-setup-release.json').toString('utf8').trim(),(await fs.readFile('scripts/simple-easy-setup-release.json','utf8')).trim());
   assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'LICENSE').toString('utf8'),await fs.readFile('LICENSE','utf8'));
   assert.equal(execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),'LICENSE'],{encoding:'utf8'}),await fs.readFile('LICENSE','utf8'));

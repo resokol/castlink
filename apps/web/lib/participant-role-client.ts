@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 export type ParticipantStaffRole = 'admin' | 'moderator';
 export type ParticipantRoleOffer = { id: string; role: ParticipantStaffRole; expiresAt: number };
 export function parseParticipantRoleOffer(value: unknown, now = Date.now()): ParticipantRoleOffer | undefined {
@@ -8,7 +9,7 @@ export function parseParticipantRoleOffer(value: unknown, now = Date.now()): Par
 export async function acceptParticipantRoleOffer({ token, studioId, roomName, offer, origin }: {
   token: string; studioId: string; roomName: string; offer: ParticipantRoleOffer; origin: string;
 }) {
-  const response = await fetch('/api/participant-role', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'accept', studioId, room: roomName, id: offer.id }), credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
+  const response = await fetch('/api/participant-role', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify({ action: 'accept', studioId, room: roomName, id: offer.id }), credentials: 'same-origin', signal: AbortSignal.timeout(10000) });
   const data = await response.json();
   if (!response.ok || data.allowed !== true) throw new Error(data.error || 'Не удалось принять назначение.');
   let panel: URL;

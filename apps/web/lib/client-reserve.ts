@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { parseTransferOrigin } from "./transfer-origin";
 import { isTransferRole, type TransferRole } from "./client-transfer";
 
@@ -74,7 +75,7 @@ export class ReserveClient {
     const requestedAt = this.now();
     const response = await this.request(action === "session" ? `/api/server-reserve?${query}` : "/api/server-reserve", {
       method: action === "session" ? "GET" : "POST", cache: "no-store", signal: AbortSignal.timeout(8000),
-      headers: { authorization: `Bearer ${this.options.token}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${sessionHttpBearer(this.options.token)}`, "content-type": "application/json" },
       ...(action === "session" ? {} : { body: JSON.stringify({ action, studioId: this.options.studioId, room: this.options.room, clientId: this.options.clientId, targetId, ...(action === "automation" ? { enabled } : {}) }) }),
     });
     const responseAt = this.now();
@@ -293,7 +294,7 @@ export class ReserveClient {
       let response: Response | undefined;
       try {
         const query = new URLSearchParams({ action: "health", studioId: this.options.studioId, room: this.options.room });
-        response = await this.request(`/api/server-reserve?${query}`, { cache: "no-store", headers: { authorization: `Bearer ${this.options.token}` }, signal: AbortSignal.timeout(3000) });
+        response = await this.request(`/api/server-reserve?${query}`, { cache: "no-store", headers: { authorization: `Bearer ${sessionHttpBearer(this.options.token)}` }, signal: AbortSignal.timeout(3000) });
       } catch (error) {
         // Browsers hide TLS and transport details behind TypeError. This is only
         // a candidate: the target must independently classify and confirm it.

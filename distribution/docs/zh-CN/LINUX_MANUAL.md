@@ -4,7 +4,7 @@
 
 通过 SSH 终端选择[开箱即用](#out-of-box)或[高级模式](#advanced)，无需 Windows 向导。本指南使用声明支持 `network-modes-v1` 和 `linux-compose-v1` 的官方软件包；文档更新不会为旧软件包增加功能。[安装概览](INSTALL.md) · [用户指南](../../README.md) · [发行版本](https://github.com/resokol/castlink/releases)。
 
-下方新的交互步骤适用于 CLI **1.0.0-rc.8**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用新的 rc.8 CLI。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
+下方新的交互步骤适用于 CLI **1.0.0-rc.9**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用新的 rc.9 CLI。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
 
 ## 准备主机并验证软件包
 
@@ -21,14 +21,14 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.0-rc.8**，源提交为 `d703726cd50b`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.0-rc.9**，源提交为 `7ff7880b402f`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
 
 发行版文件在 [resokol/castlink](https://github.com/resokol/castlink/releases) 公开提供，下载无需登录。以下示例使用 `curl` 和准确的 Linux 标签。旧版内嵌的 `castlink-releases` 链接会重定向到同一个仓库。
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.8-d703726cd50b'
+RELEASE_TAG='linux-v1.0.0-rc.9-7ff7880b402f'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"

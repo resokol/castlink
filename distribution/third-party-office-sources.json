@@ -553,6 +553,10 @@
       "version": "3.0.22-1~deb12u1"
     },
     {
+      "source": "openssl",
+      "version": "3.0.22-1~deb12u2"
+    },
+    {
       "source": "orc",
       "version": "1:0.4.33-2"
     },
@@ -2712,6 +2716,20 @@
       "sha256": "b0cc4a379a7731c3a74c349f6756d85253d83099fd63352cf12407bce4395d19",
       "size": 931,
       "component": "openssl 3.0.22-1~deb12u1"
+    },
+    {
+      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22-1~deb12u2.debian.tar.xz",
+      "path": "debian/openssl_3.0.22-1~deb12u2.debian.tar.xz",
+      "sha256": "48971306c5df8124daea7f2bd0de2be7d711e18f2f53711c11327293732e42aa",
+      "size": 72104,
+      "component": "openssl 3.0.22-1~deb12u2"
+    },
+    {
+      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22-1~deb12u2.dsc",
+      "path": "debian/openssl_3.0.22-1~deb12u2.dsc",
+      "sha256": "7c45299a4363febec120676393d4314841c7c50da244a6e6a256f072d632d337",
+      "size": 2742,
+      "component": "openssl 3.0.22-1~deb12u2"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/o/orc/orc_0.4.33-2.debian.tar.xz",

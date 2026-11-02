@@ -21,6 +21,7 @@ Module._load = function(name, ...args) {
   if (name === '@/components/LanguageSwitcher') return loadTs(path.join(__dirname, '../components/LanguageSwitcher.tsx'));
   if (name === './BrandIcon' || name === '@/components/BrandIcon') return loadTs(path.join(__dirname, '../components/BrandIcon.tsx'));
   if (name === '@/lib/i18n' || name.startsWith('@/lib/i18n/')) return loadTs(path.join(__dirname, '..', name.slice(2)) + '.ts');
+  if (name.endsWith('/session-http-bearer')) return loadTs(path.join(__dirname, '../lib/session-http-bearer.ts'));
   if (name === '@/lib/app-update') return loadTs(path.join(__dirname, '../lib/app-update.ts'));
   return original.call(this, name, ...args);
 };

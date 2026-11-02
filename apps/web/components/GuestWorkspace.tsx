@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 import { ownRemotePcSession, stopOwnedRemotePc } from '@/lib/remote-pc-client';
 import { resolveRemotePcScreen } from '@/lib/remote-pc-sources';
 import { remotePcSnapshot } from '@/lib/remote-pc-client';
@@ -289,7 +291,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     const poll = async () => {
       if (!identity || !confirmedName || !token || !choices) return;
       try {
-        const r = await fetch(`/api/guest-command?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
+        const r = await fetch(`/api/guest-command?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&identity=${encodeURIComponent(identity)}`, { cache: "no-store", headers: { authorization: `Bearer ${sessionHttpBearer(token)}` }, signal: AbortSignal.timeout(5000) });
         if (r.ok) {
           const data = await r.json();
           if (data?.targetRoom && data.targetRoom !== roomName) {

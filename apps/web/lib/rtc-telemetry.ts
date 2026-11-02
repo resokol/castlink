@@ -1,5 +1,6 @@
 "use client";
 
+import { retainSessionHttpBearer } from "./session-http-bearer";
 import { readTrackStats } from "./media-stats";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track } from "livekit-client";
@@ -23,6 +24,7 @@ export function rateDelta(previous: Counter | undefined, next: Counter) {
 
 export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }, viewAccess = "", playbackDiagnostic?: () => AudioPlaybackDiagnostic | undefined) {
   const scope = telemetryContext(initialToken, roomName);
+  const httpBearer = retainSessionHttpBearer(initialToken);
   const session = crypto.randomUUID();
   const started = Date.now();
   const previous = new Map<string, Counter>();
@@ -61,7 +63,10 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
           authorization: `Bearer ${token}`,
           ...(viewAccess ? { "x-castlink-view-access": viewAccess } : {}),
         }, cache: "no-store" });
-        if (response.ok) { token = (await response.json()).token; tokenAt = Date.now(); }
+        if (response.ok && !stopped) {
+          const next = (await response.json()).token;
+          if (!stopped && typeof next === "string" && httpBearer.update(next)) { token = next; tokenAt = Date.now(); }
+        }
       }
       const streams: StreamStat[] = [];
       const seen = new Set<string>();
@@ -130,6 +135,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   void collect();
   return () => {
     stopped = true;
+    httpBearer.release();
     if (timer) clearTimeout(timer);
     room.off(RoomEvent.Reconnecting, onReconnect);
     room.off(RoomEvent.SignalReconnecting, onReconnect);

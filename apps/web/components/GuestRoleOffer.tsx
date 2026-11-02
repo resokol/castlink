@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { translateWorkspaceMessage } from '@/lib/i18n/workspaces';
@@ -40,7 +42,7 @@ export function GuestRoleOffer({ studioId, roomName, identity, token, connected,
       polling = true;
       try {
         const query = new URLSearchParams({ studioId, room: roomName, identity });
-        const response = await fetch(`/api/participant-role?${query}`, { headers: { authorization: `Bearer ${token}` }, cache: 'no-store', signal: abort.signal });
+        const response = await fetch(`/api/participant-role?${query}`, { headers: { authorization: `Bearer ${sessionHttpBearer(token)}` }, cache: 'no-store', signal: abort.signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Не удалось проверить назначение роли.');
         if (generation.current !== attempt || abort.signal.aborted || acceptedPathRef.current) return;
@@ -76,7 +78,7 @@ export function GuestRoleOffer({ studioId, roomName, identity, token, connected,
     const current = offer, attempt = generation.current;
     inFlight.current = true; setBusy(true); setError('');
     try {
-      const response = await fetch('/api/participant-role', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'decline', studioId, room: roomName, id: current.id }), signal: AbortSignal.timeout(10000) });
+      const response = await fetch('/api/participant-role', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify({ action: 'decline', studioId, room: roomName, id: current.id }), signal: AbortSignal.timeout(10000) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Не удалось отклонить назначение.');
       consumed.current.add(current.id);
       if (generation.current === attempt) setOffer(undefined);

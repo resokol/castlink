@@ -271,11 +271,15 @@ function Find-SimpleServerSetupRelease([string]$Repository,[hashtable]$Headers) 
   }
   if($best){return $best}
 }
+function Test-SimpleReleaseRepository([string]$Actual,[string]$Repository) {
+  if($Repository -cin @('resokol/castlink','resokol/castlink-releases')){return $Actual -cin @('resokol/castlink','resokol/castlink-releases')}
+  return $Actual -ceq $Repository
+}
 function Test-SimpleBundledRelease([string]$Root,[string]$Tag,[string]$Repository) {
   try {
     $path=Join-Path $Root 'payload/release.json'
     $r=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
-    if($r.schemaVersion -ne 1 -or -not(Test-SimpleReleaseTag $r $Tag) -or $r.distributionRepository -cne $Repository -or $r.imageArchive -cne 'images.tar.gz' -or $r.imageArchiveSha256 -cnotmatch '^[a-f0-9]{64}$'){return $false}
+    if($r.schemaVersion -ne 1 -or -not(Test-SimpleReleaseTag $r $Tag) -or -not(Test-SimpleReleaseRepository $r.distributionRepository $Repository) -or $r.imageArchive -cne 'images.tar.gz' -or $r.imageArchiveSha256 -cnotmatch '^[a-f0-9]{64}$'){return $false}
     if((Get-FileHash -LiteralPath (Join-Path $Root 'payload/images.tar.gz') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $r.imageArchiveSha256){return $false}
     $names=@($r.bundleFiles.PSObject.Properties)
     if(-not $names.Count -or -not $r.bundleFiles.PSObject.Properties['scripts/windows-simple-easy-setup.ps1']){return $false}
@@ -355,7 +359,7 @@ function Get-SimpleCurrentRelease([string]$Folder,[switch]$CheckInstalled) {
     Expand-Archive -LiteralPath $zip -DestinationPath $payload -Force
   }
   $metadata=Get-Content -LiteralPath (Join-Path $payload 'payload/release.json') -Encoding UTF8 -Raw|ConvertFrom-Json
-  if(-not(Test-SimpleReleaseTag $metadata $tag) -or $metadata.distributionRepository -cne $repository){throw 'Источник загруженного пакета не совпал с выбранным выпуском.'}
+  if(-not(Test-SimpleReleaseTag $metadata $tag) -or -not(Test-SimpleReleaseRepository $metadata.distributionRepository $repository)){throw 'Источник загруженного пакета не совпал с выбранным выпуском.'}
   if($CheckInstalled -and $installed){Assert-SimpleReleaseNotOlder $installed ([string]$metadata.version)}
   $console=@'
 @echo off

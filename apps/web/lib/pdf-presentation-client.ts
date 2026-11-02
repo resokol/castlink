@@ -1,7 +1,8 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { acceptPresentationCommand, type PresentationDirection, type PresentationResult, type PresentationStatus } from './presentation-control';
 
 export async function presentationRequest<T = Record<string, unknown>>(token: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
-  const response = await fetch('/api/presentation-control', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: signal || AbortSignal.timeout(5000), cache: 'no-store' });
+  const response = await fetch('/api/presentation-control', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify(body), signal: signal || AbortSignal.timeout(5000), cache: 'no-store' });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Не удалось изменить управление презентацией.');
   return data as T;

@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 import { BrandIcon } from "./BrandIcon";
 import { StaffChatPanel, StaffChatTab } from "./StaffChatPanel";
 import { useStaffRoomChat } from "@/lib/use-staff-room-chat";
@@ -401,7 +403,7 @@ function AdminRoom({ studioId, roomName, accessMode, onAccessLost }: { studioId:
     try {
       const response = await fetch("/api/participants", {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${sessionHttpBearer(token)}` },
         body: JSON.stringify({ action: "rename-self", studioId, room: roomName, identity, clientId, name: cleanName }),
       });
       if (response.status === 401 || response.status === 403) { loseAccess("Доступ к панели истёк или отозван."); return; }

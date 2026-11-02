@@ -1,4 +1,6 @@
 "use client";
+import { sessionHttpBearer } from "../lib/session-http-bearer";
+
 
 import { useI18n } from "@/components/I18nProvider";
 import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
@@ -225,7 +227,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         {!platformNodeId && studioRole === "primary" && <button disabled={!history || clearing} onClick={async () => {
           setClearing(true);
           try {
-            const response = await fetch("/api/stats", { method: "DELETE", headers: platformNodeId ? {} : { authorization: `Bearer ${bearer.current.token}` } });
+            const response = await fetch("/api/stats", { method: "DELETE", headers: platformNodeId ? {} : { authorization: `Bearer ${sessionHttpBearer(bearer.current.token)}` } });
             if (!response.ok) throw Error("Не удалось очистить список");
             setSession(""); setRevision(value => value + 1);
           } catch (e) { setError(e instanceof Error ? e.message : "Ошибка очистки"); } finally { setClearing(false); }

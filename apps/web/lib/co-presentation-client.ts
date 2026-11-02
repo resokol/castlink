@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { LocalVideoTrack, RoomEvent, Track, type Room } from 'livekit-client';
 import type { CoPresentation } from './co-presentation-state';
 export async function coPresentationRequest(token: string, studioId: string, room: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<{
@@ -9,7 +10,7 @@ export async function coPresentationRequest(token: string, studioId: string, roo
     const timer = setTimeout(abort, 5000);
     if (signal?.aborted) abort(); else signal?.addEventListener('abort', abort, { once: true });
     try {
-        const response = await fetch('/api/co-presentations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ studioId, room, ...body }), cache: 'no-store', signal: cancellation.signal });
+        const response = await fetch('/api/co-presentations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${sessionHttpBearer(token)}` }, body: JSON.stringify({ studioId, room, ...body }), cache: 'no-store', signal: cancellation.signal });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw Object.assign(new Error(typeof data.error === 'string' ? data.error : 'Presentation control unavailable'), { status: response.status });
         return data;

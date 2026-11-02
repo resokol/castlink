@@ -1,3 +1,4 @@
+import { sessionHttpBearer } from "./session-http-bearer";
 import { nativePresentationErrorCode, type NativeControlledPresentation, type PowerPointBridge, type PreparedPresentation } from './co-presentation-native';
 /** One-use bootstrap stays in the fragment and never includes room JWTs. */
 export const PRESENTER_INSTALLER_URL = 'https://castlink.ru/general/presenter/CastLink-Client-Preview-Setup.exe';
@@ -40,7 +41,7 @@ export function createHelperPowerPointBridge({ token, studioId, room }: {token:s
     const controller=new AbortController();controllers.add(controller);
     const timer=setTimeout(()=>controller.abort(),timeout);
     try {
-      const response=await fetch('/api/co-presentation-helper',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({studioId,room,...(pairingId?{pairingId}:{}),...body}),cache:'no-store',credentials:'omit',redirect:'error',signal:controller.signal});
+      const response=await fetch('/api/co-presentation-helper',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionHttpBearer(token)},body:JSON.stringify({studioId,room,...(pairingId?{pairingId}:{}),...body}),cache:'no-store',credentials:'omit',redirect:'error',signal:controller.signal});
       if(!response.ok)throw Object.assign(new Error('Presentation helper unavailable'),{status:response.status});
       return await response.json();
     } finally {clearTimeout(timer);controllers.delete(controller);}
