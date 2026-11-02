@@ -5,18 +5,34 @@ const {createMacProcessAudioAdapter,probeMacProcessAudio}=require('../../apps/de
 const {analyzePcm}=require('../../apps/desktop/tests/windows-process-audio-smoke.cjs');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 class NotVerified extends Error {}
-function toneReady(child){
+function toneReady(child,{frequency=null,timeoutMs=10000}={}){
   return new Promise((resolve,reject)=>{
-    let output='',settled=false;
-    const timer=setTimeout(()=>finish(new NotVerified('GUI tone fixture unavailable')),10000);
-    function finish(error,value){if(settled)return;settled=true;clearTimeout(timer);if(error)reject(error);else resolve(value);}
+    let output='',stderr=Buffer.alloc(0),stderrTruncated=false,settled=false,exitCode=null,exitSignal=null;
+    const timer=setTimeout(()=>finish(Error('QA fixture readiness timed out'),undefined,true),timeoutMs);
+    function finish(error,value,timedOut=false){
+      if(settled)return;settled=true;clearTimeout(timer);
+      if(error){
+        error.diagnostics={fixture:'owned-audio-tone',frequency,exitCode,signal:exitSignal,timedOut,stderr:stderr.toString('utf8').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'?'),stderrTruncated};
+        reject(error);
+      }else resolve(value);
+    }
     child.stdout.on('data',chunk=>{
       if(settled)return;output+=chunk.toString('utf8');if(output.length>4096){finish(Error('Invalid QA readiness'));return;}
       if(!output.includes('\n'))return;
       try{const value=JSON.parse(output.slice(0,output.indexOf('\n')));if(value.ready!==true||!/^\d+$/.test(value.windowId)||!Number.isInteger(value.pid)||!Number.isSafeInteger(value.processStartTime))throw Error();finish(null,value);}catch{finish(Error('Invalid QA readiness'));}
     });
-    child.stderr.on('data',()=>{});child.once('error',()=>finish(Error('QA fixture launch failed')));
-    child.once('exit',code=>finish(code===3?new NotVerified('No real audio output device'):Error('QA fixture exited before readiness')));
+    child.stderr.on('data',chunk=>{
+      if(stderr.length+chunk.length>8192)stderrTruncated=true;
+      if(stderr.length<8192)stderr=Buffer.concat([stderr,chunk.subarray(0,8192-stderr.length)]);
+    });
+    child.once('error',error=>{const failure=Error('QA fixture launch failed');if(typeof error.code==='string')failure.code=error.code.slice(0,40);finish(failure);});
+    child.once('exit',(code,signal)=>{exitCode=code;exitSignal=signal||null;});
+    // close follows stderr drain, so crash/identity diagnostics are not lost.
+    child.once('close',(code,signal)=>{
+      exitCode=code;exitSignal=signal||null;
+      const unavailable=code===3&&/^qa-no-output$/m.test(stderr.toString('utf8'));
+      finish(unavailable?new NotVerified('No real audio output device'):Error('QA fixture exited before readiness'));
+    });
   });
 }
 async function run({helper,durationMs=3200}){
@@ -33,7 +49,7 @@ async function run({helper,durationMs=3200}){
       fs.mkdirSync(path.dirname(executable),{recursive:true});fs.copyFileSync(binary,executable);fs.chmodSync(executable,0o755);
       fs.writeFileSync(path.join(contents,'Info.plist'),'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>'+bundle+'</string><key>CFBundleExecutable</key><string>ToneFixture</string><key>CFBundleName</key><string>CastLink owned audio QA</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>13.0</string></dict></plist>');
       execFileSync('codesign',['--force','--sign','-',path.dirname(contents)],{stdio:'pipe'});
-      const child=spawn(executable,[String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);players.push(await toneReady(child));
+      const child=spawn(executable,[String(frequency)],{shell:false,stdio:['ignore','pipe','pipe']});owned.push(child);players.push(await toneReady(child,{frequency}));
     }
     const resourcesPath=path.join(directory,'resources'),resourceHelper=path.join(resourcesPath,'process-audio','CastLink.ProcessAudio');
     fs.mkdirSync(path.dirname(resourceHelper),{recursive:true});fs.copyFileSync(helper,resourceHelper);fs.chmodSync(resourceHelper,0o755);
@@ -74,7 +90,7 @@ async function run({helper,durationMs=3200}){
     fs.rmSync(directory,{recursive:true,force:true});
   }
 }
-module.exports={run,NotVerified};
+module.exports={run,NotVerified,toneReady};
 if(require.main===module){
   const args=process.argv.slice(2);
   if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}

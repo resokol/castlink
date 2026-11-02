@@ -19,6 +19,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
     private var window: AXUIElement?
     private var identity = ""
     private var lastSnapshot: InputSnapshot?
+    private(set) var bindingDiagnostic: [String: Any] = ["stage":"not-bound"]
     private var lastClickTime: TimeInterval = 0, lastClickPosition = CGPoint.zero, lastClickButton = -1, clickCount = 0
     private var remoteKeys = Set<String>(), remoteButtons = Set<Int>()
     private var physicalKeys = Set<CGKeyCode>(), physicalButtons = Set<Int>()
@@ -114,11 +115,34 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         try InputJSON.exact(source, ["kind", key]); let raw = try InputJSON.string(source, key)
         guard raw.range(of: "^[1-9][0-9]{0,9}$", options: .regularExpression) != nil, let id = UInt32(raw) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
         if kind == "window" {
-            guard let info = windowInfo(id), (info[kCGWindowLayer as String] as? Int) == 0, let pid = info[kCGWindowOwnerPID as String] as? Int32, let app = NSRunningApplication(processIdentifier: pid), let start = app.launchDate, let rect = windowRect(info) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            // Finite, bounded diagnostics describe only this selected fixture/source;
+            // never include titles, text, file paths or another application's windows.
+            bindingDiagnostic = ["stage":"cg-window", "windowId":id]
+            guard let info = windowInfo(id) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["stage"] = "window-layer"; bindingDiagnostic["layer"] = info[kCGWindowLayer as String] as? Int ?? -1
+            guard (info[kCGWindowLayer as String] as? Int) == 0 else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["stage"] = "owner-pid"
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int32 else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["ownerPid"] = pid; bindingDiagnostic["stage"] = "running-application"
+            guard let app = NSRunningApplication(processIdentifier: pid) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["stage"] = "process-start"; bindingDiagnostic["launchDateAvailable"] = app.launchDate != nil
+            guard let start = app.launchDate else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["stage"] = "cg-frame"
+            guard let rect = windowRect(info) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["cgFrame"] = ["x":rect.minX,"y":rect.minY,"width":rect.width,"height":rect.height]
             let axApp = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(axApp, 0.15)
-            guard let windows = ax(axApp, kAXWindowsAttribute as CFString) as? [AXUIElement] else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            var value: CFTypeRef?
+            let status = AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value)
+            bindingDiagnostic["stage"] = "ax-windows"; bindingDiagnostic["axWindowsStatus"] = status.rawValue
+            guard status == .success, let windows = value as? [AXUIElement] else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+            bindingDiagnostic["axWindowCount"] = windows.count
+            bindingDiagnostic["candidateFrames"] = windows.prefix(8).map { element -> [String: Any] in
+                guard let bounds = axRect(element) else { return ["frameAvailable":false] }
+                return ["frameAvailable":true,"x":bounds.minX,"y":bounds.minY,"width":bounds.width,"height":bounds.height]
+            }
             let matching = windows.filter { if let bounds = axRect($0) { return sameRect(bounds, rect) }; return false }
+            bindingDiagnostic["stage"] = "ax-frame-match"; bindingDiagnostic["matchingWindowCount"] = matching.count
             guard matching.count == 1 else { throw InputFailure("REMOTE_INPUT_SOURCE") }
             windowID = id; processID = pid; launchDate = start; application = axApp; window = matching[0]; identity = "window:\(id):\(pid):\(start.timeIntervalSince1970)"
         } else if kind == "screen" {
@@ -126,7 +150,10 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             displayID = id; identity = "display:\(id):\(CFUUIDCreateString(kCFAllocatorDefault, uuid) as String)"
         } else { throw InputFailure("REMOTE_INPUT_SOURCE") }
         let initial = InputSnapshot(identity: identity, rect: InputRect(x: 0, y: 0, width: 1, height: 1), pixelWidth: 1, pixelHeight: 1, scale: 1, visible: false)
-        guard let snapshot = inspect(initial) else { throw InputFailure("REMOTE_INPUT_SOURCE") }; return snapshot
+        bindingDiagnostic["stage"] = "initial-inspection"
+        guard let snapshot = inspect(initial) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
+        bindingDiagnostic["stage"] = "bound"; bindingDiagnostic["visible"] = snapshot.visible
+        return snapshot
     }
     func inspect(_ source: InputSnapshot) -> InputSnapshot? {
         guard source.identity == identity else { return nil }
@@ -307,7 +334,7 @@ final class RemoteInputOutput {
                                 guard !line.isEmpty, let command = try JSONSerialization.jsonObject(with: line) as? [String: Any] else { throw InputFailure("REMOTE_INPUT_PROTOCOL") }
                                 id = command["id"] ?? 0; try core.command(command); updateGate(); output.write(["id":id,"ok":true,"state":core.state()])
                                 if command["op"] as? String == "stop" { output.drain(); exit(0) }
-                            } catch { gate.revoke(); core.pause(); output.write(["id":id,"ok":false,"error":(error as? InputFailure)?.code ?? "REMOTE_INPUT_PROTOCOL","state":core.state()]) }
+                            } catch { gate.revoke(); core.pause(); output.write(["id":id,"ok":false,"error":(error as? InputFailure)?.code ?? "REMOTE_INPUT_PROTOCOL","state":core.state(),"diagnostic":platform.bindingDiagnostic]) }
                         }
                     } else {
                         buffer.append(byte)

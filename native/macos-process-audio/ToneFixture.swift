@@ -9,6 +9,7 @@ private func appendLE<T: FixedWidthInteger>(_ value: T, to data: inout Data) {
     var value = value.littleEndian
     withUnsafeBytes(of: &value) { data.append(contentsOf: $0) }
 }
+private func fixtureDiagnostic(_ value: String) { fputs(value + "\n", stderr); fflush(stderr) }
 private func wave(frequency: Double) -> Data {
     let frames = 48000, bytes = frames * 4
     var data = Data("RIFF".utf8)
@@ -30,11 +31,19 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
         do {
             let args = Array(CommandLine.arguments.dropFirst())
             guard args.count == 1, let frequency = Int(args[0]), [440, 880, 1320].contains(frequency) else { Darwin.exit(2) }
+            fixtureDiagnostic("qa-stage:application-ready")
             let engine = AVAudioEngine()
-            guard engine.outputNode.outputFormat(forBus: 0).sampleRate > 0 else { throw NSError(domain: "qa-no-output", code: 1) }
+            fixtureDiagnostic("qa-stage:output-format")
+            let outputFormat = engine.outputNode.outputFormat(forBus: 0)
+            guard outputFormat.sampleRate > 0, outputFormat.channelCount > 0 else { fixtureDiagnostic("qa-no-output"); Darwin.exit(3) }
+            fixtureDiagnostic("qa-stage:player-create")
             let rendered = try AVAudioPlayer(data: wave(frequency: Double(frequency)))
             rendered.numberOfLoops = -1; rendered.volume = 1
-            guard rendered.prepareToPlay(), rendered.play() else { throw NSError(domain: "qa-no-output", code: 1) }
+            fixtureDiagnostic("qa-stage:player-prepare")
+            guard rendered.prepareToPlay() else { throw NSError(domain: "qa-player-prepare", code: 1) }
+            fixtureDiagnostic("qa-stage:player-start")
+            guard rendered.play() else { throw NSError(domain: "qa-player-start", code: 1) }
+            fixtureDiagnostic("qa-stage:window-create")
             player = rendered
             let ownWindow = NSWindow(contentRect: NSRect(x: CGFloat(80 + frequency / 10), y: 80, width: 420, height: 130),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -44,12 +53,15 @@ private final class FixtureDelegate: NSObject, NSApplicationDelegate, NSWindowDe
             label.frame = NSRect(x: 20, y: 25, width: 380, height: 65); ownWindow.contentView?.addSubview(label)
             ownWindow.makeKeyAndOrderFront(nil); window = ownWindow
             NSApplication.shared.activate(ignoringOtherApps: true)
-            guard let launch = NSRunningApplication.current.launchDate else { Darwin.exit(4) }
+            fixtureDiagnostic("qa-stage:launch-identity")
+            guard let launch = NSRunningApplication.current.launchDate else { fixtureDiagnostic("qa-refused:launch-identity"); Darwin.exit(4) }
             let started = Int64((launch.timeIntervalSince1970 * 1000).rounded())
             print("{\"ready\":true,\"windowId\":\"\(ownWindow.windowNumber)\",\"pid\":\(getpid()),\"processStartTime\":\(started),\"frequency\":\(frequency)}")
             fflush(stdout)
         } catch {
-            fputs("qa-no-output\n", stderr); Darwin.exit(3)
+            let native = error as NSError
+            let domain = String(native.domain.prefix(80)).replacingOccurrences(of: "[^A-Za-z0-9._-]", with: "?", options: .regularExpression)
+            fixtureDiagnostic("qa-error:\(domain):\(native.code)"); Darwin.exit(4)
         }
     }
     func windowWillClose(_ notification: Notification) { player?.stop(); NSApplication.shared.terminate(nil) }

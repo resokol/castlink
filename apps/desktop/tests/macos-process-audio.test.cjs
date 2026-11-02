@@ -92,3 +92,23 @@ test('native availability verifies bounded versioned protocol output rather than
   const oversized=probeMacProcessAudio({resourcesPath:f.resourcesPath,platform:'darwin',spawn:f.spawn});f.children.at(-1).stdout.write(Buffer.alloc(4097));assert.equal(await oversized,false);
   assert.equal(await probeMacProcessAudio({resourcesPath:f.resourcesPath,platform:'linux',spawn:f.spawn}),false);
 });
+
+test('owned QA startup failure preserves bounded stderr, exit code and signal after stream closure',async()=>{
+  const {toneReady}=require('../../../native/macos-process-audio/smoke.cjs');
+  const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();
+  const ready=toneReady(child,{frequency:440,timeoutMs:100});
+  child.stderr.write('qa-stage:window\n');child.emit('exit',4,null);child.stderr.write('qa-refused:launch-identity\n');child.emit('close',4,null);
+  await assert.rejects(ready,error=>{assert.equal(error.diagnostics.exitCode,4);assert.equal(error.diagnostics.signal,null);assert.equal(error.diagnostics.frequency,440);assert.match(error.diagnostics.stderr,/qa-refused:launch-identity/);return true;});
+  const crashed=new EventEmitter();crashed.stdout=new PassThrough();crashed.stderr=new PassThrough();const failure=toneReady(crashed,{frequency:880,timeoutMs:100});
+  crashed.stderr.write('qa-stage:output\n'+'x'.repeat(10000));crashed.emit('exit',null,'SIGABRT');crashed.emit('close',null,'SIGABRT');
+  await assert.rejects(failure,error=>{assert.equal(error.diagnostics.signal,'SIGABRT');assert.equal(error.diagnostics.exitCode,null);assert.ok(Buffer.byteLength(error.diagnostics.stderr)<=8192);assert.equal(error.diagnostics.stderrTruncated,true);return true;});
+});
+test('owned QA only classifies explicit no-output evidence as unavailable',async()=>{
+  const {toneReady,NotVerified}=require('../../../native/macos-process-audio/smoke.cjs');
+  for(const [stderr,unavailable]of [['qa-no-output\n',true],['qa-error:decode:3\n',false]]){
+    const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();const ready=toneReady(child,{timeoutMs:100});child.stderr.write(stderr);child.emit('close',3,null);
+    await assert.rejects(ready,error=>{assert.equal(error instanceof NotVerified,unavailable);return true;});
+  }
+  const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();const ready=toneReady(child,{timeoutMs:10});
+  await assert.rejects(ready,error=>{assert.equal(error instanceof NotVerified,false);assert.equal(error.diagnostics.timedOut,true);return true;});
+});

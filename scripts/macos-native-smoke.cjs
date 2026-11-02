@@ -88,7 +88,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
     await check('audio-native','real-application-audio-spectral-isolation',async()=>{
       if(!helpers?.audio)throw Error('Audio helper build unavailable');
       // A child process bounds the API and its owned tone/helper process group.
-      const entry="const {run,NotVerified}=require(process.argv[1]);run({helper:process.argv[2]}).then(value=>console.log(JSON.stringify({status:'VERIFIED',...value}))).catch(error=>{const unavailable=error instanceof NotVerified;console.log(JSON.stringify({status:unavailable?'NOT VERIFIED':'FAILED',reason:error.message}));process.exitCode=unavailable?3:1;});";
+      const entry="const {run,NotVerified}=require(process.argv[1]);run({helper:process.argv[2]}).then(value=>console.log(JSON.stringify({status:'VERIFIED',...value}))).catch(error=>{const unavailable=error instanceof NotVerified;console.log(JSON.stringify({status:unavailable?'NOT VERIFIED':'FAILED',reason:error.message,...(error.diagnostics?{diagnostics:error.diagnostics}:{})}));process.exitCode=unavailable?3:1;});";
       const result=await command('audio-native-run',process.execPath,['-e',entry,path.join(root,'native/macos-process-audio/smoke.cjs'),helpers.audio],90000);
       const evidence=nativeStatus(JSON.parse(result.stdout.trim()));
       fs.writeFileSync(path.join(evidenceDir,'native-audio.json'),JSON.stringify(evidence,null,2)+'\n');

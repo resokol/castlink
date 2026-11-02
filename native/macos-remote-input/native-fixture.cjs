@@ -3,6 +3,7 @@
 // Run after compiling the helper and fixture; no permissions are changed here.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {spawn,execFileSync}=require('node:child_process');
+const {startFailure}=require('./fixture-policy.cjs');
 const root=path.resolve(__dirname,'../..');
 const helper=process.argv[2],fixture=process.argv[3],artifact=process.argv[4]||path.join(root,'artifacts/macos-input-native.json');
 const evidence={schemaVersion:1,platform:process.platform,arch:process.arch,status:'NOT VERIFIED',checks:[],physicalHolds:'NOT VERIFIED: requires physical keyboard/mouse',spaces:'NOT VERIFIED: requires interactive Space switching',mixedRetinaDisplays:'NOT VERIFIED: requires multiple displays'};
@@ -21,10 +22,10 @@ function processLines(executable,args=[]){
   assert.ok(helper&&fixture,'supply compiled helper and NativeFixture paths');
   evidence.helperPermissions=JSON.parse(execFileSync(helper,['--permission-status'],{shell:false,encoding:'utf8',timeout:3000,maxBuffer:2048,stdio:['ignore','pipe','pipe']}));
   for(const key of ['screen','accessibility','inputMonitoring'])assert.equal(typeof evidence.helperPermissions[key],'boolean');
-  b=processLines(fixture,[artifact.replace(/\.json$/,'.png')]);const ready=await b.until(v=>v.event==='ready'||v.event==='unavailable');if(ready.event==='unavailable'){evidence.reason=ready.reason;return;}evidence.permissions={screen:ready.screenPermission,accessibility:ready.accessibilityPermission,inputMonitoring:ready.inputMonitoringPermission};
+  b=processLines(fixture,[artifact.replace(/\.json$/,'.png')]);const ready=await b.until(v=>v.event==='ready'||v.event==='unavailable');if(ready.event==='unavailable'){evidence.reason=ready.reason;return;}evidence.permissions={screen:ready.screenPermission,accessibility:ready.accessibilityPermission,inputMonitoring:ready.inputMonitoringPermission};evidence.fixtureIdentity=ready.fixtureIdentity;evidence.fixtureGeometry={rect:ready.rect,width:ready.width,height:ready.height,scale:ready.scale};
   a=processLines(helper);
   let r=await a.request('start',{captureId:'native-fixture',source:{kind:'window',windowId:ready.windowId},video:{width:ready.width,height:ready.height},mapping:{kind:'macos-window'},fullInputPause:true});
-  if(!r.ok||!r.state?.ready||!r.state?.pointerReady){evidence.reason=r.error||r.state?.error||'permissions, focused window, HID monitor or geometry unavailable';return;}
+  const initialFailure=startFailure(r,evidence.helperPermissions);if(initialFailure){Object.assign(evidence,initialFailure);if(evidence.status==='FAILED')process.exitCode=1;return;}
   let state=r.state,seq=0,serial=0,heldKeys=[],heldButtons=[];
   const refresh=()=>{for(const v of a.events)if(v.state)state=v.state;};
   const frame=(event,overrides={})=>{refresh();return{captureId:'native-fixture',grantId:'fixture-grant',revision:1,geometryRevision:state.geometry.revision,lane:'reliable',seq:++seq,moveBarrier:0,expiresAt:Date.now()+500,event,...overrides};};

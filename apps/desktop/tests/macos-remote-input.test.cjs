@@ -50,3 +50,12 @@ test('native Input Monitoring loss retains a finite actionable diagnostic and cl
   const pending=f.controller.renew({...f.proof,leaseSerial:2});await assert.rejects(pending,{code:'REMOTE_INPUT_LEASE'});
  }finally{await f.cleanup();}
 });
+
+test('native fixture fails on real binding defects instead of calling granted permissions unavailable',()=>{
+ const {startFailure}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ const granted={screen:true,accessibility:true,inputMonitoring:true};
+ assert.deepEqual(startFailure({ok:false,error:'REMOTE_INPUT_SOURCE',diagnostic:{stage:'process-start'}},granted),{status:'FAILED',reason:'REMOTE_INPUT_SOURCE',bindingDiagnostic:{stage:'process-start'}});
+ assert.equal(startFailure({ok:true,state:{ready:true,pointerReady:false}},granted).status,'FAILED');
+ assert.equal(startFailure({ok:false,error:'REMOTE_INPUT_UNAVAILABLE'},{...granted,screen:false}).status,'NOT VERIFIED');
+ assert.equal(startFailure({ok:true,state:{ready:true,pointerReady:true}},granted),null);
+});
