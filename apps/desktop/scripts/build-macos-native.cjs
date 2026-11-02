@@ -21,7 +21,7 @@ function buildMacNative({root,resourcesPath,arch,platform=process.platform,hostA
   fs.chmodSync(out,0o755);result[name]=out;
   }catch(error){failures.push(`${name}: ${String(error.message).slice(0,30000)}`);}
  }
- if(failures.length)throw Error('macOS native compilation failed:\n'+failures.join('\n\n'));
+ if(failures.length){const error=Error('macOS native compilation failed:\n'+failures.join('\n\n'));error.helpers=result;throw error;}
  return result;
 }
 module.exports={buildMacNative};

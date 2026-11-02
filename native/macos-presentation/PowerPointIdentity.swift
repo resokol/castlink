@@ -2,6 +2,36 @@ import AppKit
 import ApplicationServices
 import CryptoKit
 import Darwin
+import Carbon.HIToolbox
+
+// Keypad virtual keys retain numeric semantics on standard layouts including
+// French AZERTY, whose unshifted top row is punctuation. Only ASCII decimal
+// digits from the validated integer are encodable; no layout guess/fallback.
+func keypadDigit(_ character: Character) -> CGKeyCode? {
+    switch character {
+    case "0": return CGKeyCode(kVK_ANSI_Keypad0)
+    case "1": return CGKeyCode(kVK_ANSI_Keypad1)
+    case "2": return CGKeyCode(kVK_ANSI_Keypad2)
+    case "3": return CGKeyCode(kVK_ANSI_Keypad3)
+    case "4": return CGKeyCode(kVK_ANSI_Keypad4)
+    case "5": return CGKeyCode(kVK_ANSI_Keypad5)
+    case "6": return CGKeyCode(kVK_ANSI_Keypad6)
+    case "7": return CGKeyCode(kVK_ANSI_Keypad7)
+    case "8": return CGKeyCode(kVK_ANSI_Keypad8)
+    case "9": return CGKeyCode(kVK_ANSI_Keypad9)
+    default: return nil
+    }
+}
+
+// Dialogs are represented either by an AXSheet role or an AXWindow with a
+// dialog subrole. Unknown/missing required metadata cannot prove safe focus.
+func nonModalMetadata(role: String?, subrole: String?) -> Bool {
+    guard let role = role, !role.isEmpty, role != "AXUnknown",
+          role != "AXSheet", role != "AXDialog",
+          subrole != "AXDialog", subrole != "AXSystemDialog" else { return false }
+    if role == "AXWindow" { return subrole == "AXStandardWindow" }
+    return true
+}
 
 // Public APIs only. Scripting window IDs are NOT assumed to be CGWindowIDs.
 func ax(_ value: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -62,31 +92,41 @@ func identity(_ input: [String: Any]) throws -> [String: Any] {
         let focus = focused as! AXUIElement
         guard let role = ax(focus, kAXRoleAttribute) as? String,
               ["AXWindow", "AXGroup", "AXLayoutArea", "AXScrollArea"].contains(role),
-              (ax(axWindows[0], kAXSheetsAttribute) as? [AXUIElement] ?? []).isEmpty else { return ["error": "POWERPOINT_FOREGROUND"] }
+              let children = ax(axWindows[0], kAXChildrenAttribute) as? [AXUIElement],
+              children.count <= 256 else { return ["error": "POWERPOINT_FOREGROUND"] }
+        // kAXChildrenAttribute and role/subrole are public AX APIs. Refuse a
+        // failed children read, rather than assuming that no sheet exists.
+        for child in children {
+            guard nonModalMetadata(role: ax(child, kAXRoleAttribute) as? String,
+                                   subrole: ax(child, kAXSubroleAttribute) as? String) else { return ["error": "POWERPOINT_FOREGROUND"] }
+        }
         var ancestor: AXUIElement? = focus
         var belongs = false
         for _ in 0..<32 {
             guard let node = ancestor else { break }
+            guard nonModalMetadata(role: ax(node, kAXRoleAttribute) as? String,
+                                   subrole: ax(node, kAXSubroleAttribute) as? String) else { return ["error": "POWERPOINT_FOREGROUND"] }
             if CFEqual(node, axWindows[0]) { belongs = true; break }
             guard let parent = ax(node, kAXParentAttribute), CFGetTypeID(parent) == AXUIElementGetTypeID() else { break }
             ancestor = parent as! AXUIElement
         }
         guard belongs, CGEventSource.flagsState(.combinedSessionState).intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty else { return ["error": "POWERPOINT_FOREGROUND"] }
         // Microsoft documents digit keys + Return for a live Mac slideshow.
-        // Send physical digit keycodes to this PID; no Unicode paste, global
-        // key, activation, editor-only AppleEvent or show restart is used.
-        let digits: [CGKeyCode] = [29, 18, 19, 20, 21, 23, 22, 26, 28, 25]
+        // Send numeric keypad keycodes to this PID; no US top-row assumption,
+        // Unicode paste, global key, activation, editor AppleEvent or restart.
         var events: [CGEvent] = []
         for character in String(page) {
-            guard let digit = character.wholeNumberValue,
-                  let down = CGEvent(keyboardEventSource: nil, virtualKey: digits[digit], keyDown: true),
-                  let up = CGEvent(keyboardEventSource: nil, virtualKey: digits[digit], keyDown: false) else { return ["error": "POWERPOINT_UNAVAILABLE"] }
+            guard let keyCode = keypadDigit(character),
+                  let down = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else { return ["error": "POWERPOINT_UNAVAILABLE"] }
+            down.flags = .maskNumericPad; up.flags = .maskNumericPad
             events.append(down); events.append(up)
         }
-        guard let enter = CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: true),
-              let release = CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: false),
+        guard let enter = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Return), keyDown: true),
+              let release = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Return), keyDown: false),
               expires > Date().timeIntervalSince1970 * 1000,
               NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { return ["error": "POWERPOINT_COMMAND"] }
+        enter.flags = []; release.flags = []
         events.append(enter); events.append(release)
         guard parentPID > 1, getppid() == parentPID, kill(parentPID, 0) == 0 else { return ["error": "POWERPOINT_STALE"] }
         for event in events { event.postToPid(app.processIdentifier) }
@@ -100,7 +140,22 @@ struct PowerPointIdentityMain {
 static func main() {
 do {
     if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--self-test" {
-        FileHandle.standardOutput.write(Data("{\"protocol\":1,\"selfTest\":\"passed\",\"osOperationVerified\":false}".utf8))
+        let expected: [CGKeyCode] = [82, 83, 84, 85, 86, 87, 88, 89, 91, 92]
+        guard Array("0123456789").compactMap(keypadDigit) == expected,
+              [Character("-"), Character("a"), Character("١"), Character("１")].allSatisfy({ keypadDigit($0) == nil }) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        guard nonModalMetadata(role: "AXGroup", subrole: nil),
+              nonModalMetadata(role: "AXWindow", subrole: "AXStandardWindow"),
+              !nonModalMetadata(role: nil, subrole: nil),
+              !nonModalMetadata(role: "AXSheet", subrole: nil),
+              !nonModalMetadata(role: "AXDialog", subrole: nil),
+              !nonModalMetadata(role: "AXWindow", subrole: "AXDialog"),
+              !nonModalMetadata(role: "AXWindow", subrole: "AXSystemDialog"),
+              !nonModalMetadata(role: "AXWindow", subrole: nil) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        FileHandle.standardOutput.write(Data("{\"protocol\":1,\"selfTest\":\"passed\",\"numericKeypadContract\":\"passed\",\"modalFocusContract\":\"passed\",\"osOperationVerified\":false}".utf8))
     } else {
         guard CommandLine.arguments.count == 2, let data = CommandLine.arguments[1].data(using: .utf8), data.count <= 16384,
               let input = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }

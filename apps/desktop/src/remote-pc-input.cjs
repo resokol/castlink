@@ -3,7 +3,7 @@
 // entering this adapter. The publisher renderer is never an authority for these methods.
 const fs=require('node:fs'),path=require('node:path'),{spawn:spawnProcess}=require('node:child_process'),{performance}=require('node:perf_hooks');
 const MAX_LINE=16384,MAX_LEASE_MS=750;
-const codes=new Set(['REMOTE_INPUT_UNAVAILABLE','REMOTE_INPUT_PROTOCOL','REMOTE_INPUT_SOURCE','REMOTE_INPUT_GEOMETRY','REMOTE_INPUT_LEASE','REMOTE_INPUT_REPLAY','REMOTE_INPUT_EVENT','REMOTE_INPUT_OCCLUDED','REMOTE_INPUT_DESKTOP','REMOTE_INPUT_STOPPED']);
+const codes=new Set(['REMOTE_INPUT_UNAVAILABLE','REMOTE_INPUT_PROTOCOL','REMOTE_INPUT_SOURCE','REMOTE_INPUT_GEOMETRY','REMOTE_INPUT_LEASE','REMOTE_INPUT_REPLAY','REMOTE_INPUT_EVENT','REMOTE_INPUT_OCCLUDED','REMOTE_INPUT_DESKTOP','REMOTE_INPUT_STOPPED','REMOTE_INPUT_MONITORING_PERMISSION']);
 function failure(code){const e=Error('Remote input unavailable.');e.code=codes.has(code)?code:'REMOTE_INPUT_UNAVAILABLE';return e;}
 const int=(n,min=0,max=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=min&&n<=max;
 const token=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(s);

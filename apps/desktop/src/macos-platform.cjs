@@ -1,11 +1,12 @@
 'use strict';
 
-const KINDS = new Set(['microphone', 'camera', 'screen', 'accessibility', 'automation']);
+const KINDS = new Set(['microphone', 'camera', 'screen', 'accessibility', 'input-monitoring', 'automation']);
 const MEDIA_STATUSES = new Set(['granted', 'denied', 'restricted', 'not-determined', 'unknown']);
 const SETTINGS = Object.freeze({
   microphone: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
   camera: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera',
   screen: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+  'input-monitoring': 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
   automation: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation',
 });
 
@@ -19,7 +20,7 @@ function granted() { return { granted: true, reason: null }; }
 // OS permission only: callers still own origin/role consent, source selection,
 // and a lifecycle ticket around every await. A pending TCC prompt cannot be
 // cancelled; its eventual approval must not revive a closed/replaced session.
-function createMacPermissionAdapter({ systemPreferences = {}, openSettings } = {}) {
+function createMacPermissionAdapter({ systemPreferences = {}, openSettings, inputMonitoring = {} } = {}) {
   function status(kind) {
     assertKind(kind);
     // Automation consent is per target application and operation. Electron has
@@ -27,6 +28,11 @@ function createMacPermissionAdapter({ systemPreferences = {}, openSettings } = {
     // bounded Apple Event operation instead of treating Accessibility as proof.
     if (kind === 'automation') return denied(kind, 'target-required');
     try {
+      if (kind === 'input-monitoring') {
+        if (typeof inputMonitoring.status !== 'function') return denied(kind, 'api-unavailable');
+        const value = inputMonitoring.status();
+        return value === true ? granted() : denied(kind, value === false ? 'denied' : 'unknown');
+      }
       if (kind === 'accessibility') {
         if (typeof systemPreferences.isTrustedAccessibilityClient !== 'function') return denied(kind, 'api-unavailable');
         return systemPreferences.isTrustedAccessibilityClient(false) === true ? granted() : denied(kind, 'denied');
@@ -56,6 +62,17 @@ function createMacPermissionAdapter({ systemPreferences = {}, openSettings } = {
     const current = status(kind);
     if (current.granted) return current;
     if (kind === 'automation') return settings(kind, current);
+    if (kind === 'input-monitoring') {
+      // Input Monitoring is distinct from Accessibility. A native request only
+      // comes from an explicit user action; neither launch nor status prompts.
+      if (typeof inputMonitoring.request === 'function') {
+        try { await inputMonitoring.request(); } catch { return denied(kind, 'request-failed'); }
+        const checked = status(kind);
+        if (checked.granted) return checked;
+        return settings(kind, checked);
+      }
+      return settings(kind, current);
+    }
     if (current.reason === `${kind}-api-unavailable` || current.reason === `${kind}-status-failed`) return current;
     if (kind === 'screen') {
       // askForMediaAccess accepts only microphone/camera. Opening Screen

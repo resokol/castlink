@@ -53,7 +53,7 @@ enum InputJSON {
         guard str.range(of: "^[A-Za-z0-9_-]{1,128}$", options: .regularExpression) != nil else { throw InputFailure("REMOTE_INPUT_PROTOCOL") }; return str
     }
     static func validKey(_ code: String) -> Bool {
-        code.range(of: "^(Key[A-Z]|Digit[0-9]|F([1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Numpad(Add|Subtract|Multiply|Divide|Decimal|Enter)|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Meta(Left|Right)|Arrow(Left|Right|Up|Down)|Enter|Tab|Space|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Escape|CapsLock|NumLock|ScrollLock|Pause|PrintScreen|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|IntlBackslash)$", options: .regularExpression) != nil
+        code.range(of: "^(Key[A-Z]|Digit[0-9]|F([1-9]|1[0-9]|20)|Numpad[0-9]|Numpad(Add|Subtract|Multiply|Divide|Decimal|Enter)|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Meta(Left|Right)|Arrow(Left|Right|Up|Down)|Enter|Tab|Space|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Escape|CapsLock|NumLock|ScrollLock|Pause|PrintScreen|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|IntlBackslash)$", options: .regularExpression) != nil
     }
 }
 final class RemoteInputCore {

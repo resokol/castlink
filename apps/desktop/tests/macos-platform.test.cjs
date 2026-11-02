@@ -167,3 +167,56 @@ test('a late OS approval after the app policy is reset cannot authorize capture'
   assert.equal(captureStarted, false);
   assert.equal(policy.check(request), false);
 });
+
+test('Input Monitoring is checked independently of Accessibility and never via a media API', () => {
+  let monitoring = false;
+  const adapter = createMacPermissionAdapter({ systemPreferences: {
+    isTrustedAccessibilityClient: () => true,
+    getMediaAccessStatus() { assert.fail('Input Monitoring is not media'); },
+  }, inputMonitoring: { status: () => monitoring } });
+  assert.deepEqual(adapter.status('accessibility'), { granted: true, reason: null });
+  assert.deepEqual(adapter.status('input-monitoring'), { granted: false, reason: 'input-monitoring-denied' });
+  monitoring = true;
+  assert.deepEqual(adapter.status('input-monitoring'), { granted: true, reason: null });
+});
+
+test('Input Monitoring has no implicit grant when native status is unavailable or malformed', () => {
+  assert.deepEqual(createMacPermissionAdapter().status('input-monitoring'),
+    { granted: false, reason: 'input-monitoring-api-unavailable' });
+  for (const value of [undefined, null, 'true', {}, 1]) {
+    const adapter = createMacPermissionAdapter({ inputMonitoring: { status: () => value } });
+    assert.deepEqual(adapter.status('input-monitoring'), { granted: false, reason: 'input-monitoring-unknown' });
+  }
+});
+
+test('Input Monitoring request checks native OS status again instead of trusting the request result', async () => {
+  let monitoring = false;
+  let requested = 0;
+  const settings = [];
+  const adapter = createMacPermissionAdapter({ inputMonitoring: {
+    status: () => monitoring,
+    async request() { requested++; return true; },
+  }, openSettings: async url => settings.push(url) });
+  assert.equal(requested, 0);
+  assert.deepEqual(await adapter.request('input-monitoring'), { granted: false, reason: 'input-monitoring-denied' });
+  assert.deepEqual(settings, ['x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent']);
+  monitoring = true;
+  assert.deepEqual(await adapter.request('input-monitoring'), { granted: true, reason: null });
+  assert.equal(requested, 1);
+});
+
+test('native Input Monitoring approval is shown only after the asynchronous request completes', async () => {
+  let monitoring = false;
+  const adapter = createMacPermissionAdapter({ inputMonitoring: {
+    status: () => monitoring,
+    async request() { await Promise.resolve(); monitoring = true; return false; },
+  }, openSettings() { assert.fail('fresh OS approval requires no settings visit'); } });
+  assert.deepEqual(await adapter.request('input-monitoring'), { granted: true, reason: null });
+});
+
+test('unavailable Input Monitoring native hook still offers its fixed settings pane', async () => {
+  const urls = [];
+  const adapter = createMacPermissionAdapter({ openSettings: url => urls.push(url) });
+  assert.deepEqual(await adapter.request('input-monitoring'), { granted: false, reason: 'input-monitoring-api-unavailable' });
+  assert.deepEqual(urls, ['x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent']);
+});

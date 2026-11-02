@@ -46,7 +46,7 @@ final class FixtureView: NSView {
         let number = CGWindowID(window.windowNumber)
         let info = (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]])?.first { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == number }
         let bounds = info?[kCGWindowBounds as String] as? [String: Any] ?? [:]
-        emit(["event":"ready","id":id,"windowId":String(number),"pid":ProcessInfo.processInfo.processIdentifier,"rect":bounds,"width":Int(window.frame.width * window.backingScaleFactor),"height":Int(window.frame.height * window.backingScaleFactor),"scale":window.backingScaleFactor,"screenPermission":CGPreflightScreenCaptureAccess(),"accessibilityPermission":AXIsProcessTrusted()])
+        emit(["event":"ready","id":id,"windowId":String(number),"pid":ProcessInfo.processInfo.processIdentifier,"rect":bounds,"width":Int(window.frame.width * window.backingScaleFactor),"height":Int(window.frame.height * window.backingScaleFactor),"scale":window.backingScaleFactor,"screenPermission":CGPreflightScreenCaptureAccess(),"accessibilityPermission":AXIsProcessTrusted(),"inputMonitoringPermission":CGPreflightListenEventAccess()])
     }
     @available(macOS 14.2, *)
     @MainActor static func screenshot(_ id: Any) async {

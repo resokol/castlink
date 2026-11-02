@@ -5,6 +5,13 @@ including `retireAuthority`. It accepts exactly the same fixed JSON-lines
 commands and main-only lease proof; remote receiver data cannot select a target,
 activate a grant, renew a lease or retire authority. Input lines are byte-bounded
 to 16384 before parsing. The executable is `remote-input/CastLink.RemoteInput`.
+`--permission-status` emits one JSON line `{screen,accessibility,inputMonitoring}`
+with actual preflight booleans and exits0 without creating an event source/tap.
+`--request-input-monitoring` explicitly calls CGRequestListenEventAccess, returns
+that same post-request preflight schema, and creates no events. Only a deliberate
+local permission action may invoke this request flag. Neither path binds a target
+or grants input. An absent monitoring permission at bind returns the finite
+`REMOTE_INPUT_MONITORING_PERMISSION` diagnostic.
 There are no shell commands, AppleScript commands or renderer-supplied paths.
 
 Main picker sources are `{kind:"window",windowId:"positive UInt32"}` and
@@ -39,7 +46,7 @@ plus an empty authenticated heartbeat. EOF, Stop, reclaim and authority retireme
 release remote holds. Retirement preserves the native source and its identity.
 
 Accessibility and Screen Recording must be granted independently; this helper
-never prompts or changes TCC. A listen-only HID event tap must be available.
+never prompts or changes TCC. Input Monitoring must also be granted; a normal-user listen-only session event tap must be available. Physical holds are checked against HID system state.
 Trust, active console session, lock/session/sleep notifications and tap availability
 are rechecked during operation. A selected window must remain on the current Space,
 not minimized, and be the focused window of the frontmost owner application.
@@ -47,7 +54,7 @@ Each pointer point must hit the selected CG window in the real front-to-back win
 list; overlays and occluders are rejected. Capturing a display permits the active
 PC under the user's full-PC grant, within that selected display's geometry.
 
-CGEvents carry a private marker. The listen-only HID tap never swallows input or
+CGEvents carry a private marker. The listen-only session tap never swallows input or
 logs text; owner key/button activity releases remote holds and requires receiver
 resynchronization. Key/button release only affects holds created by this helper,
 and skips any key/button still physically held by the owner. Ctrl+Alt+Shift+F8

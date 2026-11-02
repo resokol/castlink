@@ -60,6 +60,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         for observer in observers { NSWorkspace.shared.notificationCenter.removeObserver(observer); DistributedNotificationCenter.default().removeObserver(observer) }
     }
     private func installMonitor() {
+        guard CGPreflightListenEventAccess(), AXIsProcessTrusted() else { return }
         let kinds: [CGEventType] = [.keyDown,.keyUp,.flagsChanged,.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.otherMouseDown,.otherMouseUp,.mouseMoved,.leftMouseDragged,.rightMouseDragged,.otherMouseDragged,.scrollWheel]
         let mask = kinds.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, context in
@@ -80,7 +81,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
             owner.onLocalInput?()
             return Unmanaged.passUnretained(event)
         }
-        tap = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: mask, callback: callback, userInfo: Unmanaged.passUnretained(self).toOpaque())
+        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: mask, callback: callback, userInfo: Unmanaged.passUnretained(self).toOpaque())
         if let tap = tap, let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) { tapSource = source; CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes); CGEvent.tapEnable(tap: tap, enable: true) }
     }
     private func ax(_ element: AXUIElement, _ key: CFString) -> CFTypeRef? {
@@ -108,6 +109,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
     }
     func bind(_ source: [String: Any]) throws -> InputSnapshot {
         guard AXIsProcessTrusted(), CGPreflightScreenCaptureAccess() else { throw InputFailure("REMOTE_INPUT_UNAVAILABLE") }
+        guard CGPreflightListenEventAccess() else { throw InputFailure("REMOTE_INPUT_MONITORING_PERMISSION") }
         let kind = try InputJSON.string(source, "kind"), key = kind == "window" ? "windowId" : "displayId"
         try InputJSON.exact(source, ["kind", key]); let raw = try InputJSON.string(source, key)
         guard raw.range(of: "^[1-9][0-9]{0,9}$", options: .regularExpression) != nil, let id = UInt32(raw) else { throw InputFailure("REMOTE_INPUT_SOURCE") }
@@ -149,7 +151,7 @@ final class MacRemoteInputPlatform: RemoteInputPlatform {
         lastSnapshot = result; return result
     }
     func safeDesktop() -> Bool {
-        guard AXIsProcessTrusted(), CGPreflightScreenCaptureAccess(), sessionActive, !screenLocked, let tap = tap, CGEvent.tapIsEnabled(tap: tap), let session = CGSessionCopyCurrentDictionary() as? [String: Any], session[kCGSessionOnConsoleKey as String] as? Bool == true, session["CGSSessionScreenIsLocked"] as? Bool != true else { return false }
+        guard AXIsProcessTrusted(), CGPreflightScreenCaptureAccess(), CGPreflightListenEventAccess(), sessionActive, !screenLocked, let tap = tap, CGEvent.tapIsEnabled(tap: tap), let session = CGSessionCopyCurrentDictionary() as? [String: Any], session[kCGSessionOnConsoleKey as String] as? Bool == true, session["CGSSessionScreenIsLocked"] as? Bool != true else { return false }
         return true
     }
     func visiblePoint(_ source: InputSnapshot, _ point: InputPoint) -> Bool {
@@ -257,6 +259,16 @@ final class RemoteInputOutput {
 
 @main enum RemoteInputProgram {
     static func main() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        if args == ["--permission-status"] || args == ["--request-input-monitoring"] {
+            // Observation/request only. No NSApplication, event source, event tap,
+            // authority, capture binding or generated input exists on this path.
+            if args == ["--request-input-monitoring"] { _ = CGRequestListenEventAccess() }
+            let result: [String: Bool] = ["screen":CGPreflightScreenCaptureAccess(), "accessibility":AXIsProcessTrusted(), "inputMonitoring":CGPreflightListenEventAccess()]
+            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]) { FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10])) }
+            return
+        }
+        guard args.isEmpty else { exit(2) }
         signal(SIGPIPE, SIG_IGN)
         _ = NSApplication.shared; NSApp.setActivationPolicy(.prohibited)
         let epoch = Date().timeIntervalSince1970 * 1000, monotonic = ProcessInfo.processInfo.systemUptime * 1000
@@ -304,6 +316,6 @@ final class RemoteInputOutput {
                 }
             }
         }
-        RunLoop.main.run()
+        withExtendedLifetime(watchdog) { RunLoop.main.run() }
     }
 }

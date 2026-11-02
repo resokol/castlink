@@ -17,8 +17,8 @@ def validate_folder(folder,create=False):
  return folder
 
 def validate_request(data):
- if not isinstance(data,dict) or data.get('action') not in ('install','update','remove','cleanup') or data.get('target') not in ('local','ssh'):raise ValueError('Invalid lifecycle request')
- if data['action']!='cleanup' and data.get('confirmed') is not True:raise ValueError('Confirm the operation review before continuing')
+ if not isinstance(data,dict) or data.get('action') not in ('install','update','remove','cleanup','discover') or data.get('target') not in ('local','ssh'):raise ValueError('Invalid lifecycle request')
+ if data['action'] not in ('cleanup','discover') and data.get('confirmed') is not True:raise ValueError('Confirm the operation review before continuing')
  if not isinstance(data.get('folder'),str):raise ValueError('Installation folder required')
  if data.get('eraseData') and data.get('deleteConfirmation')!='DELETE':raise ValueError('Type DELETE to erase installation data')
 
@@ -53,11 +53,15 @@ def verify_receipt(folder,state,daemon,target):
 
 def remove_resources(engine,folder,state,erase):
  configuration=json.loads((folder/'compose.json').read_text());project=state['project'];services=configuration['services'];volumes=configuration.get('volumes',{})
- ids=engine.docker(['ps','-aq','--filter','label=com.docker.compose.project='+project]).split()
+ ids=engine.docker(['ps','-aq','--no-trunc','--filter','label=com.docker.compose.project='+project]).split()
  containers=json.loads(engine.docker(['inspect',*ids])) if ids else []
- for container in containers:
+ for container in containers[:256]:
   labels=container.get('Config',{}).get('Labels',{})
-  if labels.get('com.docker.compose.project')!=project or labels.get('com.docker.compose.service') not in services:raise ValueError('Container ownership changed; no resources removed')
+  if labels.get('com.docker.compose.project')!=project or labels.get('com.docker.compose.service') not in services or container.get('Config',{}).get('Image')!=services.get(labels.get('com.docker.compose.service'),{}).get('image'):raise ValueError('Container ownership changed; no resources removed')
+ networks=engine.docker(['network','ls','--quiet','--filter','label=com.docker.compose.project='+project]).split()
+ for network in networks:
+  info=json.loads(engine.docker(['network','inspect',network]))[0];labels=info.get('Labels',{}) or {}
+  if labels.get('com.docker.compose.project')!=project or labels.get('com.docker.compose.network')!='default' or any(container not in ids for container in info.get('Containers',{})):raise ValueError('Network ownership changed; no resources removed')
  names=[]
  if erase:
   for logical,volume in volumes.items():
@@ -65,29 +69,43 @@ def remove_resources(engine,folder,state,erase):
    if items is None:continue
    info=json.loads(engine.docker(['volume','inspect',name]))[0];labels=info.get('Labels',{}) or {}
    if labels.get('com.docker.compose.project')!=project or labels.get('com.docker.compose.volume')!=logical:raise ValueError('Volume ownership changed; no resources removed')
-   users=engine.docker(['ps','-aq','--filter','volume='+name]).split()
+   users=engine.docker(['ps','-aq','--no-trunc','--filter','volume='+name]).split()
    if any(user not in ids for user in users):raise ValueError('A volume is used by another installation')
    names.append(name)
  # Every ownership decision above precedes the first destructive operation.
  if ids:engine.docker(['stop','--time','30',*ids]);engine.docker(['rm',*ids])
  for name in names:engine.docker(['volume','rm',name])
- # Networks and images stay for other installations; retention only removes proven obsolete owned images.
+ for network in networks:engine.docker(['network','rm',network])
+ # Images stay for other installations; retention only removes proven obsolete owned images.
+
+def remove_obsolete_services(engine,state,previous,current):
+ obsolete=set(previous.get('services',{}))-set(current.get('services',{}));selected=[]
+ for service in sorted(obsolete):
+  ids=engine.docker(['ps','-aq','--no-trunc','--filter','label=com.docker.compose.project='+state['project'],'--filter','label=com.docker.compose.service='+service]).split()
+  if not ids:continue
+  containers=json.loads(engine.docker(['inspect',*ids]))
+  if {item.get('Id') for item in containers}!=set(ids):raise ValueError('Obsolete service identity changed')
+  for item in containers:
+   labels=item.get('Config',{}).get('Labels',{})
+   if labels.get('com.docker.compose.project')!=state['project'] or labels.get('com.docker.compose.service')!=service or item.get('Config',{}).get('Image')!=previous['services'][service]['image']:raise ValueError('Obsolete service ownership changed')
+  selected.extend(ids)
+ if selected:engine.docker(['stop','--time','30',*selected]);engine.docker(['rm',*selected])
 
 def load_engine(data):
  if 'linuxSource' in data:
-  runtime=Path(data['folder'])/'.castlink-runtime';runtime.mkdir(mode=0o700,exist_ok=True)
-  if runtime.is_symlink():raise ValueError('Runtime directory changed')
-  source=base64.b64decode(data['linuxSource']).decode()
-  target=runtime/'linux-compose-setup.py'
-  marker=runtime/'source-owner.json'
-  if target.is_symlink() or marker.is_symlink() or (target.exists() and (not marker.exists() or checksum(target)!=json.loads(marker.read_text()).get('sha256'))):raise ValueError('Runtime source changed')
-  fd=os.open(str(target),os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
-  with os.fdopen(fd,'w') as handle:handle.write(source)
-  private_json(marker,{'owner':OWNER,'sha256':checksum(target)})
-  module=types.ModuleType('castlink_linux_setup');module.__file__=str(Path(data['folder'])/'.castlink-runtime/linux-compose-setup.py');exec(compile(base64.b64decode(data['linuxSource']),module.__file__,'exec'),module.__dict__)
+  module=types.ModuleType('castlink_linux_setup');module.__file__='/dev/null'
+  exec(compile(base64.b64decode(data['linuxSource']),module.__file__,'exec'),module.__dict__)
  else:
   file=Path(__file__).with_name('linux-compose-setup.py');spec=importlib.util.spec_from_file_location('castlink_linux_setup',file);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
  return module
+
+def persist_linux_source(engine,data,folder):
+ if 'linuxSource' not in data:return
+ runtime=folder/'.castlink-runtime';runtime.mkdir(mode=0o700,exist_ok=True)
+ if runtime.is_symlink():raise ValueError('Runtime directory changed')
+ target=runtime/'linux-compose-setup.py';marker=runtime/'source-owner.json'
+ if target.is_symlink() or marker.is_symlink() or (target.exists() and (not marker.exists() or checksum(target)!=json.loads(marker.read_text()).get('sha256'))):raise ValueError('Runtime source changed')
+ source=base64.b64decode(data['linuxSource']).decode();engine.write_private(target,source);private_json(marker,{'owner':OWNER,'sha256':checksum(target)});engine.__file__=str(target)
 
 def bind_docker(engine,data):
  executable=data.get('dockerExecutable','/usr/bin/docker');context=data.get('dockerContext','default')
@@ -111,12 +129,37 @@ def backup(engine,folder,state):
  root=folder/'backups';root.mkdir(mode=0o700,exist_ok=True)
  if root.is_symlink():raise ValueError('Backup directory changed')
  destination=root/(time.strftime('%Y%m%d-%H%M%S-')+uuid.uuid4().hex[:8]);destination.mkdir(mode=0o700)
- for name in (engine.STATE,*[name for name in CONFIG_FILES if name!='server-origin-ca.pem']):shutil.copyfile(folder/name,destination/name);os.chmod(destination/name,0o600)
+ for name in (engine.STATE,RECEIPT,*[name for name in CONFIG_FILES if (folder/name).is_file()]):shutil.copyfile(folder/name,destination/name);os.chmod(destination/name,0o600)
  for name,args in [('postgres.dump',['exec','-T','postgres','pg_dump','-U','castlink','-d','castlink','-Fc']),('web-data.tar',['exec','-T','web','tar','-C','/data','-cf','-','.'])]:
   with (destination/name).open('xb') as handle:os.chmod(destination/name,0o600);engine.compose(folder,state,args,output=handle)
  checks=''.join(checksum(file)+'  '+file.name+'\n' for file in sorted(destination.iterdir()))
  engine.write_private(destination/'SHA256SUMS',checks)
  return str(destination)
+
+def cleanup_mac_backups(engine,folder,state):
+ root=folder/'backups'
+ if not root.is_dir() or root.is_symlink():return
+ required={engine.STATE,RECEIPT,*[name for name in CONFIG_FILES if name!='server-origin-ca.pem'],'postgres.dump','web-data.tar'};verified=[]
+ for directory in root.iterdir():
+  if directory.is_symlink() or not directory.is_dir() or not re.fullmatch(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}',directory.name):continue
+  try:
+   files=list(directory.iterdir());names={file.name for file in files}
+   if not required.issubset(names) or not names.issubset(required|{'SHA256SUMS','server-origin-ca.pem'}) or 'SHA256SUMS' not in names or any(file.is_symlink() or not file.is_file() for file in files):continue
+   if (directory/'SHA256SUMS').stat().st_size>16384 or (directory/engine.STATE).stat().st_size>1024*1024 or (directory/RECEIPT).stat().st_size>32768:continue
+   previous=json.loads((directory/engine.STATE).read_text());owner=json.loads((directory/RECEIPT).read_text())
+   if previous.get('owner')!=engine.OWNER or previous.get('installationId')!=state['installationId'] or owner.get('owner')!=OWNER or owner.get('installationId')!=state['installationId'] or owner.get('folder')!=str(folder):continue
+   checks={}
+   for line in (directory/'SHA256SUMS').read_text().splitlines():
+    match=re.fullmatch(r'([a-f0-9]{64})  ([A-Za-z0-9._-]+)',line)
+    if not match or match[2] in checks:raise ValueError('Invalid backup checksum manifest')
+    checks[match[2]]=match[1]
+   if set(checks)!=names-{'SHA256SUMS'} or any(checksum(directory/name)!=expected for name,expected in checks.items()):continue
+   verified.append(directory)
+  except (OSError,ValueError,KeyError,TypeError):continue
+ # A partial or corrupt newer directory cannot displace the last intact backup.
+ for directory in sorted(verified,key=lambda item:item.name,reverse=True)[1:]:
+  for file in directory.iterdir():file.unlink()
+  directory.rmdir()
 
 def local_scheduler(engine,folder,state,data,unregister=False):
  label='ru.castlink.retention.'+state['installationId'];root=folder/'.castlink-runtime';plist=Path.home()/'Library/LaunchAgents'/(label+'.plist');owner=root/'scheduler.json'
@@ -184,7 +227,9 @@ def network_extensions(engine,target):
   if image not in actual.get('RepoTags',[]) or actual.get('Os')!='linux' or actual.get('Architecture')!='amd64':raise ValueError('Invalid TURN/TLS image platform')
  def probe(folder,state):
   if not state.get('turnDomain'):return original_probe(folder,state)
-  adjusted=copy.deepcopy(state);adjusted['network']['httpsPort']=8443;return original_probe(folder,adjusted)
+  source=engine.READINESS_JS;engine.READINESS_JS=source.replace("hostname:'caddy'","hostname:'turn-tls'")
+  try:return original_probe(folder,state)
+  finally:engine.READINESS_JS=source
  def complete(folder,state):
   original_complete(folder,state)
   if not state.get('turnDomain'):return
@@ -198,15 +243,40 @@ def network_extensions(engine,target):
  engine.render=render;engine.load_images=load;engine.probe_origin=probe;engine.complete=complete
 
 
+def discover_installations(engine,daemon,target):
+ # Labels locate candidates. Only a matching receipt proves ownership.
+ ids=engine.docker(['ps','-aq','--no-trunc','--filter','label=com.docker.compose.project']).split()
+ containers=json.loads(engine.docker(['inspect',*ids])) if ids else [];folders=set()
+ fixed=Path('/opt/castlink')
+ if target=='ssh' and fixed.is_dir() and not fixed.is_symlink():
+  for child in list(fixed.iterdir())[:64]:
+   if child.is_dir() and not child.is_symlink() and (child/RECEIPT).is_file():folders.add(str(child))
+ for container in containers[:256]:
+  labels=container.get('Config',{}).get('Labels',{});folder=labels.get('com.docker.compose.project.working_dir')
+  if isinstance(folder,str) and Path(folder).is_absolute():folders.add(folder)
+ result=[]
+ for value in sorted(folders)[:64]:
+  try:
+   folder=validate_folder(Path(value));state=engine.load_state(folder);verify_receipt(folder,state,daemon,target)
+   result.append({'folder':str(folder),'installationId':state['installationId'],'origin':state['network']['publicOrigin'],'completed':state.get('completed') is True})
+  except (ValueError,OSError,KeyError,TypeError):continue
+ return result
+
 def run(data):
- validate_request(data);folder=validate_folder(Path(data['folder']),create=data['action']=='install');engine=load_engine(data);daemon=bind_docker(engine,data);action=data['action'];target=data['target'];lang=data.get('locale','en');network_extensions(engine,target)
+ validate_request(data);action=data['action'];target=data['target'];lang=data.get('locale','en')
  if target=='local' and sys.platform!='darwin':raise ValueError('Local setup requires macOS')
+ if action!='discover':folder=validate_folder(Path(data['folder']),create=action=='install')
+ engine=load_engine(data);daemon=bind_docker(engine,data)
+ if action=='discover':return {'ok':True,'action':'discover','installations':discover_installations(engine,daemon,target)}
+ network_extensions(engine,target);engine.cleanup_legacy_backups=lambda f,s:cleanup_mac_backups(engine,f,s)
  with engine.installation_lock(folder):
   exists=(folder/engine.STATE).exists();state=engine.load_state(folder) if exists else None
+  previous_compose=json.loads((folder/'compose.json').read_text()) if exists and (folder/'compose.json').exists() else {'services':{}}
   if exists:
    verify_receipt(folder,state,daemon,target)
    if data.get('installationId') and data['installationId']!=state['installationId']:raise ValueError('Saved installation identity changed')
   elif action!='install':raise ValueError('No owned installation exists in this folder')
+  persist_linux_source(engine,data,folder)
   if target=='local':engine.register_cleanup=lambda f,s:local_scheduler(engine,f,s,data)
   if action=='cleanup':
    if not state.get('completed'):return {'ok':True,'action':action,'completed':False}
@@ -222,7 +292,7 @@ def run(data):
   if action=='update' and not state.get('completed'):raise ValueError('Complete or resume this installation before updating')
   candidate=engine.check_updates(state['release'] if state else {})
   if candidate is None and state:
-   if action=='update' and not data.get('reconfigure'):return {'ok':True,'action':action,'completed':True,'installationId':state['installationId'],'origin':state['network']['publicOrigin'],'outcome':'current'}
+   if action=='update' and not data.get('reconfigure'):return {'ok':True,'action':action,'completed':True,'installationId':state['installationId'],'origin':state['network']['publicOrigin'],'outcome':'current','version':state['release']['version'],'sourceCommit':state['release']['commit'],'daemonId':daemon,'configuration':{key:state[key] for key in ('setupMode','publicHttps','network','turnDomain') if key in state}}
    package_context=contextlib.nullcontext((None,state['release']))
   elif candidate is None:raise ValueError('No verified public Linux server release is available')
   else:package_context=engine.downloaded_update(folder,candidate)
@@ -242,13 +312,14 @@ def run(data):
    if engine.docker(['run','--rm','--platform','linux/amd64','--network','none','--entrypoint','node',release['images']['web'],'-p','process.arch']).strip()!='x64':raise ValueError('Docker could not execute the validated linux/amd64 server image')
    if state.get('completed'):engine.remember_successful_release(folder,state['release'])
    engine.render(folder,state,release);state.update(release=release,completed=False,removed=False);engine.write_private(folder/engine.STATE,state);write_receipt(folder,state,daemon,target)
+   remove_obsolete_services(engine,state,previous_compose,json.loads((folder/'compose.json').read_text()))
    engine.compose(folder,state,['up','-d','--wait','--wait-timeout','180']);engine.complete(folder,state)
    if target=='local' and state['network']['mode']=='https' and not state['publicHttps']:
     certificate=engine.compose(folder,state,['exec','-T','caddy','cat','/data/caddy/pki/authorities/local/root.crt'])
     if len(certificate)>16384 or '-----BEGIN CERTIFICATE-----' not in certificate:raise ValueError('Local certificate authority is unavailable')
     engine.write_private(folder/'server-origin-ca.pem',certificate)
    write_receipt(folder,state,daemon,target);engine.finish_retention(folder,state,lang)
-  return {'ok':True,'action':action,'completed':state['completed'],'installationId':state['installationId'],'origin':state['network']['publicOrigin'],'readiness':state.get('readiness'),'backup':backup_path}
+  return {'ok':True,'action':action,'completed':state['completed'],'installationId':state['installationId'],'origin':state['network']['publicOrigin'],'readiness':state.get('readiness'),'backup':backup_path,'version':state['release']['version'],'sourceCommit':state['release']['commit'],'daemonId':daemon,'configuration':{key:state[key] for key in ('setupMode','publicHttps','network','turnDomain') if key in state}}
 
 def main():
  try:

@@ -2,7 +2,7 @@
 // Real macOS child/window/capture fixture. It never injects into another app.
 // Run after compiling the helper and fixture; no permissions are changed here.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const {spawn}=require('node:child_process');
+const {spawn,execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'../..');
 const helper=process.argv[2],fixture=process.argv[3],artifact=process.argv[4]||path.join(root,'artifacts/macos-input-native.json');
 const evidence={schemaVersion:1,platform:process.platform,arch:process.arch,status:'NOT VERIFIED',checks:[],physicalHolds:'NOT VERIFIED: requires physical keyboard/mouse',spaces:'NOT VERIFIED: requires interactive Space switching',mixedRetinaDisplays:'NOT VERIFIED: requires multiple displays'};
@@ -19,7 +19,9 @@ function processLines(executable,args=[]){
   if(process.platform!=='darwin')throw Error('macOS required');
   fs.mkdirSync(path.dirname(artifact),{recursive:true});
   assert.ok(helper&&fixture,'supply compiled helper and NativeFixture paths');
-  b=processLines(fixture,[artifact.replace(/\.json$/,'.png')]);const ready=await b.until(v=>v.event==='ready'||v.event==='unavailable');if(ready.event==='unavailable'){evidence.reason=ready.reason;return;}evidence.permissions={screen:ready.screenPermission,accessibility:ready.accessibilityPermission};
+  evidence.helperPermissions=JSON.parse(execFileSync(helper,['--permission-status'],{shell:false,encoding:'utf8',timeout:3000,maxBuffer:2048,stdio:['ignore','pipe','pipe']}));
+  for(const key of ['screen','accessibility','inputMonitoring'])assert.equal(typeof evidence.helperPermissions[key],'boolean');
+  b=processLines(fixture,[artifact.replace(/\.json$/,'.png')]);const ready=await b.until(v=>v.event==='ready'||v.event==='unavailable');if(ready.event==='unavailable'){evidence.reason=ready.reason;return;}evidence.permissions={screen:ready.screenPermission,accessibility:ready.accessibilityPermission,inputMonitoring:ready.inputMonitoringPermission};
   a=processLines(helper);
   let r=await a.request('start',{captureId:'native-fixture',source:{kind:'window',windowId:ready.windowId},video:{width:ready.width,height:ready.height},mapping:{kind:'macos-window'},fullInputPause:true});
   if(!r.ok||!r.state?.ready||!r.state?.pointerReady){evidence.reason=r.error||r.state?.error||'permissions, focused window, HID monitor or geometry unavailable';return;}

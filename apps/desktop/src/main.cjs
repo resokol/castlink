@@ -35,7 +35,7 @@ const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
 const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(__dirname,'../../../artifacts/desktop-native');
-const macPermissions=process.platform==='darwin'?require('./macos-platform.cjs').createMacPermissionAdapter({systemPreferences,openSettings:url=>shell.openExternal(url)}):null;
+const macPermissions=process.platform==='darwin'?require('./macos-platform.cjs').createMacPermissionAdapter({systemPreferences,openSettings:url=>shell.openExternal(url),inputMonitoring:require('./macos-input-permissions.cjs').createMacInputPermissions({resourcesPath:resourcesRoot()})}):null;
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
   ru: { connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
@@ -74,18 +74,19 @@ function configureMenu() {
   Menu.setApplicationMenu(null);
   const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
   applicationMenu=Menu.buildFromTemplate([...updateItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
-  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},...updateItems,{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
+  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},require('./macos-permission-menu.cjs').createMacPermissionMenu({adapter:macPermissions,dialog,getWindow:()=>client||launcher,getLocale:()=>settings.locale}),{type:'separator'},...updateItems,{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
   let current={track:'client',version:app.isPackaged?app.getVersion():require('../../../package.json').version};
   try{const info=JSON.parse(fs.readFileSync(path.join(__dirname,'../build-info.json'),'utf8'));if(info.track==='client')current=info;}catch{}
   const roots=['D:\\CastLink',path.join(require('node:os').homedir(),'CastLink')];
+  const macServerIndex=path.join(app.getPath('userData'),'managed-servers.json');
   const downloads=path.join(app.getPath('userData'),'update-downloads');updates.cleanupDownloads(downloads);
   return updates.createUpdateController({userData:app.getPath('userData'),current,getLocale:()=>settings.locale,
-    getServers:()=>updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
+    getServers:()=>process.platform==='darwin'?require('./macos-server-discovery.cjs').discoverMacServerBuilds({indexPath:macServerIndex}):updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
     showMessage:options=>{const owner=client||launcher;return owner&&!owner.isDestroyed()?dialog.showMessageBox(owner,options):dialog.showMessageBox(options);},
-    updateServer:build=>setupController.launch('update',settings.locale,build.folder),
+    updateServer:build=>setupController.launch('update',settings.locale,process.platform==='darwin'?build:build.folder),
     download:info=>updates.downloadInstaller(info,{directory:downloads}),
     install:file=>updates.launchInstaller(file,{onStarted:()=>{quitting=true;app.quit();}}),
   });
@@ -175,7 +176,7 @@ async function connect(value) {
   captureDispose=installDisplayCapture({session:ses,mainWindow:own,trustedOrigins,chooseSource,prepareAudio:prepareProcessAudio,selectedSource:async source=>{if(!pendingDisplay)throw Error('Display request cancelled');let target;try{target=require('./remote-pc-capture.cjs').bindSelectedSource(source,screen);}catch{const kind=source.id.startsWith('window:')?'window':source.id.startsWith('screen:')?'screen':null;if(kind)target={kind,unavailable:true};}const selected={id:pendingDisplay,sourceId:source.id,name:source.name,target};selectedDisplay=selected;await remoteControlController?.selectCapture(selected);}});
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins,getSharedSource:()=>sharedDisplay});
   const remotePc=require('./remote-pc-desktop.cjs');
-  remoteControlController=remotePc.createRemotePcDesktop({client:own,ipcMain,trustedOrigins,resourcesPath:resourcesRoot(),getSharedSource:()=>sharedDisplay,toolbar:stopController,...(macPermissions?{supported:()=>remotePc.nativeResourceAvailable(resourcesRoot(),'darwin')&&macPermissions.status('screen').granted&&macPermissions.status('accessibility').granted}:{})});
+  remoteControlController=remotePc.createRemotePcDesktop({client:own,ipcMain,trustedOrigins,resourcesPath:resourcesRoot(),getSharedSource:()=>sharedDisplay,toolbar:stopController,...(macPermissions?{supported:()=>remotePc.nativeResourceAvailable(resourcesRoot(),'darwin')&&macPermissions.status('screen').granted&&macPermissions.status('accessibility').granted&&macPermissions.status('input-monitoring').granted}:{})});
   slideController=require('./slide-panel.cjs').createSlideController({client:own,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea:bounds=>screen.getDisplayMatching(bounds).workArea});
   own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(isRemoteLaunch(url)){require('./remote-pc-protocol.cjs').parseRemoteLaunch(url);shell.openExternal(url).catch(()=>{});}else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
@@ -251,7 +252,7 @@ else {
     }else receiveInvitation(url);
   });
   app.whenReady().then(()=>{
-    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,arch:process.arch});
+    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot(),BrowserWindow,ipcMain,dialog,arch:process.arch,indexPath:path.join(app.getPath('userData'),'managed-servers.json')});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,allowLoopback),stored.reserveOrigins,stored.locale);}catch{}
     if(!pptxTestBuild)updateController=createUpdates();
     ipcMain.handle('castlink:updates',(event,locale)=>{if(pptxTestBuild)throw Error('Updates disabled in the private PPTX test build');if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});

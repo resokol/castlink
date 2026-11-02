@@ -22,6 +22,7 @@ final class FixturePlatform: RemoteInputPlatform {
 }
 @main enum CoreFixture {
     static func main() throws {
+        precondition(InputJSON.validKey("F20") && !InputJSON.validKey("F21") && !InputJSON.validKey("F24"), "unmapped Mac keys must fail finite protocol validation")
         let geometry = InputSnapshot(identity: "retina", rect: InputRect(x: -100, y: 20, width: 800, height: 600), pixelWidth: 1600, pixelHeight: 1200, scale: 2, visible: true)
         let edge = geometry.point(65535, 65535)
         precondition(edge.x == 699.5 && edge.y == 619.5, "Retina endpoint must use backing-pixel extent")

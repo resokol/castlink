@@ -53,7 +53,7 @@ async function runNativeSmoke({arch,evidenceDir,resourcesPath,root=path.resolve(
   }
   let helpers;
   await check('native-build','compile-native-helpers',async()=>{
-    helpers=buildNative({root,resourcesPath,arch,platform,hostArch});
+    try{helpers=buildNative({root,resourcesPath,arch,platform,hostArch});}catch(error){helpers=error.helpers;throw error;}
     return {status:'VERIFIED',helpers:Object.keys(helpers),osOperationVerified:false};
   });
   if(platform==='darwin'&&['arm64','x64'].includes(arch)&&arch===hostArch){

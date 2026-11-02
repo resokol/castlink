@@ -19,7 +19,11 @@ points. Link AppKit, ApplicationServices and CryptoKit. Stage:
 
 Run each native executable with `--self-test` for a permission-independent
 protocol probe. Its `osOperationVerified:false` is intentional: compilation and
-argument parsing cannot prove an Accessibility effect. Validate JXA syntax using
+argument parsing cannot prove an Accessibility effect. The PowerPoint probe
+also exercises the real native keypad encoder, including unsupported-character
+refusal, plus sheet/dialog/unknown-focus metadata refusal; it does not send
+keyboard events. Missing required AX children/role/window-subrole metadata is
+a refusal, not an empty or safe-tree fallback. Validate JXA syntax using
 `osacompile -l JavaScript -o /tmp/CastLink.PowerPoint.scpt PowerPoint.js`.
 
 ## PowerPoint
@@ -53,7 +57,10 @@ slideshow numeric-key + Return shortcut:
 https://support.microsoft.com/en-us/office/use-keyboard-shortcuts-to-deliver-powerpoint-presentations-1524ffce-bd2a-45f4-9a7f-f18b992b93a0
 The native helper revalidates exact process/window/document binding, requires
 that selected slideshow to be foreground with noneditable content focused,
-refuses sheets and held modifiers, then sends bounded physical digit key pairs
+requires a successful bounded read of the selected window’s direct AX children,
+refuses sheet/dialog roles in those children or anywhere along focus ancestry,
+requires AXStandardWindow metadata for window nodes, refuses held modifiers,
+then sends bounded numeric-keypad digit key pairs
 and Return directly to that process. JXA polls the actual slide index and
 acknowledges only the requested resulting slide before the short deadline.
 Unexpected results revoke authority; the shortcut is never retried.
@@ -61,7 +68,11 @@ Unexpected results revoke authority; the shortcut is never retried.
 Public independent evidence reports a typed-digit shortcut failure on one Office
 installation (the digit was dropped while Return advanced):
 https://github.com/adbertram/cli-tools/blob/d8b18152a28a6c07ff7a54ab1e30f7b8877799a0/_repo/skills/powerpoint-slide-recorder-cli/SKILL.md
-This adapter uses physical digit keycodes and verifies the actual result, but
+This adapter uses numeric-keypad keycodes (`kVK_ANSI_Keypad0` through
+`kVK_ANSI_Keypad9`) with numeric-pad event flags, avoiding US top-row digit
+assumptions on layouts such as French AZERTY. Its native self-test validates all
+ten numeric codes and refuses punctuation/non-ASCII digit mappings. It verifies
+the actual slide result, but
 its compatibility still requires a real Office fixture. It is not verified
 parity until the target versions/architectures pass.
 
@@ -108,7 +119,7 @@ Preview AX trees. Required real fixtures on both architectures include:
 
 - Original PPTX with same-slide animations, forward/backward builds and media;
   original document prepare/start and exact status after owner navigation.
-- Live goto, including multiple digits and keyboard layouts; no success until
+- Live goto, including multiple digits and US/French AZERTY/German layouts; no success until
   the actual requested slide is observed. Unexpected shortcuts must revoke.
 - Selected window versus editor/presenter view, two open decks, changed capture,
   closed/restarted Office, fullscreen/Spaces and moved/Retina display geometry.
