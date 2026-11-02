@@ -128,3 +128,26 @@ test('EOF fixture starts a new helper only after the stopped owned child has clo
  await assert.rejects(waitForStoppedHelper({closed:Promise.resolve({code:0,signal:'SIGTERM'}),timeoutMs:100}));
  await assert.rejects(waitForStoppedHelper({closed:new Promise(()=>{}),timeoutMs:5}),/stopped helper did not close/);
 });
+
+test('post-capture readiness waits for authoritative source recovery and accepts an unchanged ready source',async()=>{
+ const {waitForPausedNativeSource}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ const rect={x:125,y:405,width:640,height:480};
+ const unavailable={captureId:'capture',geometry:{revision:6},rect,ready:false,pointerReady:false,active:false,needsEmptyReset:true,stopped:false,error:'REMOTE_INPUT_SOURCE'};
+ const recovered={...unavailable,geometry:{revision:7},ready:true,pointerReady:true,error:'REMOTE_INPUT_LEASE'};
+ let state=unavailable,time=0,polls=0;
+ const observed=await waitForPausedNativeSource({readState:()=>state,captureId:'capture',rect,phase:'post-capture',now:()=>time,wait:async()=>{time+=10;if(++polls===2)state=recovered;},timeoutMs:50});
+ assert.equal(observed.before,unavailable);assert.equal(observed.state,recovered);assert.equal(polls,2);
+ assert.equal((await waitForPausedNativeSource({readState:()=>recovered,captureId:'capture',rect,phase:'already-ready',wait:async()=>assert.fail('ready source must not sleep')})).state,recovered);
+});
+
+test('post-capture native readiness refuses stale recovery, unavailable, changed or active sources',async()=>{
+ const {waitForPausedNativeSource}=require('../../../native/macos-remote-input/fixture-policy.cjs');
+ const rect={x:125,y:405,width:640,height:480};
+ const unavailable={captureId:'capture',geometry:{revision:6},rect,ready:false,pointerReady:false,active:false,needsEmptyReset:true,stopped:false};
+ const recovered={...unavailable,geometry:{revision:7},ready:true,pointerReady:true};
+ for(const next of [unavailable,{...recovered,geometry:{revision:6}},{...recovered,captureId:'foreign'},{...recovered,rect:{...rect,x:126}},{...recovered,active:true},{...recovered,needsEmptyReset:false},{...recovered,stopped:true}]){
+  let state=unavailable,time=0;
+  await assert.rejects(waitForPausedNativeSource({readState:()=>state,captureId:'capture',rect,phase:'post-capture',now:()=>time,wait:async()=>{time+=10;state=next;},timeoutMs:30}));
+  assert.ok(time<=30);
+ }
+});

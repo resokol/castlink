@@ -41,6 +41,21 @@ function editableRefusalVerified(error,{unchanged,oldStatus,freshBinding,origina
     typeof freshBinding==='string'&&/^[a-f0-9]{64}$/.test(freshBinding)&&
     typeof originalBinding==='string'&&/^[a-f0-9]{64}$/.test(originalBinding)&&freshBinding!==originalBinding&&ownedWindowVerified===true;
 }
+async function waitForEditableSnapshot(readSnapshot,{recordFailure=()=>{},timeoutMs=2000,now=Date.now,wait=delay}={}){
+  const until=now()+timeoutMs;
+  while(now()<until){
+    const result=await readSnapshot();
+    if(!result.ok){
+      recordFailure(result);
+      // The owned document's AX lookup can be unavailable during Cmd-F layout.
+      // Only observe readiness again while the exact owned process still lives.
+      if(result.error!=='owned-window-not-ready'||result.ownedProcessValid!==true)
+        throw Error('Owned Preview AX snapshot unavailable: '+(result.error||'unknown'));
+    }else if(now()<until&&['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(result.focusRole))return result;
+    const remaining=until-now();if(remaining>0)await wait(Math.min(75,remaining));
+  }
+  throw Error('Preview search did not expose actual editable focus within the readiness deadline');
+}
 async function runPreviewFixture({helper,fixture,artifact}){
   const evidence={schemaVersion:1,protocol:1,fixture:'owned-preview-pdf',platform:process.platform,arch:process.arch,status:'NOT VERIFIED',osOperationVerified:false,checks:[]};
   let owner,broker,ownerReady=false;
@@ -98,8 +113,11 @@ async function runPreviewFixture({helper,fixture,artifact}){
     evidence.preEditableProof=await owner.request('captureProof');assert.equal(evidence.preEditableProof.ok,true,'Could not retain owned Preview PDF proof before search');
     assert.equal((await owner.request('editable')).ok,true,'Owned Preview search could not be opened');
     let edit;
-    for(let attempt=0;attempt<20;attempt++){await delay(75);edit=await snap();if(['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(edit.focusRole))break;}
-    assert.ok(['AXTextField','AXTextArea','AXComboBox','AXSearchField'].includes(edit.focusRole),'Preview search did not expose actual editable focus');
+    try{
+      edit=await waitForEditableSnapshot(()=>owner.request('snapshot'),{recordFailure:result=>{
+        evidence.snapshotFailures??=[];evidence.snapshotFailures.push(result);if(evidence.snapshotFailures.length>8)evidence.snapshotFailures.shift();
+      }});
+    }catch(error){evidence.ownedAXDiagnostics=await owner.request('diagnostics');throw error;}
     // Let the native search layout settle before measuring an attempted step.
     for(let attempt=0;attempt<8;attempt++){
       await delay(100);const settled=await snap();
@@ -186,5 +204,5 @@ async function runPreviewFixture({helper,fixture,artifact}){
   }
   return evidence;
 }
-module.exports={runPreviewFixture,editableRefusalVerified};
+module.exports={runPreviewFixture,editableRefusalVerified,waitForEditableSnapshot};
 if(require.main===module){const [helper,fixture,artifact]=process.argv.slice(2);runPreviewFixture({helper,fixture,artifact}).then(value=>{console.log(JSON.stringify(value));if(value.status==='FAILED')process.exitCode=1;}).catch(()=>{console.error('Preview fixture driver failed');process.exitCode=1;});}

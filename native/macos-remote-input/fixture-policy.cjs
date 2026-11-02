@@ -71,6 +71,19 @@ async function waitForNativeTransition({readState,captureId,afterRevision,pointe
 }
 module.exports.waitForNativeTransition=waitForNativeTransition;
 
+async function waitForPausedNativeSource(options){
+ const assert=require('node:assert/strict'),before=options.readState(),revision=before?.geometry?.revision;
+ assert.equal(before?.captureId,options.captureId,options.phase+' observed a foreign capture');
+ assert.ok(Number.isSafeInteger(revision)&&revision>0,options.phase+' has no native geometry revision');
+ // A screenshot acknowledgement belongs to another process. If the helper
+ // reported source loss, observe its newer recovery event before arming it.
+ // A source that remained ready can keep its current geometry authority.
+ const afterRevision=before.ready===true&&before.pointerReady===true?revision-1:revision;
+ const state=await waitForNativeTransition({...options,afterRevision,pointerReady:true});
+ return {before,state};
+}
+module.exports.waitForPausedNativeSource=waitForPausedNativeSource;
+
 async function waitForStoppedHelper({closed,timeoutMs=2000}){
  const assert=require('node:assert/strict');let timer;
  try{
