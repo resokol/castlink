@@ -851,6 +851,70 @@ func fixtureModalWindows(_ target: Target, includeAlertText: Bool = false) -> [[
         return report
     }
 }
+func fixtureEditableRole(_ role: String, valueSettable: Bool) -> Bool {
+    valueSettable && ["AXTextField","AXTextArea","AXSearchField","AXComboBox"].contains(role)
+}
+func fixtureNativeEditableState(_ target: Target) -> (Bool,[String:Any]) {
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    var report: [String:Any] = [:]
+    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+          let window = element(application,kAXFocusedWindowAttribute), CFEqual(window,target.window),
+          let focused = element(application,kAXFocusedUIElementAttribute), let role = string(focused,kAXRoleAttribute) else { report["reason"] = "Owned editable focus unavailable"; return (false,report) }
+    report["role"] = role
+    var pid: pid_t = 0, settable = DarwinBoolean(false)
+    let pidCode = AXUIElementGetPid(focused,&pid)
+    let valueCode = AXUIElementIsAttributeSettable(focused,kAXValueAttribute as CFString,&settable)
+    report["nativePIDMatches"] = pidCode == .success && pid == target.pid
+    report["valueSettableCode"] = valueCode.rawValue; report["valueSettable"] = settable.boolValue
+    guard pidCode == .success, pid == target.pid,
+          fixtureEditableRole(role,valueSettable:valueCode == .success && settable.boolValue) else { return (false,report) }
+    var current: AXUIElement? = focused
+    var path: [[String:Any]] = []
+    for _ in 0..<40 {
+        guard let node = current, let nodeRole = string(node,kAXRoleAttribute) else { break }
+        let subrole = string(node,kAXSubroleAttribute), matchesWindow = CFEqual(node,target.window)
+        var link: [String:Any] = ["role":nodeRole,"windowMatches":matchesWindow]
+        if let subrole = subrole { link["subrole"] = subrole }; path.append(link)
+        // Native address/search UI must be outside all HTML/PDF web areas.
+        if nodeRole == "AXWebArea" || CFEqual(node,target.evidence.root) || (target.evidence.viewer.map { CFEqual(node,$0) } ?? false) || modalMetadata(nodeRole,subrole) { break }
+        if matchesWindow { report["ancestry"] = path; report["nativeWindowAncestry"] = true; return (true,report) }
+        current = element(node,kAXParentAttribute)
+    }
+    report["ancestry"] = path; report["nativeWindowAncestry"] = false
+    return (false,report)
+}
+func fixtureAcquireEditable(_ target: Target) -> [String:Any] {
+    var result: [String:Any] = ["method":"owned-process-Cmd+L","shortcutCalls":0,"urlTyped":false,"returnSent":false,"actualMatches":false,"status":"NOT VERIFIED"]
+    do { _ = try bound(["status",String(target.number),target.binding]) }
+    catch { result["reason"] = "Owned PDF binding changed before editable acquisition"; return result }
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    guard fixtureHasWork(), processBirthMilliseconds(target.pid) == target.launched,
+          NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+          let window = element(application,kAXFocusedWindowAttribute), CFEqual(window,target.window), fixtureOwnedDialog(target) == false,
+          CGEventSource.flagsState(.hidSystemState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift]).isEmpty,
+          !CGEventSource.keyState(.hidSystemState,key:CGKeyCode(kVK_ANSI_L)),
+          let down = CGEvent(keyboardEventSource:nil,virtualKey:CGKeyCode(kVK_ANSI_L),keyDown:true),
+          let up = CGEvent(keyboardEventSource:nil,virtualKey:CGKeyCode(kVK_ANSI_L),keyDown:false) else { result["reason"] = "Owned shortcut target or physical key state unavailable"; return result }
+    down.flags = .maskCommand; up.flags = .maskCommand
+    down.postToPid(target.pid); up.postToPid(target.pid); result["shortcutCalls"] = 1
+    let deadline = fixtureUntil(4)
+    repeat {
+        let (matches,state) = fixtureNativeEditableState(target); result["actual"] = state
+        let modifiers = CGEventSource.flagsState(.combinedSessionState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift])
+        result["actualMatches"] = matches
+        result["combinedSessionModifierFlags"] = modifiers.rawValue
+        result["combinedSessionModifiersNeutral"] = modifiers.isEmpty
+        if matches && modifiers.isEmpty {
+            do { try focusedPDF(target); result["status"] = "FAILED"; result["reason"] = "Production guard accepted native editable focus" }
+            catch { if (error as? Refusal) == .foreground { result["status"] = "VERIFIED"; result["productionRefusal"] = Refusal.foreground.rawValue } else { result["reason"] = "Unexpected production refusal" } }
+            return result
+        }
+        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+    } while Date() < deadline && fixtureHasWork()
+    return result
+}
 let browserRequiredProofs = ["documentIdentity","contentFocus","navigation","editableFocusRefusal","sameURLTabRefusal"]
 func browserFixtureVerdict(installed: Bool, accessibilityPermission: Bool, proofs: [String:String]) -> String {
     if !installed || !accessibilityPermission { return "NOT VERIFIED" }
@@ -981,25 +1045,12 @@ func browserFixture() throws -> Any {
                 report["postNavigationFocusState"] = fixtureFocusState(target,fixturePDFContent(target))
                 report["postNavigationOwnedModalWindows"] = fixtureModalWindows(target,includeAlertText:true)
             }
-            // Focus an editable browser control, not its PDF renderer. The
-            // production focus fence must refuse a PageDown in that control.
-            if let nodes = browserTree(target.window,viewers(target.app)), let editable = nodes.first(where:{ ["AXTextField","AXComboBox"].contains($0.role) }) {
-                let focusSet = AXUIElementSetAttributeValue(editable.element,kAXFocusedAttribute as CFString,kCFBooleanTrue)
-                report["editableFocusSetCode"] = focusSet.rawValue
-                var actualMatches = false
-                if focusSet == .success {
-                    let deadline = fixtureUntil(2)
-                    repeat {
-                        if let actual = element(AXUIElementCreateApplication(target.pid),kAXFocusedUIElementAttribute), CFEqual(actual,editable.element) { actualMatches = true; break }
-                        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
-                    } while Date() < deadline
-                }
-                report["editableFocusActualMatches"] = actualMatches
-                if actualMatches {
-                    do { try focusedPDF(target); report["editableFocusRefusal"] = "FAILED" }
-                    catch { report["editableFocusRefusal"] = "VERIFIED" }
-                } else { report["editableFocusRefusal"] = "NOT VERIFIED" }
-            }
+            // Request native browser address UI once, without typing or Return.
+            // The actual editable receiver and production refusal are proven.
+            let editable = fixtureAcquireEditable(target)
+            report["editableFocusAcquisition"] = editable
+            report["editableFocusActualMatches"] = editable["actualMatches"] as? Bool ?? false
+            report["editableFocusRefusal"] = editable["status"] as? String ?? "NOT VERIFIED"
             if report["editableFocusRefusal"] as? String != "VERIFIED" {
                 report["editableFocusFailureState"] = fixtureFocusState(target,fixturePDFContent(target))
                 report["editableFocusOwnedModalWindows"] = fixtureModalWindows(target,includeAlertText:true)
@@ -1084,7 +1135,9 @@ func run(_ args: [String]) throws -> Any {
         let scrollBefore = FixturePDFObservation(markers:[],scroll:[0],window:oracleWindow,surface:oracleSurface,stateKey:"s0")
         let scrollAfter = FixturePDFObservation(markers:[],scroll:[0.2],window:oracleWindow,surface:oracleSurface,stateKey:"s1")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
-        guard fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:false),
+        guard fixtureEditableRole("AXTextField",valueSettable:true),
+              !fixtureEditableRole("AXTextField",valueSettable:false), !fixtureEditableRole("AXGroup",valueSettable:true),
+              fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:false),
               !fixtureInnerMembership(reachedContent:false,reachedWindow:true,blocked:false),
               !fixtureInnerMembership(reachedContent:true,reachedWindow:false,blocked:false),
               !fixtureInnerMembership(reachedContent:true,reachedWindow:true,blocked:true),

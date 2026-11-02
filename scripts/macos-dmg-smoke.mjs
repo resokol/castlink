@@ -1,10 +1,11 @@
 // Verify the actual candidate DMG and exercise only its private installation
-// copy. No real Applications directory, quarantine flags, TCC or Gatekeeper
-// settings are changed. Integrity is separate from distribution trust.
+// copy in a receipt-owned nonce folder under the user's Applications directory.
+// Existing apps and parent permissions, quarantine flags, TCC and Gatekeeper
+// settings remain unchanged. Integrity is separate from distribution trust.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {createHash} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
@@ -39,20 +40,38 @@ async function verifyArtifact(directory,arch){
  return {manifest,dmg,filename,sha256:digest};
 }
 
-export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=execFileSync,smoke=runPackagedSmoke,temporaryRoot=os.tmpdir()}={}){
+export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=execFileSync,smoke=runPackagedSmoke,temporaryRoot=os.tmpdir(),installationRoot}={}){
  if(!['arm64','x64'].includes(expectedArch))throw Error('Explicit native macOS architecture required');
  if(run===execFileSync&&(process.platform!=='darwin'||process.arch!==expectedArch))throw Error('DMG installation smoke requires the native target macOS host');
  if(typeof artifactDirectory!=='string'||!path.isAbsolute(artifactDirectory)||typeof output!=='string'||!path.isAbsolute(output)||!path.isAbsolute(temporaryRoot))throw Error('Absolute artifact, output and temporary paths required');
+ const userApplications=path.join(fs.realpathSync(os.homedir()),'Applications');installationRoot??=userApplications;
+ if(!path.isAbsolute(installationRoot)||run===execFileSync&&installationRoot!==userApplications)throw Error('Install only in the real user Applications test directory');
  artifactDirectory=fs.realpathSync(artifactDirectory);fs.mkdirSync(path.dirname(output),{recursive:true});
  const evidenceFile=path.join(path.dirname(output),'dmg-install.json');
  const report={schemaVersion:1,status:'FAILED',arch:expectedArch,readOnlyMount:'NOT VERIFIED',privateApplicationCopy:'NOT VERIFIED',detachedBeforeLaunch:'NOT VERIFIED',copiedAppSmoke:'NOT VERIFIED',signing:'ad-hoc',signed:false,notarized:false,quarantineBypass:false,gatekeeperAcceptance:'NOT VERIFIED'};
  const ownedRegistrationPaths=new Map();
- let failure,work,mount,dmg,installed,staged,attachAttempted=false,registerAttempted=false,stagedUnregisterAttempted=false,preserveWork=false;
+ let failure,work,mount,dmg,installed,staged,installation,installationIdentity,installedIdentity,installationReceipt,parentIdentity,createdParent=false,preserveInstallation=false,attachAttempted=false,registerAttempted=false,stagedUnregisterAttempted=false,preserveWork=false;
+ function assertOwnedInstallation(){
+  if(!installation||!installationIdentity||!installationReceipt)throw Error('No owned installation directory');
+  const current=fs.lstatSync(installation),receipt=path.join(installation,'.castlink-qa-owner.json');
+  if(!current.isDirectory()||current.dev!==installationIdentity.dev||current.ino!==installationIdentity.ino||fs.realpathSync(installation)!==installation||!fs.lstatSync(receipt).isFile()||fs.readFileSync(receipt,'utf8')!==installationReceipt)throw Error('Installation ownership changed; refusing to touch this directory');
+  if(installedIdentity){const app=fs.lstatSync(installed);if(!app.isDirectory()||app.dev!==installedIdentity.dev||app.ino!==installedIdentity.ino||fs.realpathSync(installed)!==installed)throw Error('Installed app identity changed; refusing to touch this application');}
+ }
+ function claimInstallation(artifact){
+  try{
+   const parent=fs.lstatSync(installationRoot);if(!parent.isDirectory()||fs.realpathSync(installationRoot)!==installationRoot)throw Error('User Applications must be an ordinary directory, never a symbolic link');
+  }catch(error){if(error.code!=='ENOENT')throw error;fs.mkdirSync(installationRoot,{mode:0o755});createdParent=true;fs.chmodSync(installationRoot,0o755);}
+  parentIdentity=fs.lstatSync(installationRoot);
+  installation=fs.mkdtempSync(path.join(installationRoot,'CastLink-QA-'));fs.chmodSync(installation,0o755);installationIdentity=fs.lstatSync(installation);
+  installationReceipt=JSON.stringify({schemaVersion:1,nonce:randomBytes(32).toString('hex'),dev:installationIdentity.dev,ino:installationIdentity.ino,sourceCommit:artifact.manifest.sourceCommit,sha256:artifact.sha256});
+  fs.writeFileSync(path.join(installation,'.castlink-qa-owner.json'),installationReceipt,{flag:'wx',mode:0o600});assertOwnedInstallation();
+ }
  async function command(executable,args,{timeout=30000,...options}={}){
   return String(await run(executable,args,{encoding:'utf8',shell:false,timeout,maxBuffer:1048576,killSignal:'SIGKILL',...options}));
  }
  async function unregisterOwned(bundle){
   const role=ownedRegistrationPaths.get(bundle);if(!role)throw Error('Refusing to unregister an unverified application path');
+  if(role==='private-copy')assertOwnedInstallation();
   try{await command(LSREGISTER,['-u',bundle]);}
   catch(error){
    // lsregister -u is not idempotent: a never-registered owned source can
@@ -104,7 +123,7 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   const previousHandlers=await readMacUriHandlers({run});
   for(const [scheme,handler]of Object.entries(previousHandlers))if(typeof handler==='string'&&fs.existsSync(handler)&&(!staged||!samePath(handler,staged)))throw Error('Existing non-owned URI handler preserved; use a fresh runner: '+scheme+' ('+path.basename(handler).replace(/[\x00-\x1f\x7f]/g,'?').slice(0,64)+')');
   work=fs.realpathSync(fs.mkdtempSync(path.join(temporaryRoot,'castlink-dmg-install-')));fs.chmodSync(work,0o700);
-  mount=path.join(work,'mounted');const applications=path.join(work,'Applications');fs.mkdirSync(mount,{mode:0o700});fs.mkdirSync(applications,{mode:0o700});
+  mount=path.join(work,'mounted');fs.mkdirSync(mount,{mode:0o700});
   await command('/usr/bin/hdiutil',['verify',dmg],{timeout:60000});report.containerIntegrity='PASS';
   attachAttempted=true;
   const attachment=await decodePlist(await command('/usr/bin/hdiutil',['attach','-readonly','-nobrowse','-noautoopen','-plist','-mountpoint',mount,dmg],{timeout:60000}));
@@ -131,11 +150,14 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   const source=path.join(mount,apps[0]),plistFile=path.join(source,'Contents/Info.plist');regular(plistFile);
   const identity=decodePlist(await command('/usr/bin/plutil',['-convert','xml1','-o','-',plistFile]));
   if(identity.CFBundleIdentifier!=='ru.castlink.client'||identity.CFBundleShortVersionString!==artifact.manifest.version)throw Error('DMG application identity does not match its artifact manifest');
-  installed=path.join(applications,apps[0]);await command('/usr/bin/ditto',[source,installed],{timeout:120000});
+  claimInstallation(artifact);installed=path.join(installation,apps[0]);assertOwnedInstallation();
+  try{fs.lstatSync(installed);throw Error('Installation copy destination already exists');}catch(error){if(error.code!=='ENOENT')throw error;}
+  await command('/usr/bin/ditto',[source,installed],{timeout:120000});
   if(!fs.lstatSync(installed).isDirectory())throw Error('Private application copy was not produced');
+  installedIdentity=fs.lstatSync(installed);assertOwnedInstallation();
   const sourceAsar=path.join(source,'Contents/Resources/app.asar'),installedAsar=path.join(installed,'Contents/Resources/app.asar');regular(sourceAsar);regular(installedAsar);
   if(await checksum(sourceAsar)!==await checksum(installedAsar))throw Error('Copied application resource checksum does not match the DMG');
-  report.privateApplicationCopy='PASS';
+  report.privateApplicationCopy='PASS';report.installationLocation='owned-user-applications';
   // The packaging layout and staged .app share this bundle ID. Remove only
   // exact source copies whose identity and app.asar match this verified DMG.
   if(staged){const stagedAsar=path.join(staged,'Contents/Resources/app.asar');regular(stagedAsar);if(await checksum(stagedAsar)!==await checksum(installedAsar))throw Error('Staged app resources do not match the verified DMG');}
@@ -145,7 +167,8 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   await detachOwned();attachAttempted=false;report.detachedBeforeLaunch='PASS';
   // Register exactly this private installation so the full smoke's real
   // NSWorkspace handler-path check must identify the copied candidate.
-  registerAttempted=true;await command(LSREGISTER,['-f',installed]);
+  assertOwnedInstallation();registerAttempted=true;await command(LSREGISTER,['-f',installed]);
+  assertOwnedInstallation();
   await smoke({bundle:installed,expectedArch,output});
   const resources=JSON.parse(fs.readFileSync(path.join(path.dirname(output),'packaged-resources.json'),'utf8'));
   if(resources.arch!==expectedArch||resources.sourceCommit!==artifact.manifest.sourceCommit)throw Error('Copied app source does not match the DMG artifact manifest');
@@ -157,9 +180,13 @@ export async function runDmgSmoke({artifactDirectory,expectedArch,output},{run=e
   if(registerAttempted){try{await unregisterOwned(installed);}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
   if(stagedUnregisterAttempted){try{await command(LSREGISTER,['-f',staged]);report.ownedStagedRegistrationRestored='PASS';}catch(error){failure??=error;report.launchServicesCleanup='FAILED';}}
   if(attachAttempted){try{await detachOwned();attachAttempted=false;}catch(error){failure=Error((failure?failure.message+'; ':'')+'owned mount cleanup incomplete: '+error.message);preserveWork=true;}}
+  if(installation){try{assertOwnedInstallation();fs.rmSync(installation,{recursive:true});}catch(error){failure??=error;preserveInstallation=true;report.retainedInstallationDirectory=installation;}}
+  if(createdParent&&!preserveInstallation){
+   try{const current=fs.lstatSync(installationRoot);if(current.isDirectory()&&current.dev===parentIdentity.dev&&current.ino===parentIdentity.ino&&fs.realpathSync(installationRoot)===installationRoot&&fs.readdirSync(installationRoot).length===0)fs.rmdirSync(installationRoot);}catch(error){failure??=error;}
+  }
   if(work&&!preserveWork){try{fs.rmSync(work,{recursive:true,force:true});}catch(error){failure??=error;preserveWork=true;}}
   if(preserveWork)report.retainedWorkDirectory=work;
-  report.cleanup=preserveWork||report.launchServicesCleanup==='FAILED'?'incomplete':'complete';report.status=failure?'FAILED':'PASS';
+  report.cleanup=preserveWork||preserveInstallation||report.launchServicesCleanup==='FAILED'?'incomplete':'complete';report.status=failure?'FAILED':'PASS';
   if(failure)report.reason=String(failure.message).slice(0,2000);
   fs.writeFileSync(evidenceFile,JSON.stringify(report,null,2)+'\n');
   if(fs.existsSync(output)){

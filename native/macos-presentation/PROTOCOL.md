@@ -225,9 +225,14 @@ versions and setter/readback results are recorded. No global-input fallback
 is used. Actual
 owned synthetic marker rectangles and scroll values, plus immediate pre-effect
 focus and owned modal-window metadata, are recorded for effect diagnosis. The fixture records one navigation call and never retries
-that call, including after a foreground refusal. The editable-control negative proof waits
-up to two seconds for the exact requested AX field to become focused before
-testing refusal. A shared 100-second browser-fixture work deadline bounds all
+that call, including after a foreground refusal. The editable-control negative proof sends one process-targeted Cmd+L only
+while the exact owned PDF process/birth/window is foreground, no modal is
+focused and physical modifier/L keys are clear. It types no URL and sends no
+Return. Up to four seconds of readback must prove an actual editable AX role
+with settable value and native-owned ancestry reaching the exact window while
+containing no web area, PDF root/viewer or dialog. Only the unchanged
+production foreground refusal then passes the negative proof; no second
+navigation is attempted. A shared 100-second browser-fixture work deadline bounds all
 phases; the 120-second orchestration leaves time for owned process cleanup.
 Deadline exhaustion fails required proofs rather than skipping them. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text
