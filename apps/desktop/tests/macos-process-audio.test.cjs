@@ -123,6 +123,33 @@ test('native smoke preserves measured spectral failure evidence without changing
     assert.deepEqual(Object.keys(error.diagnostics.analysis.amplitudes),['440','880','1320']);assert.ok(JSON.stringify(error.diagnostics).length<8192);return true;
   });
 });
+test('native PCM collection waits for delivered duration after a delayed first packet, without restarting capture',async()=>{
+  const {waitForNativePcm}=require('../../../native/macos-process-audio/smoke.cjs');
+  let time=0;const state={bytes:0,packets:0,ended:false};
+  const evidence=await waitForNativePcm(()=>state,{now:()=>time,sleep:async ms=>{
+    time+=ms;if(time>=3500){state.bytes+=1200*8;state.packets++;}
+  }});
+  assert.equal(evidence.requiredFrames,153600);assert.ok(evidence.totalFrames>=153600);
+  assert.ok(evidence.elapsedMs>3200&&evidence.elapsedMs<8000);assert.equal(evidence.ended,false);
+});
+test('native PCM collection has one fixed deadline and refuses missing, short, stopped and ended streams',async()=>{
+  const {waitForNativePcm}=require('../../../native/macos-process-audio/smoke.cjs');
+  for(const state of [{bytes:0,packets:0},{bytes:47999*8,packets:10},{bytes:153600*8,packets:32,streamError:Error('stopped')},{bytes:153600*8,packets:32,ended:true}]){
+    let time=0;
+    await assert.rejects(waitForNativePcm(()=>state,{now:()=>time,sleep:async ms=>{time+=ms;}}),error=>{
+      assert.equal(error.diagnostics.stage,'pcm-collection');assert.equal(error.diagnostics.totalFrames,state.bytes/8);
+      assert.equal(error.diagnostics.requiredFrames,153600);assert.equal(error.diagnostics.timeoutMs,8000);
+      assert.equal(time,state.streamError||state.ended?0:8000);assert.ok(JSON.stringify(error.diagnostics).length<1024);return true;
+    });
+  }
+});
+test('short or invalid native PCM preserves the actual phase and byte count in failure evidence',()=>{
+  const {assessNativeCapture}=require('../../../native/macos-process-audio/smoke.cjs');
+  for(const pcm of [Buffer.alloc(0),Buffer.alloc(47999*8),Buffer.alloc(48000*8+1)])assert.throws(()=>assessNativeCapture(pcm,{launchMode:'launchservices',outsiderLaunchMode:'direct'}),error=>{
+    assert.equal(error.message,'Insufficient or invalid PCM');assert.equal(error.diagnostics.stage,'pcm-analysis');
+    assert.equal(error.diagnostics.pcm.bytes,pcm.length);assert.equal(error.diagnostics.outsiderLaunchMode,'direct');return true;
+  });
+});
 test('tone readiness refuses the wrong rendered marker instead of assuming argv selected it',async()=>{
   const {toneReady}=require('../../../native/macos-process-audio/smoke.cjs');const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();const ready=toneReady(child,{frequency:440,timeoutMs:100});
   child.stdout.write(JSON.stringify({ready:true,windowId:'123',pid:44,processStartTime:1710000000123,frequency:880})+'\n');

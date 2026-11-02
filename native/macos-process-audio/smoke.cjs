@@ -105,8 +105,27 @@ async function verifyDirectOwners({helper,binary,directory}){
   }
 }
 
+async function waitForNativePcm(readState,{durationMs=3200,timeoutMs=8000,now=()=>performance.now(),sleep=delay}={}){
+  if(!Number.isFinite(durationMs)||durationMs<1000||durationMs>7000)throw Error('Invalid QA PCM duration');
+  const requiredFrames=Math.ceil(durationMs*48),started=now();
+  // The protocol header establishes format/identity, not delivery of audio.
+  // Keep every packet from this one capture; never retry a failed spectrum.
+  for(;;){
+    const state=readState(),elapsedMs=now()-started;
+    const evidence={requiredFrames,totalFrames:state.bytes/8,packets:state.packets,elapsedMs,timeoutMs,streamError:Boolean(state.streamError),ended:state.ended===true};
+    const reason=state.streamError?'Native audio capture stopped':state.ended?'Native audio capture ended before collection':elapsedMs>=timeoutMs?'Native audio PCM collection timed out':null;
+    if(reason){const error=Error(reason);error.diagnostics={stage:'pcm-collection',...evidence};throw error;}
+    if(evidence.totalFrames>=requiredFrames)return evidence;
+    await sleep(Math.min(25,timeoutMs-elapsedMs));
+  }
+}
+
 function assessNativeCapture(pcm,context={}){
-  const analysis=analyzePcm(pcm);
+  let analysis;
+  try{analysis=analyzePcm(pcm);}catch(error){
+    error.diagnostics={stage:'pcm-analysis',pcm:{bytes:Buffer.isBuffer(pcm)?pcm.length:null,totalFrames:Buffer.isBuffer(pcm)?pcm.length/8:null},...context};
+    throw error;
+  }
   if(analysis.pass)return analysis;
   const frames=pcm.length/8,peak=[0,0],squares=[0,0],dc=[0,0];let nonzeroFrames=0;
   for(let frame=0;frame<frames;frame++){
@@ -159,21 +178,23 @@ async function run({helper,durationMs=3200,launchMode='launchservices',outsiderL
     // A valid foreign app window must refuse, proving there is no system fallback.
     const foreign=adapter.start({sourceId:'window:'+players[1].windowId+':0',sourceIdentity:players[1],enabled:true});
     try{await foreign.ready;foreign.stop();throw Error('Foreign application was accepted');}catch(error){if(error.message==='Foreign application was accepted')throw error;}
-    const chunks=[];let bytes=0,streamError,packets=0,minPacketFrames=4800,maxPacketFrames=0;
+    const chunks=[];let bytes=0,streamError,captureEnded=false,packets=0,minPacketFrames=4800,maxPacketFrames=0;
     capture=adapter.start({sourceId:'window:'+players[0].windowId+':0',sourceIdentity:players[0],enabled:true,onFrame:packet=>{
       packets++;minPacketFrames=Math.min(minPacketFrames,packet.frames);maxPacketFrames=Math.max(maxPacketFrames,packet.frames);bytes+=packet.pcm.length;if(bytes>48000*8*8)throw Error('QA capture bound exceeded');chunks.push(packet.pcm);
-    },onError:error=>{streamError=error;}});
+    },onError:error=>{streamError=error;},onEnded:()=>{captureEnded=true;}});
     let metadata;
     try{metadata=await capture.ready;}catch{
       if(diagnostics.some(text=>text.includes('source-or-permission')))throw new NotVerified('Screen Recording permission or live GUI source unavailable');
       throw Error('Native audio capture refused');
     }
-    await delay(durationMs);capture.stop();
-    if(streamError)throw Error('Native audio capture stopped');
     if(metadata.pid!==players[0].pid)throw Error('Wrong native source identity');
-    assertTonePlayersAlive(owned.slice(0,3));
-    const captureEvidence={sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames};
     const playerEvidence=players.map(({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable})=>({frequency,pid,outputSampleRate,outputChannels,playerDuration,playerPlaying,audioIdentity,launchServicesLaunchDateAvailable}));
+    let collection;
+    try{collection=await waitForNativePcm(()=>({bytes,packets,streamError,ended:captureEnded}),{durationMs});}catch(error){
+      error.diagnostics={...error.diagnostics,launchMode,outsiderLaunchMode,capture:{...metadata,packets,minPacketFrames:packets?minPacketFrames:null,maxPacketFrames},players:playerEvidence};throw error;
+    }
+    capture.stop();assertTonePlayersAlive(owned.slice(0,3));
+    const captureEvidence={sampleRate:metadata.sampleRate,channels:metadata.channels,pid:metadata.pid,packets,minPacketFrames,maxPacketFrames,collection};
     const analysis=assessNativeCapture(Buffer.concat(chunks),{launchMode,outsiderLaunchMode,capture:captureEvidence,players:playerEvidence});
     // Source lifetime is an independent check, not merely the successful FFT.
     let ended=false;
@@ -199,7 +220,7 @@ async function run({helper,durationMs=3200,launchMode='launchservices',outsiderL
     fs.rmSync(directory,{recursive:true,force:true});
   }
 }
-module.exports={run,NotVerified,toneReady,toneFileReady,assessNativeCapture,assertDirectOwnerRefusal,assertTonePlayersAlive};
+module.exports={run,NotVerified,toneReady,toneFileReady,waitForNativePcm,assessNativeCapture,assertDirectOwnerRefusal,assertTonePlayersAlive};
 if(require.main===module){
   const args=process.argv.slice(2);
   if(args.length!==2||args[0]!=='--helper'){console.error('Usage: node native/macos-process-audio/smoke.cjs --helper <compiled-helper>');process.exitCode=1;}
