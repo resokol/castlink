@@ -12,14 +12,14 @@ function runtime(options={}){
   }
   const updateCalls=[],updateAdapter={automatic:()=>true,setAutomatic:value=>updateCalls.push({automatic:value}),check:async value=>updateCalls.push(value||{})};
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
-  const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
+  const prompts=[];let resolveSources;const electron={systemPreferences:options.systemPreferences,app,BrowserWindow:Window,Menu:{setApplicationMenu(menu){app.menu=menu;},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
   const presentation={exports:{}};
   if(options.presentationExec){
     const file=localRequire.resolve('./native-presentation-desktop.cjs');
     vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
   }
-  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
+  vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='node:fs'&&options.buildInfo?{...fs,readFileSync:(file,...args)=>String(file).endsWith('build-info.json')?JSON.stringify(options.buildInfo):fs.readFileSync(file,...args)}:name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
   return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
@@ -205,5 +205,31 @@ test('actual normal-client permission handler dispatches only the verified curre
   client.webContents.mainFrame.url='https://studio.example/room?next';
   assert.equal(await request(details),false,'a previous top document cannot authorize a later launch');
   assert.equal(state.prompts.length,1,'initial device prompt only; no extra grant dialog');assert.equal(state.opened.length,0,'Electron owns the one native dispatch after permission callback');
+ }finally{state.cleanup();}
+});
+
+test('macOS OS denial and revocation cannot be overridden by app media consent',async()=>{
+  let osStatus='denied';
+  const state=runtime({platform:'darwin',response:1,systemPreferences:{getMediaAccessStatus:()=>osStatus}});
+  try{
+    await state.api.connect({input:'https://studio.example/room',reserves:[],locale:'ru'});
+    const c=state.windows[0].webContents,details={isMainFrame:true,requestingUrl:'https://studio.example/room',mediaType:'audio'};
+    assert.equal(state.ses.check(c,'media','https://studio.example',details),false);
+    osStatus='granted';
+    await new Promise(resolve=>state.ses.request(c,'media',resolve,{...details,mediaTypes:['audio']}));
+    assert.equal(state.ses.check(c,'media','https://studio.example',details),true);
+    osStatus='denied';
+    assert.equal(state.ses.check(c,'media','https://studio.example',details),false);
+  }finally{state.cleanup();}
+});
+
+test('incomplete macOS candidate registers only implemented invitation protocol',()=>{
+ const state=runtime({platform:'darwin',packaged:true,buildInfo:{developmentCandidate:true}});
+ try{assert.deepEqual(state.app.protocols.map(args=>args[0]),['castlink']);}finally{state.cleanup();}
+});
+
+test('macOS has native application and edit menus',async()=>{
+ const state=runtime({platform:'darwin',ready:true});try{
+  await tick();assert.ok(state.app.menu);assert.ok(state.app.menu.some(item=>item.role==='editMenu'));
  }finally{state.cleanup();}
 });

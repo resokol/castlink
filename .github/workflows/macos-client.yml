@@ -1,0 +1,83 @@
+name: macOS client development
+on:
+  push:
+    branches: [feat/macos-client]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-client-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Require native architecture and record SDK
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/macos-evidence"
+          node scripts/macos-client-preflight.mjs "$EXPECTED_ARCH" > "$RUNNER_TEMP/macos-evidence/runner.json"
+          cat "$RUNNER_TEMP/macos-evidence/runner.json"
+      - run: pnpm install --frozen-lockfile
+      - name: Desktop contracts and platform regressions
+        run: |
+          node --test scripts/tests/macos-client-preflight.test.mjs
+          pnpm desktop:test
+      - name: Compile and run native API observation
+        run: |
+          xcrun swiftc -parse-as-library -target "$(uname -m)-apple-macos13.0" native/macos-probes/Probe.swift -o "$RUNNER_TEMP/macos-evidence/probe"
+          "$RUNNER_TEMP/macos-evidence/probe" > "$RUNNER_TEMP/macos-evidence/native.json"
+          cat "$RUNNER_TEMP/macos-evidence/native.json"
+      - name: Package development candidate
+        id: package
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: node apps/desktop/scripts/package-macos.cjs --arch "$EXPECTED_ARCH"
+      - name: Launch the packaged app with an isolated test profile
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          ARTIFACT_DIRECTORY: ${{ steps.package.outputs.artifactDirectory }}
+        run: |
+          APP_PATH=$(find "$ARTIFACT_DIRECTORY" -maxdepth 2 -type d -name '*.app' -print -quit)
+          test -n "$APP_PATH"
+          node scripts/macos-client-smoke.mjs "$APP_PATH" "$EXPECTED_ARCH" "$RUNNER_TEMP/macos-evidence/packaged-smoke.json"
+      - name: Retain candidate and evidence (not a release)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastLink-macos-development-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            artifacts/desktop/**/mac-${{ matrix.arch }}/**
+            ${{ runner.temp }}/macos-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 14
+  both-architectures:
+    if: always()
+    needs: macos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both architecture jobs
+        env:
+          RESULT: ${{ needs.macos.result }}
+        run: test "$RESULT" = success

@@ -2,6 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const updates=require('../src/updates.cjs');
 const hash='a'.repeat(12),later='b'.repeat(12);
+const selectWindows=(releases,current)=>updates.selectUpdate(releases,current,{platform:'win32',arch:'x64'});
 function release(track,version,commit,date='2026-10-21T00:00:00Z'){
   const tag=`${track}-v${version}-${commit}`,name=`CastLink-Client-${version}-${commit}-setup.exe`;
   return {tag_name:tag,published_at:date,draft:false,prerelease:version.includes('-'),assets:(track==='client'?[name,'SHA256SUMS']:['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz']).map(name=>({name,state:'uploaded',size:128,browser_download_url:`https://github.com/resokol/castlink-releases/releases/download/${tag}/${name}`}))};
@@ -10,11 +11,11 @@ function temporary(){return fs.mkdtempSync(path.join(os.tmpdir(),'castlink-updat
 test('channel selection orders semantic versions and same-version builds by known public release time',()=>{
   const current={track:'client',version:'1.0.0-rc.8',sourceCommit:hash+'a'.repeat(28)};
   const old=release('client',current.version,hash,'2026-10-20T00:00:00Z'),next=release('client',current.version,later);
-  assert.equal(updates.selectUpdate([release('server-setup','9.0.0',later),next,old],current).tag,next.tag_name);
-  assert.equal(updates.selectUpdate([next],current),null,'unknown same-version commit must not be downgraded');
-  assert.equal(updates.selectUpdate([old,next],{...current,sourceCommit:later+'b'.repeat(28)}),null);
-  assert.equal(updates.selectUpdate([release('client','1.0.0-rc.9',later),old],current).version,'1.0.0-rc.9');
-  assert.equal(updates.selectUpdate([release('client','1.0.0-rc.7',later),{...next,draft:true}],current),null);
+  assert.equal(selectWindows([release('server-setup','9.0.0',later),next,old],current).tag,next.tag_name);
+  assert.equal(selectWindows([next],current),null,'unknown same-version commit must not be downgraded');
+  assert.equal(selectWindows([old,next],{...current,sourceCommit:later+'b'.repeat(28)}),null);
+  assert.equal(selectWindows([release('client','1.0.0-rc.9',later),old],current).version,'1.0.0-rc.9');
+  assert.equal(selectWindows([release('client','1.0.0-rc.7',later),{...next,draft:true}],current),null);
   assert.ok(updates.compareVersions('1.0.0-rc.10','1.0.0-rc.9')>0);assert.ok(updates.compareVersions('1.0.0','1.0.0-rc.10')>0);
 });
 test('repository rename accepts only exact legacy or canonical asset paths in both channels',()=>{
@@ -22,28 +23,28 @@ test('repository rename accepts only exact legacy or canonical asset paths in bo
     const item=release(track,'1.0.1',later);
     for(const asset of item.assets)asset.browser_download_url=asset.browser_download_url.replace('/castlink-releases/','/'+repository+'/');
     const current={track,version:'1.0.0'};
-    const selected=updates.selectUpdate([item],current);
+    const selected=selectWindows([item],current);
     assert.equal(selected?.tag,item.tag_name,'renamed public repository remains the same update channel');
     if(track==='client')assert.equal(selected.installer.url,item.assets[0].browser_download_url);
     const correct=item.assets[0].browser_download_url;
     for(const invalid of [correct.replace('/resokol/','/other/'),correct.replace('/'+repository+'/','/studiolink/'),correct+'?download=1',correct+'#file',correct.replace(item.tag_name,'other-tag'),correct.replace('/releases/download/','/releases/download/../'),correct.replace('https://github.com/','https://github.com.evil.example/'),correct.replace('https://github.com/','https://user@github.com/')]){
       item.assets[0].browser_download_url=invalid;
-      assert.equal(updates.selectUpdate([item],current),null,'only exact tag/name in the two known aliases is accepted: '+invalid);
+      assert.equal(selectWindows([item],current),null,'only exact tag/name in the two known aliases is accepted: '+invalid);
     }
   }
 });
 test('checksum matching is exact and duplicate, traversal or cross-release assets are refused',()=>{
-  const item=updates.selectUpdate([release('client','1.0.1',later)],{track:'client',version:'1.0.0',sourceCommit:hash});
+  const item=selectWindows([release('client','1.0.1',later)],{track:'client',version:'1.0.0',sourceCommit:hash});
   const name=item.installer.name,sum='c'.repeat(64);
   assert.equal(updates.parseChecksum(`${sum}  ${name}\n`,name),sum);
   for(const text of [`${sum}  ../${name}`,`${sum}  ${name}\n${sum}  ${name}`,`bad  ${name}`])assert.throws(()=>updates.parseChecksum(text,name));
   const wrong=release('client','1.0.1',later);wrong.assets[0].browser_download_url='https://example.com/setup.exe';
-  assert.equal(updates.selectUpdate([wrong],{track:'client',version:'1.0.0'}),null);
+  assert.equal(selectWindows([wrong],{track:'client',version:'1.0.0'}),null);
 });
 test('disabled automatic check performs no request; manual check remains available and settings survive restart',async()=>{
   const directory=temporary();try{
     let requests=0;const show=[];
-    const options={userData:directory,current:{track:'client',version:'1.0.0'},fetchReleases:async()=>{requests++;return[];},showMessage:async value=>{show.push(value);return {response:0,checkboxChecked:true};}};
+    const options={userData:directory,platform:'win32',arch:'x64',current:{track:'client',version:'1.0.0'},fetchReleases:async()=>{requests++;return[];},showMessage:async value=>{show.push(value);return {response:0,checkboxChecked:true};}};
     const controller=updates.createUpdateController(options);controller.setAutomatic(false);
     await controller.check();assert.equal(requests,0);
     const restarted=updates.createUpdateController(options);assert.equal(restarted.automatic(),false);
@@ -53,24 +54,24 @@ test('disabled automatic check performs no request; manual check remains availab
 test('declining notification persists checkbox but never downloads, installs or quits',async()=>{
   const directory=temporary();try{
     let downloads=0,installs=0;const shown=[];
-    const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async value=>{shown.push(value);return {response:0,checkboxChecked:true};},download:async()=>{downloads++;},install:async()=>{installs++;}});
+    const controller=updates.createUpdateController({userData:directory,platform:'win32',arch:'x64',current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async value=>{shown.push(value);return {response:0,checkboxChecked:true};},download:async()=>{downloads++;},install:async()=>{installs++;}});
     await controller.check();assert.equal(downloads,0);assert.equal(installs,0);assert.equal(controller.automatic(),false);assert.equal(shown.length,1);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
 test('explicit update downloads verified installer and requires separate close/restart consent',async()=>{
   const directory=temporary();try{
     const events=[],answers=[1,0];
-    const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async()=>({response:answers.shift(),checkboxChecked:false}),download:async()=>{events.push('download');return {file:'verified.exe',cleanup:()=>events.push('cleanup')};},install:async()=>events.push('install')});
+    const controller=updates.createUpdateController({userData:directory,platform:'win32',arch:'x64',current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async()=>({response:answers.shift(),checkboxChecked:false}),download:async()=>{events.push('download');return {file:'verified.exe',cleanup:()=>events.push('cleanup')};},install:async()=>events.push('install')});
     await controller.check();assert.deepEqual(events,['download','cleanup']);
     answers.push(1,1);await controller.check({manual:true});assert.deepEqual(events,['download','cleanup','download','install']);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
 test('actual download streams bytes, checks SHA256 and removes corrupt files before installer launch',async()=>{
   const directory=temporary();try{
-    const item=updates.selectUpdate([release('client','1.0.1',later)],{track:'client',version:'1.0.0'}),bytes=Buffer.from('test installer bytes');
+    const item=selectWindows([release('client','1.0.1',later)],{track:'client',version:'1.0.0'}),bytes=Buffer.from('test installer bytes');
     let corrupt=false;const fetch=async url=>new Response(url.endsWith('SHA256SUMS')?`${corrupt?'0'.repeat(64):crypto.createHash('sha256').update(bytes).digest('hex')}  ${item.installer.name}\n`:bytes);
-    const result=await updates.downloadInstaller(item,{directory,fetch});assert.deepEqual(fs.readFileSync(result.file),bytes);result.cleanup();assert.deepEqual(fs.readdirSync(directory),[]);
-    corrupt=true;await assert.rejects(updates.downloadInstaller(item,{directory,fetch}),/checksum/i);assert.deepEqual(fs.readdirSync(directory),[]);
+    const result=await updates.downloadInstaller(item,{directory,fetch,platform:'win32',arch:'x64'});assert.deepEqual(fs.readFileSync(result.file),bytes);result.cleanup();assert.deepEqual(fs.readdirSync(directory),[]);
+    corrupt=true;await assert.rejects(updates.downloadInstaller(item,{directory,fetch,platform:'win32',arch:'x64'}),/checksum/i);assert.deepEqual(fs.readdirSync(directory),[]);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
 test('server discovery requires completed owned installation and matching compose commit; ordinary saved origin is irrelevant',()=>{
@@ -96,13 +97,13 @@ test('installer handoff uses fixed executable arguments and closes the app only 
 });
 test('explicit download failure from automatic notification is reported without install or quit',async()=>{
   const directory=temporary();try{const prompts=[];let installed=false;
-    const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async options=>{prompts.push(options);return {response:1};},download:async()=>{throw Error('network secret');},install:async()=>installed=true});
+    const controller=updates.createUpdateController({userData:directory,platform:'win32',arch:'x64',current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[release('client','1.0.1',later)],showMessage:async options=>{prompts.push(options);return {response:1};},download:async()=>{throw Error('network secret');},install:async()=>installed=true});
     await controller.check();assert.equal(prompts.length,2);assert.equal(prompts[1].type,'warning');assert.equal(installed,false);assert.ok(!JSON.stringify(prompts).includes('network secret'));
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
 test('server release has separate consent and launches its own wizard without client download',async()=>{
   const directory=temporary();try{const events=[];
-    const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.0'},getServers:()=>[{track:'server-setup',version:'1.0.0',folder:'known-installation'}],fetchReleases:async()=>[release('server-setup','1.0.1',later)],showMessage:async options=>{events.push(options.message);return {response:1};},download:async()=>assert.fail('client download must not run'),updateServer:async()=>events.push('wizard')});
+    const controller=updates.createUpdateController({userData:directory,platform:'win32',arch:'x64',current:{track:'client',version:'1.0.0'},getServers:()=>[{track:'server-setup',version:'1.0.0',folder:'known-installation'}],fetchReleases:async()=>[release('server-setup','1.0.1',later)],showMessage:async options=>{events.push(options.message);return {response:1};},download:async()=>assert.fail('client download must not run'),updateServer:async()=>events.push('wizard')});
     await controller.check();assert.equal(events.length,2);assert.equal(events[1],'wizard');
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });
@@ -125,7 +126,7 @@ test('incomplete, duplicate, unuploaded and unbounded releases fall back to a co
   for(const track of ['client','server-setup']){
     const current={track,version:'1.0.0'},good=release(track,'1.0.1',hash);
     for(const mutate of [r=>r.assets.pop(),r=>r.assets[0].state='new',r=>r.assets[0].size=0,r=>r.assets[0].size=Number.MAX_SAFE_INTEGER,r=>r.assets.push({...r.assets[0]})]){
-      const incomplete=release(track,'1.0.2',later);mutate(incomplete);assert.equal(updates.selectUpdate([incomplete,good],current).tag,good.tag_name);
+      const incomplete=release(track,'1.0.2',later);mutate(incomplete);assert.equal(selectWindows([incomplete,good],current).tag,good.tag_name);
     }
   }
 });
@@ -134,5 +135,70 @@ test('next launch cleanup removes only owned downloaded installer directories an
     const own=path.join(directory,'castlink-client-update-aB1234');fs.mkdirSync(own);fs.writeFileSync(path.join(own,'CastLink-Client-1.0.1-aaaaaaaaaaaa-setup.exe'),'old installer');
     const other=path.join(directory,'unrelated');fs.mkdirSync(other);fs.writeFileSync(path.join(other,'keep.txt'),'keep');
     updates.cleanupDownloads(directory);assert.equal(fs.existsSync(own),false);assert.equal(fs.readFileSync(path.join(other,'keep.txt'),'utf8'),'keep');
+  }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+function macRelease(version,commit,architectures=['arm64','x64']){
+  const item=release('client',version,commit);
+  item.assets=item.assets.filter(asset=>asset.name==='SHA256SUMS');
+  for(const arch of architectures){
+    const name=`CastLink-Client-${version}-${commit}-mac-${arch}.dmg`;
+    item.assets.push({name,state:'uploaded',size:128,browser_download_url:`https://github.com/resokol/castlink-releases/releases/download/${item.tag_name}/${name}`});
+  }
+  return item;
+}
+test('macOS selection chooses the exact process architecture and never falls back to a Windows installer',()=>{
+  const current={track:'client',version:'1.0.0'},both=macRelease('1.0.1',later);
+  for(const arch of ['arm64','x64']){
+    assert.equal(updates.selectUpdate([both],current,{platform:'darwin',arch}).installer.name,`CastLink-Client-1.0.1-bbbbbbbbbbbb-mac-${arch}.dmg`);
+    assert.equal(updates.selectUpdate([release('client','1.0.1',later)],current,{platform:'darwin',arch}),null);
+  }
+  assert.equal(updates.selectUpdate([macRelease('1.0.2',later,['arm64'])],current,{platform:'darwin',arch:'x64'}),null);
+  assert.equal(updates.selectUpdate([both],current,{platform:'darwin',arch:'ia32'}),null);
+  assert.equal(updates.selectUpdate([release('client','1.0.1',later)],current,{platform:'linux',arch:'x64'}),null);
+  assert.equal(updates.selectUpdate([release('client','1.0.1',later)],current)?.installer?.name,process.platform==='win32'?`CastLink-Client-1.0.1-bbbbbbbbbbbb-setup.exe`:undefined);
+});
+test('macOS candidates reject duplicate, cross-release and wrong-architecture assets before choosing an older valid update',()=>{
+  const current={track:'client',version:'1.0.0'},options={platform:'darwin',arch:'x64'},good=macRelease('1.0.1',hash);
+  for(const mutate of [r=>r.assets.push({...r.assets[2]}),r=>r.assets[2].browser_download_url=r.assets[2].browser_download_url.replace(r.tag_name,'client-v9.9.9-aaaaaaaaaaaa'),r=>r.assets[0].browser_download_url=r.assets[0].browser_download_url.replace(r.tag_name,'client-v9.9.9-aaaaaaaaaaaa'),r=>r.assets.splice(2,1)]){
+    const bad=macRelease('1.0.2',later);mutate(bad);
+    assert.equal(updates.selectUpdate([bad,good],current,options).tag,good.tag_name);
+  }
+});
+test('macOS download rejects platform or architecture swaps and verifies checksum before handoff',async()=>{
+  const directory=temporary();try{
+    const options={platform:'darwin',arch:'x64'},item=updates.selectUpdate([macRelease('1.0.1',later)],{track:'client',version:'1.0.0'},options),bytes=Buffer.from('DMG fixture');
+    let corrupt=false,requests=0;
+    const fetch=async url=>{requests++;return new Response(url.endsWith('SHA256SUMS')?`${corrupt?'0'.repeat(64):crypto.createHash('sha256').update(bytes).digest('hex')}  ${item.installer.name}\n`:bytes);};
+    const downloaded=await updates.downloadInstaller(item,{...options,directory,fetch});assert.deepEqual(fs.readFileSync(downloaded.file),bytes);downloaded.cleanup();
+    corrupt=true;await assert.rejects(updates.downloadInstaller(item,{...options,directory,fetch}),/checksum/i);assert.deepEqual(fs.readdirSync(directory),[]);
+    requests=0;
+    for(const invalid of [{platform:'darwin',arch:'arm64'},{platform:'win32',arch:'x64'}])await assert.rejects(updates.downloadInstaller(item,{...invalid,directory,fetch}));
+    const wrongUrl={...item,assets:item.assets.map(asset=>asset.name==='SHA256SUMS'?{...asset,browser_download_url:asset.browser_download_url.replace(item.tag,'client-v1.0.2-aaaaaaaaaaaa')}:asset)};
+    await assert.rejects(updates.downloadInstaller(wrongUrl,{...options,directory,fetch}));assert.equal(requests,0);
+  }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('macOS updater keeps two consents, communicates manual installation, and cancellation never opens the DMG',async()=>{
+  const directory=temporary();try{
+    const events=[],prompts=[],answers=[1,0];
+    const controller=updates.createUpdateController({userData:directory,platform:'darwin',arch:'x64',getLocale:()=> 'en',current:{track:'client',version:'1.0.0'},fetchReleases:async()=>[macRelease('1.0.1',later)],showMessage:async prompt=>{prompts.push(prompt);return {response:answers.shift(),checkboxChecked:false};},download:async(info,options)=>{assert.equal(info.installer.name,'CastLink-Client-1.0.1-bbbbbbbbbbbb-mac-x64.dmg');assert.equal(options.platform,'darwin');assert.equal(options.arch,'x64');events.push('download');return {file:'verified.dmg',cleanup:()=>events.push('cleanup')};},install:async file=>{assert.equal(file,'verified.dmg');events.push('open');return {started:true,installed:false};}});
+    await controller.check();assert.deepEqual(events,['download','cleanup']);assert.match(prompts[0].message,/macOS/);assert.match(prompts[1].detail,/Applications/);assert.doesNotMatch(prompts[1].detail,/client will close|Windows/i);assert.match(prompts[1].buttons[1],/DMG/);
+    answers.push(1,1);await controller.check({manual:true});assert.deepEqual(events,['download','cleanup','download','open']);
+  }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('download cleanup recognizes macOS DMGs while preserving unrelated files',()=>{
+  const directory=temporary();try{
+    const own=path.join(directory,'castlink-client-update-aB1234');fs.mkdirSync(own);fs.writeFileSync(path.join(own,'CastLink-Client-1.0.1-aaaaaaaaaaaa-mac-x64.dmg'),'old DMG');
+    const keep=path.join(directory,'castlink-client-update-cD5678');fs.mkdirSync(keep);fs.writeFileSync(path.join(keep,'keep.txt'),'keep');
+    updates.cleanupDownloads(directory);assert.equal(fs.existsSync(own),false);assert.equal(fs.readFileSync(path.join(keep,'keep.txt'),'utf8'),'keep');
+  }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('download revalidates client release identity before any network or file operation',async()=>{
+  const directory=temporary();try{
+    const options={platform:'darwin',arch:'x64'},selected=updates.selectUpdate([macRelease('1.0.1',later)],{track:'client',version:'1.0.0'},options);
+    const invalid={...selected,tag:'server-setup-v1.0.1-bbbbbbbbbbbb',assets:selected.assets.map(asset=>({...asset,browser_download_url:asset.browser_download_url.replace(selected.tag,'server-setup-v1.0.1-bbbbbbbbbbbb')}))};
+    let requests=0;
+    await assert.rejects(updates.downloadInstaller(invalid,{...options,directory,fetch:async()=>{requests++;return new Response('');}}));
+    assert.equal(requests,0);assert.deepEqual(fs.readdirSync(directory),[]);
   }finally{fs.rmSync(directory,{recursive:true,force:true});}
 });

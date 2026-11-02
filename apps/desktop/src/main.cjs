@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen, systemPreferences } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -35,6 +35,7 @@ const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
 const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(__dirname,'../../../artifacts/desktop-native');
+const macPermissions=process.platform==='darwin'?require('./macos-platform.cjs').createMacPermissionAdapter({systemPreferences,openSettings:url=>shell.openExternal(url)}):null;
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
   ru: { connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
@@ -73,6 +74,7 @@ function configureMenu() {
   Menu.setApplicationMenu(null);
   const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
   applicationMenu=Menu.buildFromTemplate([...updateItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  if(process.platform==='darwin')Menu.setApplicationMenu(Menu.buildFromTemplate([{label:app.name||'CastLink',submenu:[{role:'about'},{type:'separator'},...updateItems,{label:t.exit,accelerator:'Command+Q',click:()=>app.quit()}]},{role:'editMenu'},{role:'windowMenu'}]));
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
@@ -130,16 +132,28 @@ function setupPermissions(ses) {
     if (!client || client.isDestroyed()) return false;
     const t=labels(), origin=new URL(request.frameUrl).origin;
     const requested=request.permission==='media'&&request.mediaTypes?.length ? request.mediaTypes.map(type=>type==='audio'?t.microphone:t.camera).join(', ') : request.permission==='speaker-selection'?t.output:request.permission==='fullscreen'?t.fullscreen:t.display;
-    return (await dialog.showMessageBox(client,{type:'question',title:t.permission,message:origin,detail:requested,buttons:[t.deny,t.allow],defaultId:0,cancelId:0,noLink:true})).response===1;
+    const owner=client;
+    const approved=(await dialog.showMessageBox(owner,{type:'question',title:t.permission,message:origin,detail:requested,buttons:[t.deny,t.allow],defaultId:0,cancelId:0,noLink:true})).response===1;
+    if(!approved||owner!==client||owner.isDestroyed())return false;
+    if(macPermissions&&request.permission==='media')for(const type of request.mediaTypes||[]){
+      if(!['audio','video'].includes(type))return false;
+      if(!(await macPermissions.request(type==='audio'?'microphone':'camera')).granted||owner!==client||owner.isDestroyed())return false;
+    }
+    return true;
   }});
   ses.setPermissionCheckHandler((contents,permission,origin,details)=>{
     if(contents!==client?.webContents || !details.isMainFrame || !canNavigate(origin,trustedOrigins))return false;
+    if(macPermissions&&permission==='media'&&['audio','video'].includes(details.mediaType)&&!macPermissions.status(details.mediaType==='audio'?'microphone':'camera').granted)return false;
     return permissionPolicy.check({permission,frameUrl:details.requestingUrl||origin,isMainFrame:details.isMainFrame,mediaTypes:details.mediaType?[details.mediaType]:undefined});
   });
   ses.setPermissionRequestHandler((contents,permission,callback,details)=>{
     if(contents!==client?.webContents){callback(false);return;}
     if(permission==='openExternal'){callback(isRemoteLaunchPermission({contents,client,details,trustedOrigins}));return;}
-    permissionPolicy.request({permission,frameUrl:details.requestingUrl,isMainFrame:details.isMainFrame,mediaTypes:details.mediaTypes}).then(callback,()=>callback(false));
+    const owner=client;
+    permissionPolicy.request({permission,frameUrl:details.requestingUrl,isMainFrame:details.isMainFrame,mediaTypes:details.mediaTypes}).then(allowed=>{
+      const osAllowed=!macPermissions||permission!=='media'||(details.mediaTypes||[]).every(type=>['audio','video'].includes(type)&&macPermissions.status(type==='audio'?'microphone':'camera').granted);
+      callback(allowed&&osAllowed&&owner===client&&!owner.isDestroyed());
+    },()=>callback(false));
   });
   // Downloads use Electron's normal save dialog (chat/statistics TXT remains available).
 }
@@ -218,7 +232,7 @@ else {
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
-    for(const scheme of ['castlink-remote','castlink-presenter','castlink']){
+    for(const scheme of process.platform==='darwin'&&buildInfo.developmentCandidate?['castlink']:['castlink-remote','castlink-presenter','castlink']){
       if(portable)app.setAsDefaultProtocolClient(scheme,portable,[]);
       else app.setAsDefaultProtocolClient(scheme);
     }
