@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CryptoKit
 import Darwin
+import Carbon.HIToolbox
 
 // One bounded invocation per operation. No global keyboard event is posted.
 // Preview and Chromium browser PDFs require document/AX viewer evidence.
@@ -136,7 +137,7 @@ func viewers(_ app: NSRunningApplication) -> Set<String> {
 func trustedViewer(_ raw: String, _ ids: Set<String>) -> Bool {
     guard let url = URL(string: raw), let scheme = url.scheme,
           ["chrome-extension", "edge-extension", "extension"].contains(scheme),
-          let host = url.host, ids.contains(host), url.path == "/index.html",
+          let host = url.host, ids.contains(host), ["/index.html","/edge_pdf/index.html"].contains(url.path),
           url.user == nil, url.password == nil, url.port == nil else { return false }
     return true
 }
@@ -440,6 +441,9 @@ func fixtureDiagnostics(_ owned: Process, _ fixture: URL) -> [String:Any] {
     return output
 }
 func fixtureBackoff(_ attempt: Int) -> Double { [0.1,0.2,0.4,0.8][min(max(attempt,0),3)] }
+func fixtureBindingDeadline(_ started: Date, _ ready: Date?) -> Date {
+    min(started.addingTimeInterval(19),ready?.addingTimeInterval(4) ?? started.addingTimeInterval(15))
+}
 func fixtureReadiness(_ owned: Process) -> (Bool,[String:Any]) {
     let started = Date()
     var report: [String:Any] = ["running":owned.isRunning,"accessibilityPermission":AXIsProcessTrusted(),"timeoutMilliseconds":750]
@@ -455,11 +459,62 @@ func fixtureReadiness(_ owned: Process) -> (Bool,[String:Any]) {
     report["windowCount"] = count; report["elapsedMilliseconds"] = Int(Date().timeIntervalSince(started)*1000)
     return (roleCode == .success && windowsCode == .success && count > 0,report)
 }
+func fixtureRect(_ value: CGRect?) -> [String:Any] {
+    guard let value = value, !value.isNull, [value.minX,value.minY,value.width,value.height].allSatisfy({ $0.isFinite }) else { return ["available":false] }
+    return ["available":true,"x":Double(value.minX),"y":Double(value.minY),"width":Double(value.width),"height":Double(value.height)]
+}
+func modalMetadata(_ role: String, _ subrole: String?) -> Bool {
+    ["AXSheet","AXDialog"].contains(role) || ["AXDialog","AXSystemDialog","AXApplicationDialog","AXApplicationAlertDialog"].contains(subrole ?? "")
+}
+func fixtureOwnedDialog(_ target: Target) -> Bool? {
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+          let window = element(application,kAXFocusedWindowAttribute),
+          let windows = attribute(application,kAXWindowsAttribute) as? [AXUIElement], windows.contains(where:{ CFEqual($0,window) }) else { return nil }
+    var windowPID: pid_t = 0
+    guard AXUIElementGetPid(window,&windowPID) == .success, windowPID == target.pid else { return nil }
+    var ancestor = element(application,kAXFocusedUIElementAttribute) ?? window
+    var modal = false
+    for _ in 0..<32 {
+        guard let role = string(ancestor,kAXRoleAttribute) else { return nil }
+        modal = modal || modalMetadata(role,string(ancestor,kAXSubroleAttribute))
+        if CFEqual(ancestor,window) { return modal }
+        guard let parent = element(ancestor,kAXParentAttribute) else { return nil }
+        ancestor = parent
+    }
+    return nil
+}
+func fixtureEscapeOwnedDialog(_ target: Target) -> Bool {
+    guard fixtureOwnedDialog(target) == true, processBirthMilliseconds(target.pid) == target.launched,
+          CGEventSource.flagsState(.hidSystemState).intersection([.maskCommand,.maskControl,.maskAlternate,.maskShift]).isEmpty,
+          !CGEventSource.keyState(.hidSystemState,key:CGKeyCode(kVK_Escape)),
+          let down = CGEvent(keyboardEventSource:nil,virtualKey:CGKeyCode(kVK_Escape),keyDown:true),
+          let up = CGEvent(keyboardEventSource:nil,virtualKey:CGKeyCode(kVK_Escape),keyDown:false) else { return false }
+    // Cancel only an exact owned browser dialog, never approve a button or
+    // send input to an external/system prompt or a user's browser process.
+    down.flags = []; up.flags = []; down.postToPid(target.pid); up.postToPid(target.pid)
+    return true
+}
+func fixtureFocusState(_ target: Target, _ content: AXUIElement) -> [String:Any] {
+    let application = AXUIElementCreateApplication(target.pid)
+    AXUIElementSetMessagingTimeout(application,0.75)
+    let focusedWindow = element(application,kAXFocusedWindowAttribute)
+    let focused = element(application,kAXFocusedUIElementAttribute)
+    let contentBounds = rect(content), windowBounds = rect(target.window)
+    var report: [String:Any] = ["frontmostMatches":NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+        "active":target.app.isActive,"focusedWindowReadable":focusedWindow != nil,
+        "focusedWindowMatches":focusedWindow.map { CFEqual($0,target.window) } ?? false,
+        "focusedElementReadable":focused != nil,"contentRect":fixtureRect(contentBounds),"windowRect":fixtureRect(windowBounds)]
+    if let focused = focused { report["focusedElementRole"] = string(focused,kAXRoleAttribute) ?? "unavailable"; report["focusedElementSubrole"] = string(focused,kAXSubroleAttribute) ?? "none" }
+    if let dialog = fixtureOwnedDialog(target) { report["ownedDialogFocused"] = dialog }
+    else { report["ownedDialogMetadata"] = "unavailable" }
+    if let content = contentBounds, let window = windowBounds { report["intersectionRect"] = fixtureRect(content.intersection(window)) }
+    return report
+}
 func fixtureContentFocus(_ target: Target) -> [String:Any] {
     guard let viewer = target.evidence.viewer,
           let nodes = browserTree(target.window,viewers(target.app),includeContent:true) else { return ["status":"FAILED","reason":"Owned PDF content tree unavailable"] }
-    // The actual Chromium plugin is a nested AXWebArea under the trusted PDF
-    // extension. Restrict this fixture gesture to that proven viewer subtree.
     var content: AXUIElement = viewer
     var bestDepth = -1
     for node in nodes where node.role == "AXWebArea" && !CFEqual(node.element,viewer) {
@@ -470,21 +525,35 @@ func fixtureContentFocus(_ target: Target) -> [String:Any] {
             parent = nodes[index].parent; depth += 1
         }
     }
-    guard target.app.activate(options:[.activateIgnoringOtherApps]),
-          AXUIElementPerformAction(target.window,kAXRaiseAction as CFString) == .success else { return ["status":"NOT VERIFIED","reason":"Owned PDF window activation refused"] }
-    RunLoop.current.run(until:Date().addingTimeInterval(0.15))
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
-          let current = element(AXUIElementCreateApplication(target.pid),kAXFocusedWindowAttribute), CFEqual(current,target.window),
-          let bounds = rect(content), let windowBounds = rect(target.window), !bounds.intersection(windowBounds).isNull else { return ["status":"NOT VERIFIED","reason":"Owned PDF window cannot be focused"] }
+    let activationAccepted = target.app.activate(options:[.activateIgnoringOtherApps])
+    let raiseCode = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
+    let deadline = Date().addingTimeInterval(2)
+    var states: [[String:Any]] = [], escaped = false
+    repeat {
+        let state = fixtureFocusState(target,content)
+        if states.count == 12 { states.removeFirst() }; states.append(state)
+        if state["frontmostMatches"] as? Bool == true, state["focusedWindowMatches"] as? Bool == true, state["ownedDialogFocused"] as? Bool == false { break }
+        if !escaped, fixtureEscapeOwnedDialog(target) {
+            escaped = true
+            RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+            _ = AXUIElementPerformAction(target.window,kAXRaiseAction as CFString)
+        }
+        RunLoop.current.run(until:Date().addingTimeInterval(0.1))
+    } while Date() < deadline
+    var result: [String:Any] = ["activationAccepted":activationAccepted,"raiseCode":raiseCode.rawValue,"states":states,"ownedDialogEscapeCount":escaped ? 1 : 0]
+    guard let last = states.last, last["frontmostMatches"] as? Bool == true, last["focusedWindowMatches"] as? Bool == true, last["ownedDialogFocused"] as? Bool == false,
+          let bounds = rect(content), let windowBounds = rect(target.window), !bounds.intersection(windowBounds).isNull else { result["status"] = "NOT VERIFIED"; result["reason"] = "Owned PDF focus or geometry unavailable after bounded activation wait"; return result }
     let visible = bounds.intersection(windowBounds)
     guard visible.width >= 10, visible.height >= 10,
           let down = CGEvent(mouseEventSource:nil,mouseType:.leftMouseDown,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
           let up = CGEvent(mouseEventSource:nil,mouseType:.leftMouseUp,mouseCursorPosition:CGPoint(x:visible.midX,y:visible.midY),mouseButton:.left),
-          processBirthMilliseconds(target.pid) == target.launched else { return ["status":"FAILED","reason":"Owned PDF click geometry or lifetime changed"] }
+          processBirthMilliseconds(target.pid) == target.launched else { result["status"] = "FAILED"; result["reason"] = "Owned PDF click geometry or lifetime changed"; return result }
     down.flags = []; up.flags = []; down.postToPid(target.pid); up.postToPid(target.pid)
     RunLoop.current.run(until:Date().addingTimeInterval(0.15))
-    do { try focusedPDF(target); return ["status":"VERIFIED","method":"owned-process-pdf-content-click"] }
-    catch { return ["status":"NOT VERIFIED","reason":(error as? Refusal)?.rawValue ?? "UNAVAILABLE"] }
+    result["afterClick"] = fixtureFocusState(target,content)
+    do { try focusedPDF(target); result["status"] = "VERIFIED"; result["method"] = "owned-process-pdf-content-click" }
+    catch { result["status"] = "NOT VERIFIED"; result["reason"] = (error as? Refusal)?.rawValue ?? "UNAVAILABLE" }
+    return result
 }
 func browserFixture() throws -> Any {
     var reports: [[String:Any]] = []
@@ -503,26 +572,34 @@ func browserFixture() throws -> Any {
             defer { finishOwned(owned); try? FileManager.default.removeItem(at:directory) }
             brokerMode = true
             var selected: Target?
-            let deadline = Date().addingTimeInterval(15)
+            let started = Date()
+            var firstAXReady: Date?
             var attempt = 0, activated = false
             var readiness: [[String:Any]] = []
-            while Date() < deadline && owned.isRunning {
+            while Date() < fixtureBindingDeadline(started,firstAXReady) && owned.isRunning {
                 if !activated, let application = NSRunningApplication(processIdentifier:owned.processIdentifier), application.isFinishedLaunching {
                     activated = application.activate(options:[.activateIgnoringOtherApps])
                 }
-                let (ready,probe) = fixtureReadiness(owned)
-                if readiness.count == 20 { readiness.removeFirst() }; readiness.append(probe)
+                let (ready,record) = fixtureReadiness(owned)
+                var probe = record
                 if ready {
-                    selected = try targets(onlyPID:owned.processIdentifier).first { $0.document == pdf.standardizedFileURL.resolvingSymlinksInPath().absoluteString }
-                    if selected != nil { break }
-                }
+                    if firstAXReady == nil { firstAXReady = Date() }
+                    let scanStarted = Date()
+                    let matches = try targets(onlyPID:owned.processIdentifier).filter { $0.document == pdf.standardizedFileURL.resolvingSymlinksInPath().absoluteString }
+                    selected = matches.first
+                    probe["phase"] = "pdf-content-readiness"; probe["matchingPDFTargets"] = matches.count
+                    probe["targetReadMilliseconds"] = Int(Date().timeIntervalSince(scanStarted)*1000)
+                } else { probe["phase"] = firstAXReady == nil ? "application-readiness" : "pdf-content-readiness" }
+                if readiness.count == 20 { readiness.removeFirst() }; readiness.append(probe)
+                if selected != nil { break }
+                let deadline = fixtureBindingDeadline(started,firstAXReady)
                 RunLoop.current.run(until:Date().addingTimeInterval(min(fixtureBackoff(attempt),max(0,deadline.timeIntervalSinceNow))))
                 attempt += 1
             }
+            report["bindingWaitMilliseconds"] = Int(Date().timeIntervalSince(started)*1000)
             report["readiness"] = readiness
             guard let target = selected else { report["status"] = "FAILED"; report["reason"] = "Installed browser with granted Accessibility did not bind the fixture PDF"; report["diagnostics"] = fixtureDiagnostics(owned,pdf); reports.append(report); continue }
             report["documentIdentity"] = "VERIFIED"
-            guard target.app.activate(options:[.activateIgnoringOtherApps]), AXUIElementPerformAction(target.window,kAXRaiseAction as CFString) == .success else { throw Refusal.foreground }
             report["contentFocus"] = fixtureContentFocus(target)
             RunLoop.current.run(until:Date().addingTimeInterval(0.1))
             var before = fixtureObservation(target)
@@ -589,6 +666,12 @@ func run(_ args: [String]) throws -> Any {
         let spoof = BrowserNode(element:fake,parent:0,role:"AXWebArea",url:"https://example.test/"+id+"/index.html")
         let redacted = fixtureURLSummary("https://private:password@example.test/private/customer.pdf?secret=hidden#token",URL(fileURLWithPath:"/tmp/CastLink-fixture.pdf"))
         guard redacted?["scheme"] as? String == "https", redacted?["host"] as? String == "example.test", redacted?["extension"] as? String == "pdf", redacted?.count == 3,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),nil).timeIntervalSince1970 == 15,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:14)).timeIntervalSince1970 == 18,
+              fixtureBindingDeadline(Date(timeIntervalSince1970:0),Date(timeIntervalSince1970:18)).timeIntervalSince1970 == 19,
+              modalMetadata("AXGroup","AXApplicationAlertDialog"), modalMetadata("AXSheet",nil),
+              !modalMetadata("AXTextField",nil), !modalMetadata("AXWindow","AXStandardWindow"),
+              fixtureRect(CGRect.null)["available"] as? Bool == false,
               fixtureBackoff(-1) == 0.1, fixtureBackoff(0) == 0.1, fixtureBackoff(1) == 0.2, fixtureBackoff(1000) == 0.8,
               processBirthSelfTest(), builtinViewerIDs("com.google.Chrome") == [id], builtinViewerIDs("com.microsoft.edgemac") == [id], builtinViewerIDs("com.example.fake").isEmpty,
               !prunePDFContent(role:"AXGroup",url:"file:///tmp/fixture.pdf",originalWebAreaFound:true,ids:[id],includeContent:false),
@@ -604,6 +687,10 @@ func run(_ args: [String]) throws -> Any {
               pdfURL("https://example.test/a.pdf.exe") == nil,
               pdfURL("https://private@example.test/a.pdf") == nil,
               trustedViewer("chrome-extension://"+id+"/index.html",[id]),
+              trustedViewer("chrome-extension://"+id+"/edge_pdf/index.html",[id]),
+              !trustedViewer("chrome-extension://"+id+"/other.html",[id]),
+              !trustedViewer("chrome-extension://"+id+"/edge_pdf/other.html",[id]),
+              !trustedViewer("chrome-extension://"+id+"/index.html/other",[id]),
               !trustedViewer("https://example.test/"+id+"/index.html",[id]),
               !trustedViewer("chrome-extension://untrusted/index.html",[id]),
               viewerID(manifest) == id, packResources(pack).count == 1,

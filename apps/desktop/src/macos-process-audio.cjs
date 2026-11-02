@@ -28,28 +28,49 @@ function createMacProcessAudioAdapter({resourcesPath,platform=process.platform,s
     const executable=executableAt(resourcesPath);if(!executable)throw Error('PowerPoint audio helper is unavailable');
     let child;
     try{child=spawn(executable,args,{shell:false,stdio:['pipe','pipe','pipe'],windowsHide:true});}catch{throw Error('PowerPoint process audio could not start');}
-    let stopped=false,exited=false,metadata=null,pending=Buffer.alloc(0),resolveReady,rejectReady,termination;
+    let stopped=false,exited=false,metadata=null,pending=Buffer.alloc(0),resolveReady,rejectReady,termination,terminationSent=false,stderrEnded=false,childClosed=false,stderrTail='',launchRequired=false,startupFailure=null,refusalTimer;
     const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
     const timeout=setTimeout(()=>finish(Error('PowerPoint process audio could not start')),startupTimeoutMs);timeout.unref?.();
+    function sourceError(fallback){
+      if(!launchRequired)return fallback;
+      const error=Error('PowerPoint must be opened from Applications');error.code='PROCESS_AUDIO_LAUNCH_REQUIRED';return error;
+    }
+    function terminate(){
+      if(exited||terminationSent)return;terminationSent=true;
+      try{child.kill('SIGTERM');}catch{/* Exit may race Stop. */}
+      termination=setTimeout(()=>{if(!exited)try{child.kill('SIGKILL');}catch{/* Already reaped. */}},terminationTimeoutMs);termination.unref?.();
+    }
+    function rejectStartup(error){
+      if(stopped)return;startupFailure=error;pending=Buffer.alloc(0);terminate();
+      if(launchRequired||stderrEnded||childClosed){finish(sourceError(error));return;}
+      // Stdout EOF and exit can precede stderr drain. Only startup refusal waits,
+      // bounded to100ms, while the helper is already being terminated.
+      if(!refusalTimer){refusalTimer=setTimeout(()=>finish(sourceError(startupFailure)),100);refusalTimer.unref?.();}
+    }
     function finish(error){
-      if(stopped)return;stopped=true;clearTimeout(timeout);pending=Buffer.alloc(0);
+      if(stopped)return;stopped=true;clearTimeout(timeout);clearTimeout(refusalTimer);pending=Buffer.alloc(0);
       if(!metadata)rejectReady(error||Error('PowerPoint process audio stopped'));
       child.stdin?.destroy();child.stdout?.destroy();child.stderr?.destroy();
-      if(!exited){
-        try{child.kill('SIGTERM');}catch{/* Exit may race Stop. */}
-        termination=setTimeout(()=>{if(!exited)try{child.kill('SIGKILL');}catch{/* Already reaped. */}},terminationTimeoutMs);termination.unref?.();
-      }
+      terminate();
       if(error)notify(onError,error);notify(onEnded);
     }
     child.once('error',()=>finish(Error('PowerPoint process audio could not start')));
-    child.once('exit',code=>{exited=true;clearTimeout(termination);finish(code===0&&metadata&&pending.length===0?null:Error('PowerPoint process audio stopped'));});
-    // Native errors are deliberately opaque; titles, paths and OS messages stay local.
-    child.stderr?.on('data',()=>{});
+    child.once('exit',code=>{exited=true;clearTimeout(termination);if(!metadata)rejectStartup(Error('PowerPoint process audio stopped'));else finish(code===0&&pending.length===0?null:Error('PowerPoint process audio stopped'));});
+    child.once('close',()=>{childClosed=true;if(startupFailure)finish(sourceError(startupFailure));});
+    // Only this fixed public refusal code crosses the native boundary. All
+    // arbitrary diagnostics, paths, titles and OS error text are discarded.
+    child.stderr?.on('data',chunk=>{
+      if(stopped||metadata)return;
+      const lines=(stderrTail+chunk.toString('ascii')).split('\n');stderrTail=lines.pop().slice(-128);
+      if(lines.some(line=>line==='process-audio-refused:source-launch-services'))launchRequired=true;
+      if(startupFailure&&launchRequired)finish(sourceError(startupFailure));
+    });
+    child.stderr?.once('end',()=>{stderrEnded=true;if(startupFailure)finish(sourceError(startupFailure));});
     child.stdin?.on('error',()=>finish(Error('PowerPoint process audio stopped')));
     child.stdout.on('error',()=>finish(Error('PowerPoint process audio stopped')));
-    child.stdout.once('end',()=>finish(metadata&&pending.length===0?null:Error('Invalid process audio data')));
+    child.stdout.once('end',()=>{if(!metadata)rejectStartup(Error('Invalid process audio data'));else finish(pending.length===0?null:Error('Invalid process audio data'));});
     child.stdout.on('data',chunk=>{
-      if(stopped)return;
+      if(stopped||startupFailure)return;
       if(!Buffer.isBuffer(chunk)||chunk.length+pending.length>MAX_BUFFER_BYTES){finish(Error('Invalid process audio data'));return;}
       pending=Buffer.concat([pending,chunk]);
       if(!metadata){

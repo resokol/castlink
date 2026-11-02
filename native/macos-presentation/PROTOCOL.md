@@ -112,7 +112,9 @@ The public status remains name/kind only; page counts are not fabricated.
 
 Chrome's built-in viewer ID comes from its public manifest/key. The same exact
 viewer origin was observed in the owned Edge fixture (native run ad3adaa), and
-is accepted only inside the exact Chrome/Edge bundle identity. For additional
+is accepted only inside the exact Chrome/Edge bundle identity. Entrypoints are
+restricted to `/index.html` and the owned Edge fixture's verified
+`/edge_pdf/index.html` (run 43fb); other resource paths remain refused. For additional
 installed Chromium PDF viewer identities, the adapter inspects
 only the installed browser bundle's framework `.pak` resources (at most 16 direct files per candidate resource
 directory, 64 MiB each and 128 MiB total). Its bounded
@@ -123,6 +125,14 @@ Chromium's SHA-256 nibble algorithm. Arbitrary installed/user extensions and
 lookalike extension URL hosts never qualify. Unsupported proprietary viewer
 formats remain unavailable rather than accepting guessed extension IDs.
 
+AX application reads use a 750 ms message timeout and cache each process's
+window list once per scan, avoiding repeated 100 ms startup timeouts. The owned
+fixture separately records launch/AX readiness, retries with bounded 100–800 ms
+backoff for at most 15 seconds for application AX readiness. Once AX is ready,
+it gives the PDF renderer a separate four-second content phase, with a hard
+19-second total binding bound, and pumps the run loop. This prevents a late
+application startup from consuming the entire PDF-loading deadline. An installed,
+permitted browser that never binds still fails.
 The helper reads the browser application AXRole to request normal native
 accessibility, following Chromium’s public AXRole activation path; it does not
 set private AX activation attributes or user browser flags/preferences.
@@ -146,7 +156,15 @@ is posted and navigation never steals focus.
 Run `CastLink.WindowSlides --browser-fixture` on macOS for the real optional
 browser fixture. It discovers installed Chrome/Edge, checks existing
 Accessibility permission without prompting, and launches each browser in a
-new owned temporary profile with a generated two-page PDF. It exercises actual
+new owned temporary profile with a generated two-page PDF. Only after verifying its owned PID, window and
+viewer ancestry does the fixture focus the inner PDF web area using a bounded
+process-targeted mouse pair. Activation is awaited for at most two seconds,
+with finite frontmost/focused-window/role and content/window/intersection
+geometry diagnostics. The fixture may send one process-targeted Escape only
+when the focused dialog is proven to belong to its own browser PID and AX
+window/ancestry; it never approves a prompt or sends input to external/system
+prompts. Production focus guards are unchanged. It waits for a baseline and resulting content
+change without retrying the navigation effect. It exercises actual
 AX document recognition, bounded navigation with an observable scroll/text
 position change, editable-control refusal and same-URL tab replacement. It closes only
 its owned browser process and removes only its temporary profile. No user
@@ -155,7 +173,10 @@ browser profile, account or document is used. Missing browsers/permissions and u
 bind the known fixture PDF is `FAILED`. That failure records bounded stage
 proofs and AX role/subrole/URL structure from only the owned fixture process.
 URLs are reduced to scheme, host and extension; only the synthetic filename is
-retained, never paths, queries, fragments, text values, titles or user tabs.
+retained, never document paths, queries, fragments, text values, titles or user tabs.
+For the exact trusted built-in extension origin only, its public resource path
+is recorded to diagnose vendor entrypoint differences; document URLs remain
+redacted.
 Successful input acknowledgement alone is never navigation proof. `--self-test` separately exercises pure URL/viewer/key/pack/focus contracts
 without browser launch or input.
 

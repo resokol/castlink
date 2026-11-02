@@ -11,8 +11,15 @@ final class FixtureView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.white.setFill(); bounds.fill()
-        let colors: [NSColor] = [.red,.green,.blue,.yellow]
+        NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1).setFill(); bounds.fill()
+        // Generic AppKit primaries/deviceRGB are display-profile dependent. Paint
+        // and measure in the same explicit sRGB space for a reproducible marker test.
+        let colors: [NSColor] = [
+            NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1),
+            NSColor(srgbRed: 0, green: 1, blue: 0, alpha: 1),
+            NSColor(srgbRed: 0, green: 0, blue: 1, alpha: 1),
+            NSColor(srgbRed: 1, green: 1, blue: 0, alpha: 1)
+        ]
         let positions = [NSPoint(x: 0, y: 0), NSPoint(x: bounds.width - 80, y: 0), NSPoint(x: 0, y: bounds.height - 80), NSPoint(x: bounds.width - 80, y: bounds.height - 80)]
         for (index, point) in positions.enumerated() { colors[index].setFill(); NSRect(origin: point, size: NSSize(width: 80, height: 80)).fill() }
     }
@@ -56,15 +63,15 @@ final class FixtureView: NSView {
             guard let selected = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else { throw InputFailure("fixture-window-unavailable") }
             let filter = SCContentFilter(desktopIndependentWindow: selected), config = SCStreamConfiguration()
             config.width = Int(window.frame.width * window.backingScaleFactor); config.height = Int(window.frame.height * window.backingScaleFactor)
-            config.ignoreShadowsSingleWindow = true; config.showsCursor = false
+            config.ignoreShadowsSingleWindow = true; config.showsCursor = false; config.colorSpaceName = CGColorSpace.sRGB
             let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
             let representation = NSBitmapImageRep(cgImage: image)
             if let path = screenshotPath, let data = representation.representation(using: .png, properties: [:]) { try data.write(to: URL(fileURLWithPath: path)) }
             let positions = [(20,20),(image.width-20,20),(20,image.height-20),(image.width-20,image.height-20)]
             let samples = positions.map { (x,y) -> [Double] in
-                guard let color = representation.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return [] }; return [color.redComponent,color.greenComponent,color.blueComponent]
+                guard let color = representation.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return [] }; return [color.redComponent,color.greenComponent,color.blueComponent]
             }
-            emit(["id":id,"event":"screenshot","verified":true,"width":image.width,"height":image.height,"samples":samples])
+            emit(["id":id,"event":"screenshot","verified":true,"width":image.width,"height":image.height,"sampleColorSpace":"sRGB","samples":samples])
         } catch { emit(["id":id,"event":"screenshot","verified":false,"reason":"capture-failed"]) }
     }
     static func main() {
@@ -72,6 +79,7 @@ final class FixtureView: NSView {
         _ = NSApplication.shared; NSApp.setActivationPolicy(.regular)
         screenshotPath = CommandLine.arguments.dropFirst().first
         window = FixtureWindow(contentRect: NSRect(x: 100, y: 180, width: 640, height: 480), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.colorSpace = .sRGB
         window.title = "CastLink Native Input Fixture"; window.backgroundColor = .white; window.contentView = FixtureView(frame: NSRect(x: 0, y: 0, width: 640, height: 480)); window.makeKeyAndOrderFront(nil); window.makeFirstResponder(window.contentView); NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { ready() }
         DispatchQueue(label: "fixture.stdin").async {

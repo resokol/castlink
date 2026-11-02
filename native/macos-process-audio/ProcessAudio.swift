@@ -9,7 +9,7 @@ import Darwin
 private let maxPacketFrames = 4800
 private let maxBufferBytes = 131072
 private let powerPointBundleID = "com.microsoft.Powerpoint"
-private enum Refusal: Error { case source, format, capture, output }
+private enum Refusal: Error { case source, launchSource, format, capture, output }
 
 private func appendLE<T: FixedWidthInteger>(_ value: T, to data: inout Data) {
     var little = value.littleEndian
@@ -40,6 +40,7 @@ private struct WindowIdentity {
     let windowID: CGWindowID
     let pid: pid_t
     let started: Int64
+    let launched: Date
     // Retain the original application, rather than continually choosing a new PID.
     let application: NSRunningApplication
 
@@ -51,17 +52,18 @@ private struct WindowIdentity {
               let application = NSRunningApplication(processIdentifier: owner.int32Value),
               !application.isTerminated, application.bundleIdentifier == powerPointBundleID,
               let started = processBirthMilliseconds(owner.int32Value) else { throw Refusal.source }
+        guard let launched = application.launchDate, launched.timeIntervalSince1970.isFinite, launched.timeIntervalSince1970 > 0 else { throw Refusal.launchSource }
         guard expectedPID == nil || expectedPID == owner.int32Value,
               expectedStart == nil || expectedStart == started else { throw Refusal.source }
-        let result = WindowIdentity(windowID: windowID, pid: owner.int32Value, started: started, application: application)
+        let result = WindowIdentity(windowID: windowID, pid: owner.int32Value, started: started, launched: launched, application: application)
         guard result.isLive() else { throw Refusal.source }
         return result
     }
     func isLive() -> Bool {
         guard !application.isTerminated, application.processIdentifier == pid,
-              application.bundleIdentifier == powerPointBundleID,
+              application.bundleIdentifier == powerPointBundleID, application.launchDate == launched,
               let current = NSRunningApplication(processIdentifier: pid), !current.isTerminated,
-              current.bundleIdentifier == powerPointBundleID, processBirthMilliseconds(pid) == started,
+              current.bundleIdentifier == powerPointBundleID, current.launchDate == launched, processBirthMilliseconds(pid) == started,
               let windows = CGWindowListCopyWindowInfo([.optionIncludingWindow, .excludeDesktopElements], windowID) as? [[String: Any]] else { return false }
         return windows.contains { info in
             (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value == windowID &&
@@ -297,6 +299,7 @@ private struct ProcessAudioMain {
             let capture = AudioCapture(identity: identity)
             capture.run()
             withExtendedLifetime(capture) { dispatchMain() }
-        } catch { diagnostic("source"); Darwin.exit(4) }
+        } catch Refusal.launchSource { diagnostic("source-launch-services"); Darwin.exit(4) }
+        catch { diagnostic("source"); Darwin.exit(4) }
     }
 }

@@ -58,7 +58,7 @@ test('stdout EOF ends immediately and truncated native data reports a sanitized 
   const f=fixture(t);
   for(const bytes of [Buffer.alloc(0),header().subarray(0,12),Buffer.concat([header(),packet().subarray(0,5)]),header()]){
     const errors=[],ended=[];const c=f.adapter.start({sourceId:'window:123:0',enabled:true,onError:e=>errors.push(e),onEnded:()=>ended.push(true)});c.ready.catch(()=>{});
-    const child=f.children.at(-1);child.stdout.end(bytes);await new Promise(resolve=>setImmediate(resolve));
+    const child=f.children.at(-1);child.stdout.end(bytes);child.stderr.end();await new Promise(resolve=>setImmediate(resolve));
     assert.equal(ended.length,1);assert.equal(errors.length,bytes.length===24?0:1);assert.equal(child.killed,true);child.emit('exit',4);assert.equal(ended.length,1);
   }
 });
@@ -141,4 +141,20 @@ test('LaunchServices readiness reads only bounded owned files and checks the act
   await assert.rejects(failure,error=>{assert.equal(error.diagnostics.exitCode,1);assert.match(error.diagnostics.stderr,/owned-ls-refusal/);return true;});
   const oversized=new EventEmitter();oversized.stdout=new PassThrough();oversized.stderr=new PassThrough();fs.writeFileSync(stdoutPath,'x'.repeat(100000));
   await assert.rejects(toneFileReady(oversized,{stdoutPath,stderrPath,frequency:440,timeoutMs:200}),/Invalid QA readiness/);
+});
+
+test('startup launch-source refusal is a fixed typed error even when stdout EOF arrives first',async t=>{
+  for(const stderrFirst of [true,false]){
+    const f=fixture(t),errors=[];const c=f.adapter.start({sourceId:'window:123:0',enabled:true,onError:error=>errors.push(error)}),child=f.children[0];
+    const stderr=()=>{child.stderr.write('private-path-must-not-leak\nprocess-audio-refused:source-');child.stderr.end('launch-services\n');};
+    if(stderrFirst)stderr();child.stdout.end();if(!stderrFirst)stderr();child.emit('exit',4);child.emit('close',4);
+    await assert.rejects(c.ready,error=>{assert.equal(error.code,'PROCESS_AUDIO_LAUNCH_REQUIRED');assert.equal(error.message,'PowerPoint must be opened from Applications');assert.doesNotMatch(error.message,/private/);return true;});
+    assert.equal(errors.length,1);assert.equal(errors[0].code,'PROCESS_AUDIO_LAUNCH_REQUIRED');
+  }
+});
+test('direct-owner proof requires the exact native refusal, exit4 and zero stdout bytes',()=>{
+  const {assertDirectOwnerRefusal}=require('../../../native/macos-process-audio/smoke.cjs');
+  const correct={exitCode:4,signal:null,stdoutBytes:0,stderr:'process-audio-refused:source-launch-services\n'};
+  assert.doesNotThrow(()=>assertDirectOwnerRefusal(correct));
+  for(const mutation of [{exitCode:0},{stdoutBytes:24},{stderr:'process-audio-refused:source\n'},{signal:'SIGKILL',exitCode:null},{timedOut:true}])assert.throws(()=>assertDirectOwnerRefusal({...correct,...mutation}),/Direct-launched source was not refused/);
 });

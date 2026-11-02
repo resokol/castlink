@@ -107,7 +107,17 @@ async function prepareProcessAudio(choice) {
     state.capture=require('./process-audio.cjs').createProcessAudioAdapter({resourcesPath:resourcesRoot()}).start({sourceId:choice.source.id,enabled:true,onFrame:value=>{if(processAudio===state&&!state.closed&&!own.isDestroyed())own.webContents.send('castlink:audio-data',{id,frames:value.frames,pcm:new Uint8Array(value.pcm)});},onError:ended,onEnded:ended});
     await state.capture.ready;
     if(processAudio!==state||pendingDisplay!==requestId||state.closed||own.isDestroyed())throw Error('Audio cancelled');
-  }catch{if(processAudio===state)stopProcessAudio(id);else state.capture?.stop();if(client===own&&!own.isDestroyed()&&pendingDisplay===requestId)void dialog.showMessageBox(own,{type:'warning',title:'PowerPoint',message:settings.locale==='ru'?'Не удалось передать звук. Выберите окно показа PowerPoint и повторите попытку.':settings.locale==='en'?'Could not share audio. Select the PowerPoint slideshow window and retry.':'无法共享音频。请选择 PowerPoint 幻灯片窗口并重试。'});throw Error('PowerPoint audio unavailable');}
+  }catch(error){
+    if(processAudio===state)stopProcessAudio(id);else state.capture?.stop();
+    if(client===own&&!own.isDestroyed()&&pendingDisplay===requestId){
+      const launchRequired=process.platform==='darwin'&&error?.code==='PROCESS_AUDIO_LAUNCH_REQUIRED';
+      const message=launchRequired
+        ?settings.locale==='ru'?'Откройте PowerPoint из папки «Программы», затем снова выберите его окно показа.':settings.locale==='en'?'Open PowerPoint from Applications, then select its slideshow window again.':'请从“应用程序”打开 PowerPoint，然后重新选择其幻灯片放映窗口。'
+        :settings.locale==='ru'?'Не удалось передать звук. Выберите окно показа PowerPoint и повторите попытку.':settings.locale==='en'?'Could not share audio. Select the PowerPoint slideshow window and retry.':'无法共享音频。请选择 PowerPoint 幻灯片窗口并重试。';
+      void dialog.showMessageBox(own,{type:'warning',title:'PowerPoint',message});
+    }
+    throw Error('PowerPoint audio unavailable');
+  }
 }
 function createPowerPointController() {
   powerPointController?.dispose();

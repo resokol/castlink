@@ -40,6 +40,13 @@ The fixed executable accepts only:
 
 Window IDs are nonzero UInt32 values, PIDs nonzero Int32. No shell, arbitrary
 binary path, filter expression, microphone device, or audio endpoint is accepted.
+The selected owner must have a finite nonnil LaunchServices `launchDate`.
+Directly launched owners are refused before any CLPA header or PCM: native tests
+showed that their audio could include sibling applications. This origin condition
+is separate from kernel process birth and is not itself an isolation guarantee;
+real spectral acceptance remains required. The exact launch `Date` is retained
+and must still agree on both the retained and freshly resolved running app.
+
 The original `NSRunningApplication` object is retained. Its PID, kernel process birth,
 bundle identity (`com.microsoft.Powerpoint`), selected CGWindowID and current
 owner are checked before stream startup, every delivered PCM packet, and by a
@@ -65,6 +72,12 @@ SCStream and exits within one second even if the capture service fails to reply.
 The Node adapter terminates its own child, escalating to SIGKILL after one second,
 clears pending PCM, and ignores all late frames/callbacks. Independent camera and
 microphone captures are not affected.
+
+`process-audio-refused:source-launch-services` is the fixed launch-origin refusal.
+The adapter maps only this whitelisted line to `PROCESS_AUDIO_LAUNCH_REQUIRED`
+and the fixed message "PowerPoint must be opened from Applications". Arbitrary
+stderr remains private. Startup EOF/exit waits at most100ms for stderr drain;
+helper termination starts immediately and no PCM can be delivered during that wait.
 
 Exit 0 means normal stop, 3 unsupported macOS, 4 refused source/permission,
 capture, malformed audio, or pipe failure. Stderr contains only fixed codes;
@@ -106,14 +119,23 @@ node native/macos-process-audio/smoke.cjs \
   --helper resources/process-audio/CastLink.ProcessAudio
 ```
 
-This compiles `ToneFixture.swift` and launches three separate owned AppKit apps
-rendering real 440/880/1320 Hz audio through AVAudioPlayer. The selected QA app has
+This compiles `ToneFixture.swift` and first launches three owned apps directly.
+All must report no LaunchServices origin; raw `--probe` and `--window` invocations
+must exit4 with zero stdout bytes and the exact launch-origin refusal. A generic
+adapter error, killed helper or partial header cannot pass this negative proof.
+
+The positive test launches three separate owned AppKit apps through LaunchServices
+using exact private app paths and bounded stdout/stderr files, rendering real
+440/880/1320 Hz audio through AVAudioPlayer. The selected QA app has
 the PowerPoint bundle ID solely for the fixture; it is **not Microsoft Office**.
 The other two apps have distinct bundle IDs. No native capture path is mocked or
 replaced. The smoke runs the production helper and Node adapter, refuses the
 foreign app window, requires selected 440 Hz audio with >50 dB rejection of both
 competitors, verifies returned PID, and checks capture terminates when the source
-process exits. It cleans up only its own apps and temporary files. Signing is
+process exits. A second positive phase uses a LaunchServices target with two
+directly launched outsiders and requires the same spectral rejection and source
+termination. Both phases retain bounded owned-PID HAL identity metadata where
+supported; optional HAL metadata cannot turn a failed capture into a pass. It cleans up only its own apps and temporary files. Signing is
 local ad hoc. It does not change TCC, prompt through System Settings, or use a
 physical microphone.
 
