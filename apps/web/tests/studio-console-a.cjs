@@ -14,11 +14,16 @@ assert.equal(button(StudioReturnPublishingControls({...props,role:'moderator',pr
 assert.equal(button(StudioReturnPublishingControls({...props,modeBusy:true,presentation:'console'}),'room-mode-toggle').props.disabled,true);
 assert.equal(button(StudioReturnPublishingControls({...props,hasSession:false,presentation:'console'}),'studio-console-sound').props.disabled,true);
 assert.equal(button(tree,'studio-settings-toggle').props.popoverTarget,'devices');
+assert.equal(all(button(tree,'air-toggle'),n=>n.type==='i').length,0,'console ON AIR has no decorative dot');
 console.log('PASS console publishing real callbacks and role/session/busy gates');
 const {renderToStaticMarkup}=require('react-dom/server');
 const {GuestVideoCard}=load('../components/GuestVideoCard.tsx',{...overrides,'./I18nProvider':overrides['@/components/I18nProvider'],'./ParticipantRenameButton':{ParticipantRenameButton:()=>React.createElement('button',null,'Rename')},'./MonitoringControls':{MonitoringControls:()=>React.createElement('button',null,'Monitoring')}});
 const guestProps={guest:{identity:'guest-1',name:'Name',camera:true,microphone:true,resolution:'1920×1080',bitrateKbps:4000,packetLoss:0,rttMs:0,jitterMs:0,stability:'Хорошая'},roomName:'qa',outputUrl:'#output',copied:false,receiveBitrate:4000,preference:{audio:true,video:true,volume:75},preview:React.createElement('video',{'data-qa':'media'}),meter:React.createElement('div',{'data-qa':'meter'}),primaryAction:React.createElement('button',{disabled:true,'aria-label':'Mic'},'Mic'),quickControls:React.createElement('button',null,'Camera'),feedback:React.createElement('small',{role:'status'},'Pending'),onCopy(){},onQualityChange(){},onMonitoringChange(){}};
 const compact=renderToStaticMarkup(React.createElement(GuestVideoCard,{...guestProps,compact:true}));
 assert.match(compact,/data-console-compact="true"/);assert.match(compact,/popover="auto"/);assert.match(compact,/disabled="" aria-label="Mic"/);assert.match(compact,/Camera/);assert.match(compact,/Pending/);
-const legacy=renderToStaticMarkup(React.createElement(GuestVideoCard,guestProps));assert.doesNotMatch(legacy,/popover="auto"/,'default card has no compact disclosure');
+assert.match(compact,/data-guest-output-shortcut="true"/,'copy URL is directly reachable on the compact card');
+assert.match(compact,/aria-label="Копировать URL: Name"/,'copy shortcut identifies the guest');
+assert.match(compact,/Камеры и звук/,'advanced camera controls have a clear disclosure');
+const copied=renderToStaticMarkup(React.createElement(GuestVideoCard,{...guestProps,compact:true,copied:true}));assert.match(copied,/aria-label="Скопировано: Name"/,'copy success is accessible without opening settings');
+const legacy=renderToStaticMarkup(React.createElement(GuestVideoCard,guestProps));assert.doesNotMatch(legacy,/data-guest-output-shortcut/,'default card retains existing URL action');assert.doesNotMatch(legacy,/popover="auto"/,'default card has no compact disclosure');
 console.log('PASS opt-in compact guest keeps media, disabled mic, advanced actions and pending status');

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1854**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1856**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -5150,7 +5150,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 119 файлов
+## apps/web/components · 120 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -5698,7 +5698,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestVideoCardData`, `GuestVideoCard`.
 
-Читает/импортирует: [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `react`.
 
@@ -6346,7 +6346,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `StudioConsolePopover`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts).
 
 Библиотеки/Node: `react`.
 
@@ -6400,7 +6400,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/tests/guest-media-controls-ui.cjs`](../../apps/web/tests/guest-media-controls-ui.cjs).
+Используют: [`apps/web/components/StudioGuestMediaPanel.tsx`](../../apps/web/components/StudioGuestMediaPanel.tsx), [`apps/web/tests/fixtures/studio-compact.tsx`](../../apps/web/tests/fixtures/studio-compact.tsx), [`apps/web/tests/guest-media-controls-ui.cjs`](../../apps/web/tests/guest-media-controls-ui.cjs).
 
 ### apps/web/components/StudioGuestMediaPanel.tsx
 
@@ -6661,6 +6661,16 @@ UI gate только по отдельной Super Admin сессии; прав�
 Экспортируемые символы: `roomEntryInviteUrl`.
 
 Используют: [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/tests/public-room-entry.cjs`](../../apps/web/tests/public-room-entry.cjs).
+
+### apps/web/components/studio-console-popover-position.ts
+
+[`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts)
+
+Размещение нативных меню студии возле вызывающей кнопки с ограничением viewport; общая геометрия без media/control состояния.
+
+Экспортируемые символы: `positionStudioConsolePopover`, `studioConsolePopoverInvoker`.
+
+Используют: [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/StudioConsolePopover.tsx`](../../apps/web/components/StudioConsolePopover.tsx).
 
 ## apps/web/instrumentation.ts · 1 файлов
 
@@ -10822,7 +10832,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/StudioConsolePopover.tsx`](../../apps/web/components/StudioConsolePopover.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/lib/studio-playback-layout.ts`](../../apps/web/lib/studio-playback-layout.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/AudioMeter.tsx`](../../apps/web/components/AudioMeter.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/ModeratorStudioMonitoring.tsx`](../../apps/web/components/ModeratorStudioMonitoring.tsx), [`apps/web/components/RoomInviteButton.tsx`](../../apps/web/components/RoomInviteButton.tsx), [`apps/web/components/RoomManagementPanel.tsx`](../../apps/web/components/RoomManagementPanel.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/components/SourceRoster.tsx`](../../apps/web/components/SourceRoster.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/StudioConsolePopover.tsx`](../../apps/web/components/StudioConsolePopover.tsx), [`apps/web/components/StudioDeviceControlPanel.tsx`](../../apps/web/components/StudioDeviceControlPanel.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/components/StudioReturnPublishingControls.tsx`](../../apps/web/components/StudioReturnPublishingControls.tsx), [`apps/web/components/StudioReturnStatsPanel.tsx`](../../apps/web/components/StudioReturnStatsPanel.tsx), [`apps/web/components/StudioStreamInviteButton.tsx`](../../apps/web/components/StudioStreamInviteButton.tsx), [`apps/web/lib/studio-playback-layout.ts`](../../apps/web/lib/studio-playback-layout.ts).
 
 Библиотеки/Node: `livekit-client`, `next/dist/shared/lib/hooks-client-context.shared-runtime`, `react`, `react-dom/client`.
 
@@ -13558,7 +13568,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`.
 
-Переменные окружения (только имена): `CASTLINK_COMPACT_APPROVED_CONFIRM`, `CASTLINK_COMPACT_BASELINE`, `CASTLINK_COMPACT_FACES`, `CASTLINK_COMPACT_LOW_RED`, `CASTLINK_COMPACT_OUT`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
+Переменные окружения (только имена): `CASTLINK_COMPACT_APPROVED_CONFIRM`, `CASTLINK_COMPACT_BASELINE`, `CASTLINK_COMPACT_FACES`, `CASTLINK_COMPACT_LOW_RED`, `CASTLINK_COMPACT_OUT`, `CASTLINK_CONSOLE_MENUS`, `CASTLINK_CONSOLE_MENU_CONFIRM`, `CASTLINK_CONSOLE_MENU_FOCUS_PROBE`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/studio-console-a.cjs
 
@@ -14792,7 +14802,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 66 файлов
+## docs · 67 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15165,6 +15175,12 @@ Studio performance and runtime diagnostics implementation plan
 [`docs/superpowers/plans/2026-11-08-studio-console-a.md`](../superpowers/plans/2026-11-08-studio-console-a.md)
 
 Studio Console A Implementation Plan
+
+### docs/superpowers/plans/2026-11-08-studio-console-menus.md
+
+[`docs/superpowers/plans/2026-11-08-studio-console-menus.md`](../superpowers/plans/2026-11-08-studio-console-menus.md)
+
+Console A menu refinement
 
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 

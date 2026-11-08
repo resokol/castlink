@@ -839,7 +839,6 @@ html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-con
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-publishing { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row { display: grid; grid-template-columns: minmax(0,1fr) 44px; gap: 8px; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; margin: 0; padding: 8px 12px; border: 1px solid var(--primary); border-radius: 8px; background: var(--primary); color: var(--page-bg); font-size: 12px; font-weight: 700; }
-html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle-live { background: #a13945; border-color: #b64a57; color: #fff; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-sound { display: grid; place-items: center; margin: 0; padding: 10px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--secondary-bg); color: var(--text); }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-sound[aria-pressed="true"] { border-color: #a34c54; color: #d7807a; }
@@ -866,9 +865,9 @@ html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-con
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart { display: flex; flex-direction: column; flex: 1 1 0; height: auto; min-height: 84px; padding: 8px 0; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart svg { flex: 1 1 0; height: 0; min-height: 54px; max-height: 190px; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-transfer-notice { grid-column: 1/3; grid-row: 3; max-height: 100px; margin: 0; overflow: auto; }
-html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover { position: fixed; inset: auto 20px 70px auto; margin: 0; padding: 18px; width: 360px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 94px); overflow: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); box-shadow: 0 14px 40px #0003; }
-html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading h2 { margin: 0; font-size: 16px; line-height: 1.35; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover { position: fixed; inset: auto; margin: 0; padding: 14px; width: 380px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); box-shadow: 0 14px 40px #0003; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading { position: sticky; top: -14px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -14px -14px 12px; padding: 10px 14px; border-bottom: 1px solid var(--panel-border); background: var(--panel-bg); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading h2 { margin: 0; font-size: 14px; line-height: 1.35; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; min-height: 28px; padding: 5px; border: 0; background: transparent; color: var(--muted); }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading svg { width: 18px; height: 18px; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover > .studio-device-settings { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin: 0; padding: 0; border: 0; background: none; }
@@ -877,7 +876,7 @@ html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-con
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-device-panel > section.panel { padding: 0; border: 0; background: none; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-note { margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-invite-compact { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; margin: 0; padding: 0; max-height: none; overflow: visible; }
-html .graphite-workspace.studio-page.studio-console.studio-app-shell #studio-room-settings { width: min(760px,calc(100vw - 24px)); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell #studio-room-settings { width: min(600px,calc(100vw - 24px)); }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .workspace-footer-slot { flex: none; min-height: 0; margin: 0; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-main-column .workspace-footer.app-update-status { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0; padding: 4px 0 0; font-size: 9px; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .app-version-row { flex: 1 1 0; flex-direction: row; flex-wrap: nowrap; align-items: center; min-width: 0; gap: 8px; }
@@ -925,3 +924,27 @@ html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-console-guests[data-source-count="0"] { display: flex; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-empty { display: none; }
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-empty { display: block; font-size: 12px; color: var(--muted); }
+
+/* Console disclosures: compact fields, clear groups, no nested panel frames. */
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover :is(label,small) { font-size: 12px; line-height: 1.45; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover :is(button,a.button-link,input:not([type=checkbox]),select) { box-sizing: border-box; min-height: 32px; padding: 6px 8px; font-size: 12px; line-height: 18px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-console-popover-heading button { width: 28px; height: 28px; min-height: 28px; padding: 5px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover :is(.studio-device-panel,.media-device-picker) { gap: 10px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover label { gap: 4px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-invite-compact { gap: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-invite-compact > div > .stack { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-invite-compact .stack > :is(input,small) { grid-column: 1/-1; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-management { display: grid; gap: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-management[hidden] { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-management .section-heading { margin: 0; padding: 0; min-height: 0; justify-content: flex-end; font-size: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-management .section-heading > div { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 0; margin: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-controls > :is(input,select) { width: 100%; min-width: 0 !important; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-controls > select,
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-customization { grid-column: 1/-1; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-customization { min-width: 0; margin: 0; padding: 10px 0 0; border: 0; border-top: 1px solid var(--panel-border); background: none; }
+@media(max-width:420px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-controls { grid-template-columns: minmax(0,1fr); }
+}
+
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-customization:empty { display: none; }

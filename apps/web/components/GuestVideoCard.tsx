@@ -9,6 +9,7 @@ import type { MonitorPreference } from "@/lib/personal-monitoring";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
+import { positionStudioConsolePopover } from "./studio-console-popover-position";
 
 export type GuestVideoCardData = {
   identity: string;
@@ -84,12 +85,7 @@ export function GuestVideoCard({
   const positionMenu = (trigger: HTMLButtonElement) => {
     const target = popup.current;
     if (!target) return;
-    const rect = trigger.getBoundingClientRect();
-    const width = Math.min(360, window.innerWidth - 24);
-    const top = Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - Math.min(440, window.innerHeight - 24)));
-    target.style.left = `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`;
-    target.style.top = `${top}px`;
-    target.style.maxHeight = `${window.innerHeight - top - 12}px`;
+    positionStudioConsolePopover(target, trigger);
   };
   useEffect(() => {
     if (!compact || !menuOpen) return;
@@ -108,10 +104,23 @@ export function GuestVideoCard({
     </div>
     {onSelect && <button type="button" className="studio-source-select" style={{ display: "none" }} aria-pressed={focused} aria-label={`${t("Выбрать")}: ${guest.name}`} onClick={event => { const card = event.currentTarget.closest<HTMLElement>(".studio-caster-card"); onSelect(); requestAnimationFrame(() => card?.querySelector<HTMLElement>(".guest-card-heading")?.focus()); }}>{t("Выбрать")} <span>{guest.name}</span></button>}
     {preview}
-    <div className="guest-card-meter">{meter}</div>
+    <div className="guest-card-meter">{meter}{compact && <button type="button" data-guest-output-shortcut="true" className={styles.copyShortcut} onClick={onCopy}
+      aria-label={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} title={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} data-copied={copied || undefined}>
+      <StudioConsoleIcon kind={copied ? "check" : "copy"} width={16} height={16}/><span className={styles.copyStatus} role="status">{copied ? t("Скопировано") : ""}</span>
+    </button>}</div>
     <div className={styles.feedback}>{feedback}</div>
-    <div ref={popup} id={menuId} className={styles.advancedSurface} popover={compact ? "auto" : undefined} role={compact ? "dialog" : undefined} aria-labelledby={compact ? `${menuId}-title` : undefined} onToggle={event => setMenuOpen(event.newState === "open")}>
-    <header className={styles.menuHeading}><h2 id={`${menuId}-title`}>{guest.name}</h2><button type="button" popoverTarget={menuId} popoverTargetAction="hide" aria-label={t("Закрыть")}><StudioConsoleIcon kind="close" /></button></header>
+    <div ref={popup} id={menuId} className={styles.advancedSurface} popover={compact ? "auto" : undefined} role={compact ? "dialog" : undefined} aria-labelledby={compact ? `${menuId}-title` : undefined} onToggle={event => {
+      if (event.target !== event.currentTarget) return;
+      const opened = event.newState === "open";
+      setMenuOpen(opened);
+      if (!opened && document.activeElement === document.body) menuTrigger.current?.focus({preventScroll: true});
+      if (opened && popup.current && menuTrigger.current) {
+        positionMenu(menuTrigger.current);
+        popup.current.scrollTop = 0;
+        popup.current.querySelector<HTMLButtonElement>(`[data-console-popover-close]`)?.focus({preventScroll: true});
+      }
+    }}>
+    <header className={styles.menuHeading}><h2 id={`${menuId}-title`}>{guest.name}</h2><button data-console-popover-close type="button" popoverTarget={menuId} popoverTargetAction="hide" aria-label={t("Закрыть")}><StudioConsoleIcon kind="close" /></button></header>
     <div className="guest-preview-actions">
       <a className="button-link guest-output-open" href={outputUrl} target="_blank" rel="noreferrer">{t("Открыть выход")}</a>
       <button className="guest-output-copy" title={t("Индивидуальная ссылка на видео и аудио участника")} onClick={onCopy}>{copied ? t("Скопировано") : t("Копировать URL")}</button>
@@ -128,7 +137,8 @@ export function GuestVideoCard({
     </div>
     {(quickControls || (!compact && primaryAction)) && <div className="source-card-actions">{!compact && primaryAction}{quickControls}</div>}
     <details className="source-card-advanced" open={compact || undefined}><summary>{t("Настройки")}</summary><div className="source-card-advanced-content">
-      <div className="guest-card-settings">
+      <details className={`guest-card-settings ${styles.settingsSection}`} open={!compact || undefined}>
+        <summary className={styles.sectionSummary}>{t("Камеры и звук")}</summary><div className={styles.sectionContent}>
         {mediaControls}
         {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
           <div><strong>{t("Экран участника")}</strong><small>{t("Отдельный input для vMix / Browser Source")}</small></div>
@@ -137,8 +147,9 @@ export function GuestVideoCard({
             <button type="button" onClick={onCopyScreenShare}>{screenShareCopied ? t("Скопировано") : t("Копировать URL экрана")}</button>
           </div>
         </div>}
-      </div>
-      <div className="guest-card-statistics" aria-label={t("Сведения об участнике {name}", { name: guest.name })}>
+      </div></details>
+      <details className={`guest-card-statistics ${styles.settingsSection}`} open={!compact || undefined} aria-label={t("Сведения об участнике {name}", { name: guest.name })}>
+        <summary className={styles.sectionSummary}>{t("Устройства и качество соединения")}</summary><div className={styles.sectionContent}>
         <div className="guest-card-details guest-card-connection">
           <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
           <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
@@ -146,13 +157,13 @@ export function GuestVideoCard({
           <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} {t("мс")}</span></div>
           <div><b>{t("Потери / Аудио")}</b><span>{guest.packetLoss} {t("пак. /")} {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
         </div>
-        <details className="guest-diagnostics"><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details">
+        <details className={`guest-diagnostics ${styles.hardwareDetails}`} open={compact || undefined}><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details">
           <div><b>{t("Камера")}</b><span>{guest.cameraDevice === "Неизвестная камера" ? t("Неизвестная камера") : guest.cameraDevice || "—"}</span></div>
           <div><b>CPU</b><span>{guest.cpu ? translateWorkspaceMessage(t, guest.cpu) : "—"}</span></div>
           <div><b>GPU</b><span>{guest.gpu === "Недоступно браузеру" ? t("Недоступно браузеру") : guest.gpu || "—"}</span></div>
           <div><b>{t("ОС")}</b><span>{guest.platform || "—"}</span></div>
         </div></details>
-      </div>
+      </div></details>
     </div></details>
     </div>
   </div>;

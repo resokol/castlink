@@ -321,3 +321,17 @@ must fit on that screen; longer decks scroll locally. Keep other tabs in normal
 flow, mounted media and all existing control gates. The approved caster mobile
 toolbar is unchanged. Approved reference and scope:
 `docs/superpowers/specs/2026-11-08-studio-console-a-design.md`.
+
+## Console A menu refinement — owner correction, 8 November2026
+
+Preserve the approved console composition, statistics/codecs rail and caster
+mobile toolbar. Put a direct Copy URL shortcut on each compact guest card, using
+its existing individual-output callback and copied state. Keep the name readable;
+a compact shortcut by the meter is permitted when a third header action crowds it.
+The ON AIR button has text only, without a preceding decorative indicator.
+
+Studio devices, invitations/access, room settings and guest advanced menus share
+compact spacing, readable labels, bounded placement by their invoker, accessible
+close/focus and local scrolling. Fold advanced groups without unmounting device
+or media owners; preserve all commands, role/busy gates, fields and feedback.
+This is a narrow refinement of A, with no changes to the program/source geometry.

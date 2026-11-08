@@ -22,7 +22,7 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
   await build({entryPoints:[path.join(__dirname,'fixtures/studio-compact.tsx')],outfile:path.join(out,'bundle.js'),bundle:true,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',alias:{'@':web},nodePaths:[path.join(web,'node_modules')],loader:{'.css':'local-css'},define:{'process.env':JSON.stringify({NODE_ENV:'production',NEXT_PUBLIC_BUILD_ID:'preview',NEXT_PUBLIC_APP_VERSION:'preview',NEXT_PUBLIC_PRODUCT_VERSION:'preview',NEXT_PUBLIC_BUILD_NUMBER:'preview'})}});
   server=http.createServer((request,response)=>{
     const url=new URL(request.url,'http://fixture.local');
-    if(url.pathname.startsWith('/api/')) { response.setHeader('content-type','application/json'); response.end(JSON.stringify({buildId:'preview',version:'preview',url:'https://example.invalid/test-invitation'})); return; }
+    if(url.pathname.startsWith('/api/')) { response.setHeader('content-type','application/json'); response.end(JSON.stringify({buildId:'preview',version:'preview',path:'/test-invitation',url:'https://example.invalid/test-invitation'})); return; }
     let file = url.pathname==='/bundle.js'?path.join(out,'bundle.js'):url.pathname==='/bundle.css'?path.join(out,'bundle.css'):url.pathname==='/livekit.css'?req.resolve('@livekit/components-styles'):url.pathname==='/globals.css'?path.join(baseline?'/tmp/castlink-studio-baseline':path.join(web,'app'),'globals.css'):url.pathname==='/graphite.css'?path.join(baseline?'/tmp/castlink-studio-baseline':path.join(web,'app'),'graphite-workspace.css'):url.pathname==='/preview-faces.webp'?process.env.CASTLINK_COMPACT_FACES:url.pathname==='/icon.svg'?path.join(web,'app/icon.svg'):url.pathname.startsWith('/new/')?path.join(web,'../../design-preview',url.pathname):null;
     if(file&&fs.existsSync(file)) { response.setHeader('content-type',file.endsWith('.js')?'text/javascript':file.endsWith('.webp')?'image/webp':file.endsWith('.svg')?'image/svg+xml':file.endsWith('.woff2')?'font/woff2':'text/css');response.end(fs.readFileSync(file));return; }
     if(url.pathname!=='/') { response.statusCode=404;response.end();return; }
@@ -30,7 +30,7 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
   browser=await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
-  const cases=process.env.CASTLINK_COMPACT_APPROVED_CONFIRM==='1'?[[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5]]:process.env.CASTLINK_COMPACT_LOW_RED==='1'?[[1280,600,'dark',5]]:[[1280,540,'dark',1],[1280,540,'dark',5],[1280,540,'dark',20],[1280,560,'dark',5],[1280,560,'light',20],[1280,600,'dark',5],[1280,600,'light',5],[1280,600,'dark',20],[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5],[1024,600,'dark',5],[1024,700,'dark',20],[1280,600,'dark',0],[1280,600,'dark',1,true]];
+  const cases=process.env.CASTLINK_CONSOLE_MENU_FOCUS_PROBE==='1'?[]:process.env.CASTLINK_CONSOLE_MENU_CONFIRM==='1'?[[1280,600,'dark',5]]:process.env.CASTLINK_COMPACT_APPROVED_CONFIRM==='1'?[[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5]]:process.env.CASTLINK_COMPACT_LOW_RED==='1'?[[1280,600,'dark',5]]:[[1280,540,'dark',1],[1280,540,'dark',5],[1280,540,'dark',20],[1280,560,'dark',5],[1280,560,'light',20],[1280,600,'dark',5],[1280,600,'light',5],[1280,600,'dark',20],[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5],[1024,600,'dark',5],[1024,700,'dark',20],[1280,600,'dark',0],[1280,600,'dark',1,true]];
   for(const [width,height,theme,count,portrait=false] of cases){
     const context={width,height,theme,count,portrait},page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>errors.push(e.message));
     await page.goto(origin+'/?view=studio&count='+count+(count===20?'&long=1':'')+(portrait?'&portrait=1':''));
@@ -54,6 +54,10 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
     await screenshot(page,`console-a-${theme}-${width}x${height}-${count}-guests${portrait?'-portrait':''}`);
     if(width===1280&&height===600&&theme==='dark'&&count===5){
       const unchanged=()=>page.evaluate(()=>window.qaMedia.every(({video,stream,track})=>video.isConnected&&video.srcObject===stream&&track?.readyState==='live'));
+      const shortcut=page.locator('[data-guest-output-shortcut]').first();await shortcut.click();
+      await page.waitForFunction(()=>window.qaCopyCounts?.[0]===1);
+      check(await shortcut.getAttribute('data-copied')==='true'&&await page.locator(':popover-open').count()===0,'direct copy invokes actual callback once and shows success without opening settings',context);
+      check(await page.locator('.studio-console-air-row .air-toggle i').count()===0&&await page.locator('.air-state .air-dot').count()===1,'only ON AIR button decoration is removed',context);
       await page.getByRole('button',{name:'Устройства',exact:true}).click();
       check(await page.locator('#studio-settings').evaluate(e=>e.matches(':popover-open')),'actual device owner opens in native disclosure',context);
       check(await page.locator('#studio-settings').evaluate(e=>{const r=e.getBoundingClientRect();return r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}),'devices disclosure bounded',context);
@@ -68,7 +72,7 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
       check(await menu.locator('.guest-card-bitrate select').count()===1&&await menu.locator('.personal-monitor-controls input[type=range]').count()===1&&await menu.locator('.guest-output-open').count()===1,'quality monitoring and output actions remain inside advanced surface',context);
       await menu.locator('.guest-card-bitrate select').selectOption('2000');check(await menu.locator('.guest-card-bitrate select').inputValue()==='2000','real quality callback updates selected bitrate',context);
       await menu.locator('.source-card-actions button').first().click();
-      await screenshot(page,'console-a-guest-settings-1280x600');await page.keyboard.press('Escape');check(await unchanged(),'menus and actual quick controls retain live media nodes',context);
+      await screenshot(page,'console-a-guest-settings-1280x600');await page.keyboard.press('Escape');check(await shortcut.getAttribute('data-copied')==='true','copy success survives opening and closing guest settings',context);check(await unchanged(),'menus and actual quick controls retain live media nodes',context);
       await page.evaluate(()=>window.qaBusy(true));await page.waitForFunction(()=>document.querySelector(".air-toggle")?.disabled);check(await mic.isDisabled()&&await page.locator('.air-toggle').isDisabled(),'busy gates remain active on compact actions',context);await page.evaluate(()=>window.qaBusy(false));
       await page.getByRole('button',{name:'Участники',exact:true}).click();check(await page.locator('[data-console-compact=true]').count()===0,'participants use default card presentation',context);
       check(await page.locator('.source-card-advanced').first().count()===1,'default advanced details remain present',context);
@@ -93,6 +97,59 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
     if(count===20){const before=await geometry(page);await page.locator('.source-browser').evaluate(e=>e.scrollTop=e.scrollHeight);const after=await geometry(page);check(Math.abs(after.picture.y-before.picture.y)<1&&Math.abs(after.rail.y-before.rail.y)<1,'only guest deck scrolls for additional guests',context);await page.locator('.source-browser').evaluate(e=>e.scrollTop=0);}
     if(portrait){await page.evaluate(()=>{const v=document.querySelector('.return-preview'),p=document.createElement('div');p.className='studio-preview-placeholder';p.textContent='Ожидание источника STUDIO PLAYBACK';v.replaceWith(p)});check(await page.locator('.studio-preview-placeholder').evaluate(e=>{const r=e.getBoundingClientRect();return Math.abs(r.width/r.height-1.6)<.015}),'waiting placeholder keeps program aspect',context);}
     await page.close();
+  }
+  if(process.env.CASTLINK_CONSOLE_MENUS==='1'||process.env.CASTLINK_CONSOLE_MENU_CONFIRM==='1'||process.env.CASTLINK_CONSOLE_MENU_FOCUS_PROBE==='1') {
+    for(const [width,height] of (process.env.CASTLINK_CONSOLE_MENU_FOCUS_PROBE==='1'?[[320,873]]:[[1280,540],[1440,900],[320,873],[390,873]]))for(const theme of (process.env.CASTLINK_CONSOLE_MENU_FOCUS_PROBE==='1'?['dark']:['dark','light'])) {
+      const context={width,height,theme,menus:true},page=await browser.newPage({viewport:{width,height}});
+      page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'/?view=studio&count=5');
+      await page.waitForFunction(()=>document.querySelector('.return-preview')?.videoWidth>0);await page.waitForTimeout(160);
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+      await page.evaluate(()=>{window.qaMenuMedia=[...document.querySelectorAll('video')].map(video=>({video,stream:video.srcObject}))});
+      for(const [name,trigger,popupSelector] of [
+        ['devices','.studio-settings-toggle','#studio-settings'],['access','.studio-console-invite','#studio-access'],
+        ['room','.studio-settings-navigation','#studio-room-settings'],['guest','.guest-card-heading button[popovertarget]','[data-console-compact] > [popover]']]) {
+        const button=page.locator(trigger).first();await button.click();
+        const popup=page.locator(popupSelector).first();await page.waitForTimeout(60);
+        check(await popup.evaluate(e=>{const r=e.getBoundingClientRect();return e.matches(':popover-open')&&r.x>=0&&r.y>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1}),'native '+name+' menu stays entirely within viewport',context);
+        check(await popup.evaluate(e=>e.contains(document.activeElement)&&e.scrollTop===0),'native '+name+' menu opens with visible header/focus at top',context);
+        if(name==='devices')check(await popup.locator('select').count()===4,'all studio device fields retained',context);
+        if(name==='guest') {
+          const groups=popup.locator('.source-card-advanced-content > details');
+          check(await groups.count()===2&&await groups.evaluateAll(es=>es.every(e=>!e.open)),'guest advanced fields grouped in two collapsed native sections',context);
+          check(await popup.evaluate(e=>{const group=e.querySelector('.source-card-advanced'),monitor=e.querySelector('.source-card-monitor'),links=e.querySelector('.guest-preview-actions');return group.getBoundingClientRect().top>=monitor.getBoundingClientRect().bottom-1&&getComputedStyle(links).gridTemplateColumns.split(' ').length===2}),'common controls precede advanced groups and link actions form two columns',context);
+          await screenshot(page,`console-menu-${theme}-${width}x${height}-${name}`);
+          await groups.first().locator('summary').first().click();await page.waitForTimeout(30);
+          check(await groups.first().locator('summary').first().evaluate(e=>document.activeElement===e),'expanding nested group keeps focus on its summary',context);
+          check(await popup.locator('.studio-guest-media-controls').isVisible(),'real guest camera/audio/device controllers are reachable',context);
+          check(await popup.evaluate(e=>{const r=e.getBoundingClientRect(),h=e.querySelector('[data-console-popover-close]').getBoundingClientRect();return r.y>=0&&r.bottom<=innerHeight+1&&h.y>=r.y&&h.bottom<=r.bottom}),'expanded guest fields remain bounded with visible close control',context);
+          await screenshot(page,`console-menu-${theme}-${width}x${height}-${name}-expanded`);
+          const fields=popup.locator('.studio-guest-media-controls select');
+          for(let i=0;i<await fields.count();i++){const field=fields.nth(i);await field.scrollIntoViewIfNeeded();check(await field.evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('[popover]').getBoundingClientRect();return r.x>=p.x&&r.right<=p.right+1&&r.top>=p.top&&r.bottom<=p.bottom+1}),'advanced guest field reachable through local scroll',context)}
+          await groups.first().locator('summary').first().click();await page.waitForTimeout(30);check(await popup.evaluate(e=>e.matches(':popover-open'))&&await groups.first().locator('summary').first().evaluate(e=>document.activeElement===e),'collapsing nested group preserves menu owner and summary focus',context);await groups.nth(1).locator('summary').first().click();
+          check(await popup.locator('.guest-card-connection').isVisible(),'guest diagnostics remain reachable',context);
+        } else {
+          if(name==='room') {
+            const summary=popup.locator('.guest-entry-settings > summary');await summary.click();await page.waitForTimeout(30);
+            check(await summary.evaluate(e=>e===document.activeElement)&&await popup.evaluate(e=>e.matches(':popover-open')),'room nested disclosure preserves focus and popup state',context);
+            check(await popup.evaluate(e=>{const r=e.getBoundingClientRect(),h=e.querySelector('[data-console-popover-close]').getBoundingClientRect();return r.y>=0&&r.bottom<=innerHeight+1&&h.y>=r.y&&h.bottom<=r.bottom}),'expanded room customization remains bounded with visible close control',context);
+            await screenshot(page,`console-menu-${theme}-${width}x${height}-${name}-expanded`);
+            await summary.click();
+            await popup.getByRole('button',{name:'✎ Изменить',exact:true}).click();
+            check(await popup.locator('.room-edit-dialog').isVisible(),'actual room editor remains reachable inside its single owner',context);
+            await popup.locator('.room-edit-dialog').getByRole('button',{name:'Отмена',exact:true}).click();
+          }
+          await screenshot(page,`console-menu-${theme}-${width}x${height}-${name}`);
+        }
+        if(width===1440){await popup.getByRole('button',{name:'Закрыть',exact:true}).first().focus();await page.setViewportSize({width:320,height:540});await page.waitForTimeout(50);check(await popup.evaluate(e=>{const r=e.getBoundingClientRect();return r.x>=0&&r.y>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.contains(document.activeElement)}),'open '+name+' menu clamps after shrink without losing focus',context);await page.setViewportSize({width,height});}
+        await page.keyboard.press('Escape');
+        const immediateFocus=await button.evaluate(e=>({matches:e===document.activeElement,active:document.activeElement?.tagName}));
+        const restored=await page.waitForFunction(e=>e===document.activeElement,await button.elementHandle(),{timeout:2000}).then(()=>true,()=>false);
+        (context.focusReturns??=[]).push({menu:name,immediate:immediateFocus,restored});
+        check(restored,'Escape restores '+name+' invoker focus',context);
+        check(await page.evaluate(()=>window.qaMenuMedia.every(({video,stream})=>video.isConnected&&video.srcObject===stream)),'menu '+name+' preserves live media owners',context);
+      }
+      results.push(context);await page.close();
+    }
   }
   check(errors.length===0,'no browser errors',{errors});fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({baseline,results,failures,errors},null,2));
   console.log(JSON.stringify({out,cases:results.length,failures,errors},null,2));assert.equal(failures.length,0,'compact studio browser proof');

@@ -1,5 +1,20 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
+## Текущая доработка: прямой URL и компактные меню
+
+Владелец одобрил консоль А и просит только: прямое копирование индивидуального
+URL на карточке гостя, компактные удобные настройки/меню студии, убрать символ
+перед ON AIR в кнопке. Компоновка А, stats/codecs и мобильный кастер закреплены.
+UIowner mobile_ui (GPT-6.1 Sol high), rootdocs/проверки/интеграция.
+План: docs/superpowers/plans/2026-11-08-studio-console-menus.md.
+Production остаётся78db; readonly preflight21:27:56UTC0/0/0 и runtimecontracts
+совпадают. Новый scope studio-console-menus-20261108; до exact source GO никаких
+новых transfer/build/install. Настройки и контроллеры остаются single-mounted.
+UIреализован, TSC/343CI/nativebrowser и independentSolreview PASS.
+Доказательства: /workspace/studio-console-menus-confirmed и focus-proof.
+Далее exactcommit/bundle/officialbuild/guardedwebinstall, свежий activityguard.
+
+
 ## Установлена выбранная консоль А — 08.11.2026
 
 castlink.ru: `1.0.0-rc.9-78dbf4b702d1`, source
