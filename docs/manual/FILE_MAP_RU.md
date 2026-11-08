@@ -13532,7 +13532,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`.
 
-Переменные окружения (только имена): `CASTLINK_COMPACT_BASELINE`, `CASTLINK_COMPACT_FACES`, `CASTLINK_COMPACT_OUT`, `CASTLINK_COMPACT_PRIMARY`, `CASTLINK_COMPACT_SMALL`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
+Переменные окружения (только имена): `CASTLINK_COMPACT_BASELINE`, `CASTLINK_COMPACT_EMPTY`, `CASTLINK_COMPACT_FACES`, `CASTLINK_COMPACT_OUT`, `CASTLINK_COMPACT_PRIMARY`, `CASTLINK_COMPACT_SMALL`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/studio-control-api.cjs
 

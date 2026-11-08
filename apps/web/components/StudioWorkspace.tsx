@@ -1579,18 +1579,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       <div className="studio-return-hero">
         <h2 className="studio-return-heading">{STUDIO_PLAYBACK_TITLE} <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
         <div className="panel studio-video-card studio-return-preview-card">
+          <div className="studio-playback-monitor">
           <div className="studio-playback-stage">{returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLAYBACK")}</div>}</div>
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
             <StudioReturnAudioMeter analyserRef={returnAnalyserRef} muted={outputMuted} label={STUDIO_PLAYBACK_TITLE} />
           </div>}
-          <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
-            <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
-            <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
-            {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
-          </section>
-        </div>
-        <div className="studio-return-rail">
+          </div>
+          <div className="studio-playback-controls">
           <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
             <StudioReturnPublishingControls
               outputMuted={outputMuted}
@@ -1663,6 +1659,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             </div>
             <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
           </div>
+          </div>
+          <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
+            <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
+            <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
+            {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
+          </section>
+        </div>
+        <div className="studio-return-rail">
           <StudioReturnStatsPanel
             role={studioRole}
             statusText={outboundStatusText}

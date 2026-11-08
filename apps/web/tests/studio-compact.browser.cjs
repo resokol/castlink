@@ -14,7 +14,7 @@ async function geometry(page) {
   return page.evaluate(() => {
     const box = e => { const r = e.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom }; };
     const find = s => { const e=document.querySelector(s);return e?box(e):null; };
-    return { stage:find('.studio-playback-stage'), pictureStyle: (()=>{const s=getComputedStyle(document.querySelector('.return-preview')); return {aspect:s.aspectRatio,height:s.height,width:s.width,minHeight:s.minHeight,maxHeight:s.maxHeight,align:s.alignSelf};})(), layout:find('.studio-return-layout'), preview:find('.studio-return-preview-card'), picture:find('.return-preview'), rail:find('.studio-return-rail'), sources:find('.studio-sources-section'), deck:find('.source-browser'), firstCard:find('.source-card'), firstPicture:find('.studio-guest-video-wrap'), selects:[...document.querySelectorAll('.return-output-controls select')].map(box), diagnostics:find('.return-stats-diagnostics'),statGrid:find('.return-stat-grid'),chart:find('.bitrate-chart'),graph:find('.bitrate-chart svg'),stats:find('.return-stats'),transport:find('.studio-transport-bar'),pageWidth:document.documentElement.scrollWidth, pageHeight:document.documentElement.scrollHeight, guestScroll:document.querySelector('.source-browser').scrollHeight>document.querySelector('.source-browser').clientHeight };
+    return { meter:find('.studio-preview-meter'), monitor:find('.studio-playback-monitor'), controls:find('.studio-playback-controls'),invites:find('.studio-invite-compact'),viewerCount:find('.invite-extra'), stage:find('.studio-playback-stage'), pictureStyle: (()=>{const s=getComputedStyle(document.querySelector('.return-preview')); return {aspect:s.aspectRatio,height:s.height,width:s.width,minHeight:s.minHeight,maxHeight:s.maxHeight,align:s.alignSelf};})(), layout:find('.studio-return-layout'), preview:find('.studio-return-preview-card'), picture:find('.return-preview'), rail:find('.studio-return-rail'), sources:find('.studio-sources-section'), deck:find('.source-browser'), firstCard:find('.source-card'), firstPicture:find('.studio-guest-video-wrap'), selects:[...document.querySelectorAll('.return-output-controls select')].map(box), diagnostics:find('.return-stats-diagnostics'),statGrid:find('.return-stat-grid'),chart:find('.bitrate-chart'),graph:find('.bitrate-chart svg'),stats:find('.return-stats'),transport:find('.studio-transport-bar'),pageWidth:document.documentElement.scrollWidth, pageHeight:document.documentElement.scrollHeight, guestScroll:document.querySelector('.source-browser').scrollHeight>document.querySelector('.source-browser').clientHeight };
   });
 }
 async function screenshot(page, name) { await page.screenshot({ path:path.join(out,name+'.png') }); }
@@ -30,9 +30,9 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
   browser=await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
-  const cases=process.env.CASTLINK_COMPACT_PRIMARY==='1'?[[1440,900,'dark',5]]:process.env.CASTLINK_COMPACT_SMALL==='1'?[[1280,720,'dark',5]]:baseline?[[1440,900,'dark',5]]:[[1920,1080,'dark',5],[1440,900,'dark',5],[1280,720,'dark',5],[1440,900,'light',5],[1366,768,'dark',20],[1280,720,'light',20],[390,844,'dark',5],[1101,600,'dark',5],[1280,600,'dark',1],[1280,720,'dark',1,true],[1440,900,'dark',0]];
+  const cases=process.env.CASTLINK_COMPACT_EMPTY==='1'?[[1280,720,'dark',0]]:process.env.CASTLINK_COMPACT_PRIMARY==='1'?[[1440,900,'dark',5]]:process.env.CASTLINK_COMPACT_SMALL==='1'?[[1280,720,'dark',5]]:baseline?[[1440,900,'dark',5]]:[[1920,1080,'dark',5],[1440,900,'dark',5],[1280,720,'dark',5],[1440,900,'light',5],[1366,768,'dark',20],[1280,720,'light',20],[390,844,'dark',5],[1101,600,'dark',5],[1280,600,'dark',1],[1280,720,'dark',1,true],[1440,900,'dark',0],[1280,720,'dark',0],[1101,651,'dark',0],[1024,700,'dark',5]];
   for(const [width,height,theme,count,portrait=false] of cases) {
-    const context={width,height,theme,count,portrait};const compact=width>=1101&&height>=651;const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>{errors.push(e.message);console.error('Page error:',e.message)});
+    const context={width,height,theme,count,portrait};const compact=width>=1101&&height>=701;const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>{errors.push(e.message);console.error('Page error:',e.message)});
     await page.goto(origin+'/?view=studio&count='+count+(count===20?'&long=1':'')+(portrait?'&portrait=1':''));
     await page.waitForFunction(expected=>document.querySelector('.return-preview')?.videoWidth===expected,portrait?360:640);
     await page.waitForFunction(()=>[...document.querySelectorAll('.studio-guest-video-wrap video')].every(e=>e.dataset.qaFrame==='ready'));
@@ -43,7 +43,16 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
     check(g.pageWidth<=width+1,'no horizontal page overflow',context);
     check(Math.abs(g.picture.width / g.picture.height - 1.6) < .015,'playback window stays 16:10 at every viewport',context);
     check(await page.locator('.return-preview').evaluate(e=>getComputedStyle(e).objectFit==='contain'),'playback contains source without stretching or cropping',context);
+    if(!compact&&count>0)check(g.sources.y>=g.preview.bottom-1,'natural flow keeps sources below full playback block',context);
     if(compact) {
+      check(g.picture.x>=g.preview.x+11&&g.picture.x<=g.preview.x+17,'playback picture is aligned to card left padding',context);
+      check(Math.abs(g.meter.x-g.picture.x)<1&&Math.abs(g.meter.width-g.picture.width)<1&&g.meter.width<=361,'compact meter matches actual picture width',context);
+      check(g.controls&&g.controls.x>=g.picture.right+7&&g.controls.right<=g.preview.right-10&&g.controls.y>=g.preview.y&&g.controls.bottom<=g.preview.bottom,'controls are beside monitor inside same card',context);
+      check(g.meter.bottom<=g.monitor.bottom+1&&g.meter.y>=g.picture.bottom+4,'meter label/bar/scale fully below picture inside monitor',context);
+      check(await page.locator('.studio-preview-meter [role="meter"]').evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'actual meter bar visible without scrolling',context);
+      check(g.viewerCount.x>=g.preview.x+10&&g.viewerCount.right<=g.preview.right-10&&g.viewerCount.bottom<=g.preview.bottom-10,'viewer count is not clipped',context);
+      check(await page.locator('.studio-invite-compact button').evaluateAll(es=>es.every(e=>{const r=e.getBoundingClientRect(),card=e.closest('.studio-return-preview-card').getBoundingClientRect();return r.x>=card.x+10&&r.right<=card.right-10&&r.bottom<=card.bottom-10&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})),'all invitation actions visible inside card',context);
+      check(await page.locator('.studio-invite-compact button').evaluateAll(es=>Math.max(...es.map(e=>e.getBoundingClientRect().y))-Math.min(...es.map(e=>e.getBoundingClientRect().y))<1),'four invitation actions form one compact row',context);
       check(g.layout.bottom<=height+1,'workspace fits viewport',context);
       check(count===0||g.firstPicture.y>=g.preview.bottom-1&&g.firstPicture.bottom<=height+1,'guest preview visible beside studio and stats',context);
       check(g.picture.height>=160,'studio picture remains readable',context);
@@ -59,14 +68,17 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
       await page.locator('.source-browser').evaluate(e=>e.scrollTop=0);
     }
     await screenshot(page,`studio-${theme}-${width}x${height}${portrait?'-portrait-source':count===0?'-empty':count===20?'-20-guests':''}`);
-    if(!baseline&&width===1440&&theme==='dark'&&count>0) {
+    if(!baseline&&theme==='dark'&&(width===1440&&count>0||width===1280&&height===720&&count===0)) {
       await page.getByRole('button',{name:'Настройки',exact:true}).click();
       check(await page.locator('#studio-settings').isVisible(),'device settings open',context);
-      await page.locator('.return-output-controls select').last().scrollIntoViewIfNeeded();
-      check(await page.locator('.return-output-controls select').last().evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'output settings remain reachable with devices open',context);
-      await page.locator('.studio-return-rail').evaluate(e=>e.scrollTop=0);
-      check((await geometry(page)).preview.y===g.preview.y,'settings keep playback position',context);
-      await screenshot(page,'studio-dark-1440x900-settings');
+      check(await page.locator('#studio-settings').evaluate(e=>!!e.closest('.studio-playback-controls')),'device settings belong beside playback',context);
+      await page.locator('#studio-settings select').last().scrollIntoViewIfNeeded();
+      check(await page.locator('#studio-settings select').last().evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'device selectors reachable via local controls scroll',context);
+      check(await page.locator('.studio-playback-controls .air-toggle').evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'ON AIR remains visible while devices scroll',context);
+      const opened=await geometry(page);check(Math.abs(opened.picture.y-g.picture.y)<1&&Math.abs(opened.picture.x-g.picture.x)<1&&Math.abs(opened.picture.width-g.picture.width)<1,'settings keep actual playback position and size',context);
+      check(opened.selects.every(s=>s.bottom<=height+1),'all four output selectors remain visible with devices open',context);
+      await page.locator('#studio-settings').evaluate(e=>e.scrollTop=0);
+      await screenshot(page,`studio-dark-${width}x${height}-settings${count===0?'-empty':''}`);
       await page.getByRole('button',{name:'Настройки',exact:true}).click();
       await page.evaluate(()=>{const note=document.createElement('p');note.className='studio-only-notice room-mode-notice';note.textContent='Студия включила только свой просмотр';document.querySelector('.studio-return-layout').before(note);});
       await page.waitForTimeout(150);const notice=await geometry(page);

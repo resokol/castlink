@@ -688,7 +688,7 @@ html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-control
 
 /* Desktop Studio keeps playback, guests and the operating rail in one screen.
    Flatten layout wrappers only: the existing media and controls stay mounted. */
-@media (min-width: 1101px) and (min-height: 651px) {
+@media (min-width: 1101px) and (min-height: 701px) {
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] {
     grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
     grid-template-rows: auto minmax(180px, .9fr) minmax(180px, 1fr);
@@ -722,7 +722,7 @@ html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-control
 
 /* A short desktop keeps measured values, graph and all output selectors visible.
    Remove surplus spacing rather than reducing the text or hiding diagnostics. */
-@media (min-width: 1101px) and (min-height: 651px) and (max-height: 800px) {
+@media (min-width: 1101px) and (min-height: 701px) and (max-height: 800px) {
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { gap: 8px; }
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stats-diagnostics { gap: 6px; }
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stat-grid { padding-block: 0; gap: 6px 8px; }
@@ -744,7 +744,7 @@ html .graphite-workspace.studio-page .studio-return-preview-card .studio-playbac
   box-sizing: border-box; width: 100%; height: auto; min-height: 0;
   max-height: none; aspect-ratio: 16 / 10; object-fit: contain;
 }
-@media (min-width: 1101px) and (min-height: 651px) {
+@media (min-width: 1101px) and (min-height: 701px) {
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-stage {
     grid-column: 1; grid-row: 1; width: 100%; height: 100%; min-height: 0;
     aspect-ratio: auto; container-type: size;
@@ -752,4 +752,50 @@ html .graphite-workspace.studio-page .studio-return-preview-card .studio-playbac
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-stage > :is(.return-preview, .studio-preview-placeholder) {
     width: min(100cqw, 160cqh); height: auto; aspect-ratio: 16 / 10;
   }
+}
+
+/* Playback and its controls form one operating block; telemetry has its own rail. */
+.graphite-workspace.studio-page .studio-playback-monitor { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.graphite-workspace.studio-page .studio-playback-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.graphite-workspace.studio-page .studio-playback-controls > .studio-device-settings { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--panel-border); border-radius: 0; background: none; }
+.graphite-workspace.studio-page .studio-playback-controls .studio-device-panel { grid-template-columns: minmax(0, 1fr); padding: 0; border: 0; background: none; }
+.graphite-workspace.studio-page .studio-playback-controls .studio-device-panel > .stack { grid-column: 1 / -1; }
+.graphite-workspace.studio-page .studio-playback-controls .studio-device-settings :is(label, .stack) { min-width: 0; }
+.graphite-workspace.studio-page .studio-playback-controls .studio-device-settings :is(select, button) { max-width: 100%; }
+.graphite-workspace.studio-page .studio-playback-controls .studio-note { margin: 0; overflow-wrap: anywhere; }
+.graphite-workspace.studio-page .studio-playback-controls .media-device-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 1101px) and (min-height: 701px) {
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] { grid-template-rows: auto minmax(320px, .72fr) minmax(180px, 1fr); }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card { display: flex; flex-direction: row; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; width: 100%; max-width: 800px; justify-self: start; gap: 12px 16px; padding: 12px; box-sizing: border-box; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); container-type: size; overflow: hidden; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-monitor { grid-column: 1; grid-row: 1; width: min(360px, calc((100cqh - 128px) * 1.6), calc(100cqw - 246px)); flex: none; height: auto; max-height: calc(100cqh - 76px); min-height: 0; overflow: auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-stage { display: block; width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 10; container-type: normal; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-stage > :is(.return-preview, .studio-preview-placeholder) { width: 100%; height: 100%; aspect-ratio: 16 / 10; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-meter { flex: none; width: 100%; box-sizing: border-box; margin: 0; padding: 0; border: 0; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-meter > div { gap: 4px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-meter [role="meter"] { height: 6px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-meter > div > div[aria-hidden="true"] { height: 10px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-error { flex: none; max-width: 100%; font-size: 12px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-controls { flex: 1 1 230px; width: 360px; max-width: 360px; height: calc(100cqh - 78px); max-height: 280px; min-height: 0; overflow: hidden; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-controls > .studio-transport-bar { position: static; flex: none; margin: 0; padding: 0 0 4px; border: 0; border-radius: 0; background: var(--panel-bg); }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact { flex: 0 0 100%; min-width: 0; max-width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; max-height: 88px; margin: 0; padding: 0; gap: 8px; overflow: auto; box-sizing: border-box; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-controls > .studio-device-settings { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact > div > .stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact .stack > button { grid-column: auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact .stack > :is(input, small) { grid-column: 1 / -1; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-heading { width: 100%; max-width: 800px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { flex: 0 0 auto; height: auto; grid-template-rows: auto auto auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stats-diagnostics { flex: none; overflow: visible; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart { flex: none; height: 190px; min-height: 190px; padding: 8px 0; box-sizing: border-box; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart svg { min-height: 64px; max-height: 160px; }
+
+}
+
+/* Very short desktops use document flow instead of squeezing an operating block. */
+@media (max-width: 1100px), (max-height: 700px) {
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-hero { height: auto; min-height: 0; grid-template-rows: max-content auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-playback-monitor { width: min(360px, 100%); }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card { height: auto; gap: 12px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail { align-self: start; overflow: visible; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { display: flex; flex: none; height: auto; overflow: visible; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stats-diagnostics { display: contents; }
 }

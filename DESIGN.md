@@ -274,3 +274,16 @@ controllers, prepared presentations, active source controls and Stop surfaces
 stay mounted and keep their existing authority and lifecycle. Desktop retains
 its direct actions and camera options. Resize and closing More do not end media.
 This supersedes the earlier mobile scrollport solution.
+
+## Primary Studio playback group — owner correction, 8 November 2026
+
+Desktop playback is one coherent operating block. Align the16:10 monitor to the
+left edge, with a short audio meter matching the actual frame width directly
+below. Place live controls and expandable device settings beside the monitor
+inside the same flat panel; invitations form a compact row below. Keep measured
+outgoing statistics and quality selectors in the adjacent rail, and sources
+visible below in their bounded deck. Expanded device settings scroll locally.
+
+The previous centered frame with a full-cell-width meter is superseded. Preserve
+video containment, mounted media, roles, ON AIR authority, and isolated meter
+updates. Caster mobile toolbar remains the approved unscrolling8-action design.
