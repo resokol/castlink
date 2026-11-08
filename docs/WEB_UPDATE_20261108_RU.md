@@ -1,5 +1,37 @@
 # Обновление castlink.ru — 08.11.2026
 
+## Мобильная панель без прокрутки — установлено 08.11.2026
+
+Последняя web-версия castlink.ru: `1.0.0-rc.9-6294852b1d7b`, source
+`6294852b1d7b3129ae376bfaab7340d007182f3f`, tree
+`6f0242a568303585b40bee9e8c0a20292a53d884`. Установлено14:59:41UTC.
+
+По уточнениям владельца в основном ряду остались микрофон, камера, чат без подписи,
+реакции, демонстрация, системные настройки, «Ещё» и выход. В «Ещё» только загрузка
+и фон/размытие камеры. Ряд без scroll/переноса; равные responsive кнопки35/40/44px
+шириной на320/360/393px телефонах и44px высотой. Desktop сохраняет прямые действия.
+Триггеры перенесены порталами; медиа, file input, prepared viewer и активные
+контроллеры/Stop не прячутся в «Ещё» и сохраняются при resize.
+
+Проверки:264 browser assertions/8 scenarios,16 hydrated interaction cases,
+11 профильных suites, TypeScript и manual-docs PASS; независимое review
+GPT-6.1 Sol high — без блокирующих замечаний. Official Docker build и isolated
+Windows/VPS smoke PASS;13 compiled UI features и4 JS/CSS HTTPS hashes совпали.
+Root независимо подтвердил публичный buildId через curl.
+
+Web-only транзакция7секунд: до/после0 медиакомнат/участников/треков;
+281static, конфигурация, mounts, профили, данные и8 соседних служб сохранены.
+Maintenance снят, d2a909c image сохранён для отката. Материалы source/image/receipts:
+C:/Users/Max/Projects/studiolink-ha-ops/caster-primary-actions-20261108/.
+Квитанция: /workspace/castlink-caster-primary-actions-final-receipt.json.
+Проверки: /workspace/castlink-caster-primary-actions-validation.json.
+Скриншоты: /workspace/caster-more-final/ (локальные тестовые потоки, не физический POCO).
+Дизайн/ограничения проверок: docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md.
+Root Codex — интеграция/проверки; GPT-6.1 Sol high mobile_ui — UI,
+final_review — ревью, production_ops — сборка/установка. Открытые страницы
+получат правки после reload вне эфира. Публичные GitHub/установщики не обновлялись.
+
+
 ## Дополнительное обновление интерфейса — 08.11.2026
 
 Установлено 14:26:29 UTC на https://castlink.ru: `1.0.0-rc.9-d2a909cce97c`,
