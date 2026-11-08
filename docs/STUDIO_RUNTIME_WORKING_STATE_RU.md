@@ -1,32 +1,43 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
-## Активная задача: реализация выбранной консоли А
+## Установлена выбранная консоль А — 08.11.2026
 
-Владелец выбрал «Вариант А»: программа слева, компактные карточки рядом,
-принятая статистика/кодеки справа. Реальные рабочие компоненты уже подключены:
-вертикальный метр, ON AIR/звук, native popover устройств и приглашений,
-компактные карточки с быстрым микрофоном и расширенным меню. Media owners,
-handlers, роли и состояния сохранены; мобильный кастер не меняется.
+castlink.ru: `1.0.0-rc.9-78dbf4b702d1`, source
+`78dbf4b702d1dca4eadb8019956991911b504c0c`, tree
+`c1ae2fad98b58e9a2fe37e8e8d2fbdf99637b083`. Переключено20:03:14UTC.
+Image: `sha256:08bacedbd7f401d9faa462fdeef6747344bb79f02b1c496a1e721d15dde64a35`.
+Задача завершена; открытых замечаний по согласованной А нет.
 
-Source base b8c2683; публичный сайт пока8750294. Незакоммиченные изменения —
-текущая реализация А, а не старый отклонённый low-height черновик. Его резерв
-сохранён отдельно в /workspace/studio-redesign-options/rejected-functional-draft.patch.
+Программа16:10 слева с вертикальным аудиометром справа от картинки; ON AIR/звук
+и компактные действия ниже. Карточки источников рядом,3колонки на обычном ПК;
+принятая статистика/кодеки справа. Устройства, приглашения/доступы и расширенные
+действия гостей доступны через native popover. Pending/errors остаются видны,
+media/controller owners и реальные handlers/gates сохранены. Мобильный кастер
+остаётся на согласованной8-кнопочной панели. Для загрузки версии обновить вкладку.
+
+Доказательства:15 Chromium cases +3normal-height confirmations +Participants
+RED→GREEN/defaultmic16px, TSC,343 stable CI tests, manualmap1854files — PASS.
+Actual footer, fullrect селекторов, fivepictures на1280×540/560/600 и popupresize
+с сохранением focus/media проверены. Изображения /workspace/studio-console-a-final/
+и /workspace/studio-console-a-tall-confirm/. Превью используют локальные тестовые
+потоки; liveSFU/RemotePC сеансы в этой задаче не запускались.
+
+Официальный whole-image build, Windows/VPS isolated smoke,31compiled markers
+и6 точных JS/CSS хешей через публичный HTTPS — PASS. Root отдельно подтвердил
+public /api/version новым запросом. До/после0rooms/participants/tracks.281public,
+8соседних служб, env/mounts/security/limits/config/profiles/data сохранены;
+maintenance снят,0restarts. Rollback875/be85 сохранён. Ни миграций, ни очистки.
+
+Receipt: /workspace/castlink-studio-console-a-final-receipt.json, SHA256
+`8fd383a7df14755b65bf0da6869f1d3053ffb3f39277547d1a2506e541332891`.
+Windows scope: C:/Users/Max/Projects/studiolink-ha-ops/studio-console-a-20261108/.
 Spec/план: docs/superpowers/{specs,plans}/2026-11-08-studio-console-a*.md.
-Browser proof: /workspace/studio-console-a-product/; до завершения проверок
-не считать реализацию готовой и не передавать на установку.
-
-Исполнитель: frontend GPT-6.1 Sol high + root GuestCard/AudioMeter/locales/docs.
-Браузерная матрица15cases +3tall-confirm +Participants/defaultmic PASS,
-настоящий footer и nativepopupresize проверены. Независимое Sol high ревью
-завершено без открытых материальных замечаний; TSC и343 stable CI tests PASS.
-Далее точный commit/bundle и сборка whole-image на доверенном Windows.
-Production_ops подготовил отдельную область studio-console-a-20261108; последняя
-проверка19:22:47UTC дала0rooms/0participants/0tracks, production875 без изменений.
-Перед установкой обязательны свежие activity/config/static/neighbor guards.
+Frontend/ops: GPT-6.1 Sol high; GuestCard/AudioMeter/locales/интеграция: root Codex;
+независимое ревью: GPT-6.1 Sol high console_a_review, закрыто без замечаний.
 
 ## Левая группа playback и настроек — установлено08.11.2026
 
-Последняя web-версия castlink.ru: `1.0.0-rc.9-8750294fcab1`, source
+Предыдущая web-версия castlink.ru: `1.0.0-rc.9-8750294fcab1`, source
 `8750294fcab1c618e215c29072aec6b840a156b6`, tree
 `85f039813041f35feedf85807de32dd1c49df444`. Установлено18:15:23UTC.
 
@@ -61,7 +72,7 @@ final_review — ревью, production_ops — сборка/установка.
 
 ## Мобильная панель без прокрутки — установлено 08.11.2026
 
-Последняя web-версия castlink.ru: `1.0.0-rc.9-6294852b1d7b`, source
+Предыдущая web-версия castlink.ru: `1.0.0-rc.9-6294852b1d7b`, source
 `6294852b1d7b3129ae376bfaab7340d007182f3f`, tree
 `6f0242a568303585b40bee9e8c0a20292a53d884`. Установлено14:59:41UTC.
 

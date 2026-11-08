@@ -47,9 +47,9 @@
 
 ### Task4: Exact build and guarded installation
 **Files:** working-state/deployment docs and external scoped build receipts.
-- [ ] Commit verified exact source, bundle to owned Windows build host, build whole coherent image and exact281public overlay.
-- [ ] Isolated smoke + compiled UI/artifact checks; fresh live-activity/config/neighbor guards.
-- [ ] Install web only at strictzeroactivity, independent HTTPS version/assets check, preserve rollback and write receipts/currentstate.
+- [x] Commit verified exact source, bundle to owned Windows build host, build whole coherent image and exact281public overlay.
+- [x] Isolated smoke + compiled UI/artifact checks; fresh live-activity/config/neighbor guards.
+- [x] Install web only at strictzeroactivity, independent HTTPS version/assets check, preserve rollback and write receipts/currentstate.
 
 ## Verification evidence (local, 8 November2026)
 
@@ -72,3 +72,9 @@
 
 Final verification: TypeScript exit0,343 stable CI tests PASS (official run-ci.cjs,
 /tmp/castlink-console-a-ci-verified.log), manualmap1854files current, diffcheck PASS.
+
+Delivered20:03:14UTC:1.0.0-rc.9-78dbf4b702d1/source78dbf4b/treec1ae2fad.
+Official image08bacedbd7f4…,31compiled features+6public asset hashes, strict0
+activity and preservation guards PASS. Independent root HTTPS version confirmed.
+Final receipt /workspace/castlink-studio-console-a-final-receipt.json; rollback875
+retained;281public/eightneighbors/env/mount/security/profiles/config/data preserved.
