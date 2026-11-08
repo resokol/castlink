@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1847**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1849**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -5150,7 +5150,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/fixtures/image-correction-pipeline.tsx`](../../apps/web/tests/fixtures/image-correction-pipeline.tsx), [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs).
 
-## apps/web/components · 116 файлов
+## apps/web/components · 117 файлов
 
 ### apps/web/components/AccessGate.tsx
 
@@ -5268,6 +5268,18 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Используют: [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx).
 
+### apps/web/components/CasterToolbarSlots.tsx
+
+[`apps/web/components/CasterToolbarSlots.tsx`](../../apps/web/components/CasterToolbarSlots.tsx)
+
+Стабильные layout-слоты для кнопок загрузки и параметров камеры; медиа, file input и активные контроллеры не перемещаются.
+
+Экспортируемые символы: `CasterToolbarSlots`, `CasterToolbarAction`.
+
+Библиотеки/Node: `react`, `react-dom`.
+
+Используют: [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx).
+
 ### apps/web/components/ChatEmojis.module.css
 
 [`apps/web/components/ChatEmojis.module.css`](../../apps/web/components/ChatEmojis.module.css)
@@ -5312,7 +5324,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `CoPresentationPanel`.
 
-Читает/импортирует: [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-acceptance.ts`](../../apps/web/lib/co-presentation-acceptance.ts), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts), [`apps/web/lib/co-presentation-helper-client.ts`](../../apps/web/lib/co-presentation-helper-client.ts), [`apps/web/lib/co-presentation-menu.ts`](../../apps/web/lib/co-presentation-menu.ts), [`apps/web/lib/co-presentation-native.ts`](../../apps/web/lib/co-presentation-native.ts), [`apps/web/lib/co-presentation-navigation.ts`](../../apps/web/lib/co-presentation-navigation.ts), [`apps/web/lib/co-presentation-state.ts`](../../apps/web/lib/co-presentation-state.ts), [`apps/web/lib/floating-panel-position.ts`](../../apps/web/lib/floating-panel-position.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/presentation-file-client.ts`](../../apps/web/lib/presentation-file-client.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
+Читает/импортирует: [`apps/web/components/CasterToolbarSlots.tsx`](../../apps/web/components/CasterToolbarSlots.tsx), [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/PdfPresentationViewer.tsx`](../../apps/web/components/PdfPresentationViewer.tsx), [`apps/web/components/RecipientSlideControls.tsx`](../../apps/web/components/RecipientSlideControls.tsx), [`apps/web/lib/co-presentation-acceptance.ts`](../../apps/web/lib/co-presentation-acceptance.ts), [`apps/web/lib/co-presentation-client.ts`](../../apps/web/lib/co-presentation-client.ts), [`apps/web/lib/co-presentation-controls.ts`](../../apps/web/lib/co-presentation-controls.ts), [`apps/web/lib/co-presentation-helper-client.ts`](../../apps/web/lib/co-presentation-helper-client.ts), [`apps/web/lib/co-presentation-menu.ts`](../../apps/web/lib/co-presentation-menu.ts), [`apps/web/lib/co-presentation-native.ts`](../../apps/web/lib/co-presentation-native.ts), [`apps/web/lib/co-presentation-navigation.ts`](../../apps/web/lib/co-presentation-navigation.ts), [`apps/web/lib/co-presentation-state.ts`](../../apps/web/lib/co-presentation-state.ts), [`apps/web/lib/floating-panel-position.ts`](../../apps/web/lib/floating-panel-position.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/presentation-file-client.ts`](../../apps/web/lib/presentation-file-client.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/screen-share-stop-panel.ts`](../../apps/web/lib/screen-share-stop-panel.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -5498,7 +5510,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestCodecCameraButton`.
 
-Читает/импортирует: [`apps/web/components/GuestCodecCameraButton.module.css`](../../apps/web/components/GuestCodecCameraButton.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+Читает/импортирует: [`apps/web/components/CasterToolbarSlots.tsx`](../../apps/web/components/CasterToolbarSlots.tsx), [`apps/web/components/GuestCodecCameraButton.module.css`](../../apps/web/components/GuestCodecCameraButton.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
 
 Библиотеки/Node: `livekit-client`, `react`.
 
@@ -6082,7 +6094,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `ConferenceAudioRenderer`, `RoomConference`.
 
-Читает/импортирует: [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RemotePcOwnerStatus.tsx`](../../apps/web/components/RemotePcOwnerStatus.tsx), [`apps/web/components/RemotePcTileControls.tsx`](../../apps/web/components/RemotePcTileControls.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomReactions.tsx`](../../apps/web/components/RoomReactions.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/co-presentation-navigation.ts`](../../apps/web/lib/co-presentation-navigation.ts), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/use-remote-pc-tile.ts`](../../apps/web/lib/use-remote-pc-tile.ts), [`apps/web/lib/use-remote-pc.ts`](../../apps/web/lib/use-remote-pc.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
+Читает/импортирует: [`apps/web/components/CasterToolbarSlots.tsx`](../../apps/web/components/CasterToolbarSlots.tsx), [`apps/web/components/CoPresentationNavigation.tsx`](../../apps/web/components/CoPresentationNavigation.tsx), [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestCameraButton.tsx`](../../apps/web/components/GuestCameraButton.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/RemotePcOwnerStatus.tsx`](../../apps/web/components/RemotePcOwnerStatus.tsx), [`apps/web/components/RemotePcTileControls.tsx`](../../apps/web/components/RemotePcTileControls.tsx), [`apps/web/components/RoomChat.tsx`](../../apps/web/components/RoomChat.tsx), [`apps/web/components/RoomReactions.tsx`](../../apps/web/components/RoomReactions.tsx), [`apps/web/components/ScreenShareButton.tsx`](../../apps/web/components/ScreenShareButton.tsx), [`apps/web/lib/co-presentation-navigation.ts`](../../apps/web/lib/co-presentation-navigation.ts), [`apps/web/lib/fullscreen-chrome.ts`](../../apps/web/lib/fullscreen-chrome.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-persistent-room-chat.ts`](../../apps/web/lib/use-persistent-room-chat.ts), [`apps/web/lib/use-remote-pc-tile.ts`](../../apps/web/lib/use-remote-pc-tile.ts), [`apps/web/lib/use-remote-pc.ts`](../../apps/web/lib/use-remote-pc.ts), [`apps/web/lib/video-rotation.ts`](../../apps/web/lib/video-rotation.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `react`.
 
@@ -9826,19 +9838,21 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `${web}/components/CoPresentationPanel`, `${web}/components/GuestCodecCameraButton`, `${web}/components/GuestMicrophoneButton`, `${web}/components/GuestSettingsPanel`, `${web}/components/RoomConference`, `livekit-client`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
+Используют: [`apps/web/tests/caster-toolbar-row.browser.cjs`](../../apps/web/tests/caster-toolbar-row.browser.cjs).
+
+Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_TOOLBAR_DESKTOP_ONLY`.
 
 ### apps/web/tests/caster-toolbar-row.browser.cjs
 
 [`apps/web/tests/caster-toolbar-row.browser.cjs`](../../apps/web/tests/caster-toolbar-row.browser.cjs)
 
-Проверка/тестовый инструмент. PASS actual caster toolbar responsive rows, desktop captions and mobile icons; both themes; blue upload. Proof
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
+Читает/импортирует: [`apps/web/tests/caster-toolbar-interactions.browser.cjs`](../../apps/web/tests/caster-toolbar-interactions.browser.cjs), [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `react`, `react-dom/server`.
 
-Переменные окружения (только имена): `CASTLINK_QA_CHROMIUM_BINARY`.
+Переменные окружения (только имена): `CASTLINK_TOOLBAR_DESKTOP_ONLY`.
 
 ### apps/web/tests/caster-workspace-layout.cjs
 
@@ -14742,7 +14756,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 63 файлов
+## docs · 64 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15007,6 +15021,12 @@ CastLink: где найти и как править элементы интер
 [`docs/WEB_UPDATE_20261108_RU.md`](../WEB_UPDATE_20261108_RU.md)
 
 Обновление castlink.ru — 08.11.2026
+
+### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
+
+[`docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md`](../design/CASTER_MOBILE_ACTIONS_20261108_RU.md)
+
+Мобильная панель кастера без прокрутки — 08.11.2026
 
 ### docs/design/ENTRY_DESIGN_20261020_RU.md
 

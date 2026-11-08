@@ -1,4 +1,6 @@
 "use client";
+
+import { CasterToolbarAction } from "./CasterToolbarSlots";
 import { useI18n } from "@/components/I18nProvider";
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { RoomEvent, type Room } from "livekit-client";
@@ -85,8 +87,15 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
     popup.style.left = `${Math.max(12, Math.min(rect.right - 280, window.innerWidth - 292))}px`;
     popup.style.bottom = `${Math.max(12, window.innerHeight - rect.top + 8)}px`;
     popup.style.maxHeight = `${Math.max(44, rect.top - 20)}px`;
-    popup.showPopover();
+    // Declare the invoker so this remains nested under the mobile More popover.
+    try { (popup.showPopover as (options?: { source: HTMLElement }) => void)({ source: trigger }); }
+    catch { popup.showPopover(); }
   };
+  useEffect(() => {
+    const close = () => menu.current?.hidePopover();
+    window.addEventListener("resize", close);
+    return () => window.removeEventListener("resize", close);
+  }, []);
   useEffect(() => {
     const update = () => setEnabled(room.localParticipant.isCameraEnabled);
     update();
@@ -105,10 +114,11 @@ export function GuestCodecCameraButton({ room, choicesRef, generation, disabled,
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11v12H4zM15 10l5-3v10l-5-3" fill="none" stroke="currentColor" strokeWidth="2" />{!enabled && <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" />}</svg>
     <span>{enabled ? t("Камера") : t("Камера выключена")}</span>
   </button>
-    <button ref={arrow} type="button" className="lk-button guest-camera-effects-toggle" aria-label={t("Фон и размытие камеры")} title={t("Фон и размытие камеры")} aria-haspopup="dialog" aria-expanded={open} aria-controls={id} disabled={disabled || busy || effectBusy} onClick={openEffects}>
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
-    </button>
-    <div ref={menu} id={id} popover="auto" role="dialog" aria-label={t("Фон и размытие камеры")} className="guest-camera-effects-menu" onToggle={() => setOpen(menu.current?.matches(":popover-open") === true)}>
+    <CasterToolbarAction slot="cameraEffects"><button ref={arrow} type="button" className="lk-button guest-camera-effects-toggle" aria-label={t("Фон и размытие камеры")} title={t("Фон и размытие камеры")} aria-haspopup="dialog" aria-expanded={open} aria-controls={id} disabled={disabled || busy || effectBusy} onClick={openEffects}>
+      <svg className="caster-effects-chevron" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
+      <svg className="caster-effects-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" strokeWidth="1.7"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg>
+    </button></CasterToolbarAction>
+    <div ref={menu} id={id} popover="auto" role="dialog" aria-label={t("Фон и размытие камеры")} className="guest-camera-effects-menu" onKeyDown={event => { if (event.key === "Escape") requestAnimationFrame(() => { const trigger = arrow.current; if (!trigger) return; const target = trigger.getClientRects().length ? trigger : trigger.closest(".caster-conference")?.querySelector<HTMLButtonElement>(".caster-more-toggle"); target?.focus(); }); }} onToggle={() => setOpen(menu.current?.matches(":popover-open") === true)}>
       <h3>{t("Фон и размытие камеры")}</h3>
       <fieldset disabled={disabled || busy || effectBusy} aria-busy={effectBusy}>
         <legend className="sr-only">{t("Эффект камеры")}</legend>

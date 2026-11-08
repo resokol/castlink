@@ -254,3 +254,23 @@ STUDIO PLAYBACK uses a 16:10 window, including waiting and short-window states.
 Contain the original source without cropping or stretching; compact desktop
 sizing follows both available width and height. Preserve the shared first-screen
 studio/source/statistics layout and mounted media.
+
+## Mobile caster toolbar without scrolling — owner correction, 8 November 2026
+
+The mobile transport must fit a320px viewport without scrolling or wrapping.
+Keep microphone, camera, chat, reactions, screen sharing, settings, More and
+Leave directly visible. The owner explicitly kept reactions, sharing, settings
+and the unlabelled chat icon outside More. More contains only upload and camera
+options, in labelled rows. Mobile primary actions use icons without captions.
+
+Use equal responsive widths:44px on393px phones,40px on360px,35px on320px;
+keep44px touch height and20–22px consistent icons. Eight44px targets cannot fit
+in320px with page insets. Direct action access and no scrolling take priority
+here; never claim35px buttons are44px wide. Preserve the incumbent graphite/mint
+palette, light theme and state colors.
+
+Only action triggers move into stable layout slots. Media, camera-effects
+controllers, prepared presentations, active source controls and Stop surfaces
+stay mounted and keep their existing authority and lifecycle. Desktop retains
+its direct actions and camera options. Resize and closing More do not end media.
+This supersedes the earlier mobile scrollport solution.

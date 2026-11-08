@@ -26,7 +26,7 @@ import {GuestNoiseSuppressionControl} from '${path.join(source, 'components/Gues
 import {GuestSettingsPanel} from '${path.join(source, 'components/GuestSettingsPanel.tsx').replaceAll(String.fromCharCode(92), '/')}';
 import {CoPresentationPanel} from '${path.join(source, 'components/CoPresentationPanel.tsx').replaceAll(String.fromCharCode(92), '/')}';
 export const Track = {Source:{Camera:'camera',ScreenShare:'screen_share',Microphone:'microphone',ScreenShareAudio:'screen_share_audio',Unknown:'unknown'},Kind:{Audio:'audio'}};
-export const RoomEvent = {ActiveSpeakersChanged:'speakers',ParticipantDisconnected:'disconnected',ParticipantMetadataChanged:'metadata',ParticipantConnected:'joined',TrackSubscribed:'subscribed'};
+export const RoomEvent = {ActiveSpeakersChanged:'speakers',ParticipantDisconnected:'disconnected',ParticipantMetadataChanged:'metadata',ParticipantConnected:'joined',TrackSubscribed:'subscribed',LocalTrackPublished:'published',LocalTrackUnpublished:'unpublished',TrackMuted:'muted',TrackUnmuted:'unmuted'};
 const listeners=new Map();
 export const LocalVideoTrack=class {};
 import ScreenShareIcon from '${path.join(web,'node_modules/@livekit/components-react/src/assets/icons/ScreenShareIcon.tsx').replaceAll(String.fromCharCode(92), '/')}';
@@ -34,8 +34,8 @@ export {ScreenShareIcon};
 import ScreenShareStopIcon from '${path.join(web,'node_modules/@livekit/components-react/src/assets/icons/ScreenShareStopIcon.tsx').replaceAll(String.fromCharCode(92), '/')}';
 export {ScreenShareStopIcon};
 export const PdfPresentationViewer=()=>null;
-const room={state:'connected',localParticipant:{identity:'local',sid:'local-sid',name:'QA',isCameraEnabled:false,isMicrophoneEnabled:false,trackPublications:new Map(),getTrackPublication(source){return source==='screen_share'?window.qaPublication:undefined}},activeSpeakers:[],remoteParticipants:new Map(),on(event,fn){if(!listeners.has(event))listeners.set(event,new Set());listeners.get(event).add(fn);return this},off(event,fn){listeners.get(event)?.delete(fn);return this}};
-window.qaSetScreen=active=>{window.qaPublication=active?{isMuted:false,track:{mediaStreamTrack:Object.assign(new EventTarget(),{readyState:'live'})}}:undefined;for(const handlers of listeners.values())for(const fn of handlers)fn()};
+const room={state:'connected',localParticipant:{identity:'local',sid:'local-sid',name:'QA',isCameraEnabled:false,isMicrophoneEnabled:false,trackPublications:new Map(),async unpublishTrack(){window.qaSetScreen(false)},getTrackPublication(source){return source==='screen_share'?window.qaPublication:undefined}},activeSpeakers:[],remoteParticipants:new Map(),on(event,fn){if(!listeners.has(event))listeners.set(event,new Set());listeners.get(event).add(fn);return this},off(event,fn){listeners.get(event)?.delete(fn);return this}};
+window.qaSetScreen=active=>{window.qaPublication=active?{trackSid:'qa-live-share',isMuted:false,track:{stop(){window.qaStopCalls=(window.qaStopCalls||0)+1;this.mediaStreamTrack.readyState='ended'},mediaStreamTrack:Object.assign(new EventTarget(),{readyState:'live'})}}:undefined;for(const fn of listeners.get(active?'localTrackPublished':'localTrackUnpublished')||[])fn(window.qaPublication||{source:'screen_share'})};
 export const useI18n = () => ({locale:'ru',t:(value)=>value});
 export const translateWorkspaceMessage = (_t,value) => value;
 export const useRoomContext = () => room;
@@ -90,17 +90,20 @@ let browser;
     const check=(condition,message)=>{checks++;if(!condition)failures.push({theme,width,height,message})};
     const geometry=await page.evaluate(()=>{
       const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};
-      const selectors=['[data-lk-source="microphone"]','.guest-camera-control > .lk-track-toggle','.guest-camera-effects-toggle','.castlink-chat-toggle','button[aria-label="Реакции"]','.guest-screen-share-button','.native-pptx-prepare','.caster-toolbar-exit','.guest-settings-toggle'];
+      const selectors=matchMedia('(max-width:700px), (max-height:600px) and (orientation:landscape)').matches?['[data-lk-source="microphone"]','.guest-camera-control > .lk-track-toggle','.castlink-chat-toggle','.room-reactions-toggle','.guest-screen-share-button','.guest-settings-toggle','.caster-more-toggle','.caster-toolbar-exit']:['[data-lk-source="microphone"]','.guest-camera-control > .lk-track-toggle','.guest-camera-effects-toggle','.castlink-chat-toggle','button[aria-label="Реакции"]','.guest-screen-share-button','.native-pptx-prepare','.caster-toolbar-exit','.guest-settings-toggle'];
       return {width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,footer:box(document.querySelector('.castlink-conference-footer')),buttons:selectors.map(selector=>({selector,...box(document.querySelector(selector))})),scene:box(document.querySelector('[data-scene-mode]')),separators:document.querySelectorAll('[role="separator"]').length,headerControls:[...document.querySelectorAll('.caster-scene-controls button,.caster-scene-controls summary')].map(box),toolbar:box(document.querySelector('.caster-action-toolbar')),toolbarScroll:{width:document.querySelector('.caster-action-toolbar').clientWidth,total:document.querySelector('.caster-action-toolbar').scrollWidth},unavailable:box(document.querySelector('.guest-screen-share-unavailable'))};
     });
+    if(!mobile)check(!await page.locator('.caster-more-toggle').isVisible()&&await page.locator('.caster-more-toggle').evaluate(e=>e.getBoundingClientRect().width===0),'desktop has no phantom More button');
     check(geometry.width<=width+1,'no horizontal page overflow');
     check(geometry.scene.x>=0&&geometry.scene.y>=0&&geometry.scene.right<=width+1&&geometry.scene.bottom<=height+1,'entire stage fits viewport');
     check(geometry.headerControls.length===3&&geometry.headerControls.every(b=>b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1&&b.h>=36),'header portal controls fit viewport and retain existing36px minimum');
     if(mobile){
+      check(geometry.toolbarScroll.total<=geometry.toolbarScroll.width+1,'mobile toolbar has no horizontal scroll');
+      check(await page.locator('.caster-more-toggle').count()===1,'mobile has progressive-disclosure More action');
       const controls=geometry.buttons;
       check(Math.max(...controls.map(b=>b.y))-Math.min(...controls.map(b=>b.y))<=1,'all transport actions stay in exactly one row');
       check(controls.every(b=>b.bottom<=height),'every control stays vertically inside phone viewport');
-      check(controls.every(b=>b.w>=44),'every mobile control has44px touch width');
+      check(controls.every(b=>b.w>=Math.min(44,(width-40)/8)-1),'primary widths adapt honestly to8actions:35px at320,44px at393');
       check(geometry.toolbar.x>=0&&geometry.toolbar.right<=width+1,'toolbar scrollport fits viewport');
       check(controls.every(b=>b.h>=44),'transport controls retain44px touch height');
       check(geometry.footer.bottom<=height+1,'footer stays above phone gesture area');
@@ -113,18 +116,18 @@ let browser;
     await page.screenshot({path:path.join(out,'ready-'+theme+'-'+width+'.png')});
     await page.evaluate(()=>{window.qaMedia=[...document.querySelectorAll('video')].map(node=>({node,track:node.srcObject?.getVideoTracks()[0]}))});
     check(await page.locator('.caster-scene-controls [aria-label="Вид сцены"]').count()===1,'real scene mode controls use header portal');
-    check(await page.locator('.conference-more-toggle').count()===0,'new workspace uses direct actions');
+    check(await page.locator('.room-reactions-toggle').isVisible()&&await page.locator('.guest-screen-share-button').isVisible(),'reactions and screen share stay direct');
+    const openMore=async()=>{if(mobile&&!await page.locator('.caster-secondary-actions').evaluate(e=>e.matches(':popover-open')))await page.locator('.caster-more-toggle').click()};
+    if(mobile){await openMore();const bounds=await page.locator('.caster-secondary-actions').boundingBox();check(bounds.x>=0&&bounds.y>=0&&bounds.x+bounds.width<=width+1&&bounds.y+bounds.height<=height+1,'More is bounded');check(await page.locator('.caster-secondary-actions .caster-toolbar-item').count()===2,'More contains onlyupload andcameraeffects');await page.screenshot({path:path.join(out,'more-'+theme+'-'+width+'.png')});await page.keyboard.press('Escape');check(await page.locator('.caster-more-toggle').evaluate(e=>document.activeElement===e),'Escape returns focus to More');await openMore();await page.mouse.click(2,2);check(!await page.locator('.caster-secondary-actions').evaluate(e=>e.matches(':popover-open')),'outside click closes More');}
     for(const selector of ['.guest-camera-effects-toggle','.room-reactions-toggle']){
+      if(selector==='.guest-camera-effects-toggle')await openMore();
       await page.locator(selector).click();
-      const menu=await page.locator('[popover]:popover-open').evaluate(element=>{const r=element.getBoundingClientRect(),target=element.querySelector('button')||element,hit=document.elementFromPoint(Math.max(0,r.x+r.width/2),Math.max(0,r.y+r.height/2));return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,hit:element.contains(hit)}});
+      const menu=await page.locator(selector==='.guest-camera-effects-toggle'?'.guest-camera-effects-menu':'[popover]:popover-open:not(.caster-secondary-actions)').evaluate(element=>{const r=element.getBoundingClientRect(),target=element.querySelector('button')||element,hit=document.elementFromPoint(Math.max(0,r.x+r.width/2),Math.max(0,r.y+r.height/2));return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,hit:element.contains(hit)}});
       check(menu.x>=0&&menu.y>=0&&menu.right<=width+1&&menu.bottom<=height+1&&menu.hit,'camera/reaction popover escapes toolbar scroll clipping: '+selector);
       await page.keyboard.press('Escape');
+      if(mobile&&selector==='.guest-camera-effects-toggle')check(await page.evaluate(()=>{const e=document.activeElement;return e instanceof HTMLElement&&e.getClientRects().length>0&&(e.matches('.guest-camera-effects-toggle')||e.matches('.caster-more-toggle'))}),'camera Escape restores a visible trigger');
     }
-    for(const selector of ['[data-lk-source="microphone"]','.guest-camera-effects-toggle','.castlink-chat-toggle','.room-reactions-toggle','.guest-screen-share-button','.native-pptx-prepare','.guest-settings-toggle','.caster-toolbar-exit']){
-      const reachable=await page.locator(selector).evaluate(element=>{element.scrollIntoView({block:'nearest',inline:'nearest'});const r=element.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1});
-      check(reachable,'every direct action is reachable through local horizontal scroll: '+selector);
-    }
-    await page.screenshot({path:path.join(out,'scroll-end-'+theme+'-'+width+'.png')});
+    await page.keyboard.press('Escape');
     await page.locator('.guest-settings-toggle').click();
     const panel=await page.locator('.guest-settings-popover').boundingBox();
     check(panel.x>=0&&panel.y>=0&&panel.x+panel.width<=width+1&&panel.y+panel.height<=height+1,'system settings fit viewport');
@@ -139,6 +142,16 @@ let browser;
     await page.getByRole('button',{name:'Плитка',exact:true}).click();
     await page.waitForTimeout(80);
     await page.screenshot({path:path.join(out,'tiles-'+theme+'-'+width+'.png')});
+    if(mobile){await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(80);check(await page.locator('.native-pptx-prepare').isVisible(),'desktop restores direct upload');await page.setViewportSize({width,height});await page.waitForTimeout(80);check(await page.locator('.caster-more-toggle').isVisible(),'resize restores More');}
+    check(await page.locator('.caster-presentation-context').evaluate(e=>!e.closest('.caster-secondary-actions')),'active presentation context stays outside More');
+    check(await page.locator('.co-presentation-control > input[type="file"]').evaluate(e=>!e.closest('.caster-secondary-actions')),'source file input stays outside More');
+    await page.evaluate(()=>window.qaSetScreen(true));
+    await page.locator('.co-presentation-owner-trigger').waitFor({state:'visible'});
+    check(!await page.locator('.caster-secondary-actions').evaluate(e=>e.matches(':popover-open')),'active owner entry reachable with More closed');
+    await page.locator('.co-presentation-owner-trigger').click();
+    await page.locator('.co-presentation-popover .co-presentation-stop').click();
+    check(await page.evaluate(()=>window.qaStopCalls===1),'actual active Stop action remains reachable and stops bound share');
+    await page.keyboard.press('Escape');
     check(await page.evaluate(()=>window.qaMedia.length===9&&window.qaMedia.every(({node,track})=>node.isConnected&&node.srcObject?.getVideoTracks()[0]===track&&track?.readyState==='live')),'settings and mode switch preserve mounted live media');
     check(errors.length===0,'no browser errors: '+errors.join('; '));
     results.push({theme,width,height,...geometry});

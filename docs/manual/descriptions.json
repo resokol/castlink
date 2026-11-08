@@ -1,4 +1,5 @@
 {
+  "CasterToolbarSlots": "Стабильные layout-слоты для кнопок загрузки и параметров камеры; медиа, file input и активные контроллеры не перемещаются.",
   "desktop-stop-panel": "Optional Electron STOP bridge: version detection, capture generation, single-flight stop, retries and cleanup. Ordinary browsers keep the Document PiP controller.",
   "access": "Подписи scoped-сессий, проверка паролей, cookie, шифрование паролей комнат и проверка origin; не новый platform login.",
   "app-update": "Сравнение версии приложения и безопасное построение URL обновления вкладки.",
