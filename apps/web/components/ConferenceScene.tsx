@@ -9,6 +9,7 @@ import styles from './ConferenceScene.module.css';
 
 export type ConferenceSceneItem = SceneSource & { node: ReactNode; hidden?: boolean; secondaryOnly?: boolean };
 const STORAGE = 'castlink.conference-scene.v1';
+const MOBILE_SCENE = '(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)';
 const copy = {
   ru: { speaker:'Окно', tiles:'Плитка', mode:'Вид сцены', settings:'Настройки вида', auto:'Автоматически выбирать спикера', hint:'Смена после секунды устойчивой активности. Без закрепления приоритет у демонстрации экрана.', pin:'Закрепить у себя', unpin:'Открепить', divider:'Размер сцены и панели участников', empty:'Ожидание участников…' },
   en: { speaker:'Windows', tiles:'Tiles', mode:'Stage layout', settings:'View settings', auto:'Automatically select the speaker', hint:'Switch after one second of sustained activity. Shared content takes priority unless you pin a tile.', pin:'Pin for me', unpin:'Unpin', divider:'Stage and participant panel size', empty:'Waiting for participants…' },
@@ -16,7 +17,7 @@ const copy = {
 };
 
 /** A single keyed tile layer keeps every video mounted when focus or mode changes. */
-export function ConferenceScene({ items, room, className = '', controlsTarget }: { items: readonly ConferenceSceneItem[]; room?: Room; className?: string; controlsTarget?: HTMLElement | null }) {
+export function ConferenceScene({ items, room, className = '', controlsTarget, mobileDefaultTiles = false }: { mobileDefaultTiles?: boolean; items: readonly ConferenceSceneItem[]; room?: Room; className?: string; controlsTarget?: HTMLElement | null }) {
   const { locale } = useI18n(), text = copy[locale];
   const id = useId();
   const [mode, setMode] = useState<'speaker'|'tiles'>('speaker');
@@ -31,22 +32,37 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
   const settings = useRef<HTMLDetailsElement>(null);
   const state = useRef<SpeakerState>({ selected:'',candidate:'',since:0 });
   const dragging = useRef<number | undefined>(undefined);
+  const mobileEntry = useRef(false);
   const visibleItems = items.filter(item => !item.hidden && !item.secondaryOnly);
   const roster = JSON.stringify([...new Set(visibleItems.filter(item => item.kind === 'camera').map(item => item.identity))]);
   const sourceKey = JSON.stringify(visibleItems.map(({id,identity,kind}) => [id,identity,kind]));
   useEffect(() => {
+    // Entry policy is latched once; orientation and source changes keep this visit’s choice.
+    mobileEntry.current = mobileDefaultTiles && window.matchMedia(MOBILE_SCENE).matches;
+    let savedMode: 'speaker' | 'tiles' = 'speaker';
     try { const value = JSON.parse(localStorage.getItem(STORAGE) || '{}');
-      if (value.mode === 'speaker' || value.mode === 'tiles') setMode(value.mode);
+      if (value.mode === 'speaker' || value.mode === 'tiles') savedMode = value.mode;
       if (typeof value.automatic === 'boolean') setAutomatic(value.automatic);
       // Apply the compact rail once, including browsers with the old wide default.
       // Subsequent user resizing remains a saved local preference.
       setSplit(sceneSplit(value.railVersion === 2 ? value.split : NaN));
     } catch { /* Private browsing and malformed saved choices use defaults. */ }
+    setMode(mobileEntry.current ? 'tiles' : savedMode);
     setReady(true);
   }, []);
-  useEffect(() => { if (ready) try { localStorage.setItem(STORAGE, JSON.stringify({ mode, automatic, split, railVersion: 2 })); } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
+  useEffect(() => { if (ready) try {
+    let storedMode = mode;
+    if (mobileEntry.current) {
+      // Preserve even a newer desktop-tab choice; phone layout is visit-local.
+      storedMode = 'speaker';
+      try { const value = JSON.parse(localStorage.getItem(STORAGE) || '{}');
+        if (value.mode === 'speaker' || value.mode === 'tiles') storedMode = value.mode;
+      } catch { /* Malformed preferences keep the desktop default. */ }
+    }
+    localStorage.setItem(STORAGE, JSON.stringify({ mode: storedMode, automatic, split, railVersion: 2 }));
+  } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
   useEffect(() => {
-    const query = window.matchMedia('(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)');
+    const query = window.matchMedia(MOBILE_SCENE);
     const update = () => { setMobile(query.matches); setPortraitWindow(window.innerHeight >= window.innerWidth); };
     update(); query.addEventListener('change', update); window.addEventListener('resize', update);
     return () => { query.removeEventListener('change', update); window.removeEventListener('resize', update); };

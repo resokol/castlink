@@ -12,12 +12,14 @@ const req = createRequire(path.join(web, 'package.json'));
 const { chromium } = req(process.env.CASTLINK_QA_PLAYWRIGHT || 'playwright');
 const { build } = require(process.env.CASTLINK_QA_ESBUILD || 'esbuild');
 const source = process.env.CASTLINK_QA_SOURCE || web;
+const entry = process.env.CASTLINK_MOBILE_ENTRY === '1';
 const out = process.env.CASTLINK_WINDOW_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-window-proportions-'));
 fs.mkdirSync(out,{recursive:true});
 const fixture = path.join(out, 'fixture.tsx');
 fs.writeFileSync(fixture, `
 import React, {useEffect, useMemo, forwardRef} from 'react';
 import {createRoot} from 'react-dom/client';
+${entry ? `import {AppChrome,AppFooterSlot} from '${source}/components/AppChrome';import {PathnameContext} from 'next/dist/shared/lib/hooks-client-context.shared-runtime';` : ''}
 import {BrandIcon} from '${path.join(source, 'components/BrandIcon.tsx').replaceAll(String.fromCharCode(92), '/')}';
 import {RoomConference} from '${path.join(source, 'components/RoomConference.tsx').replaceAll(String.fromCharCode(92), '/')}';
 import {GuestMicrophoneButton} from '${path.join(source, 'components/GuestMicrophoneButton.tsx').replaceAll(String.fromCharCode(92), '/')}';
@@ -61,15 +63,16 @@ export const watchFullscreenChrome = () => () => {};
 function App(){const [sceneControlsTarget,setSceneControlsTarget]=React.useState(null);const [profile,setProfile]=React.useState('speech');const [sharing,setSharing]=React.useState(false);window.qaSetSharing=setSharing;const [count,setCount]=React.useState(window.qaCount||2);window.qaSetCount=setCount;window.qaSpeak=identity=>{room.activeSpeakers=[{identity,isMicrophoneEnabled:true}];listeners.get('activeSpeakersChanged')?.forEach(fn=>fn())};
  window.qaTracks=[{source:'camera',participant:room.localParticipant},{source:'camera',participant:{identity:'studio-panel-main',sid:'studio-sid',name:'Основная студия',isLocal:false,metadata:'',isMicrophoneEnabled:false}},...Array.from({length:Math.max(0,count-2)},(_,index)=>({source:'camera',participant:{identity:'guest-'+index,sid:'sid-'+index,name:'Гость '+index,isLocal:false,metadata:'',isMicrophoneEnabled:true}}))].slice(0,count);
  if(sharing)window.qaTracks.unshift({source:'screen_share',participant:{identity:'guest-deck',sid:'deck',name:'Deck',isLocal:false,metadata:'',isMicrophoneEnabled:true}});
- return <main className="media-page guest-room-page guest-app-shell graphite-workspace caster-workspace"><div className="guest-main-column"><header className="guest-page-header"><div className="caster-room-heading"><div className="caster-brand"><BrandIcon className="studio-brand-mark"/><strong>CastLink</strong></div><h1>tester</h1></div><div className="guest-page-header-actions"><div className="caster-scene-controls" ref={setSceneControlsTarget}/><span className="caster-connection-status">Подключено</span><div className="guest-identity-pill"><span className="participant-dot self"/>Макс Соколов</div></div></header><div className="guest-conference-shell"><div className="guest-conference-grid"><RoomConference workspaceLayout sceneControlsTarget={sceneControlsTarget} studioOnly={false} onLeave={()=>{}} showLeaveButton={false} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={{current:{}}} generation={{current:0}} disabled={false} onError={()=>{}}/>} cameraControl={<GuestCodecCameraButton room={room} choicesRef={{current:{}}} generation={{current:0}} disabled={false} onError={()=>{}}/>} transportControl={<CoPresentationPanel room={room} token="synthetic-token" studioId="qa" roomName="qa"/>} settingsControl={<GuestSettingsPanel><div className="panel guest-device-panel"><label>Микрофон<select><option>Встроенный микрофон телефона</option></select></label></div><GuestNoiseSuppressionControl profile={profile} state="pending" confirmed={false} disabled={false} busy={false} onChange={setProfile}/><section className="panel personal-monitor-panel"><h2>Собственный мониторинг</h2><p className="muted">Звук, видео и громкость меняются только для вас.</p></section></GuestSettingsPanel>}/></div></div></div></main>
+ return <main className="media-page guest-room-page guest-app-shell graphite-workspace caster-workspace"><div className="guest-main-column"><header className="guest-page-header"><div className="caster-room-heading"><div className="caster-brand"><BrandIcon className="studio-brand-mark"/><strong>CastLink</strong></div><h1>tester</h1></div><div className="guest-page-header-actions"><div className="caster-scene-controls" ref={setSceneControlsTarget}/><span className="caster-connection-status">Подключено</span><div className="guest-identity-pill"><span className="participant-dot self"/>Макс Соколов</div></div></header><div className="guest-conference-shell"><div className="guest-conference-grid"><RoomConference workspaceLayout sceneControlsTarget={sceneControlsTarget} studioOnly={false} onLeave={()=>{}} showLeaveButton={false} microphoneControl={<GuestMicrophoneButton room={room} choicesRef={{current:{}}} generation={{current:0}} disabled={false} onError={()=>{}}/>} cameraControl={<GuestCodecCameraButton room={room} choicesRef={{current:{}}} generation={{current:0}} disabled={false} onError={()=>{}}/>} transportControl={<CoPresentationPanel room={room} token="synthetic-token" studioId="qa" roomName="qa"/>} settingsControl={<GuestSettingsPanel><div className="panel guest-device-panel"><label>Микрофон<select><option>Встроенный микрофон телефона</option></select></label></div><GuestNoiseSuppressionControl profile={profile} state="pending" confirmed={false} disabled={false} busy={false} onChange={setProfile}/><section className="panel personal-monitor-panel"><h2>Собственный мониторинг</h2><p className="muted">Звук, видео и громкость меняются только для вас.</p></section></GuestSettingsPanel>}/></div></div></div>${entry ? '<AppFooterSlot/>' : ''}</main>
 }
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(${entry ? '<PathnameContext.Provider value="/"><AppChrome><App/></AppChrome></PathnameContext.Provider>' : '<App/>'});
 `);
 let browser;
 (async()=>{
- await build({entryPoints:[fixture],outfile:path.join(out,'bundle.js'),bundle:true,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',nodePaths:[path.join(web,'node_modules')],alias:{'@':source},plugins:[{name:'deterministic-media',setup(builder){builder.onResolve({filter:/^@livekit\/components-react$|(?:^|\/)(I18nProvider|PdfPresentationViewer|GuestCameraButton|RoomChat)$|^@\/lib\/(?:i18n\/workspaces|fullscreen|fullscreen-chrome|talkback-policy)$/},()=>({path:fixture}))}}]});
+ await build({entryPoints:[fixture],outfile:path.join(out,'bundle.js'),bundle:true,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',nodePaths:[path.join(web,'node_modules')],alias:{'@':source},define:{'process.env':JSON.stringify({NODE_ENV:'production',NEXT_PUBLIC_BUILD_ID:'preview',NEXT_PUBLIC_PRODUCT_VERSION:'preview',NEXT_PUBLIC_BUILD_NUMBER:'preview'})},plugins:[{name:'deterministic-media',setup(builder){builder.onResolve({filter:/^@livekit\/components-react$|(?:^|\/)(I18nProvider|PdfPresentationViewer|GuestCameraButton|RoomChat)$|^@\/lib\/(?:i18n\/workspaces|fullscreen|fullscreen-chrome|talkback-policy)$/},args=>entry&&/(?:^|\/)I18nProvider$/.test(args.path)?undefined:({path:fixture}))}}]});
  const css=[req.resolve('@livekit/components-styles'),path.join(source,'app/globals.css'),path.join(source,'app/graphite-workspace.css'),path.join(out,'bundle.css')].map(file=>fs.readFileSync(file,'utf8')).join('\n')+'\n.qa-muted-studio{display:grid;place-items:center;width:100%;height:100%;background:var(--secondary-bg)}.qa-muted-studio svg{width:64px;height:64px;fill:var(--muted);stroke:none}.qa-source-name{position:absolute;bottom:4px;left:4px;max-width:calc(100% - 8px);padding:2px 4px;background:#0009;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}';
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+ if(entry){await proveMobileEntry(browser,css);return;}
  const results=[],failures=[],errors=[];let checks=0;const check=(value,message,context)=>{checks++;if(!value)failures.push({message,...context})};
  const cases=process.env.CASTLINK_WINDOW_TABLET_CONFIRM==='1'?[[768,1024,3]]:process.env.CASTLINK_WINDOW_RED==='1'?[[393,730,2]]:[[393,730,1],[320,730,2],[393,730,2],[393,730,3],[393,730,12],[390,844,3],[873,393,3],[768,1024,3],[1440,900,2],[1440,900,3],[1440,900,12]];
  for(const [width,height,count] of cases)for(const theme of process.env.CASTLINK_WINDOW_RED==='1'?['dark']:['dark','light']){
@@ -80,6 +83,7 @@ let browser;
   await page.goto('https://window.test/');await page.evaluate(({theme,count})=>{document.documentElement.dataset.theme=theme;window.qaCount=count;Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:undefined,configurable:true})},{theme,count});
   await page.addStyleTag({content:css});await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});await page.waitForFunction(()=>document.querySelector('video')?.videoWidth>0);await page.waitForTimeout(120);
   const scene=page.locator('[data-scene-mode]');
+  await page.getByRole('button',{name:'Окно',exact:true}).click();await page.waitForTimeout(40);
   const measure=()=>scene.evaluate(scene=>{const box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};const main=scene.querySelector('[data-scene-primary]');return{primary:box(main),others:[...scene.querySelectorAll('[data-scene-source]')].filter(e=>e!==main).map(box),viewport:box(scene.querySelector('[tabindex="0"][aria-label]')),canvas:box(main.parentElement),portrait:scene.dataset.scenePortrait==='true',pageWidth:document.documentElement.scrollWidth,fit:getComputedStyle(main.querySelector('video')||main).objectFit}});
   const g=await measure();results.push({...context,...g});
   check(g.pageWidth<=width,'page has no horizontal overflow',context);
@@ -106,3 +110,54 @@ let browser;
  }
  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({checks,results,failures,errors},null,2));console.log(JSON.stringify({out,checks,failures,errors},null,2));assert.equal(failures.length,0,'Window proportions regression');assert.equal(errors.length,0,'browser errors');
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>browser?.close());
+
+/** Actual AppChrome footer plus real conference/transport; only media/SFU leaves are local. */
+async function proveMobileEntry(browser,css){
+ const results=[],failures=[],errors=[];let checks=0;const check=(value,message,context)=>{checks++;if(!value)failures.push({message,...context})};
+ const cases=process.env.CASTLINK_MOBILE_ENTRY_RED==='1'?[[393,730,2]]:[[320,600,3],[393,730,2],[393,540,3],[390,844,12],[873,393,3],[1440,900,3]];
+ for(const [width,height,count]of cases)for(const theme of process.env.CASTLINK_MOBILE_ENTRY_RED==='1'?['dark']:['dark','light']){
+  const mobile=width<=700||height<=600,context={width,height,count,theme,mobile},page=await browser.newPage({viewport:{width,height},isMobile:mobile,hasTouch:mobile});page.on('pageerror',e=>errors.push(e.message));
+  await page.route('https://window.test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>'}));
+  await page.route('https://window.test/icon.svg',route=>route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(source,'app/icon.svg'))}));
+  await page.route('https://window.test/api/**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({sessions:[],buildId:'preview',productVersion:'preview',buildNumber:'preview'})}));
+  await page.route('https://window.test/new/**',route=>{const file=path.join(web,'../../design-preview',new URL(route.request().url()).pathname);return fs.existsSync(file)?route.fulfill({contentType:file.endsWith('.woff2')?'font/woff2':'text/css',body:fs.readFileSync(file)}):route.fulfill({status:404,body:''})});
+  const mount=async(seed=false)=>{
+   await page.goto('https://window.test/');await page.evaluate(({theme,count,seed})=>{window.qaCount=count;localStorage.setItem('studiolink-theme',theme);if(seed)localStorage.setItem('castlink.conference-scene.v1',JSON.stringify({mode:'speaker',automatic:true,split:.88,railVersion:2}));Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:undefined,configurable:true})},{theme,count,seed});
+   await page.addStyleTag({content:css});await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});await page.waitForSelector('.workspace-footer .theme-toggle');await page.waitForFunction(()=>document.querySelector('video')?.videoWidth>0);await page.waitForTimeout(120);
+  };
+  await mount(true);
+  const scene=page.locator('[data-scene-mode]');
+  const storedMode=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('castlink.conference-scene.v1')).mode);
+  check(await scene.getAttribute('data-scene-mode')===(mobile?'tiles':'speaker'),'fresh phone entry starts Tiles despite saved Window; desktop restores Window',context);
+  check(await storedMode()==='speaker','entry does not overwrite saved desktop mode',context);
+  check(await scene.locator('[data-scene-source]').evaluateAll(es=>es.every(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&Math.abs(r.width/r.height-16/9)<.01||e.hasAttribute('data-scene-primary')})),'approved frame proportions remain intact at entry',context);
+  const bounds=await page.evaluate(()=>{const box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};return{main:box(document.querySelector('.guest-main-column')),scene:box(document.querySelector('[data-scene-mode]')),toolbar:box(document.querySelector('.caster-action-toolbar')),footer:box(document.querySelector('.workspace-footer-slot')),pageWidth:document.documentElement.scrollWidth,pageHeight:document.documentElement.scrollHeight}});results.push({...context,...bounds});
+  check(bounds.main.bottom<=height+1&&bounds.toolbar.bottom<=height+1&&bounds.toolbar.y>=0,'header scene and approved transport fit first usable viewport',context);
+  check(bounds.footer.y>=height-1,'actual AppChrome service footer begins below first viewport',context);
+  check(bounds.pageWidth<=width&&bounds.pageHeight>height,'footer is reachable through vertical page scrolling without horizontal overflow',context);
+  const targets=await page.locator('.caster-action-toolbar').evaluate(e=>{const names=['[data-lk-source="microphone"]','.guest-camera-control > .lk-track-toggle','.castlink-chat-toggle','.room-reactions-toggle','.guest-screen-share-button','.guest-settings-toggle','.caster-more-toggle','.caster-toolbar-exit'];return names.map(s=>e.querySelector(s)).filter(b=>b?.getBoundingClientRect().width).map(b=>{const r=b.getBoundingClientRect();return{w:r.width,h:r.height,y:r.y,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})});
+  check(targets.length===(mobile?8:7)&&targets.every(r=>r.h>=44&&r.w>=(mobile?Math.min(44,(width-40)/8)-1:24)&&r.hit)&&new Set(targets.map(r=>r.y)).size===1,'all direct toolbar actions remain in one usable row',context);
+  await page.evaluate(()=>window.qaEntryMedia=[...document.querySelectorAll('video')].map(node=>({node,stream:node.srcObject,track:node.srcObject.getVideoTracks()[0]})));
+  const unchanged=()=>page.evaluate(()=>window.qaEntryMedia.every(({node,stream,track})=>node.isConnected&&node.srcObject===stream&&track.readyState==='live'));
+  if(mobile&&count===12){const rail=await scene.evaluate(s=>{const view=s.querySelector('[tabindex="0"][aria-label]'),toolbar=document.querySelector('.caster-action-toolbar'),before=toolbar.getBoundingClientRect().y;view.scrollTop=view.scrollHeight;return{scroll:view.scrollTop,stable:Math.abs(toolbar.getBoundingClientRect().y-before)<1}});check(rail.scroll>0&&rail.stable,'long Tiles roster scrolls locally while transport stays in place',context);await scene.evaluate(s=>s.querySelector('[tabindex="0"][aria-label]').scrollTop=0);}
+  await page.screenshot({path:path.join(out,`entry-${theme}-${width}x${height}.png`)});
+  await page.locator('.workspace-footer').scrollIntoViewIfNeeded();
+  check(await page.locator('.workspace-footer .theme-toggle').evaluate(e=>{const r=e.getBoundingClientRect();return r.y>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'real footer theme control is visible and hit-testable after scroll',context);
+  check(await page.locator('.workspace-footer .bug-report-link').isVisible()&&await page.locator('.workspace-footer .app-version-row').isVisible(),'real version and report controls remain reachable',context);
+  await page.locator('.workspace-footer .theme-toggle').click();check(await page.evaluate(expected=>document.documentElement.dataset.theme===expected,theme==='dark'?'light':'dark'),'actual below-fold theme action still works',context);await page.locator('.workspace-footer .theme-toggle').click();
+  await page.screenshot({path:path.join(out,`footer-${theme}-${width}x${height}.png`)});await page.evaluate(()=>window.scrollTo(0,0));
+  if(mobile){
+   await page.getByRole('button',{name:'Окно',exact:true}).click();await page.evaluate(count=>window.qaSetCount(count+1),count);await page.waitForTimeout(40);await page.evaluate(count=>window.qaSetCount(count),count);await page.waitForTimeout(40);
+   await page.setViewportSize({width:mobile&&width<height?873:393,height:mobile&&width<height?393:730});await page.waitForTimeout(60);await page.setViewportSize({width,height});await page.waitForTimeout(60);
+   check(await scene.getAttribute('data-scene-mode')==='speaker','explicit Window remains throughout current visit across rerender and orientation',context);
+   check(await storedMode()==='speaker','mobile session choice leaves desktop preference intact',context);
+   if(count>1){await scene.locator('[data-scene-pin^="studio-panel-main:"]').click();await page.waitForFunction(()=>!!document.querySelector('[data-scene-primary] [data-qa-identity="studio-panel-main"]'));check(await scene.locator('[data-scene-primary] [data-qa-identity="studio-panel-main"]').count()===1,'pin retains its action after entry/orientation changes',context);}
+   check(await unchanged(),'footer scroll mode and orientation preserve every mounted live stream',context);
+   await mount(false);check(await scene.getAttribute('data-scene-mode')==='tiles','next mobile visit always returns to Tiles',context);
+  }else{
+   await page.getByRole('button',{name:'Плитка',exact:true}).click();await page.waitForTimeout(30);check(await storedMode()==='tiles','desktop explicit choice still persists',context);check(await unchanged(),'desktop mode switch retains media owners',context);await mount(false);check(await scene.getAttribute('data-scene-mode')==='tiles','desktop saved Tiles restores normally',context);
+  }
+  await page.close();
+ }
+ fs.writeFileSync(path.join(out,'entry-results.json'),JSON.stringify({checks,results,failures,errors},null,2));console.log(JSON.stringify({out,checks,failures,errors},null,2));assert.equal(failures.length,0,'mobile entry regression');assert.equal(errors.length,0,'browser errors');
+}

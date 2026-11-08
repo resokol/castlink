@@ -403,6 +403,7 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <div className={styles.actions}><button type="button" disabled={!session?.draft.past.length || busy} onClick={() => history("undo")} title={c.undo}>↶ <span>{c.undo}</span></button><button type="button" disabled={!session?.draft.future.length || busy} onClick={() => history("redo")} title={c.redo}>↷ <span>{c.redo}</span></button><button type="button" className={styles.close} onClick={onClose} aria-label={c.close}>×</button></div>
       </header>
       <div className={styles.toolbar}>
+        <div className={styles.commandGroup}>
         <label className={styles.sceneSelect}>{c.scene}<select value={sceneId} disabled={loading || busy || deleteConfirmation} onChange={event => { setSceneId(event.target.value); setSelectedId(""); setPreview(null); setError(""); setNotice(""); }} title={c.changeHelp}>{Object.values(sessions).map(value => <option key={value.draft.present.id} value={value.draft.present.id}>{value.draft.present.name}{JSON.stringify(value.draft.present) !== JSON.stringify(value.saved) ? " •" : ""}</option>)}</select></label>
         <button type="button" onClick={createScene} disabled={loading || busy || Object.keys(sessions).length >= 16}>+ {c.newScene}</button>
         <button type="button" disabled={!scene||busy||Object.keys(sessions).length>=16} onClick={copyCurrentScene}>{extra.copy}</button>
@@ -410,9 +411,13 @@ export default function MultiviewEditor({ room, studioId, roomName, viewAccess, 
         <button type="button" disabled={loading||busy||Object.keys(sessions).length>=16} onClick={()=>importRef.current?.click()}>{ui.import}</button>
         <button type="button" disabled={!scene||busy} onClick={exportCurrentScene} title={ui.importHelp}>{ui.export}</button>
         <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={e=>{void importScene(e.target.files?.[0]);e.target.value='';}} />
-        <div className={styles.divider} />
+        </div>
+        <div className={styles.commandGroup}>
         <span className={styles.toolbarLabel}>{c.format}</span><div className={styles.segment}>{formats.map(format => <button type="button" key={format.label} aria-pressed={scene?.width === format.width && scene?.height === format.height} disabled={!scene || busy} onClick={() => changeSceneFormat(format.width,format.height)}>{format.label}</button>)}</div>
-        <div className={styles.divider} /><div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => changeLayoutMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => changeLayoutMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
+        </div>
+        <div className={styles.commandGroup}>
+        <div className={styles.segment}><button type="button" aria-pressed={mode === "grid"} onClick={() => changeLayoutMode("grid")} disabled={busy}>{c.grid}</button><button type="button" aria-pressed={mode === "free"} onClick={() => changeLayoutMode("free")} disabled={busy}>{c.free}</button></div><button type="button" aria-pressed={snapping} disabled={mode!=="free"||busy} title={ui.snapHelp} onClick={()=>setSnapping(v=>!v)}>{ui.snap}</button>
+        </div>
         <div className={styles.editorGridControls}>
           <button type="button" aria-pressed={editorGrid.visible} disabled={!scene} onClick={() => setEditorGrid(value => ({ ...value, visible: !value.visible }))}>{gridUi.show}</button>
           <label title={gridUi.help}>{gridUi.step}<select aria-label={gridUi.step} value={editorGrid.step} disabled={!scene || !editorGrid.visible} onChange={event => { const step = Number(event.target.value); if (editorGridSteps.includes(step as typeof editorGrid.step)) setEditorGrid(value => ({ ...value, step: step as typeof editorGrid.step })); }}>{editorGridSteps.map(step => <option key={step} value={step}>{step} {gridUi.unit}</option>)}</select></label>

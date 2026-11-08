@@ -80,6 +80,9 @@ let browser;
     await page.addStyleTag({content:css});
     await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});
     await page.waitForSelector('[data-scene-mode]');
+    // This suite exercises Window geometry; phone entry defaults are covered separately.
+    await page.getByRole('button',{name:/^(Windows|Speaker)$/,exact:true}).click();
+    await page.waitForSelector('[data-scene-mode="speaker"] [data-scene-primary]');
     await page.waitForFunction(()=>document.querySelector('video')?.videoWidth>0);
     await page.waitForTimeout(150);
     const state = await page.evaluate(() => {

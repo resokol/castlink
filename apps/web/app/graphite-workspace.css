@@ -948,3 +948,20 @@ html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-con
 }
 
 html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-room-customization:empty { display: none; }
+
+/* On a tall desktop the bitrate plot uses the rail's remaining height. */
+@media (min-width:1024px) and (min-height:701px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats > .return-stats { height: 100%; grid-template-rows: auto minmax(0,1fr) auto; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart { flex: 1 1 0; height: auto; min-height: 190px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart > div { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: baseline; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart svg { max-height: none; }
+}
+
+/* Keep axis typography independent from the SVG's responsive vertical scale. */
+.graphite-workspace .bitrate-chart-plot { display: contents; }
+.graphite-workspace .bitrate-chart-axis { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart-plot { position: relative; display: block; flex: 1 1 0; width: 100%; min-height: 54px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart-plot > svg { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; max-height: none; margin: 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart-tick { visibility: hidden; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart-axis { position: absolute; inset: 0; display: block; pointer-events: none; color: var(--muted); font-size: 9px; line-height: 10px; font-variant-numeric: tabular-nums; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart-axis > span { position: absolute; left: 2px; transform: translateY(-50%); white-space: nowrap; }

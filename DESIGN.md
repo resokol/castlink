@@ -347,3 +347,20 @@ pinning/source priority and desktop/Tiles behavior.
 Highlight the compact Studio guest Copy URL shortcut in warm orange (#f0a261
 with #2c190d ink, lighter hover). Preserve the existing green copied confirmation,
 accessible labels, target size, actual handler and approved Console A geometry.
+
+## Phone entry, taller graph and Multiview repair — owner correction, 8 November2026
+
+A fresh phone caster visit starts in Tiles even when Window was saved before.
+Manual switching remains local to that visit; preserve the desktop saved mode.
+Use the existing first-screen header/media/eight-action transport, with the real
+application footer below the viewport and reachable by page scroll. Do not hide it.
+
+Studio statistics use the available vertical rail space for the measured chart;
+keep axis type unscaled and all four quality selectors visible. Data, labels,
+telemetry ownership and the approved program/source composition remain unchanged.
+
+The Multiview editor uses the current160px Studio sidebar offset, compact grouped
+commands and a proportional canvas that fills its center budget. Side lists scroll
+locally; short/narrow/zoomed windows can scroll the editor to reach every command.
+Preserve model/scene geometry, drag/resize/snap, history, import/export, Apply and
+existing output permissions/media owners. This repairs layout, not the renderer.

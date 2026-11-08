@@ -138,6 +138,7 @@ let browser;
     check(!await page.locator('.guest-noise-control input').isChecked(),'noise suppression switch remains interactive');
     await page.screenshot({path:path.join(out,'settings-'+theme+'-'+width+'.png')});
     await page.keyboard.press('Escape');
+    await page.getByRole('button',{name:'Окно',exact:true}).click();
     await page.screenshot({path:path.join(out,'window-'+theme+'-'+width+'.png')});
     await page.getByRole('button',{name:'Плитка',exact:true}).click();
     await page.waitForTimeout(80);

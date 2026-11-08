@@ -81,6 +81,7 @@ export function StudioReturnStatsPanel({
       </div>
       <div className="bitrate-chart" aria-label={t("Видеобитрейт: последние 60 замеров, шкала до 25 000 кбит/с")}>
         <div><b>{t("Измеренный видеобитрейт")}</b> <small>{t(graphSource === "watch" ? "По ссылке /watch" : "В комнату")}</small></div>
+        <div className="bitrate-chart-plot">
         <svg viewBox="0 0 300 210" role="img" aria-label={hasSample ? t("Текущий видеобитрейт {videoKbps} килобит в секунду", { videoKbps: stats.videoKbps }) : translateWorkspaceMessage(t, statusText)} preserveAspectRatio="none">
           {[500, 5000, 10000, 15000, 20000, 25000].map(value => {
             const y = 198 - value / 25000 * 192;
@@ -88,6 +89,9 @@ export function StudioReturnStatsPanel({
           })}
           {historyLength > 1 && <polyline className="bitrate-chart-line" points={bitratePoints} />}
         </svg>
+        <div className="bitrate-chart-axis" aria-hidden="true">{[500, 5000, 10000, 15000, 20000, 25000].map(value =>
+          <span key={value} style={{ top: `clamp(5px, ${(198 - value / 25000 * 192) / 210 * 100}%, calc(100% - 5px))` }}>{value.toLocaleString(locale)}</span>)}</div>
+        </div>
       </div>
       {monitoringControls}
       {studioControlError && <p className="studio-control-error" role="alert">{translateWorkspaceMessage(t, studioControlError)}</p>}

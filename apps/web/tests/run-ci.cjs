@@ -31,6 +31,7 @@ const tests = [
   "room-reactions.cjs",
   "caster-slot-reconnect.cjs",
   "conference-portrait-tiles.cjs",
+  "conference-mobile-entry.cjs",
   "entry-links.cjs",
   "entry-invite-hosted.cjs",
   "guest-preflight-ui.cjs",

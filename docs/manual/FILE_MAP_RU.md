@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1858**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1862**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -5192,7 +5192,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Библиотеки/Node: `react`.
 
-Используют: [`apps/web/app/layout.tsx`](../../apps/web/app/layout.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/design-preview.browser.cjs`](../../apps/web/tests/design-preview.browser.cjs), [`apps/web/tests/fixtures/studio-compact.tsx`](../../apps/web/tests/fixtures/studio-compact.tsx).
+Используют: [`apps/web/app/layout.tsx`](../../apps/web/app/layout.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/design-preview.browser.cjs`](../../apps/web/tests/design-preview.browser.cjs), [`apps/web/tests/fixtures/multiview-editor-layout.tsx`](../../apps/web/tests/fixtures/multiview-editor-layout.tsx), [`apps/web/tests/fixtures/studio-compact.tsx`](../../apps/web/tests/fixtures/studio-compact.tsx).
 
 ### apps/web/components/AppUpdateNotice.tsx
 
@@ -5252,7 +5252,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `BrandIcon`.
 
-Используют: [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fixtures/studio-compact.tsx`](../../apps/web/tests/fixtures/studio-compact.tsx).
+Используют: [`apps/web/app/servers/page.tsx`](../../apps/web/app/servers/page.tsx), [`apps/web/app/setup/page.tsx`](../../apps/web/app/setup/page.tsx), [`apps/web/app/studios/page.tsx`](../../apps/web/app/studios/page.tsx), [`apps/web/components/AccessGate.tsx`](../../apps/web/components/AccessGate.tsx), [`apps/web/components/EntryShell.tsx`](../../apps/web/components/EntryShell.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/RoomControlConsole.tsx`](../../apps/web/components/RoomControlConsole.tsx), [`apps/web/components/StudioOwnerGate.tsx`](../../apps/web/components/StudioOwnerGate.tsx), [`apps/web/components/StudioRoomPicker.tsx`](../../apps/web/components/StudioRoomPicker.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/fixtures/multiview-editor-layout.tsx`](../../apps/web/tests/fixtures/multiview-editor-layout.tsx), [`apps/web/tests/fixtures/studio-compact.tsx`](../../apps/web/tests/fixtures/studio-compact.tsx).
 
 ### apps/web/components/CasterSlotsPanel.tsx
 
@@ -6618,7 +6618,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Локальные стили интерфейса; цвета, размеры и адаптивная раскладка соответствующего компонента.
 
-Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+Используют: [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx), [`apps/web/tests/fixtures/multiview-editor-layout.tsx`](../../apps/web/tests/fixtures/multiview-editor-layout.tsx).
 
 ### apps/web/components/multiview/MultiviewEditor.tsx
 
@@ -6630,7 +6630,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Библиотеки/Node: `livekit-client`, `react`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs).
+Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/design-migration.browser.cjs`](../../apps/web/tests/design-migration.browser.cjs), [`apps/web/tests/fixtures/multiview-editor-layout.tsx`](../../apps/web/tests/fixtures/multiview-editor-layout.tsx).
 
 ### apps/web/components/multiview/MultiviewMedia.tsx
 
@@ -9670,7 +9670,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 451 файлов
+## apps/web/tests · 454 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -9898,9 +9898,9 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Экспортируемые символы: `Track`, `RoomEvent`, `LocalVideoTrack`, `PdfPresentationViewer`, `useI18n`, `translateWorkspaceMessage`, `useRoomContext`, `useEnsureTrackRef`, `useTracks`, `useCreateLayoutContext`, `usePinnedTracks`, `LayoutContextProvider`, `AudioTrack`, `ControlBar`, `ChatToggle`, `ParticipantTile`, `GuestCameraButton`, `RoomChat`, `isVerifiedTalkback`, `exitCssFullscreen`, `toggleElementFullscreen`, `watchFullscreenChrome`.
 
-Библиотеки/Node: `${path.join(source, `, `${path.join(web,`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+Библиотеки/Node: `${path.join(source, `, `${path.join(web,`, `${source}/components/AppChrome`, `next/dist/shared/lib/hooks-client-context.shared-runtime`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
 
-Переменные окружения (только имена): `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_QA_SOURCE`, `CASTLINK_WINDOW_OUT`, `CASTLINK_WINDOW_RED`, `CASTLINK_WINDOW_TABLET_CONFIRM`.
+Переменные окружения (только имена): `CASTLINK_MOBILE_ENTRY`, `CASTLINK_MOBILE_ENTRY_RED`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_QA_SOURCE`, `CASTLINK_WINDOW_OUT`, `CASTLINK_WINDOW_RED`, `CASTLINK_WINDOW_TABLET_CONFIRM`.
 
 ### apps/web/tests/caster-workspace-layout.cjs
 
@@ -10474,6 +10474,14 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
+### apps/web/tests/conference-mobile-entry.cjs
+
+[`apps/web/tests/conference-mobile-entry.cjs`](../../apps/web/tests/conference-mobile-entry.cjs)
+
+Проверка/тестовый инструмент. PASS caster phone entry defaults, volatile session choice, latest desktop preference, blocked storage and desktop persistence
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
 ### apps/web/tests/conference-pin.browser.cjs
 
 [`apps/web/tests/conference-pin.browser.cjs`](../../apps/web/tests/conference-pin.browser.cjs)
@@ -10753,6 +10761,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/app/output/slot/[slotId]/page.tsx`](../../apps/web/app/output/slot/%5BslotId%5D/page.tsx), [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/tests/fixtures/image-correction-pipeline-adapter.ts`](../../apps/web/tests/fixtures/image-correction-pipeline-adapter.ts).
 
 Библиотеки/Node: `react`, `react-dom/client`.
+
+### apps/web/tests/fixtures/multiview-editor-layout.tsx
+
+[`apps/web/tests/fixtures/multiview-editor-layout.tsx`](../../apps/web/tests/fixtures/multiview-editor-layout.tsx)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/multiview/MultiviewEditor.module.css`](../../apps/web/components/multiview/MultiviewEditor.module.css), [`apps/web/components/multiview/MultiviewEditor.tsx`](../../apps/web/components/multiview/MultiviewEditor.tsx).
+
+Библиотеки/Node: `livekit-client`, `next/dist/shared/lib/hooks-client-context.shared-runtime`, `react`, `react-dom/client`.
 
 ### apps/web/tests/fixtures/output-transparency-adapter.ts
 
@@ -11713,6 +11731,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Читает/импортирует: [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:vm`, `typescript`.
+
+### apps/web/tests/multiview-editor-layout.browser.cjs
+
+[`apps/web/tests/multiview-editor-layout.browser.cjs`](../../apps/web/tests/multiview-editor-layout.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:http`, `node:module`, `node:os`, `node:path`.
+
+Переменные окружения (только имена): `CASTLINK_MULTIVIEW_BASELINE`, `CASTLINK_MULTIVIEW_OUT`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`.
 
 ### apps/web/tests/multiview-extensions.cjs
 
@@ -14814,7 +14842,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 68 файлов
+## docs · 69 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15187,6 +15215,12 @@ Studio performance and runtime diagnostics implementation plan
 [`docs/superpowers/plans/2026-11-08-caster-window-orange.md`](../superpowers/plans/2026-11-08-caster-window-orange.md)
 
 Mobile Window proportions and Studio URL accent
+
+### docs/superpowers/plans/2026-11-08-phone-tiles-graph-multiview.md
+
+[`docs/superpowers/plans/2026-11-08-phone-tiles-graph-multiview.md`](../superpowers/plans/2026-11-08-phone-tiles-graph-multiview.md)
+
+Phone Tiles entry, tall chart and Multiview UI
 
 ### docs/superpowers/plans/2026-11-08-studio-console-a.md
 

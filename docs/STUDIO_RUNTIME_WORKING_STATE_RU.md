@@ -1,5 +1,19 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
+## Текущая доработка: телефон/график/мультивью
+
+НовыйвходкастерасphoneвсегдаTiles, безперезаписиdesktopmode; выборWindowтекущего
+визитасохраняется, реальныйfooterужеbelowfold. ГрафикStatsзаполняетвысотупанели,
+осьHTML9pxбезрастяжения, SVG/data/historyпрежние. MultiviewUIviewportисправлен:
+160pxsidebarinset/compactcommands/usablecanvas/scrollвкороткихокнах; модель/handlers
+иmedia/APIнетронуты. Все3sourcefrozen, independentSolreviewбеззамечаний.
+Mobile12×178/Stats15/MV8browsercases,11MVdomain+focused/TSC PASS;344stableCIидёт.
+План docs/superpowers/plans/2026-11-08-phone-tiles-graph-multiview.md.
+ProdпокаCE/image89, latestreadonly23:05:45UTC0/0/0/281static/8neighbors/contracts
+exact. Scope mobile-tiles-graph-multiview-20261108 готов. Exactbuildможетидти
+параллельноCI,нопереключениетолькопосле344PASSиfreshzeroactivityguard.
+
+
 ## Установлены мобильные пропорции «Окна» и оранжевый URL — 08.11.2026
 
 castlink.ru: `1.0.0-rc.9-ce4964f14302`, source

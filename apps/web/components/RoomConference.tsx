@@ -143,7 +143,7 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
       <div className="lk-video-conference-inner">
         {studioOnly && <div className="studio-only-notice" role="status">{t("Студия включила только свой просмотр")}</div>}
         {workspaceLayout && studioOnly && galleryCount === 0 && visible.length > 0 && <p className="conference-waiting" role="status">{t("Ожидание эфира студии…")}</p>}
-        <ConferenceScene items={items} room={room} controlsTarget={workspaceLayout ? sceneControlsTarget : undefined} />
+        <ConferenceScene items={items} room={room} controlsTarget={workspaceLayout ? sceneControlsTarget : undefined} mobileDefaultTiles={workspaceLayout} />
         {!workspaceLayout && footer}
         {showLeaveButton && !workspaceLayout && <button className="room-leave-button" onClick={onLeave}>{t("Выйти из комнаты")}</button>}
       </div>
