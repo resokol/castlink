@@ -26,7 +26,7 @@ const context = {
   room, outputMuted: false, outputMutedRef: mutedRef, studioOnly: false, modeBusy: false,
   privateTalkActive: false, privateTalkActiveRef: privateRef,
   studioRole: 'primary', sessionToken: 'test', onAir: true, airBusy: false,
-  videoModeBusy: false, returnActive: true, previewReady: true,
+  studioSettingsOpen: false, videoModeBusy: false, returnActive: true, previewReady: true,
 };
 for (const activeTab of ['studio', 'multiview', 'participants', 'statistics', 'servers', 'studio']) {
   const sandbox = { ...context, activeTab };

@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { load } = require('./load-typescript.cjs');
+const previousWindow = global.window;
+global.window = new EventTarget();
 let cursor = 0;
 const hooks = [], effects = [], calls = [], errors = [];
 let fail = false;
@@ -13,6 +15,7 @@ const react = {
 };
 const room = new EventEmitter(); room.localParticipant = { isCameraEnabled: true };
 const { GuestCodecCameraButton } = load('../components/GuestCodecCameraButton.tsx', {
+  './CasterToolbarSlots': { CasterToolbarAction: ({ children }) => children },
   react, '@/components/I18nProvider': { useI18n: () => ({ t: value => value }) },
   '@/lib/guest-video-codec': { setGuestCameraEnabled() { throw Error('slider started capture'); } },
   '@/lib/guest-camera-effects': { watchGuestCameraEffects: () => controller, cameraBlurRadius: value => value ?? 10 },
@@ -55,5 +58,5 @@ const debounce = () => new Promise(resolve => setTimeout(resolve, 150));
     assert.equal(errors.at(-1), 'effect failed');
     await debounce(); render(); assert.equal(calls.length, 3, 'a failed adjustment does not retry forever');
     console.log('PASS camera blur slider: disclosure, label, bounds, coalesced drag, transition lock and failure recovery');
-  } finally { for (const hook of hooks) hook?.cleanup?.(); }
+  } finally { for (const hook of hooks) hook?.cleanup?.(); if (previousWindow === undefined) delete global.window; else global.window = previousWindow; }
 })().catch(error => { console.error(error); process.exitCode = 1; });

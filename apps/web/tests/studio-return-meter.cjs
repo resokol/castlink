@@ -18,13 +18,17 @@ try {
   let amplitude = .1, reads = 0;
   const analyser = { fftSize: 4, context: { state: 'running' }, getFloatTimeDomainData(samples) { reads++; samples.fill(amplitude); } };
   const analyserRef = { current: analyser };
-  const render = muted => { const result = StudioReturnAudioMeter({ analyserRef, muted, label: 'Studio' }); if (effect) { const run = effect; effect = undefined; cleanup = run(); } return result; };
+  const render = (muted, vertical = false) => { const result = StudioReturnAudioMeter({ analyserRef, muted, label: 'Studio', vertical }); if (effect) { const run = effect; effect = undefined; cleanup = run(); } return result; };
   const frame = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback()); };
   render(false);
   const before = updates;
   for (let i = 0; i < 60; i++) { amplitude = i % 2 ? .1 : .2; frame(); }
   assert.equal(updates - before, 60, 'only the small component state receives animation updates');
   assert.equal(render(false).props.db, -20);
+  const beforeOrientation = reads, scheduledFrames = [...frames.keys()];
+  assert.equal(render(false, true).props.vertical, true);
+  assert.equal(reads, beforeOrientation, 'changing meter orientation does not sample or replace the capture graph');
+  assert.deepEqual([...frames.keys()], scheduledFrames, 'orientation keeps the existing animation owner');
   const beforeMute = reads;
   assert.equal(render(true).props.db, -90, 'mute is reflected immediately'); frame();
   assert.equal(reads, beforeMute, 'muted meter does not sample the graph');

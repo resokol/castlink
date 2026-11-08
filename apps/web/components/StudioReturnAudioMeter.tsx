@@ -5,8 +5,8 @@ import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
 import { AudioMeter } from "./AudioMeter";
 
 /** Reuse the capture graph; animation updates only this small meter. */
-export function StudioReturnAudioMeter({ analyserRef, muted, label }: {
-  analyserRef: RefObject<AnalyserNode | undefined>; muted: boolean; label: string;
+export function StudioReturnAudioMeter({ analyserRef, muted, label, vertical = false }: {
+  analyserRef: RefObject<AnalyserNode | undefined>; muted: boolean; label: string; vertical?: boolean;
 }) {
   const [db, setDb] = useState(METER_FLOOR_DB);
   useEffect(() => {
@@ -28,5 +28,5 @@ export function StudioReturnAudioMeter({ analyserRef, muted, label }: {
     tick();
     return () => { stopped = true; cancelAnimationFrame(frame); };
   }, [analyserRef, muted]);
-  return <AudioMeter db={muted ? METER_FLOOR_DB : db} label={label} />;
+  return <AudioMeter db={muted ? METER_FLOOR_DB : db} label={label} vertical={vertical} />;
 }

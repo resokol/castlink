@@ -1,4 +1,6 @@
 "use client";
+import { StudioConsolePopover } from "./StudioConsolePopover";
+import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import { sessionHttpBearer } from "../lib/session-http-bearer";
 
 import { useRemotePc } from '@/lib/use-remote-pc';
@@ -190,6 +192,15 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const creationPasswordAccess = useRoomCreationPasswordAccess(studioId, roomName);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const [studioSettingsOpen, setStudioSettingsOpen] = useState(false);
+  const roomManagementPopover = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = roomManagementPopover.current;
+    if (!element) return;
+    if (roomMenuOpen && activeTab === "studio") {
+      const source = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+      try { (element.showPopover as (options?: {source?: HTMLElement}) => void)({source}); } catch { element.showPopover(); }
+    } else if (element.matches(":popover-open")) element.hidePopover();
+  }, [roomMenuOpen, activeTab]);
   const [focusedGuestIdentity, setFocusedGuestIdentity] = useState("");
   const [guestMediaRequests, setGuestMediaRequests] = useState<Record<string, { busy: boolean; message?: string; error?: boolean }>>({});
   const guestMediaFlightsRef = useRef(new WeakMap<Room, Set<string>>());
@@ -1501,7 +1512,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     actions={<><a className="button-link" href={outputUrl(source.identity, "screen")} target="_blank" rel="noreferrer">{t("Открыть экран")}</a><button type="button" onClick={() => void copyGuestOutput(`${source.identity}:screen`, outputUrl(source.identity, "screen"))}>{copied === `${source.identity}:screen` ? t("Скопировано") : t("Копировать URL экрана")}</button>{stopControl}{source.identity === room.localParticipant.identity && <button type="button" onClick={() => void Promise.all([stopOwnedRemotePc(room), stopStudioScreenShare(room)]).catch(error => setStudioControlError(error instanceof Error ? error.message : String(error)))}>{t("Остановить показ экрана")}</button>}</>} />;
 
   return (
-    <main className="media-page studio-page studio-app-shell graphite-workspace" data-workspace-tab={activeTab}>
+    <main className="media-page studio-page studio-app-shell graphite-workspace studio-console" data-workspace-tab={activeTab}>
       <aside className="studio-sidebar">
         <div className="studio-brand"> <BrandIcon className="studio-brand-mark" /><span><strong>CastLink</strong><small>LIVE PRODUCTION</small></span></div>
         <nav className="studio-tabs" aria-label={t("Раздел студии")}>
@@ -1525,7 +1536,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           <h1>{roomName}</h1>
 
         </div>
-        <div className="status-pill"><button type="button" className="button-secondary studio-header-multiview" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
+        <div className="status-pill"><button type="button" className="button-secondary studio-console-invite" hidden={activeTab !== "studio"} popoverTarget="studio-access" aria-haspopup="dialog" aria-controls="studio-access"><StudioConsoleIcon kind="people"/>{t("Пригласить")}</button><button type="button" className="button-secondary studio-header-multiview" aria-pressed={activeTab === "multiview"} onClick={() => setActiveTab(activeTab === "multiview" ? "studio" : "multiview")}>{t("Мультивью")}</button><button type="button" className="studio-room-menu-toggle" hidden={activeTab !== "studio"} aria-label={t("Настройки комнаты")} aria-expanded={roomMenuOpen} aria-controls="studio-room-management-panel" onClick={() => setRoomMenuOpen(open => !open)}>
           <span aria-hidden="true" className="studio-room-menu-icon">☰</span><span>{t("Комната")}</span><span className="studio-room-menu-count">{rooms.length}</span>
         </button><span className={`studio-role-badge studio-role-${studioRole}`}>{studioRole === "primary" ? t("Основная студия") : studioRole === "moderator" ? t("Администратор") : t("Подключение")}</span>{studioRole === "moderator" && canClaimStudio && <button type="button" className="button-secondary studio-take-control" disabled={studioPrimaryOnline || claimBusy} title={studioPrimaryOnline ? t("Управление занято основной студией") : undefined} onClick={async () => {
           if (claimBusy || studioPrimaryOnline) return;
@@ -1543,6 +1554,14 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       {activeTab === "multiview" && <MultiviewEditor key={`${studioId}:${roomName}`} room={room} studioId={studioId} roomName={roomName} viewAccess={viewAccess} onClose={() => setActiveTab("studio")} />}
       {activeTab === "creation-password" && <RoomCreationPasswordSettings key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} access={creationPasswordAccess} onConfigured={creationPasswordAccess.markConfigured} />}
       <CasterSlotsPanel studioId={studioId} roomName={roomName} active={activeTab === "participants"}/>
+      <StudioConsolePopover id="studio-access" title={t("Приглашения и доступы")}>
+          <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
+            <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
+            <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
+            {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
+          </section>
+      </StudioConsolePopover>
+      <StudioConsolePopover ref={roomManagementPopover} id="studio-room-settings" title={t("Настройки комнаты")} onOpenChange={open => { if(!open) setRoomMenuOpen(false); }}>
       <RoomManagementPanel
         studioId={studioId}
         hidden={activeTab !== "studio" || !roomMenuOpen}
@@ -1573,22 +1592,26 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         onRemovePasswordChange={setRemoveRoomPassword}
         onSaveSettings={saveRoomSettings}
       />
+      </StudioConsolePopover>
       {studioOnly && <p className="studio-only-notice room-mode-notice" role="status">{t("Студия включила только свой просмотр")}</p>}
-      <div className="studio-return-layout" data-view={activeTab}>
+      <div className="studio-return-layout studio-console-layout" data-view={activeTab}>
       <section ref={playbackSectionRef} className="studio-video-section studio-return-section" hidden={activeTab !== "studio"} aria-label={STUDIO_PLAYBACK_TITLE}>
       <div className="studio-return-hero">
         <h2 className="studio-return-heading">{STUDIO_PLAYBACK_TITLE} <span className={`air-state ${onAir ? "air-live" : ""}`}><i className="air-dot" />{onAir ? "ON AIR" : "OFF AIR"}</span></h2>
-        <div className="panel studio-video-card studio-return-preview-card">
+        <div className="panel studio-video-card studio-return-preview-card studio-console-program">
           <div className="studio-playback-monitor">
           <div className="studio-playback-stage">{returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLAYBACK")}</div>}</div>
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
-            <StudioReturnAudioMeter analyserRef={returnAnalyserRef} muted={outputMuted} label={STUDIO_PLAYBACK_TITLE} />
+            <StudioReturnAudioMeter vertical analyserRef={returnAnalyserRef} muted={outputMuted} label={STUDIO_PLAYBACK_TITLE} />
           </div>}
           </div>
           <div className="studio-playback-controls">
           <div className="studio-transport-bar" hidden={activeTab !== "studio"}>
             <StudioReturnPublishingControls
+              presentation="console"
+              settingsTarget="studio-settings"
+              settingsOpen={studioSettingsOpen}
               outputMuted={outputMuted}
               onToggleOutputMuted={() => void changeOutputMuted(!outputMuted).catch(error => setStudioControlError(error.message))}
               studioOnly={studioOnly}
@@ -1614,9 +1637,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
               }}
               onToggleOnAir={() => requestOnAir(!onAir)}
             />
-            <button type="button" className="button-secondary studio-settings-toggle" aria-expanded={studioSettingsOpen} aria-controls="studio-settings" onClick={() => setStudioSettingsOpen(open => !open)}>{t("Настройки")}</button>
           </div>
-          <div className="studio-settings studio-device-settings" id="studio-settings" hidden={!studioSettingsOpen}>
+          <StudioConsolePopover id="studio-settings" title={t("Устройства студии")} className="studio-console-devices" onOpenChange={setStudioSettingsOpen}>
+          <div className="studio-settings studio-device-settings">
             <div className="panel studio-device-panel">
               <h2 className="studio-design-section-title" style={{ display: "none" }}>{t("Устройства основной студии")}</h2>
               <label>{t("Источник видео студии")}<select value={videoSource} disabled={onAir || airBusy || videoModeBusy || studioRole === "connecting"} onChange={event => void changeVideoSource(event.target.value as StudioVideoSource).catch(error => setStudioControlError(error.message))}>
@@ -1659,14 +1682,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
             </div>
             <p className="muted studio-note">{t("Лимит камеры задаёт общий бюджет кодировщика гостя и выбор слоя для предпросмотра. Это не CBR; фактический битрейт зависит от кадра и сети.")}</p>
           </div>
+          </StudioConsolePopover>
           </div>
-          <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
-            <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>
-            <div className="stream-invite-slot"><StudioStreamInviteButton studioId={studioId} roomName={roomName} key={`stream:${roomName}`} /></div>
-            {studioRole === "primary" && <small className="invite-extra" role="status">{t("Зрителей отдельного потока:")} {streamRelay.viewerCount}{streamRelay.error ? ` · ${streamRelay.error}` : ""}</small>}
-          </section>
+
         </div>
-        <div className="studio-return-rail">
+        <div className="studio-return-rail studio-console-stats">
           <StudioReturnStatsPanel
             role={studioRole}
             statusText={outboundStatusText}
@@ -1707,14 +1727,17 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         {!previewRestoreReady && <button type="button" className="button-secondary" disabled={restoreBusy || studioRole !== "primary"} onClick={() => setPreviewRestoreReady(true)}>{t("Использовать выбранные устройства")}</button>}
         <button type="button" className="button-secondary" disabled={restoreBusy} onClick={() => void restoreStudioInputs()}>{restoreBusy ? t("Проверяем устройства…") : t("Сопоставить прежние устройства")}</button>
       </div>}
-      <section className="studio-video-section studio-sources-section" data-source-count={sourceRoster.length} data-view={activeTab} hidden={activeTab !== "studio" && activeTab !== "participants"} aria-label={t("Видео гостей")}>
+      <section className="studio-video-section studio-sources-section studio-console-guests" data-source-count={sourceRoster.length} data-view={activeTab} hidden={activeTab !== "studio" && activeTab !== "participants"} aria-label={t("Видео гостей")}>
       <div className="workspace-section-heading"><h2>{t("Источники")} <span>{sourceRoster.length}</span></h2><span>{t("Индивидуальные выходы · видео + аудио")}</span></div>
       <div className="source-browser" data-view={activeTab}>
+      {sourceRoster.length === 0 && <p className="studio-console-empty muted">{t("Подключённых гостей пока нет.")}</p>}
       <SourceRoster sources={sourceRoster} selected={focusedSourceIdentity} onSelect={setFocusedGuestIdentity} />
         <StudioGuestMediaPanel key={`${studioId}:${roomName}`} studioId={studioId} roomName={roomName} guests={guests} allowDeviceControl={studioRole !== "moderator"} screenShareIdentities={studioScreenSources.map(source => source.identity)} renderGuest={(g, controls, quickControls, activity) => <GuestVideoCard
+          compact={activeTab === "studio"}
           focused={g.identity === focusedSourceIdentity}
           onSelect={() => setFocusedGuestIdentity(g.identity)}
-          quickControls={<><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.microphone} onClick={() => void changeGuestMedia(g.identity, "audio", !g.microphone)}>{g.microphone ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</button><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.camera} onClick={() => void changeGuestMedia(g.identity, "video", !g.camera)}>{g.camera ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>{quickControls}</>}
+          primaryAction={<button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-label={`${g.microphone ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}: ${g.name}`} aria-pressed={g.microphone} onClick={() => void changeGuestMedia(g.identity, "audio", !g.microphone)}><StudioConsoleIcon kind="mic" width={16} height={16}/><span>{g.microphone ? t("Выключить микрофон гостя") : t("Включить микрофон гостя")}</span></button>}
+          quickControls={<><button type="button" disabled={guestMediaRequests[g.identity]?.busy} aria-pressed={g.camera} onClick={() => void changeGuestMedia(g.identity, "video", !g.camera)}>{g.camera ? t("Выключить камеру гостя") : t("Включить камеру гостя")}</button>{quickControls}</>}
           feedback={<>{activity?.pending && <small role="status">{t("Ожидаем подтверждение гостя…")}</small>}{activity?.error && <small role="alert">{translateWorkspaceMessage(t, activity.error)}</small>}{guestMediaRequests[g.identity]?.message && <small role={guestMediaRequests[g.identity]?.error ? "alert" : "status"}>{translateManagementMessage(guestMediaRequests[g.identity].message || "", t)}</small>}</>}
           mediaControls={<><GuestCameraResolutionControl room={room} studioId={studioId} roomName={roomName} identity={g.identity} />{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}<div className="source-card-actions">{!simpleRoom && <><select aria-label={t("Комната для {name}", { name: g.name })} value={moveTargets[g.identity] || ""} onChange={event => setMoveTargets(value => ({ ...value, [g.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={() => void moveGuest(g.identity, moveTargets[g.identity])}>{t("Перевести")}</button></>}<button onClick={() => void kick(g.identity, g.name)}>{t("Отключить гостя")}</button><button onClick={() => void refreshGuest(g.identity)}>{t("↻ Обновить")}</button></div></>}
           guest={g}
@@ -1728,7 +1751,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           receiveBitrate={receiveFor(g.identity)}
           preference={monitoring.preferences[g.identity]}
           preview={<GuestPreview room={room} identity={g.identity} name={g.name} preference={monitoring.preferences[g.identity]} onChange={patch => monitoring.change(g.identity, patch)} />}
-          meter={<GuestAudioMeter track={g.microphoneTrack} />}
+          meter={<GuestAudioMeter compact={activeTab === "studio"} track={g.microphoneTrack} />}
           onCopy={() => { void navigator.clipboard.writeText(outputUrl(g.identity)).then(() => { setCopied(g.identity); setTimeout(() => setCopied(undefined), 1200); }); }}
           onCopyScreenShare={() => { void navigator.clipboard.writeText(outputUrl(g.identity, "screen")).then(() => { setCopied(`${g.identity}:screen`); setTimeout(() => setCopied(undefined), 1200); }); }}
           onQualityChange={bitrateKbps => applyReceiveQuality(g.identity, bitrateKbps)}

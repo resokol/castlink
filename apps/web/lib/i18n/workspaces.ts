@@ -2,6 +2,14 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Устройства": ["Devices", "设备"],
+  "Устройства студии": ["Studio devices", "演播室设备"],
+  "Пригласить": ["Invite", "邀请"],
+  "Только студия": ["Studio only", "仅演播室"],
+  "Общий просмотр": ["Shared view", "全体画面"],
+  "Гости видят только студию": ["Guests see only the studio", "来宾仅能看到演播室"],
+  "Гости видят студию и участников": ["Guests see the studio and participants", "来宾可看到演播室和其他参与者"],
+  "Камеры и звук": ["Cameras and audio", "摄像头与音频"],
   "Шумоподавление и защита от эха": ["Noise suppression and echo cancellation", "降噪与回声消除"],
   "Шумоподавление и защита от эха включены.": ["Noise suppression and echo cancellation are on.", "降噪与回声消除已开启。"],
   "Применяем обработку микрофона…": ["Applying microphone processing…", "正在应用麦克风处理…"],

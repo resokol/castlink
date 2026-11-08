@@ -14,7 +14,7 @@ async function geometry(page) {
   return page.evaluate(() => {
     const box = e => { const r = e.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom }; };
     const find = s => { const e=document.querySelector(s);return e?box(e):null; };
-    return { meter:find('.studio-preview-meter'), monitor:find('.studio-playback-monitor'), controls:find('.studio-playback-controls'),invites:find('.studio-invite-compact'),viewerCount:find('.invite-extra'), stage:find('.studio-playback-stage'), pictureStyle: (()=>{const s=getComputedStyle(document.querySelector('.return-preview')); return {aspect:s.aspectRatio,height:s.height,width:s.width,minHeight:s.minHeight,maxHeight:s.maxHeight,align:s.alignSelf};})(), layout:find('.studio-return-layout'), preview:find('.studio-return-preview-card'), picture:find('.return-preview'), rail:find('.studio-return-rail'), sources:find('.studio-sources-section'), deck:find('.source-browser'), firstCard:find('.source-card'), firstPicture:find('.studio-guest-video-wrap'), selects:[...document.querySelectorAll('.return-output-controls select')].map(box), diagnostics:find('.return-stats-diagnostics'),statGrid:find('.return-stat-grid'),chart:find('.bitrate-chart'),graph:find('.bitrate-chart svg'),stats:find('.return-stats'),transport:find('.studio-transport-bar'),pageWidth:document.documentElement.scrollWidth, pageHeight:document.documentElement.scrollHeight, guestScroll:document.querySelector('.source-browser').scrollHeight>document.querySelector('.source-browser').clientHeight };
+    return { meter:find('.studio-preview-meter'), monitor:find('.studio-playback-monitor'), controls:find('.studio-playback-controls'),invites:find('.studio-invite-compact'),viewerCount:find('.invite-extra'), stage:find('.studio-playback-stage'), pictureStyle: (()=>{const s=getComputedStyle(document.querySelector('.return-preview')); return {aspect:s.aspectRatio,height:s.height,width:s.width,minHeight:s.minHeight,maxHeight:s.maxHeight,align:s.alignSelf};})(), layout:find('.studio-return-layout'), preview:find('.studio-return-preview-card'), picture:find('.return-preview'), rail:find('.studio-return-rail'), sources:find('.studio-sources-section'), deck:find('.source-browser'), firstCard:find('.source-card'), firstPicture:find('.studio-guest-video-wrap'), selects:[...document.querySelectorAll('.return-output-controls select')].map(box), diagnostics:find('.return-stats-diagnostics'),statGrid:find('.return-stat-grid'),chart:find('.bitrate-chart'),graph:find('.bitrate-chart svg'),stats:find('.return-stats'),transport:find('.studio-transport-bar'),footer:find('.workspace-footer'),pageWidth:document.documentElement.scrollWidth, pageHeight:document.documentElement.scrollHeight, guestScroll:document.querySelector('.source-browser').scrollHeight>document.querySelector('.source-browser').clientHeight };
   });
 }
 async function screenshot(page, name) { await page.screenshot({ path:path.join(out,name+'.png') }); }
@@ -30,69 +30,68 @@ async function screenshot(page, name) { await page.screenshot({ path:path.join(o
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
   browser=await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
-  const cases=process.env.CASTLINK_COMPACT_EMPTY==='1'?[[1280,720,'dark',0]]:process.env.CASTLINK_COMPACT_PRIMARY==='1'?[[1440,900,'dark',5]]:process.env.CASTLINK_COMPACT_SMALL==='1'?[[1280,720,'dark',5]]:baseline?[[1440,900,'dark',5]]:[[1920,1080,'dark',5],[1440,900,'dark',5],[1280,720,'dark',5],[1440,900,'light',5],[1366,768,'dark',20],[1280,720,'light',20],[390,844,'dark',5],[1101,600,'dark',5],[1280,600,'dark',1],[1280,720,'dark',1,true],[1440,900,'dark',0],[1280,720,'dark',0],[1101,651,'dark',0],[1024,700,'dark',5]];
-  for(const [width,height,theme,count,portrait=false] of cases) {
-    const context={width,height,theme,count,portrait};const compact=width>=1101&&height>=701;const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>{errors.push(e.message);console.error('Page error:',e.message)});
+  const cases=process.env.CASTLINK_COMPACT_APPROVED_CONFIRM==='1'?[[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5]]:process.env.CASTLINK_COMPACT_LOW_RED==='1'?[[1280,600,'dark',5]]:[[1280,540,'dark',1],[1280,540,'dark',5],[1280,540,'dark',20],[1280,560,'dark',5],[1280,560,'light',20],[1280,600,'dark',5],[1280,600,'light',5],[1280,600,'dark',20],[1440,900,'dark',5],[1440,900,'light',5],[1920,1080,'dark',5],[1024,600,'dark',5],[1024,700,'dark',20],[1280,600,'dark',0],[1280,600,'dark',1,true]];
+  for(const [width,height,theme,count,portrait=false] of cases){
+    const context={width,height,theme,count,portrait},page=await browser.newPage({viewport:{width,height}});page.on('pageerror',e=>errors.push(e.message));
     await page.goto(origin+'/?view=studio&count='+count+(count===20?'&long=1':'')+(portrait?'&portrait=1':''));
     await page.waitForFunction(expected=>document.querySelector('.return-preview')?.videoWidth===expected,portrait?360:640);
     await page.waitForFunction(()=>[...document.querySelectorAll('.studio-guest-video-wrap video')].every(e=>e.dataset.qaFrame==='ready'));
-    await page.waitForTimeout(120);
-    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(180);await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.waitForTimeout(100);
     const g=await geometry(page);results.push({...context,...g});
-    check(g.pageWidth<=width+1,'no horizontal page overflow',context);
-    check(Math.abs(g.picture.width / g.picture.height - 1.6) < .015,'playback window stays 16:10 at every viewport',context);
-    check(await page.locator('.return-preview').evaluate(e=>getComputedStyle(e).objectFit==='contain'),'playback contains source without stretching or cropping',context);
-    if(!compact&&count>0)check(g.sources.y>=g.preview.bottom-1,'natural flow keeps sources below full playback block',context);
-    if(compact) {
-      check(g.picture.x>=g.preview.x+11&&g.picture.x<=g.preview.x+17,'playback picture is aligned to card left padding',context);
-      check(Math.abs(g.meter.x-g.picture.x)<1&&Math.abs(g.meter.width-g.picture.width)<1&&g.meter.width<=361,'compact meter matches actual picture width',context);
-      check(g.controls&&g.controls.x>=g.picture.right+7&&g.controls.right<=g.preview.right-10&&g.controls.y>=g.preview.y&&g.controls.bottom<=g.preview.bottom,'controls are beside monitor inside same card',context);
-      check(g.meter.bottom<=g.monitor.bottom+1&&g.meter.y>=g.picture.bottom+4,'meter label/bar/scale fully below picture inside monitor',context);
-      check(await page.locator('.studio-preview-meter [role="meter"]').evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'actual meter bar visible without scrolling',context);
-      check(g.viewerCount.x>=g.preview.x+10&&g.viewerCount.right<=g.preview.right-10&&g.viewerCount.bottom<=g.preview.bottom-10,'viewer count is not clipped',context);
-      check(await page.locator('.studio-invite-compact button').evaluateAll(es=>es.every(e=>{const r=e.getBoundingClientRect(),card=e.closest('.studio-return-preview-card').getBoundingClientRect();return r.x>=card.x+10&&r.right<=card.right-10&&r.bottom<=card.bottom-10&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})),'all invitation actions visible inside card',context);
-      check(await page.locator('.studio-invite-compact button').evaluateAll(es=>Math.max(...es.map(e=>e.getBoundingClientRect().y))-Math.min(...es.map(e=>e.getBoundingClientRect().y))<1),'four invitation actions form one compact row',context);
-      check(g.layout.bottom<=height+1,'workspace fits viewport',context);
-      check(count===0||g.firstPicture.y>=g.preview.bottom-1&&g.firstPicture.bottom<=height+1,'guest preview visible beside studio and stats',context);
-      check(g.picture.height>=160,'studio picture remains readable',context);
-      check(await page.locator('.bitrate-chart svg').evaluate(e=>{const r=e.getBoundingClientRect();return r.height>=64&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'measured bitrate graph visible without scrolling',context);
-      check(g.rail.bottom<=height+1,'operating rail fits viewport',context);
-      check(g.selects.length===4&&g.selects.every(s=>s.bottom<=height+1&&s.height>=30),'four output selectors visible',context);
-      check(await page.locator('.return-preview').evaluate(e=>getComputedStyle(e).objectFit==='contain'),'studio source keeps contain',context);
-      await page.evaluate(()=>window.qaMedia=[...document.querySelectorAll('video')].map(video=>({video,stream:video.srcObject,track:video.srcObject.getVideoTracks()[0]})));
-      await page.locator('.source-browser').evaluate(e=>e.scrollTop=e.scrollHeight);
-      const after=await geometry(page);
-      check(Math.abs(after.preview.y-g.preview.y)<1&&Math.abs(after.rail.y-g.rail.y)<1,'guest scrolling keeps studio and controls fixed',context);
-      check(await page.evaluate(()=>window.qaMedia.every(({video,stream,track})=>video.isConnected&&video.srcObject===stream&&track.readyState==='live')),'guest scrolling preserves live media nodes',context);
-      await page.locator('.source-browser').evaluate(e=>e.scrollTop=0);
+    check(g.pageWidth<=width+1&&g.pageHeight<=height+1,'console including real footer fits actual viewport',context);
+    check(Math.abs(g.picture.width/g.picture.height-1.6)<.015,'program is16:10',context);
+    check(g.picture.height>=110,'program stays readable',context);
+    check(g.meter.x>=g.picture.right+4&&g.meter.width<=45&&Math.abs(g.meter.height-g.picture.height)<1,'vertical meter remains immediately beside picture',context);
+    check(g.sources.x>=g.monitor.right+12&&g.sources.y<=g.preview.y,'approved A places guests beside program',context);
+    check(g.footer&&g.footer.bottom<=height+1,'actual footer portal stays visible',context);
+    check(g.selects.length===4&&await page.locator('.return-output-controls select').evaluateAll(es=>es.every(e=>{const r=e.getBoundingClientRect();if(r.y<0||r.bottom>innerHeight)return false;for(let p=e.parentElement;p;p=p.parentElement){const a=p.getBoundingClientRect(),s=getComputedStyle(p);if(/auto|scroll|hidden|clip/.test(s.overflowY)&&(r.y<a.y-1||r.bottom>a.bottom+1))return false;}return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})),'all four real codec/quality selectors are visible and unobstructed',context);
+    if(width>=1180&&count>=5){check(await page.locator('.source-deck').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length===3),'approved A uses three guest columns at standard desktop widths',context);}
+    if(count>0){
+      check(await page.locator('.studio-guest-video-wrap').first().evaluate(e=>{const r=e.getBoundingClientRect();if(r.height<80||r.y<0||r.bottom>innerHeight)return false;for(let p=e.parentElement;p;p=p.parentElement){const s=getComputedStyle(p),a=p.getBoundingClientRect();if(/auto|scroll|hidden|clip/.test(s.overflowY)&&(r.y<a.y-1||r.bottom>a.bottom+1))return false;}return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'actual first guest picture >=80px fully inside every clipping ancestor',context);
+      check(await page.locator('.guest-card-meter [role=meter]').first().evaluate(e=>{const r=e.getBoundingClientRect();return r.width>r.height}),'guest meter stays horizontal',context);
     }
-    await screenshot(page,`studio-${theme}-${width}x${height}${portrait?'-portrait-source':count===0?'-empty':count===20?'-20-guests':''}`);
-    if(!baseline&&theme==='dark'&&(width===1440&&count>0||width===1280&&height===720&&count===0)) {
-      await page.getByRole('button',{name:'Настройки',exact:true}).click();
-      check(await page.locator('#studio-settings').isVisible(),'device settings open',context);
-      check(await page.locator('#studio-settings').evaluate(e=>!!e.closest('.studio-playback-controls')),'device settings belong beside playback',context);
-      await page.locator('#studio-settings select').last().scrollIntoViewIfNeeded();
-      check(await page.locator('#studio-settings select').last().evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'device selectors reachable via local controls scroll',context);
-      check(await page.locator('.studio-playback-controls .air-toggle').evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'ON AIR remains visible while devices scroll',context);
-      const opened=await geometry(page);check(Math.abs(opened.picture.y-g.picture.y)<1&&Math.abs(opened.picture.x-g.picture.x)<1&&Math.abs(opened.picture.width-g.picture.width)<1,'settings keep actual playback position and size',context);
-      check(opened.selects.every(s=>s.bottom<=height+1),'all four output selectors remain visible with devices open',context);
-      await page.locator('#studio-settings').evaluate(e=>e.scrollTop=0);
-      await screenshot(page,`studio-dark-${width}x${height}-settings${count===0?'-empty':''}`);
-      await page.getByRole('button',{name:'Настройки',exact:true}).click();
-      await page.evaluate(()=>{const note=document.createElement('p');note.className='studio-only-notice room-mode-notice';note.textContent='Студия включила только свой просмотр';document.querySelector('.studio-return-layout').before(note);});
-      await page.waitForTimeout(150);const notice=await geometry(page);
-      check(notice.layout.bottom<=height+1,'notice above workspace recomputes available height',context);
-      await page.evaluate(()=>document.querySelector('.studio-only-notice').remove());
-      await page.getByRole('button',{name:'Участники',exact:true}).click();
-      await page.getByRole('button',{name:'Студия',exact:true}).click();
-      check(await page.evaluate(()=>window.qaMedia.every(({video,stream,track})=>video.isConnected&&video.srcObject===stream&&track.readyState==='live')),'tabs retain live keyed video nodes',context);
+    await page.evaluate(()=>{window.qaMedia=[...document.querySelectorAll('video')].map(video=>({video,stream:video.srcObject,track:video.srcObject?.getVideoTracks()[0]}));window.qaDevices=document.querySelector('#studio-settings .media-device-picker')});
+    await screenshot(page,`console-a-${theme}-${width}x${height}-${count}-guests${portrait?'-portrait':''}`);
+    if(width===1280&&height===600&&theme==='dark'&&count===5){
+      const unchanged=()=>page.evaluate(()=>window.qaMedia.every(({video,stream,track})=>video.isConnected&&video.srcObject===stream&&track?.readyState==='live'));
+      await page.getByRole('button',{name:'Устройства',exact:true}).click();
+      check(await page.locator('#studio-settings').evaluate(e=>e.matches(':popover-open')),'actual device owner opens in native disclosure',context);
+      check(await page.locator('#studio-settings').evaluate(e=>{const r=e.getBoundingClientRect();return r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}),'devices disclosure bounded',context);
+      await screenshot(page,'console-a-devices-1280x600');await page.keyboard.press('Escape');
+      check(await page.getByRole('button',{name:'Устройства',exact:true}).evaluate(e=>document.activeElement===e),'device Escape returns focus to real trigger',context);
+      check(await page.evaluate(()=>window.qaDevices===document.querySelector('#studio-settings .media-device-picker')),'closing devices retains the same device controller DOM',context);
+      await page.getByRole('button',{name:'Пригласить',exact:true}).click();check(await page.locator('#studio-access button').count()>=4,'actual guest/stream invite actions retained',context);await page.keyboard.press('Escape');
+      await page.locator('.studio-settings-navigation').click();check(await page.locator('#studio-room-settings').evaluate(e=>e.matches(':popover-open')),'actual room-management form stays reachable',context);await page.keyboard.press('Escape');
+      const mic=page.locator('.guest-card-heading button[aria-pressed]').first();const previous=await mic.getAttribute('aria-pressed');await mic.click();check((await mic.getAttribute('aria-pressed'))!==previous,'real card dispatches quick microphone callback',context);
+      await page.locator('.guest-card-heading button[popoverTarget]').first().click();
+      const menu=page.locator('[data-console-compact] > [popover]:popover-open');check(await menu.count()===1,'compact card opens native advanced surface',context);
+      check(await menu.locator('.guest-card-bitrate select').count()===1&&await menu.locator('.personal-monitor-controls input[type=range]').count()===1&&await menu.locator('.guest-output-open').count()===1,'quality monitoring and output actions remain inside advanced surface',context);
+      await menu.locator('.guest-card-bitrate select').selectOption('2000');check(await menu.locator('.guest-card-bitrate select').inputValue()==='2000','real quality callback updates selected bitrate',context);
+      await menu.locator('.source-card-actions button').first().click();
+      await screenshot(page,'console-a-guest-settings-1280x600');await page.keyboard.press('Escape');check(await unchanged(),'menus and actual quick controls retain live media nodes',context);
+      await page.evaluate(()=>window.qaBusy(true));await page.waitForFunction(()=>document.querySelector(".air-toggle")?.disabled);check(await mic.isDisabled()&&await page.locator('.air-toggle').isDisabled(),'busy gates remain active on compact actions',context);await page.evaluate(()=>window.qaBusy(false));
+      await page.getByRole('button',{name:'Участники',exact:true}).click();check(await page.locator('[data-console-compact=true]').count()===0,'participants use default card presentation',context);
+      check(await page.locator('.source-card-advanced').first().count()===1,'default advanced details remain present',context);
+      check(await page.locator('.source-card').first().evaluate(e=>{const a=e.querySelector('.source-card-advanced'),v=e.querySelector('.studio-guest-video-wrap');const controls=[...e.querySelectorAll('.guest-preview-actions,.source-card-actions')];return a&&v&&a.getBoundingClientRect().top>=Math.max(v.getBoundingClientRect().bottom,...controls.map(c=>c.getBoundingClientRect().bottom))-1}),'default Participants settings summary stays below guest picture',context);
+      const defaultMicIcons=await page.locator('.source-card-actions button[aria-pressed] svg').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return{width:r.width,height:r.height}}));results.at(-1).defaultMicIcons=defaultMicIcons;
+      check(defaultMicIcons.length>0&&defaultMicIcons.every(r=>r.width<=24&&r.height<=24),'default primary microphone SVG stays within24px',context);
+      await screenshot(page,'console-a-participants-default-1280x600');
+      await page.getByRole('button',{name:'Студия',exact:true}).click();await page.setViewportSize({width:1440,height:900});await page.waitForTimeout(100);await page.setViewportSize({width,height});await page.waitForTimeout(100);
+      check(await unchanged(),'tabs and resize preserve every live keyed media node',context);
     }
-    if(portrait) {
-      await page.evaluate(()=>{const video=document.querySelector('.return-preview');const empty=document.createElement('div');empty.className='studio-preview-placeholder';empty.textContent='Ожидание источника STUDIO PLAYBACK';video.replaceWith(empty);});
-      check(await page.locator('.studio-preview-placeholder').evaluate(e=>{const r=e.getBoundingClientRect();return Math.abs(r.width/r.height-1.6)<.015;}),'waiting playback keeps same 16:10 frame',context);
-      await screenshot(page,'studio-dark-1280x720-waiting');
+    if(width===1920){
+      await page.locator('.guest-card-heading button[popoverTarget]').nth(2).click();
+      const menu=page.locator('[data-console-compact] > [popover]:popover-open');
+      await menu.getByRole('button',{name:'Закрыть',exact:true}).focus();
+      for(const target of [{width:1280,height:600},{width:1024,height:600}]){
+        await page.setViewportSize(target);await page.waitForTimeout(80);
+        check(await menu.evaluate(e=>{const r=e.getBoundingClientRect();return r.x>=0&&r.y>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.contains(document.activeElement)}),'open third guest popup clamps after resize and retains focus',{...context,target});
+      }
+      await page.keyboard.press('Escape');await page.setViewportSize({width,height});
+      check(await page.evaluate(()=>window.qaMedia.every(({video,stream,track})=>video.isConnected&&video.srcObject===stream&&track?.readyState==='live')),'open popup resize preserves live media',context);
     }
+    if(count===20){const before=await geometry(page);await page.locator('.source-browser').evaluate(e=>e.scrollTop=e.scrollHeight);const after=await geometry(page);check(Math.abs(after.picture.y-before.picture.y)<1&&Math.abs(after.rail.y-before.rail.y)<1,'only guest deck scrolls for additional guests',context);await page.locator('.source-browser').evaluate(e=>e.scrollTop=0);}
+    if(portrait){await page.evaluate(()=>{const v=document.querySelector('.return-preview'),p=document.createElement('div');p.className='studio-preview-placeholder';p.textContent='Ожидание источника STUDIO PLAYBACK';v.replaceWith(p)});check(await page.locator('.studio-preview-placeholder').evaluate(e=>{const r=e.getBoundingClientRect();return Math.abs(r.width/r.height-1.6)<.015}),'waiting placeholder keeps program aspect',context);}
     await page.close();
   }
   check(errors.length===0,'no browser errors',{errors});fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({baseline,results,failures,errors},null,2));

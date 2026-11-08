@@ -1,5 +1,29 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
+## Активная задача: реализация выбранной консоли А
+
+Владелец выбрал «Вариант А»: программа слева, компактные карточки рядом,
+принятая статистика/кодеки справа. Реальные рабочие компоненты уже подключены:
+вертикальный метр, ON AIR/звук, native popover устройств и приглашений,
+компактные карточки с быстрым микрофоном и расширенным меню. Media owners,
+handlers, роли и состояния сохранены; мобильный кастер не меняется.
+
+Source base b8c2683; публичный сайт пока8750294. Незакоммиченные изменения —
+текущая реализация А, а не старый отклонённый low-height черновик. Его резерв
+сохранён отдельно в /workspace/studio-redesign-options/rejected-functional-draft.patch.
+Spec/план: docs/superpowers/{specs,plans}/2026-11-08-studio-console-a*.md.
+Browser proof: /workspace/studio-console-a-product/; до завершения проверок
+не считать реализацию готовой и не передавать на установку.
+
+Исполнитель: frontend GPT-6.1 Sol high + root GuestCard/AudioMeter/locales/docs.
+Браузерная матрица15cases +3tall-confirm +Participants/defaultmic PASS,
+настоящий footer и nativepopupresize проверены. Независимое Sol high ревью
+завершено без открытых материальных замечаний; TSC и343 stable CI tests PASS.
+Далее точный commit/bundle и сборка whole-image на доверенном Windows.
+Production_ops подготовил отдельную область studio-console-a-20261108; последняя
+проверка19:22:47UTC дала0rooms/0participants/0tracks, production875 без изменений.
+Перед установкой обязательны свежие activity/config/static/neighbor guards.
+
 ## Левая группа playback и настроек — установлено08.11.2026
 
 Последняя web-версия castlink.ru: `1.0.0-rc.9-8750294fcab1`, source

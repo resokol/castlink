@@ -1,0 +1,4 @@
+import type { SVGProps } from 'react';
+export function StudioConsoleIcon({kind,...props}:SVGProps<SVGSVGElement>&{kind:'devices'|'sound'|'mic'|'more'|'close'|'people'}){
+ return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>{kind==='mic'?<><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 10v3a6 6 0 0012 0v-3M12 19v3m-3 0h6"/></>:kind==='sound'?<><path d="m11 4-6 5H2v6h3l6 5V4ZM15 8a6 6 0 010 8m3-11a10 10 0 010 14"/></>:kind==='devices'?<><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></>:kind==='more'?<><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>:kind==='people'?<><circle cx="8" cy="8" r="3"/><path d="M2 21v-3a6 6 0 0112 0v3m3-15h5m-2.5-2.5v5"/></>:<path d="m6 6 12 12M6 18 18 6"/>}</svg>;
+}

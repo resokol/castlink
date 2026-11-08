@@ -287,3 +287,37 @@ visible below in their bounded deck. Expanded device settings scroll locally.
 The previous centered frame with a full-cell-width meter is superseded. Preserve
 video containment, mounted media, roles, ON AIR authority, and isolated meter
 updates. Caster mobile toolbar remains the approved unscrolling8-action design.
+
+## Short desktop Studio and vertical meter — owner correction, 8 November 2026
+
+Playback, controls, statistics and guest pictures must share the actual browser
+viewport, including at1280×540/560/600. The former701px fallback was incorrect:
+it stacked controls across the page and pushed guests below the screen. Use the
+actual header, footer and remaining workspace budget; the footer must be present
+in screenshot fixtures. Keep other tabs and narrow/mobile page flow usable.
+
+The Studio meter is vertical immediately to the right of the16:10 picture,
+with low levels at the bottom, red peaks at the top, a legible scale and numeric
+value. It reuses the existing analyser and isolated update loop. Other meters
+keep their horizontal default. Keep the operating controls bounded beside this
+monitor group; compact desktop controls and charts before losing guest pictures.
+Additional guests scroll only inside the source deck. Expanded devices scroll
+inside their own column, with transport reachable. Preserve the approved caster
+mobile toolbar, actor permissions and mounted media.
+
+## Studio Console A — owner approved, 8 November 2026
+
+The owner selected variant A after actual browser previews. This replaces the
+previous playback/control panel and sources-below arrangement on desktop. Use
+a slim sidebar, a left program column with a contained16:10 picture and vertical
+meter immediately right, compact ON AIR and sound controls below, and native
+disclosures for devices and invitations. Put the compact source grid beside the
+program and retain the approved measured statistics/codecs panel in the right rail.
+Guest cards show name, picture, microphone action and meter; advanced controls
+remain in each labelled native menu, with actual pending/error feedback visible.
+
+Budget against the real header and footer at1280×540/560/600. Five guest pictures
+must fit on that screen; longer decks scroll locally. Keep other tabs in normal
+flow, mounted media and all existing control gates. The approved caster mobile
+toolbar is unchanged. Approved reference and scope:
+`docs/superpowers/specs/2026-11-08-studio-console-a-design.md`.

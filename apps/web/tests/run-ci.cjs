@@ -301,6 +301,7 @@ const tests = [
   "guest-participants-table.cjs",
   "studio-device-control-panel.cjs",
   "studio-return-publishing-controls.cjs",
+  "studio-console-a.cjs",
   "studio-room-lifecycle.cjs",
   "studio-guest-render.cjs",
   "runtime-diagnostics.cjs",

@@ -6,7 +6,8 @@ import { ParticipantRenameButton } from "./ParticipantRenameButton";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { videoBitrateOptions } from "@/lib/video-quality";
 import type { MonitorPreference } from "@/lib/personal-monitoring";
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 
 export type GuestVideoCardData = {
@@ -46,6 +47,8 @@ export function GuestVideoCard({
   mediaControls,
   quickControls,
   feedback,
+  compact = false,
+  primaryAction,
   onCopy,
   onCopyScreenShare,
   onQualityChange,
@@ -68,23 +71,47 @@ export function GuestVideoCard({
   mediaControls?: ReactNode;
   quickControls?: ReactNode;
   feedback?: ReactNode;
+  compact?: boolean;
+  primaryAction?: ReactNode;
   onCopy: () => void;
   onCopyScreenShare?: () => void;
   onQualityChange: (bitrateKbps: number) => void;
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const { t, locale } = useI18n();
-  return <div className="panel studio-video-card studio-caster-card source-card" data-source-focused={focused} data-source-selected={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
+  const menuId = useId(), popup = useRef<HTMLDivElement>(null), menuTrigger = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const positionMenu = (trigger: HTMLButtonElement) => {
+    const target = popup.current;
+    if (!target) return;
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(360, window.innerWidth - 24);
+    const top = Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - Math.min(440, window.innerHeight - 24)));
+    target.style.left = `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`;
+    target.style.top = `${top}px`;
+    target.style.maxHeight = `${window.innerHeight - top - 12}px`;
+  };
+  useEffect(() => {
+    if (!compact || !menuOpen) return;
+    const reposition = () => { if (menuTrigger.current) positionMenu(menuTrigger.current); };
+    window.addEventListener("resize", reposition);
+    return () => window.removeEventListener("resize", reposition);
+  }, [compact, menuOpen]);
+  return <div className={`panel studio-video-card studio-caster-card source-card${compact ? ` ${styles.compact}` : ""}`} data-console-compact={compact || undefined} data-source-focused={focused} data-source-selected={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
     <div className="guest-card-heading" tabIndex={onSelect ? -1 : undefined}>
-      <h2>{guest.name}</h2>
+      <h2 title={guest.name}>{guest.name}</h2>
       <span className="guest-media-state">
         <span title={guest.camera ? t("Камера включена") : t("Камера выключена")}>{guest.camera ? "◉" : "○"} {t("Видео")}</span>
         <span title={guest.microphone ? t("Микрофон включён") : t("Микрофон выключен")}>{guest.microphone ? "◖" : "◌"} {t("Аудио")}</span>
       </span>
+      {compact && <div className={styles.headerActions}>{primaryAction}<button ref={menuTrigger} type="button" className={styles.menuToggle} popoverTarget={menuId} aria-label={`${t("Настройки")}: ${guest.name}`} title={`${t("Настройки")}: ${guest.name}`} aria-haspopup="dialog" aria-controls={menuId} aria-expanded={menuOpen} onClick={event => positionMenu(event.currentTarget)}><StudioConsoleIcon kind="more" /></button></div>}
     </div>
     {onSelect && <button type="button" className="studio-source-select" style={{ display: "none" }} aria-pressed={focused} aria-label={`${t("Выбрать")}: ${guest.name}`} onClick={event => { const card = event.currentTarget.closest<HTMLElement>(".studio-caster-card"); onSelect(); requestAnimationFrame(() => card?.querySelector<HTMLElement>(".guest-card-heading")?.focus()); }}>{t("Выбрать")} <span>{guest.name}</span></button>}
     {preview}
     <div className="guest-card-meter">{meter}</div>
+    <div className={styles.feedback}>{feedback}</div>
+    <div ref={popup} id={menuId} className={styles.advancedSurface} popover={compact ? "auto" : undefined} role={compact ? "dialog" : undefined} aria-labelledby={compact ? `${menuId}-title` : undefined} onToggle={event => setMenuOpen(event.newState === "open")}>
+    <header className={styles.menuHeading}><h2 id={`${menuId}-title`}>{guest.name}</h2><button type="button" popoverTarget={menuId} popoverTargetAction="hide" aria-label={t("Закрыть")}><StudioConsoleIcon kind="close" /></button></header>
     <div className="guest-preview-actions">
       <a className="button-link guest-output-open" href={outputUrl} target="_blank" rel="noreferrer">{t("Открыть выход")}</a>
       <button className="guest-output-copy" title={t("Индивидуальная ссылка на видео и аудио участника")} onClick={onCopy}>{copied ? t("Скопировано") : t("Копировать URL")}</button>
@@ -99,9 +126,8 @@ export function GuestVideoCard({
     </div>
     <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
     </div>
-    {quickControls && <div className="source-card-actions">{quickControls}</div>}
-    {feedback}
-    <details className="source-card-advanced"><summary>{t("Настройки")}</summary><div className="source-card-advanced-content">
+    {(quickControls || (!compact && primaryAction)) && <div className="source-card-actions">{!compact && primaryAction}{quickControls}</div>}
+    <details className="source-card-advanced" open={compact || undefined}><summary>{t("Настройки")}</summary><div className="source-card-advanced-content">
       <div className="guest-card-settings">
         {mediaControls}
         {screenShareActive && screenShareUrl && <div className="guest-screen-share-output">
@@ -128,5 +154,6 @@ export function GuestVideoCard({
         </div></details>
       </div>
     </div></details>
+    </div>
   </div>;
 }

@@ -16,4 +16,15 @@
 .compact { gap:4px; }
 .compact .heading { font-size:10px; }
 .compact .segments { height:6px; }
+.vertical { grid-template-columns:12px minmax(18px,1fr); grid-template-rows:minmax(0,1fr) auto; gap:4px; width:44px; height:100%; min-height:0; }
+.vertical .segments { grid-column:1; grid-row:1; grid-template-columns:1fr; grid-template-rows:repeat(30,minmax(0,1fr)); width:12px; height:100%; gap:1px; }
+.vertical .scale { grid-column:2; grid-row:1; height:100%; min-height:0; line-height:10px; }
+.vertical .scale span { left:auto; right:0; transform:translateY(50%); }
+.vertical .scale span:first-child { transform:none; }
+.vertical .scale span:last-child { transform:translateY(100%); }
+.vertical .heading { grid-column:1 / -1; grid-row:2; justify-content:center; align-items:center; gap:0; }
+.vertical .heading > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.vertical .heading strong { display:flex; flex-direction:column; align-items:center; font-size:10px; line-height:11px; }
+.vertical .heading strong span { font-size:8px; line-height:10px; }
+.vertical .detail { grid-column:1 / -1; }
 @media(prefers-reduced-motion:reduce) { .segment { transition:none; } }

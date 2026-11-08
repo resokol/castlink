@@ -799,3 +799,129 @@ html .graphite-workspace.studio-page .studio-return-preview-card .studio-playbac
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { display: flex; flex: none; height: auto; overflow: visible; }
   html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stats-diagnostics { display: contents; }
 }
+
+/* Approved console A. Media owners and legacy cards remain in their existing
+   React tree; only Studio's operating composition uses this view. */
+html .graphite-workspace.studio-page.studio-console.studio-app-shell { grid-template-columns: 160px minmax(0,1fr); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-sidebar { width: 160px; height: 100dvh; min-height: 0; padding: 18px 10px 16px; gap: 18px; overflow: auto; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-sidebar .studio-brand { gap: 8px; padding-inline: 8px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-brand-mark { width: 28px; height: 28px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-sidebar .studio-brand small { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-tabs { gap: 4px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-tabs > button { min-height: 30px; padding: 6px 8px; gap: 8px; font-size: 11px; line-height: 18px; white-space: nowrap; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-tabs > .studio-design-navigation { display: flex !important; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-tabs svg { flex: none; width: 16px; height: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .sidebar-room-card { padding: 12px 8px; gap: 7px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .sidebar-footer { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .sidebar-leave-button { margin-top: auto; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] > .studio-main-column { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: 16px 20px 8px; gap: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-header { flex: none; min-height: 48px; margin: 0; padding: 0 0 12px; gap: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-header .status-pill { flex: 0 1 auto; flex-wrap: nowrap; max-width: none; white-space: nowrap; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-header > div:first-child { min-width: 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-workspace-eyebrow { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-header h1 { margin: 0; font-size: 19px; line-height: 1.25; font-weight: 600; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-invite { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 7px 10px; font-size: 11px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-invite svg { width: 16px; height: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] { display: grid; flex: 1 1 0; grid-template-columns: 300px minmax(0,1fr) 280px; grid-template-rows: 26px minmax(0,1fr); align-items: stretch; gap: 10px 20px; height: auto; min-width: 0; min-height: 0; overflow: hidden; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-return-section:not([hidden]),
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-return-hero { display: contents; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-return-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; grid-column: 1; grid-row: 1; margin: 0; width: 100%; max-width: none; font-size: 12px; line-height: 20px; letter-spacing: .035em; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-program { display: block; grid-column: 1; grid-row: 2; align-self: start; width: 100%; height: auto; min-height: 0; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; overflow: visible; container-type: normal; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-playback-monitor { display: grid; grid-template-columns: minmax(0,1fr) 44px; grid-template-rows: auto; align-items: stretch; gap: 8px; width: 100%; height: auto; min-height: 0; max-height: none; overflow: visible; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-playback-stage { display: block; grid-column: 1; grid-row: 1; width: 100%; height: auto; min-height: 0; aspect-ratio: 16/10; container-type: normal; background: #080b0d; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-playback-stage > :is(.return-preview,.studio-preview-placeholder) { display: block; box-sizing: border-box; width: 100%; height: 100%; min-height: 0; max-height: none; aspect-ratio: 16/10; object-fit: contain; border-radius: 9px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-preview-meter { display: block; grid-column: 2; grid-row: 1; align-self: stretch; width: 44px; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-preview-meter [role="meter"] { width: 12px; height: 100%; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-preview-meter [data-orientation="vertical"] > div[aria-hidden="true"] { height: 100%; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-preview-error { grid-column: 1/-1; grid-row: 2; font-size: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-playback-controls { display: block; width: 100%; height: auto; max-height: none; overflow: visible; margin: 14px 0 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program .studio-transport-bar { display: block; margin: 0; padding: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-publishing { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row { display: grid; grid-template-columns: minmax(0,1fr) 44px; gap: 8px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; margin: 0; padding: 8px 12px; border: 1px solid var(--primary); border-radius: 8px; background: var(--primary); color: var(--page-bg); font-size: 12px; font-weight: 700; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-air-row .air-toggle-live { background: #a13945; border-color: #b64a57; color: #fff; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-sound { display: grid; place-items: center; margin: 0; padding: 10px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--secondary-bg); color: var(--text); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-sound[aria-pressed="true"] { border-color: #a34c54; color: #d7807a; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-sound svg { width: 20px; height: 20px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program-actions button { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 34px; margin: 0; padding: 7px 10px; border: 1px solid var(--panel-border); border-radius: 7px; background: var(--secondary-bg); color: var(--text); font-size: 11px; line-height: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-program-actions svg { width: 16px; height: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-share .screen-share-control { display: block; width: 100%; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-share .screen-share-control > button { box-sizing: border-box; width: 100%; min-height: 34px; height: auto; padding: 7px 10px; border-radius: 7px; font-size: 11px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-share .screen-share-control > small { display: block; font-size: 10px; line-height: 1.4; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-console-guests { display: flex; flex-direction: column; grid-column: 2; grid-row: 1/span 2; align-self: stretch; min-width: 0; min-height: 0; margin: 0; gap: 10px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests > .workspace-section-heading { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 10px; height: 26px; min-height: 0; margin: 0; padding: 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests > .workspace-section-heading h2 { margin: 0; font-size: 12px; line-height: 20px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests > .workspace-section-heading h2 span { font-size: 10px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests > .workspace-section-heading > span { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests > .source-browser { flex: 1 1 0; width: 100%; min-width: 0; min-height: 0; max-height: none; margin: 0; padding: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-gutter: stable; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests .source-roster { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests .source-browser[data-view="studio"] > .source-deck { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-content: start; align-items: start; gap: 10px; min-width: 0; max-width: none; margin: 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests[data-source-count="1"] .source-browser[data-view="studio"] > .source-deck { grid-template-columns: minmax(0,1fr); max-width: 340px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-stats { display: flex; flex-direction: column; grid-column: 3; grid-row: 1/span 2; align-self: stretch; width: 100%; height: 100%; min-width: 0; min-height: 0; gap: 0; overflow: hidden; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats > .return-stats { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr) auto; flex: none; width: 100%; height: min(100%,570px); min-height: 0; max-height: 100%; margin: 0; gap: 10px; overflow: hidden; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .return-stats-diagnostics { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .return-stat-grid { flex: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart { display: flex; flex-direction: column; flex: 1 1 0; height: auto; min-height: 84px; padding: 8px 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart svg { flex: 1 1 0; height: 0; min-height: 54px; max-height: 190px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-transfer-notice { grid-column: 1/3; grid-row: 3; max-height: 100px; margin: 0; overflow: auto; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover { position: fixed; inset: auto 20px 70px auto; margin: 0; padding: 18px; width: 360px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 94px); overflow: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); box-shadow: 0 14px 40px #0003; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading h2 { margin: 0; font-size: 16px; line-height: 1.35; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; min-height: 28px; padding: 5px; border: 0; background: transparent; color: var(--muted); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover-heading svg { width: 18px; height: 18px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover > .studio-device-settings { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin: 0; padding: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-device-panel { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin: 0; padding: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .media-device-picker { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-device-panel > section.panel { padding: 0; border: 0; background: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-note { margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-popover .studio-invite-compact { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; margin: 0; padding: 0; max-height: none; overflow: visible; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell #studio-room-settings { width: min(760px,calc(100vw - 24px)); }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .workspace-footer-slot { flex: none; min-height: 0; margin: 0; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-main-column .workspace-footer.app-update-status { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0; padding: 4px 0 0; font-size: 9px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .app-version-row { flex: 1 1 0; flex-direction: row; flex-wrap: nowrap; align-items: center; min-width: 0; gap: 8px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .app-version-row > small { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .app-version-actions { flex: none; width: auto; flex-wrap: nowrap; gap: 6px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .app-version-actions :is(button,select) { height: 26px; min-height: 26px; padding: 3px 6px; font-size: 10px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .bug-report-footer { flex: none; margin: 0; padding: 0; line-height: 12px; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .workspace-footer .bug-report-link { box-sizing: border-box; height: 26px; min-height: 26px; padding: 3px 6px; font-size: 10px; line-height: 18px; }
+@media (min-width:1400px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] { grid-template-columns: 320px minmax(0,1fr) 320px; gap: 10px 24px; }
+}
+@media (min-height:701px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats > .return-stats { height: auto; grid-template-rows: auto auto auto; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .return-stats-diagnostics { flex: none; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart { flex: none; height: 190px; min-height: 190px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart svg { min-height: 64px; max-height: 160px; }
+}
+@media (max-height:700px) and (min-width:1024px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] > .studio-main-column { gap: 10px; padding-top: 12px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] .studio-header { min-height: 42px; padding-bottom: 8px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests .source-browser[data-view="studio"] > .source-deck { gap: 8px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats > .return-stats { padding: 12px; gap: 8px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .return-stat-grid { padding-block: 0; gap: 6px 8px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .return-stat-grid > span { gap: 2px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart { min-height: 80px; padding: 2px 0; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart > div { flex-direction: row; flex-wrap: nowrap; align-items: baseline; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-stats .bitrate-chart svg { max-height: 110px; }
+}
+@media (max-width:1179px) and (min-width:1024px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] { grid-template-columns: 236px minmax(0,1fr) 260px; gap: 10px 14px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-guests .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] > .studio-main-column { padding-inline: 14px; }
+}
+@media (max-width:1023px) {
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell { display: block; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-sidebar { width: 160px; height: auto; max-height: 230px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell[data-workspace-tab="studio"] > .studio-main-column { height: auto; min-height: 100dvh; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] { flex: none; grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto auto auto; overflow: visible; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-return-heading { grid-column: 1; grid-row: 1; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-program { grid-column: 1; grid-row: 2; max-width: 420px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-guests { grid-column: 1; grid-row: 3; min-height: 340px; }
+  html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-stats { grid-column: 1; grid-row: 4; height: auto; overflow: visible; }
+}
+
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] > .studio-console-guests[data-source-count="0"] { display: flex; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-empty { display: none; }
+html .graphite-workspace.studio-page.studio-console.studio-app-shell .studio-console-layout[data-view="studio"] .studio-console-empty { display: block; font-size: 12px; color: var(--muted); }

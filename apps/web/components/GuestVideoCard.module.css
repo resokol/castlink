@@ -38,3 +38,45 @@
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+
+.advancedSurface:not([popover]), .feedback { display: contents; }
+:global(.graphite-workspace) .advancedSurface:not([popover]) > :global(.guest-preview-actions) { padding: 0 0 8px; gap: 6px; }
+:global(html[data-design-preview="on"] .source-browser .source-deck .source-card) > .advancedSurface:not([popover]) > :global(.source-card-advanced) { display: block; order: 5; width: 100%; border-top: 1px solid var(--panel-border); padding-top: 10px; }
+.menuHeading { display: none; }
+.advancedSurface[popover] { position: fixed; inset: auto; width: min(360px, calc(100vw - 24px)); margin: 0; padding: 16px; overflow: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); box-shadow: 0 12px 40px #0003; }
+.advancedSurface[popover]:popover-open { display: flex; flex-direction: column; gap: 12px; }
+.advancedSurface[popover] .menuHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.menuHeading h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 15px; }
+.menuHeading button { display: grid; place-items: center; flex: none; width: 32px; height: 32px; min-height: 32px; padding: 7px; border: 1px solid var(--panel-border); border-radius: 8px; color: var(--text); background: var(--secondary-bg); }
+.menuHeading svg, .menuToggle svg { width: 18px; height: 18px; }
+.advancedSurface[popover] :global(.guest-preview-actions) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0 0 12px; }
+.advancedSurface[popover] :global(.guest-preview-actions) > * { min-width: 0; }
+.advancedSurface[popover] :global(.source-card-actions) { display: flex; flex-wrap: wrap; gap: 8px; }
+.advancedSurface[popover] :global(.source-card-advanced) > summary { display: none; }
+.advancedSurface[popover] :global(.source-card-advanced-content) { display: grid; gap: 12px; }
+.advancedSurface[popover] :is(button, select, input) { max-width: 100%; }
+.advancedSurface[popover] :is(button, select) { min-height: 32px; }
+.advancedSurface[popover] button:focus-visible, .menuToggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+:global(html .graphite-workspace.studio-page.studio-app-shell.studio-console .source-browser .source-deck) .compact[data-console-compact="true"] { display: block; gap: 0; min-width: 0; padding: 0; border: 1px solid var(--panel-border); border-radius: 9px; background: var(--panel-bg); overflow: visible; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-heading) { display: flex; align-items: center; gap: 4px; min-height: 34px; height: 34px; padding: 4px 7px; margin: 0; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-heading) h2 { flex: 1 1 0; min-width: 0; margin: 0; font-size: 11px; font-weight: 500; line-height: 16px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] :global(.guest-media-state) { display: none; }
+.headerActions { display: flex; align-items: center; gap: 2px; flex: none; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button { display: grid; place-items: center; flex: none; width: 26px; height: 26px; min-width: 26px; min-height: 26px; margin: 0; padding: 4px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 0; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions svg { width: 16px; height: 16px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button:disabled { opacity: .5; cursor: default; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button:hover:enabled { color: var(--text); background: var(--secondary-bg); }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button[aria-pressed="false"] { color: #d7807a; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .headerActions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-preview-cell) { padding: 0; margin: 0; min-width: 0; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] :global(.studio-guest-video-wrap):not(:fullscreen) { margin: 0; border: 0; border-radius: 0; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) { margin: 0; padding: 4px 7px 6px; border: 0; min-width: 0; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) > div { gap: 4px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) > div > div:first-child { font-size: 9px; line-height: 12px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) strong { font-size: 9px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) [role="meter"] { height: 6px; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) > div > div[aria-hidden="true"] { display: none; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > .feedback { display: block; padding: 4px 7px; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > .feedback:empty { display: none; }
