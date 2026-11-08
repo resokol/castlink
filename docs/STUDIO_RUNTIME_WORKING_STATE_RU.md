@@ -1,19 +1,45 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
-## Текущая доработка: пропорции мобильного «Окна» и оранжевый URL
+## Установлены мобильные пропорции «Окна» и оранжевый URL — 08.11.2026
 
-Владелец уточнил режим «Окно» на мобильном фото, не «Плитка». Исправлены
-почти квадратнаяосновная ирастянутаявторичная рамки; обе16:9, contain/keyedmedia
-сохранены. Изменение11строкConferenceScene.tsx, другиеполитики/toolbarнетронуты.
-CopyURLкнопкаосновнойстудии оранжевая; обработчик/размеры/зелёныйуспех прежние.
-Browser/TSC/independentSolreview PASS;343CIсuitesпроверены(262+81послеобновлениякарты).
-План docs/superpowers/plans/2026-11-08-caster-window-orange.md. Покаproduction99.
-Opsscope caster-window-orange-20261108; readonly22:22:51UTC1room/1participant/0tracks,
-strictactivityHOLDswap. Сначала exactsourcebuild/upload, потомсвежийguard;
-неотключатьучастника, непроводитьмиграции/cleanup/push.
+castlink.ru: `1.0.0-rc.9-ce4964f14302`, source
+`ce4964f14302b582a3c5354e2c8eda677f7666ef`, tree
+`8317e7451b65be623fdabf70b0ec463abd6b1141`. Переключено22:44:46UTC.
+Image: `sha256:89c1805c8bc1f3d4e6795b41a2eb7ae9b66eac36c3b03914e9defe9a26d96c0b`.
 
+Владелец уточнил именно пропорции на фото мобильного «Окна», не режим«Плитка».
+Основная рамка и вторичные теперь16:9, видео сохраняется целиком черезcontain.
+При393×730 main363×204.1875 вместо363×358.72, вторичный194×109 вместо363×121.28.
+Расчёт11строкConferenceScene.tsx учитывает доступную высоту и одиночный кадр;
+длинная лента прокручивается локально. Desktop/landscape/Tiles, pin/sourcepriority,
+mediaowners и8-кнопочнаяпанель не менялись. КнопкаCopyURLосновнойстудии оранжевая
+с контрастным тёмным значком, hover светлее; зелёное подтверждение иonCopy прежние.
+Обновление интерфейса: обновить вкладку браузера.
 
-## Установлены прямой URL и компактные меню — 08.11.2026
+Browser22сценария подтверждены20initial+2tabletretargetпослекорректировки
+fixturephone-minimumкпрежнемуdesktopcontract;3Studioorangeконтекста PASS.
+Rootпросмотрелexact393послеfix иобетемыStudio. TSCexit0,3conferenceunit,
+independentGPT-6.1Solhighreviewбеззамечаний;343stabletestsPASS262+81после
+регенерацииmanualmap1858. Нетruntimeизмененийпослеfreeze.
+Доказательства /workspace/caster-window-proportions-confirm,
+caster-window-proportions-tablet-confirm иstudio-copy-orange-proof.
+Тестовые локальные потоки, не liveSFU/RemotePC проверка.
+
+Official whole-image build/Windows+VPS isolation/48compiledfeatures/7точных
+публичныхJS/CSSхешей PASS; rootотдельноподтвердилHTTPS /api/version.
+До22:40:56UTC был1participant/0tracks: подготовка завершена, stageне запускали.
+Rootпопросилвыйтиизкомнаты; fresh22:43:43UTC фактически0/0/0, затемguardedswap.
+До/послеустановки0rooms/participants/tracks, никогонеотключали.281public,
+8соседнихслужб,env/mount/security/limits/config/profiles/dataсохранены.
+Maintenanceснят,0restarts; rollback99/image7ca сохранён. Миграций/cleanup/pushнет.
+Receipt /workspace/castlink-caster-window-orange-final-receipt.json SHA256
+`46e781226bc5f2a53c8ededb4e0c9da179a2d65515dac43dd233ca6ab710a6d6`.
+Windows scope C:/Users/Max/Projects/studiolink-ha-ops/caster-window-orange-20261108/.
+План docs/superpowers/plans/2026-11-08-caster-window-orange.md.
+UI/ops — GPT-6.1 Sol high; orange/интеграция/проверки — rootCodex;
+независимыйreview — GPT-6.1 Sol high console_a_review. Задача завершена.
+
+## Предыдущая установка: прямой URL и компактные меню — 08.11.2026
 
 castlink.ru: `1.0.0-rc.9-99f89126755e`, source
 `99f89126755e057a4a218b7040677f840e2669fe`, tree

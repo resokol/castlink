@@ -11,7 +11,7 @@ orangehighlight forrecentguestcard CopyURL. Base99f8912, HEAD80e3bda.
 - [x] Browserbatch: phone320/393inclbrowserchromeheight, landscape/tablet/desktop,
  bothmodes andthemes,2/manysources, mediaidentity/pin/sourcepriority, toolbarbounds.
  RootStudioorangeactualcapture pluscontrast; reviewthenfocusedproof/TSC/stableCI.
-- [ ] Freeze exactsource/bundle, officialwholeimage+281overlay viaownedWindows;
+- [x] Freeze exactsource/bundle, officialwholeimage+281overlay viaownedWindows;
  isolatedsmoke/upload, freshstrict0activityguard and281/eightneighbor/contracts;
  web-onlyinstall, rootpublicHTTPS+receipt. No kicks/migrations/cleanup/publicpush.
 
@@ -34,3 +34,9 @@ IndependentSolreview closed nofindings; finalTSCexit0 and3focusedconference suit
 FullCI first262suitesPASS thenmanualcatalogbecamestaleafterfixture-onlyedits;
 regenerated1858catalog/manualtestPASS, remainingofficiallist+3reservevariants
 PASS /tmp/caster-window-orange-ci-completion.log (262+81=343). No runtimechangesafterfreeze.
+
+Delivered22:44:46UTC ce4964f/tree8317e745/image89c1805c… . Build48/48+
+7HTTPSassets PASS. Concreteuploadready22:40 while1participant:HOLD; fresh0
+observed22:43:43 thenweb-onlyswap underexistingGO.281/eightneighbors/contracts
+preserved, maintenancecleared, rollback99retained. RootHTTPSbuildconfirmed.
+Receipt /workspace/castlink-caster-window-orange-final-receipt.json.
