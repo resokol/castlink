@@ -88,13 +88,18 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
   const allocation = resizable ? split : 0.76;
   const rail = sceneRail(size.width,size.height,railCount,allocation,portrait);
   const divider = resizable ? 12 : 0;
-  const mainHeight = Math.max(0, (size.height - 16) * allocation);
+  // A portrait Window uses the same proportional frames as its filmstrip.
+  // Available height bounds the main frame; it never stretches the image box.
+  const mainHeight = portrait
+    ? Math.min(size.width * 9 / 16, Math.max(0, size.height - (solo ? 0 : rail.tileHeight + 8)))
+    : Math.max(0, (size.height - 16) * allocation);
+  const mainWidth = portrait ? mainHeight * 16 / 9 : size.width;
   // Desktop keeps the owner-selected proportional filmstrip; mobile keeps its compact rail.
   const canvasStyle: CSSProperties = !mobile && focusedMode && !solo ? {
     gridTemplateColumns:`minmax(0,1fr) ${divider}px ${rail.tileWidth}px`,
     gridTemplateRows:`repeat(${railCount},${rail.tileHeight}px)`, height:rail.height,
-  } : solo ? { gridTemplateColumns:'minmax(0,1fr)', gridTemplateRows:'minmax(0,1fr)' } : focusedMode ? portrait ? {
-    gridTemplateColumns:`repeat(${railCount},minmax(110px,1fr))`, gridTemplateRows:`${mainHeight}px minmax(0,1fr)`,
+  } : solo ? { gridTemplateColumns:'minmax(0,1fr)', gridTemplateRows:portrait ? `${mainHeight}px` : 'minmax(0,1fr)', alignContent:portrait ? 'start' : undefined } : focusedMode ? portrait ? {
+    gridTemplateColumns:`repeat(${railCount},${rail.tileWidth}px)`, gridTemplateRows:`${mainHeight}px ${rail.tileHeight}px`, alignContent:'start',
   } : {
     gridTemplateColumns:`minmax(0,${allocation}fr) ${divider}px minmax(0,${1-allocation}fr)`,
     gridTemplateRows:`repeat(${railCount},minmax(90px,1fr))`,
@@ -134,7 +139,7 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
       <div className={`${styles.canvas} ${focusedMode ? styles.focus : styles.gallery}`} style={canvasStyle}>
         {items.map(item => {
           const main = focusedMode && item.id === focused?.id, index = others.findIndex(other => other.id === item.id);
-          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:size.width,height:mainHeight,position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0,alignSelf:'start' } : portrait ? {gridColumn:index+1,gridRow:2} : {gridColumn:3,gridRow:index+1};
+          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1,...(portrait ? {width:mainWidth,height:mainHeight} : {})} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:mainWidth,height:mainHeight,position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0,alignSelf:'start' } : portrait ? {gridColumn:index+1,gridRow:2,width:rail.tileWidth,height:rail.tileHeight} : {gridColumn:3,gridRow:index+1};
           const pinned = item.id === pinnedId;
           return <div key={item.id} className={`${styles.tile} ${main ? styles.primary : ''}`} data-scene-primary={main || undefined} data-scene-source={item.kind} hidden={item.hidden} data-scene-preview={item.secondaryOnly || undefined} style={item.hidden ? { display: 'none' } : item.secondaryOnly ? {position:'absolute',right:8,bottom:8,width:'clamp(110px,22%,220px)',height:'auto',aspectRatio:'16 / 9',zIndex:4} : position}>
             {item.node}

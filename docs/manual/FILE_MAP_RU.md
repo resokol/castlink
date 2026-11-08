@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1856**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1858**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -9670,7 +9670,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 450 файлов
+## apps/web/tests · 451 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -9889,6 +9889,18 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:fs`, `node:os`, `node:path`, `react`, `react-dom/server`.
 
 Переменные окружения (только имена): `CASTLINK_TOOLBAR_DESKTOP_ONLY`.
+
+### apps/web/tests/caster-window-proportions.browser.cjs
+
+[`apps/web/tests/caster-window-proportions.browser.cjs`](../../apps/web/tests/caster-window-proportions.browser.cjs)
+
+Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
+
+Экспортируемые символы: `Track`, `RoomEvent`, `LocalVideoTrack`, `PdfPresentationViewer`, `useI18n`, `translateWorkspaceMessage`, `useRoomContext`, `useEnsureTrackRef`, `useTracks`, `useCreateLayoutContext`, `usePinnedTracks`, `LayoutContextProvider`, `AudioTrack`, `ControlBar`, `ChatToggle`, `ParticipantTile`, `GuestCameraButton`, `RoomChat`, `isVerifiedTalkback`, `exitCssFullscreen`, `toggleElementFullscreen`, `watchFullscreenChrome`.
+
+Библиотеки/Node: `${path.join(source, `, `${path.join(web,`, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
+
+Переменные окружения (только имена): `CASTLINK_QA_ESBUILD`, `CASTLINK_QA_PLAYWRIGHT`, `CASTLINK_QA_SOURCE`, `CASTLINK_WINDOW_OUT`, `CASTLINK_WINDOW_RED`, `CASTLINK_WINDOW_TABLET_CONFIRM`.
 
 ### apps/web/tests/caster-workspace-layout.cjs
 
@@ -14802,7 +14814,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 67 файлов
+## docs · 68 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15169,6 +15181,12 @@ Server roles and permanent caster outputs
 [`docs/superpowers/plans/2026-11-02-studio-runtime.md`](../superpowers/plans/2026-11-02-studio-runtime.md)
 
 Studio performance and runtime diagnostics implementation plan
+
+### docs/superpowers/plans/2026-11-08-caster-window-orange.md
+
+[`docs/superpowers/plans/2026-11-08-caster-window-orange.md`](../superpowers/plans/2026-11-08-caster-window-orange.md)
+
+Mobile Window proportions and Studio URL accent
 
 ### docs/superpowers/plans/2026-11-08-studio-console-a.md
 

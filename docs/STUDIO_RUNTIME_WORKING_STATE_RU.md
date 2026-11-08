@@ -1,5 +1,18 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
+## Текущая доработка: пропорции мобильного «Окна» и оранжевый URL
+
+Владелец уточнил режим «Окно» на мобильном фото, не «Плитка». Исправлены
+почти квадратнаяосновная ирастянутаявторичная рамки; обе16:9, contain/keyedmedia
+сохранены. Изменение11строкConferenceScene.tsx, другиеполитики/toolbarнетронуты.
+CopyURLкнопкаосновнойстудии оранжевая; обработчик/размеры/зелёныйуспех прежние.
+Browser/TSC/independentSolreview PASS;343CIсuitesпроверены(262+81послеобновлениякарты).
+План docs/superpowers/plans/2026-11-08-caster-window-orange.md. Покаproduction99.
+Opsscope caster-window-orange-20261108; readonly22:22:51UTC1room/1participant/0tracks,
+strictactivityHOLDswap. Сначала exactsourcebuild/upload, потомсвежийguard;
+неотключатьучастника, непроводитьмиграции/cleanup/push.
+
+
 ## Установлены прямой URL и компактные меню — 08.11.2026
 
 castlink.ru: `1.0.0-rc.9-99f89126755e`, source

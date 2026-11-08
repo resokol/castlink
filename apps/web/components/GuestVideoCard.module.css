@@ -86,10 +86,10 @@
 .advancedSurface:not([popover]) .sectionSummary { display: none; }
 .copyStatus { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 :global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] > :global(.guest-card-meter) { display: grid; grid-template-columns: minmax(0,1fr) 28px; align-items: center; gap: 6px; padding: 4px 6px; }
-:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .copyShortcut { display: grid; place-items: center; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 6px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); }
+:global(html .graphite-workspace.studio-page.studio-console) .compact[data-console-compact="true"] .copyShortcut { display: grid; place-items: center; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 6px; border: 0; border-radius: 5px; background: #f0a261; color: #2c190d; }
 :global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut svg { width: 16px; height: 16px; }
-:global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut:hover { background: var(--secondary-bg); color: var(--text); }
-:global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut[data-copied] { color: var(--primary); }
+:global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut:hover { background: #ffbc80; color: #2c190d; }
+:global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut[data-copied] { background: var(--primary); color: var(--page-bg); }
 :global(html .graphite-workspace.studio-page.studio-console) .compact .copyShortcut:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 /* Menu order is independent of the source-card layout's inherited flex order. */

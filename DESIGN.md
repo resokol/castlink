@@ -335,3 +335,15 @@ compact spacing, readable labels, bounded placement by their invoker, accessible
 close/focus and local scrolling. Fold advanced groups without unmounting device
 or media owners; preserve all commands, role/busy gates, fields and feedback.
 This is a narrow refinement of A, with no changes to the program/source geometry.
+
+## Mobile Window proportions and URL accent — owner correction, 8 November2026
+
+The owner explicitly identified the portrait mobile Window screen, not the Tiles
+mode: the primary camera tile must not become a tall near-square from a percent
+of viewport height. Keep proportional media frames, contain original video and
+keep secondary participants readable. Preserve mobile transport, mounted media,
+pinning/source priority and desktop/Tiles behavior.
+
+Highlight the compact Studio guest Copy URL shortcut in warm orange (#f0a261
+with #2c190d ink, lighter hover). Preserve the existing green copied confirmation,
+accessible labels, target size, actual handler and approved Console A geometry.
