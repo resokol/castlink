@@ -2,6 +2,12 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Шумоподавление и защита от эха": ["Noise suppression and echo cancellation", "降噪与回声消除"],
+  "Шумоподавление и защита от эха включены.": ["Noise suppression and echo cancellation are on.", "降噪与回声消除已开启。"],
+  "Применяем обработку микрофона…": ["Applying microphone processing…", "正在应用麦克风处理…"],
+  "Браузер не подтвердил обработку микрофона.": ["The browser did not confirm microphone processing.", "浏览器未确认麦克风处理状态。"],
+  "Браузер не подтвердил включение эхоподавления для этого микрофона.": ["The browser did not confirm echo cancellation for this microphone.", "浏览器未确认此麦克风已开启回声消除。"],
+  "Оригинальный звук. Используйте наушники, чтобы избежать эха.": ["Original sound. Use headphones to avoid echo.", "原始声音。请使用耳机以避免回声。"],
   "Диагностика студии → JSON": ["Studio diagnostics → JSON", "演播室诊断 → JSON"],
   "Журнал этой вкладки → JSON": ["This tab’s log → JSON", "此标签页日志 → JSON"],
   "Диагностика студии": ["Studio diagnostics", "演播室诊断"],
@@ -2297,6 +2303,17 @@ export const workspacesMessages: Record<string, readonly [string, string]> = {
   "Участники и потоки → CSV": [
     "Participants and streams → CSV",
     "参与者和流 → CSV"
+  ],
+  "Участники → CSV": ["Participants → CSV", "参与者 → CSV"],
+  "Сессии и потоки → CSV": ["Sessions and streams → CSV", "会话和流 → CSV"],
+  "Участников в выборке": ["Participants in selection", "所选范围内的参与者"],
+  "Повторные сессии": ["Additional sessions", "额外会话"],
+  "Сетевые переподключения": ["Network reconnection cycles", "网络重连周期"],
+  "Участники и сессии": ["Participants and sessions", "参与者和会话"],
+  "Сессий в выборке": ["Sessions in selection", "所选范围内的会话"],
+  "Участник определяется по ID и роли. Повторные сессии — дополнительные сессии в выборке, включая перезагрузки и параллельные вкладки. Это не число сетевых сбоев. Сетевые переподключения — циклы восстановления связи с начала выбранных сессий, в том числе до выбранного периода. Счётчики старых клиентов могут быть неточными.": [
+    "Participants are grouped by ID and role. Additional sessions include reloads and parallel tabs within the selection; they are not a count of network failures. Network reconnections count recovery cycles since the selected sessions began, including before the selected period. Older clients may have inaccurate counters.",
+    "参与者按 ID 和角色分组。额外会话包括所选范围内的页面刷新和并行标签页，不等于网络故障次数。网络重连统计从所选会话开始的恢复周期，也包括所选时间段之前的周期。旧客户端的计数可能不准确。"
   ],
   "История аудио → CSV": [
     "Audio history → CSV",

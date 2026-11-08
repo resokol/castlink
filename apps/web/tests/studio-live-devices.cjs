@@ -58,7 +58,7 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   const file=ts.createSourceFile('StudioWorkspace.tsx',fs.readFileSync(`${__dirname}/../components/StudioWorkspace.tsx`,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
   let prepare; (function visit(n){if(ts.isVariableDeclaration(n)&&n.name.getText(file)==='prepareReturnCapture')prepare=n.initializer;ts.forEachChild(n,visit);})(file);
   const ref=current=>({current}); const events=[];
-  let fail=false;
+  let fail=false, rootFrames=0, rootMeterUpdates=0;
   const track=kind=>({kind,readyState:'live',getSettings:()=>({deviceId:kind}),clone:()=>track(kind),stop(){events.push(`stop-${kind}`);this.readyState='ended';}});
   class Stream {
     constructor(tracks=[]){this.tracks=[...tracks];}getTracks(){return this.tracks;}getVideoTracks(){return this.tracks.filter(t=>t.kind==='video');}getAudioTracks(){return this.tracks.filter(t=>t.kind==='audio');}addTrack(t){this.tracks.push(t);}removeTrack(t){this.tracks=this.tracks.filter(v=>v!==t);}
@@ -70,10 +70,10 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   }
   const oldStream=new Stream([track('video'),track('audio')]);
   const context={studioRoleRef:ref('primary'),selectedDevicesRef:ref({videoDeviceId:'one',audioDeviceId:'mic'}),returnFpsRef:ref(60),videoSourceRef:ref('camera'),captureInputsRef:ref(undefined),returnRawStreamRef:ref(undefined),captureKeyRef:ref('old'),returnStreamRef:ref(oldStream),captureGenerationRef:ref(0),returnGainRef:ref(100),previewDeviceErrorRef:ref(''),returnPublishedRef:ref({}),onAirRef:ref(true),returnSourceDeviceIdsRef:ref({}),captureDisposeRef:ref(()=>events.push('old-disposed')),returnGainNodeRef:ref(null),outputMuteGainRef:ref(null),outputMutedRef:ref(false),returnPreviewStreamRef:ref(null),returnVideoRef:ref(null),previewReadyRef:ref(true),
-    returnAudioContextRef:ref(undefined),resumeStudioReturnAudio:async context=>{assert.equal(context.state,'running');},outputMuteGainsRef:ref(new Set()),privateTalkActiveRef:ref(false),StudioTrackRollbackError:require('../lib/studio-device-session.ts').StudioTrackRollbackError,
+    returnAudioContextRef:ref(undefined),returnAnalyserRef:ref(undefined),resumeStudioReturnAudio:async context=>{assert.equal(context.state,'running');},outputMuteGainsRef:ref(new Set()),privateTalkActiveRef:ref(false),StudioTrackRollbackError:require('../lib/studio-device-session.ts').StudioTrackRollbackError,
     navigator:{mediaDevices:{getUserMedia:async()=>{events.push('open');if(fail)throw Error('device missing');return new Stream([track('video'),track('audio')]);},enumerateDevices:async()=>[]}},
     MediaStream:Stream,AudioContext:Context,Float32Array,DOMException,studioCaptureConstraints:()=>({video:true,audio:true}),connectStudioOutputAudio:(_ctx,_gain,_analyser,monitor)=>({gain:node(),stream:monitor.stream}),
-    requestAnimationFrame:()=>1,cancelAnimationFrame(){},setReturnDevices(){},setReturnLevel(){},peakDbfs:()=>-20,METER_FLOOR_DB:-60,setPreviewReady(){},setPreviewCaptureError(){},
+    requestAnimationFrame:()=>++rootFrames,cancelAnimationFrame(){},setReturnDevices(){},setReturnLevel(){rootMeterUpdates++;},peakDbfs:()=>-20,METER_FLOOR_DB:-60,setPreviewReady(){},setPreviewCaptureError(){},
     replaceStudioPublishedTracks:async()=>{events.push('replaced');},
   };
   context.room={};context.connectedStudioRoomRef=ref(context.room);context.transferLeavingRef=ref(false);
@@ -81,12 +81,17 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   fail=true;await assert.rejects(run(),/device missing/);
   assert.equal(context.returnStreamRef.current,oldStream);assert.ok(!events.includes('old-disposed'));assert.equal(oldStream.getVideoTracks()[0].readyState,'live');
   events.length=0;fail=false;await run();
+  assert.equal(rootMeterUpdates,0,'studio capture must not update whole-workspace state for the audio meter');
+  assert.equal(rootFrames,0,'the small meter owns animation, not the StudioWorkspace capture');
+  assert.ok(context.returnAnalyserRef.current,'committed capture exposes its existing analyser to the meter');
   assert.deepEqual(events,['open','replaced','old-disposed'],'retire old capture only after publication replacement');
   assert.notEqual(context.returnStreamRef.current,oldStream);assert.equal(context.previewReadyRef.current,true);
   events.length=0;await run();assert.deepEqual(events,[],'same selected devices reuse the prepared stream');
   const oldPrepared=context.returnRawStreamRef.current;
+  const oldAnalyser=context.returnAnalyserRef.current;
   context.navigator.mediaDevices.getUserMedia=async constraints=>{assert.equal(constraints.video,false,'microphone-only switch must not reopen the camera');assert.ok(constraints.audio);return new Stream([track('audio')]);};
   await run({videoDeviceId:'one',audioDeviceId:'another-mic'});
+  assert.ok(context.returnAnalyserRef.current && context.returnAnalyserRef.current !== oldAnalyser,'disposing old capture must not clear the replacement analyser');
   assert.equal(context.returnRawStreamRef.current.getVideoTracks()[0].readyState,'live','cloned unchanged camera survives old capture disposal');
   assert.equal(oldPrepared.getVideoTracks()[0].readyState,'ended','release previous raw camera track after clone swap');
   console.log('PASS: actual capture lifecycle preserves old program on open failure and commits replacement before disposing old capture');
@@ -134,7 +139,7 @@ require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule
   const cleanup=vm.runInNewContext(ts.transpileModule(`(${disconnectEffect.getText(file)})`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context)();
   let releaseCapture,opened;const opening=new Promise(resolve=>opened=resolve),permission=new Promise(resolve=>releaseCapture=resolve),late=new Stream([track('video'),track('audio')]);context.navigator.mediaDevices.getUserMedia=async()=>{opened();return permission;};
   const pendingCapture=run({videoDeviceId:'late-camera',audioDeviceId:'late-mic'});await opening;listeners.get('disconnected')();releaseCapture(late);await assert.rejects(pendingCapture,/не подключена/);
-  assert.ok(late.getTracks().every(track=>track.readyState==='ended'),'late permission grant tracks are stopped after final disconnect');assert.equal(context.returnVideoRef.current.srcObject,null,'late capture never reattaches preview');assert.equal(context.returnPreviewStreamRef.current,undefined);assert.equal(context.connectedStudioRoomRef.current,null);assert.equal(context.onAirRef.current,false);assert.equal(context.returnActiveRef.current,false);cleanup();
+  assert.ok(late.getTracks().every(track=>track.readyState==='ended'),'late permission grant tracks are stopped after final disconnect');assert.equal(context.returnVideoRef.current.srcObject,null,'late capture never reattaches preview');assert.equal(context.returnPreviewStreamRef.current,undefined);assert.equal(context.returnAnalyserRef.current,undefined,'final disconnect releases the meter analyser');assert.equal(context.connectedStudioRoomRef.current,null);assert.equal(context.onAirRef.current,false);assert.equal(context.returnActiveRef.current,false);cleanup();
   console.log('PASS: actual final-disconnect handler invalidates pending native capture, stops late tracks and prevents preview reattachment/publication');
 
 

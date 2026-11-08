@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), http = require('node:http');
 const { createRequire } = require('node:module');
 const web = path.resolve(__dirname, '..'), req = createRequire(path.join(web, 'package.json'));
-const { chromium } = req('playwright');
+const { chromium } = require(process.env.CASTLINK_QA_PLAYWRIGHT || req.resolve('playwright'));
 const out = process.env.CASTLINK_LAYOUT_QA_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-ui-layout-'));
 fs.mkdirSync(out, { recursive: true });
 const loader = path.join(out, 'ts-loader.cjs'), cssLoader = path.join(out, 'css-loader.cjs');
@@ -53,10 +53,16 @@ async function studio(page, width, theme, height=1000) {
   await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
   const geometry = await page.evaluate(() => {
     const rect = e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
-    return { viewportHeight: innerHeight, section: rect(document.querySelector('.studio-return-section')), heading: rect(document.querySelector('.studio-return-heading')), preview: rect(document.querySelector('.studio-return-preview-card')), picture: rect(document.querySelector('.return-preview')), meter: rect(document.querySelector('.studio-preview-meter')), invites: rect(document.querySelector('.studio-invite-compact')), sources: rect(document.querySelector('.studio-sources-section')), cards: [...document.querySelectorAll('.source-card')].map(rect), rail: rect(document.querySelector('.studio-return-rail')), screen: rect(document.querySelector('.studio-screen-share-button')), audio: rect(document.querySelector('.studio-quick-controls > button:nth-last-child(2)')), selects: [...document.querySelectorAll('.return-output-controls select')].map(rect), scrollWidth: document.documentElement.scrollWidth };
+    return { viewportHeight: innerHeight, section: rect(document.querySelector(innerWidth>=1101?'.studio-return-layout':'.studio-return-section')), heading: rect(document.querySelector('.studio-return-heading')), preview: rect(document.querySelector('.studio-return-preview-card')), picture: rect(document.querySelector('.return-preview')), meter: rect(document.querySelector('.studio-preview-meter')), invites: rect(document.querySelector('.studio-invite-compact')), sources: rect(document.querySelector('.studio-sources-section')), cards: [...document.querySelectorAll('.source-card')].map(rect), rail: rect(document.querySelector('.studio-return-rail')), screen: rect(document.querySelector('.studio-screen-share-button')), audio: rect(document.querySelector('.studio-quick-controls > button:nth-last-child(2)')), selects: [...document.querySelectorAll('.return-output-controls select')].map(rect), scrollWidth: document.documentElement.scrollWidth };
   });
-  assert(geometry.meter.y >= geometry.picture.y + geometry.picture.height - 1 && geometry.invites.y >= geometry.meter.y + geometry.meter.height - 1, 'audio meter stays between playback picture and invitations');
-  if (width > 960) {
+  assert(geometry.meter.y >= geometry.picture.y + geometry.picture.height - 1, 'audio meter stays below playback picture');
+  if(width>=1101) assert(geometry.invites.x>=geometry.picture.x+geometry.picture.width-1,'compact invitations sit alongside playback');
+  else assert(geometry.invites.y>=geometry.meter.y+geometry.meter.height-1,'stacked invitations follow the meter');
+  if (width >= 1101) {
+    assert(geometry.sources.y<geometry.viewportHeight,'guest cards share the first viewport');
+    assert(geometry.sources.y>=geometry.preview.y+geometry.preview.height-1,'guest sources follow compact playback');
+    assert(geometry.section.y+geometry.section.height<=geometry.viewportHeight+1&&geometry.rail.y+geometry.rail.height<=geometry.viewportHeight+1,'compact workspace and rail fit the viewport');
+  } else if (width > 960) {
     assert(Math.abs(geometry.preview.y - geometry.rail.y) < 1, 'playback and outgoing rail have aligned tops');
     assert(geometry.sources.y >= geometry.viewportHeight, 'desktop guest cards start below the first viewport');
     assert(geometry.invites.y+geometry.invites.height<=geometry.viewportHeight+1 && geometry.rail.y+geometry.rail.height<=geometry.viewportHeight+1,'playback invitations and outgoing panel fit the first desktop screen');
@@ -74,9 +80,9 @@ async function studio(page, width, theme, height=1000) {
     assert(visibleControls.every(Boolean),'FPS, bitrate, codec and layer mode are visible without scrolling');
   }
   const columns = geometry.cards.filter(card => Math.abs(card.y - geometry.cards[0].y) < 1).length;
-  if (width >= 1280) assert.equal(columns, 5, `${width}px overview shows five guest cards per row`);
+  if (width >= 1280) assert(columns>=3&&columns<=7, `${width}px overview adapts source columns to the space beside statistics`);
   else assert(columns < 5, 'smaller viewports reduce the column count');
-  assert(Math.abs(geometry.screen.width - geometry.audio.width) < 1 && Math.abs(geometry.screen.height - geometry.audio.height) < 1, 'screen/audio buttons have equal dimensions');
+  assert(Math.abs(geometry.screen.width - geometry.audio.width) < 1 && Math.abs(geometry.screen.height - geometry.audio.height) < 1, 'screen/audio buttons have equal dimensions at '+width+'x'+height);
   for(const [a,b] of [[0,1],[2,3]]) assert(Math.abs(geometry.selects[a].y-geometry.selects[b].y)<1,'paired output controls align horizontally');
   assert(geometry.selects.every(select => Math.abs(select.width - geometry.selects[0].width) < 1 && Math.abs(select.height - geometry.selects[0].height) < 1), 'wrapped quality labels retain equal select dimensions');
   assert(geometry.scrollWidth <= width, 'studio has no page overflow');
@@ -93,14 +99,14 @@ async function studio(page, width, theme, height=1000) {
   await page.waitForFunction(()=>!document.querySelector('.studio-return-section').hidden&&document.querySelector('.studio-return-section').style.getPropertyValue('--studio-playback-height'));
   assert.equal(await page.evaluate(()=>window.qaPlaybackVideo===document.querySelector('.return-preview')&&window.qaPlaybackTrack.readyState==='live'),true,'tab switch keeps the same live playback video');
   assert.equal(await page.locator('.return-preview').evaluate(e=>getComputedStyle(e).objectFit),'contain','decoded playback stays proportional');
-  if(width>960)assert(Math.abs(geometry.invites.y+geometry.invites.height-geometry.rail.y-geometry.rail.height)<2,'invitations align with the bottom of outgoing rail');
+  if(width>960&&width<1101)assert(Math.abs(geometry.invites.y+geometry.invites.height-geometry.rail.y-geometry.rail.height)<2,'invitations align with the bottom of outgoing rail');
   await page.evaluate(()=>scrollTo(0,0));
   if(width>960){
     await page.evaluate(()=>{const note=document.createElement('div');note.id='qa-room-notice';note.style.height='48px';document.querySelector('.studio-return-layout').before(note);});
-    await page.waitForFunction(()=>{const e=document.querySelector('.studio-return-section');return Math.abs(e.getBoundingClientRect().top+e.getBoundingClientRect().height-innerHeight)<2;});
+    await page.waitForFunction(()=>{const e=document.querySelector(innerWidth>=1101?'.studio-return-layout':'.studio-return-section');return Math.abs(e.getBoundingClientRect().bottom-innerHeight+(innerWidth>=1101?16:0))<2;});
     assert(await page.locator('.return-output-controls select').evaluateAll(selects=>selects.every(e=>e.getBoundingClientRect().bottom<=innerHeight)),'settings remain in viewport after a room notice appears');
     await page.evaluate(()=>document.getElementById('qa-room-notice').remove());
-    await page.waitForFunction(()=>{const e=document.querySelector('.studio-return-section');return Math.abs(e.getBoundingClientRect().top+e.getBoundingClientRect().height-innerHeight)<2;});
+    await page.waitForFunction(()=>{const e=document.querySelector(innerWidth>=1101?'.studio-return-layout':'.studio-return-section');return Math.abs(e.getBoundingClientRect().bottom-innerHeight+(innerWidth>=1101?16:0))<2;});
   }
   if(width>960){
     await page.evaluate(()=>window.qaSetModerator(true));

@@ -40,6 +40,17 @@ export type TelemetryRole = "guest" | "admin" | "moderator" | "studio" | "output
 export type RuntimeEventKind = "started" | "hidden" | "visible" | "offline" | "online" | "reconnecting" |
   "signal-reconnecting" | "reconnected" | "disconnected" | "error" | "rejection" | "pagehide" | "pageshow" | "loop-stall";
 
+export type StudioSourceTrackDiagnostic = {
+  present: boolean; readyState: "live" | "ended" | null;
+  muted: boolean | null; enabled: boolean | null;
+};
+export type StudioMediaDiagnostic = {
+  onAir: boolean; preview: boolean; source: "camera" | "black";
+  audioContextState: "running" | "suspended" | "closed" | "interrupted" | "unknown";
+  videoPublished: boolean; audioPublished: boolean;
+  video: StudioSourceTrackDiagnostic; audio: StudioSourceTrackDiagnostic;
+};
+
 export type RuntimeDiagnostic = {
   visibility: "visible" | "hidden" | "prerender" | "unknown";
   browser: "chrome" | "edge" | "firefox" | "safari" | "other";
@@ -49,6 +60,7 @@ export type RuntimeDiagnostic = {
   heapUsedBytes: number | null; heapLimitBytes: number | null;
   errors: number; rejections: number;
   events: { at: number; kind: RuntimeEventKind }[];
+  media?: StudioMediaDiagnostic;
 };
 
 export type RuntimeHistoryResponse = {

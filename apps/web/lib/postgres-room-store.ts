@@ -130,7 +130,7 @@ export class PostgresRoomStoreBackend implements RoomStoreBackend {
       );
 
       const currentResult = await client.query<RoomRow>(
-        `SELECT name, creator_access_id, studio_password_hash, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
+        `SELECT name, creator_access_id, slot_association_id, studio_password_hash, diagnostic_creation_id, diagnostic_revision, password_hash, password_ciphertext, studio_only, transfer_room_id,
                 admin_access_version, guest_invite_version, viewer_access_version, output_access_version, sort_order
            FROM castlink_rooms
           WHERE installation_id = $1 AND studio_id = $2

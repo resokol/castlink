@@ -1304,6 +1304,10 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content :is(label, select, input) { min-width: 0; max-width: 100%; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content label { display: grid; gap: 6px; font-size: 12px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content select { width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .guest-noise-control > label { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--media-accent); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel h2 { margin: 0 0 8px; font-size: 14px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel p { margin: 0 0 12px; font-size: 12px; line-height: 1.6; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-row { display: grid; gap: 8px; margin: 0; padding: 12px 0; border-bottom: 1px solid var(--panel-border); }

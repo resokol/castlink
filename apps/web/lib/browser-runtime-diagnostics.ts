@@ -1,7 +1,7 @@
 "use client";
 
 import { sanitizeRuntimeDiagnostic } from "./runtime-diagnostics";
-import type { RuntimeDiagnostic, RuntimeEventKind } from "./telemetry-types";
+import type { RuntimeDiagnostic, RuntimeEventKind, StudioMediaDiagnostic } from "./telemetry-types";
 import { safeBuild } from "./client-error-report";
 
 const storageKey = "castlink-studio-runtime-v1";
@@ -29,7 +29,7 @@ export function localRuntimeDiagnosticReport(): LocalReport {
   return JSON.parse(JSON.stringify(current.active ? current : readSaved()));
 }
 
-export function startBrowserRuntimeDiagnostics(session: string): {
+export function startBrowserRuntimeDiagnostics(session: string, mediaDiagnostic?: () => StudioMediaDiagnostic | undefined): {
   snapshot: () => RuntimeDiagnostic | undefined; event: (kind: RuntimeEventKind) => void; stop: () => void;
 } {
   const noop = { snapshot: () => undefined, event: (_kind: RuntimeEventKind) => undefined, stop: () => undefined };
@@ -47,6 +47,8 @@ export function startBrowserRuntimeDiagnostics(session: string): {
       errors: 0, rejections: 0, events: [] };
     const snapshot = (): RuntimeDiagnostic | undefined => {
       try {
+        // A stopped capture/provider must not suppress runtime evidence or retain stale media state.
+        try { state.media = mediaDiagnostic?.(); } catch { state.media = undefined; }
         state.visibility = visibility();
         const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
         state.heapUsedBytes = memory?.usedJSHeapSize ?? null;

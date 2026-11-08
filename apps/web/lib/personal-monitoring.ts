@@ -83,6 +83,10 @@ export function usePersonalMonitoring(room: Room, roomName: string, studioOnly =
     } catch { /* Preferences are optional. */ }
     current.current = saved;
     setPreferences(saved);
+  }, [room, storageKey, resetStudioOnEntry]);
+
+  // Source changes rebind monitoring without starting a new guest entry.
+  useEffect(() => {
     const update = () => { apply(); refresh((v) => v + 1); };
     const events = [RoomEvent.Connected, RoomEvent.Reconnected, RoomEvent.ParticipantConnected,
       RoomEvent.ParticipantDisconnected, RoomEvent.TrackPublished, RoomEvent.TrackUnpublished,

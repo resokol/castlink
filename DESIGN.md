@@ -229,3 +229,16 @@ a fresh click. Do not present these releases as the owner reclaiming control.
 ## Compact caster toolbar — owner approved, 26 October 2026
 
 Caster workspace transport uses equal 56×48px targets, 20×20px icons and 6px gaps. Center every wrapped row on desktop and mobile, including camera options and settings. Only Chat retains its visible label; other triggers retain accessible names and tooltips. Preserve state colors, mounted media, popovers and existing control authority. This supersedes the former mobile single-row More menu for this workspace only. Browser geometry checked in both themes at 320/390/700/844-landscape/1440; no live-media claim.
+
+
+## Compact primary Studio — owner approved, 8 November 2026
+
+Playback, caster previews and the operating rail must share the first desktop
+viewport. Keep a contained playback picture and its meter on the left, compact
+invitations beside it, and a bounded source deck below. The right rail retains
+ON AIR, device settings, measured outgoing statistics, bitrate graph and all four
+quality selectors. Scroll additional sources independently. Expanded device settings
+use the rail's local scroll without moving playback. Preserve mounted media and
+all existing control permissions. Narrow or very short windows keep natural flow.
+This supersedes the older full-first-screen playback / guests-below requirement.
+See docs/design/STUDIO_COMPACT_20261108_RU.md for preview evidence and limits.

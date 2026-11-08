@@ -5,18 +5,18 @@ const Module = require('node:module');
 Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, filename);
-const { guestAudioProfile, guestAudioProcessingOptions, guestAudioCaptureOptions, guestAudioPublishOptions, guestNoiseSuppressionState, enqueueGuestMicrophoneTask, switchGuestMicrophoneProfile, setGuestMicrophoneEnabled } = require('../lib/guest-audio.ts');
+const { guestAudioProfile, guestAudioProcessingOptions, guestAudioCaptureOptions, guestAudioPublishOptions, guestNoiseSuppressionState, guestAudioProcessingMatches, enqueueGuestMicrophoneTask, switchGuestMicrophoneProfile, setGuestMicrophoneEnabled } = require('../lib/guest-audio.ts');
 const { guestCaptureConstraints } = require('../lib/guest-media.ts');
 const speech = { audioDeviceId:'chosen-mic', audioProfile:'speech', height:720, micGain:100, listenGain:100 };
 const raw = { ...speech, audioProfile:'raw' };
 const processing = enabled => ({ autoGainControl:false, echoCancellation:enabled, noiseSuppression:enabled, voiceIsolation:false });
-assert.equal(guestAudioProfile(undefined), 'raw');
-assert.equal(guestAudioProfile('invalid-saved-mode'), 'raw');
+assert.equal(guestAudioProfile(undefined), 'speech');
+assert.equal(guestAudioProfile('invalid-saved-mode'), 'speech');
 assert.equal(guestAudioProfile('raw'), 'raw');
 assert.equal(guestAudioProfile('speech'), 'speech', 'explicit saved studio choice remains speech');
 assert.deepEqual(guestAudioCaptureOptions(speech), { ...processing(true), deviceId:{exact:'chosen-mic'} });
 assert.deepEqual(guestAudioCaptureOptions(raw), { ...processing(false), deviceId:{exact:'chosen-mic'} });
-assert.deepEqual(guestAudioProcessingOptions({}), processing(false), 'missing choices default to original sound without noise suppression');
+assert.deepEqual(guestAudioProcessingOptions({}), processing(true), 'a new microphone suppresses speaker echo and noise');
 assert.deepEqual(guestCaptureConstraints(raw).audio, guestAudioCaptureOptions(raw), 'preview and live request identical constraints');
 assert.deepEqual(guestAudioPublishOptions(speech), { dtx:true, red:true, forceStereo:false, audioPreset:{maxBitrate:48000} });
 assert.deepEqual(guestAudioPublishOptions(raw, {channelCount:1}), { dtx:false, red:true, forceStereo:false, audioPreset:{maxBitrate:96000} });
@@ -50,6 +50,7 @@ function makeRoom({ muted = false, channels = 1, absent = false } = {}) {
       if(room.failConstraints){room.failConstraints--;throw new Error('capture failed');}
       this.constraints={...options};
       if(!room.ignoreProcessing)this.native={autoGainControl:options.autoGainControl,echoCancellation:options.echoCancellation,noiseSuppression:options.noiseSuppression,voiceIsolation:options.voiceIsolation};
+      if(options.echoCancellation&&room.rejectEcho)this.native.echoCancellation=room.rejectEcho==='missing'?undefined:false;
       enabled=!this.isMuted;
     },
     async mute() { this.isMuted=true; enabled=false; },
@@ -59,7 +60,7 @@ function makeRoom({ muted = false, channels = 1, absent = false } = {}) {
   if (!absent) room.pub={track, options:{source:'microphone', stopMicTrackOnMute:false, dtx:true, red:true}};
   room.localParticipant = {
     get isMicrophoneEnabled(){return !!room.pub&&!room.track.isMuted;},
-    async setMicrophoneEnabled(enabled,capture,options){if(enabled){if(!room.pub){room.track.constraints=capture;if(!room.ignoreProcessing)room.track.native={autoGainControl:capture.autoGainControl,echoCancellation:capture.echoCancellation,noiseSuppression:capture.noiseSuppression,voiceIsolation:capture.voiceIsolation};room.pub={track:room.track,options};}room.track.isMuted=false;}else room.track.isMuted=true;return room.pub;},
+    async setMicrophoneEnabled(enabled,capture,options){if(enabled){if(!room.pub){room.track.constraints=capture;if(!room.ignoreProcessing)room.track.native={autoGainControl:capture.autoGainControl,echoCancellation:capture.echoCancellation,noiseSuppression:capture.noiseSuppression,voiceIsolation:capture.voiceIsolation};room.pub={track:room.track,options};}room.track.isMuted=false;if(capture?.echoCancellation&&room.rejectEcho)room.track.native.echoCancellation=room.rejectEcho==='missing'?undefined:false;}else room.track.isMuted=true;return room.pub;},
     getTrackPublication(source) { assert.equal(source, 'microphone', 'profile switch must never inspect camera/screen'); return room.pub; },
     async unpublishTrack(target, stop) {
       assert.equal(target, track); assert.equal(stop,false,'same capture must survive republish');
@@ -113,6 +114,21 @@ function makeRoom({ muted = false, channels = 1, absent = false } = {}) {
   const initialIgnored=makeRoom({absent:true});initialIgnored.track.native=processing(false);initialIgnored.ignoreProcessing=true;
   await assert.rejects(setGuestMicrophoneEnabled(initialIgnored,true,()=>speech),/не подтвердил включение шумоподавления/,'the very first capture is verified before an enable-success result');
   assert.equal(guestNoiseSuppressionState(initialIgnored),'off');
+
+  for(const echo of ['false','missing']) {
+    const rejected=makeRoom();rejected.track.native=processing(false);rejected.track.constraints=guestAudioCaptureOptions(raw);rejected.pub.options={source:'microphone',dtx:false,red:true,audioPreset:{maxBitrate:88000}};rejected.rejectEcho=echo;
+    const priorOptions={...rejected.pub.options};
+    await assert.rejects(switchGuestMicrophoneProfile(rejected,raw,speech),/эхоподавления/,'noise suppression alone cannot confirm speech mode');
+    assert.equal(rejected.track.native.echoCancellation,false,'failed AEC acquisition restores actual original capture');
+    assert.equal(rejected.track.native.noiseSuppression,false);assert.deepEqual(rejected.pub.options,priorOptions,'rollback restores actual encoder options');
+    assert.equal(rejected.track.isMuted,false);
+    const first=makeRoom({absent:true});first.rejectEcho=echo;
+    await assert.rejects(setGuestMicrophoneEnabled(first,true,()=>speech),/эхоподавления/);
+    assert.equal(first.localParticipant.isMicrophoneEnabled,false,'failed initial processing verification cannot keep an unchecked microphone transmitting');
+  }
+  const incompleteSpeech=makeRoom();incompleteSpeech.track.native.echoCancellation=false;
+  assert.equal(guestAudioProcessingMatches(incompleteSpeech,'speech'),false,'same-profile shortcut must reapply when AEC is not enabled');
+  incompleteSpeech.track.native.echoCancellation=true;assert.equal(guestAudioProcessingMatches(incompleteSpeech,'speech'),true);
 
   const failedCapture=makeRoom(); failedCapture.failConstraints=1;
   await assert.rejects(switchGuestMicrophoneProfile(failedCapture,speech,raw),/capture failed/);

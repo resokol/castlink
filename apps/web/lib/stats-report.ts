@@ -1,4 +1,5 @@
 import { mean, sumRates, type HistoryResponse, type MetricPoint, type TelemetryRole } from "./telemetry-types";
+import { summarizeParticipants } from "./connection-history";
 
 const roleNames: Record<TelemetryRole, string> = {
   studio: "Студия",
@@ -37,9 +38,12 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
     return `<section><h2>${escape(title)} <small>${escape(unit)}</small></h2><p class="legend">${fields.map(field => `<span style="color:${field.color}">● ${escape(field.label)}</span>`).join(" · ")}</p><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escape(title)}"><text x="0" y="25">${escape(number(max))}</text><text x="20" y="160">0</text>${lines}</svg></section>`;
   };
 
-  const reconnects = history.connections.reduce((total, connection) => total + connection.latest.reconnects, 0);
+  const participants = summarizeParticipants(history.connections);
+  const reconnects = participants.reduce((total, participant) => total + participant.reconnects, 0);
   const summary = [
+    ["Участников", participants.length],
     ["Соединений", history.connections.length],
+    ["Повторные сессии", participants.reduce((total, participant) => total + participant.repeatSessions, 0)],
     ["Средний вход", `${number(avg(history.series.map(point => point.inbound)))} кбит/с`],
     ["Пиковый вход", `${number(peak(history.series.map(point => point.inbound)))} кбит/с`],
     ["Средний выход", `${number(avg(history.series.map(point => point.outbound)))} кбит/с`],
@@ -49,8 +53,7 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
     ["Переподключения", reconnects],
   ].map(([label, value]) => `<div class="summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join("");
 
-  const identities = [...new Set(history.connections.map(connection => connection.identity))];
-  const participantOverview = identities.length === 1 && history.connections.length ? (() => {
+  const participantOverview = participants.length === 1 && history.connections.length ? (() => {
     const ordered = [...history.connections].sort((a, b) => b.lastSeen - a.lastSeen);
     const latestConnection = ordered[0];
     const latest = latestConnection.latest;
@@ -76,6 +79,8 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
       </div>
     </section>`;
   })() : "";
+
+  const participantRows = participants.map(p => `<tr><td><strong>${escape(p.name)}</strong><small>${escape(p.identity)}</small></td><td>${escape(roleNames[p.role])}</td><td>${p.sessions}</td><td>${p.repeatSessions}</td><td>${p.reconnects}</td></tr>`).join("");
 
   const connectionRows = history.connections.map(connection => {
     const latest = connection.latest;
@@ -128,6 +133,7 @@ export function statisticsReport(history: HistoryResponse, room: string, selecti
   <p class="notice">WebRTC telemetry поступает от клиентских браузеров и полезна для диагностики качества, но не является доверенным журналом безопасности.</p>
   ${participantOverview}
   <div class="summary">${summary}</div>
+  <section class="table"><h2>Участники и сессии</h2><p>Участник определяется по Identity и роли. Повторные сессии — дополнительные сессии того же участника в выборке, включая перезагрузки и параллельные вкладки. Это не число сетевых сбоев. Сетевые переподключения — циклы восстановления связи, накопленные с начала выбранных сессий, в том числе до выбранного периода. Исторические счётчики старых клиентов могут быть неточными.</p><table><thead><tr><th>Участник</th><th>Роль</th><th>Сессий</th><th>Повторные сессии</th><th>Сетевые переподключения</th></tr></thead><tbody>${participantRows || '<tr><td colspan="5">Нет участников в выборке</td></tr>'}</tbody></table></section>
   ${chart("Битрейт", "кбит/с", [{ key: "inbound", label: "Вход", color: "#2266bb" }, { key: "outbound", label: "Выход", color: "#7952c9" }])}
   ${chart("Задержка", "мс", [{ key: "rtt", label: "RTT", color: "#d57521" }, { key: "jitter", label: "Jitter", color: "#008577" }])}
   ${chart("Потери", "%", [{ key: "loss", label: "Потери пакетов", color: "#c4334e" }])}

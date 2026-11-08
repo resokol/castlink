@@ -21,9 +21,8 @@ import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { AppFooterSlot } from "@/components/AppChrome";
 import { guestVideoBitrate } from "@/lib/video-quality";
-import { METER_FLOOR_DB, peakDbfs } from "@/lib/audio-meter";
 import { STUDIO_PLAYBACK_TITLE, useStudioPlaybackLayout } from "@/lib/studio-playback-layout";
-import { AudioMeter } from "@/components/AudioMeter";
+import { StudioReturnAudioMeter } from "@/components/StudioReturnAudioMeter";
 import { GuestAudioMeter } from "@/components/GuestAudioMeter";
 import { StudioGuestMediaPanel } from "@/components/StudioGuestMediaPanel";
 import { GuestCameraResolutionControl } from "./GuestCameraResolutionControl";
@@ -56,6 +55,7 @@ import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
 import { startRoomTelemetry } from "@/lib/rtc-telemetry";
+import type { StudioMediaDiagnostic } from "@/lib/telemetry-types";
 import { createStudioOutboundSample, selectStudioOutboundView, selectStudioGraphSource, receiveStudioActual, type StudioOutboundSample, type StudioGraphSourceMode } from "@/lib/studio-outbound-stats";
 import { readControlResponse } from "@/lib/control-response";
 import { RoomContext } from "@livekit/components-react";
@@ -403,7 +403,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const deviceErrorRef = useRef("");
   const previewDeviceErrorRef = useRef("");
   const deviceBusyRef = useRef(false);
-  const [returnLevel, setReturnLevel] = useState(METER_FLOOR_DB);
   const [returnGain, setReturnGain] = useState(() => typeof transferSnapshot?.settings?.gain === "number" ? transferSnapshot.settings.gain : 100);
   const returnGainRef = useRef(returnGain);
   returnGainRef.current = returnGain;
@@ -463,6 +462,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const captureInputsRef = useRef<{ videoDeviceId: string; audioDeviceId: string; source: StudioVideoSource; fps: number } | undefined>(undefined);
   const captureDisposeRef = useRef<(() => void) | undefined>(undefined);
   const returnAudioContextRef = useRef<AudioContext | undefined>(undefined);
+  const returnAnalyserRef = useRef<AnalyserNode | undefined>(undefined);
   const captureGenerationRef = useRef(0);
   const captureKeyRef = useRef("");
   const outputMuteGainsRef = useRef(new Set<GainNode>());
@@ -680,7 +680,15 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           try { await readControlResponse(restoreResponse, "Не удалось передать настройки переноса основной студии"); }
           catch (error) { if (!cancelled) setStudioControlError(error instanceof Error ? error.message : "Не удалось передать настройки переноса основной студии"); }
         }
-        stopTelemetry = startRoomTelemetry(room, roomName, token, { clientId, epoch: Number(joined.epoch || 0), role: joined.role === "moderator" ? "studio-moderator" : "studio-panel" });
+        stopTelemetry = startRoomTelemetry(room, roomName, token, { clientId, epoch: Number(joined.epoch || 0), role: joined.role === "moderator" ? "studio-moderator" : "studio-panel" }, "", undefined, (): StudioMediaDiagnostic => {
+          const describe = (track?: MediaStreamTrack) => ({ present: Boolean(track), readyState: track?.readyState ?? null, muted: track?.muted ?? null, enabled: track?.enabled ?? null });
+          const contextState = returnAudioContextRef.current?.state as string | undefined;
+          return { onAir: onAirRef.current, preview: returnActiveRef.current, source: captureInputsRef.current?.source ?? videoSourceRef.current,
+            audioContextState: contextState === "running" || contextState === "suspended" || contextState === "closed" || contextState === "interrupted" ? contextState : "unknown",
+            video: describe(returnRawStreamRef.current?.getVideoTracks()[0]), audio: describe(returnRawStreamRef.current?.getAudioTracks()[0]),
+            videoPublished: Boolean(room.localParticipant.getTrackPublication(Track.Source.Camera)?.track),
+            audioPublished: Boolean(room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) };
+        });
         if (!cancelled) setStatus("Онлайн");
         timer = setInterval(() => void refresh(), 2000);
         void refresh();
@@ -742,8 +750,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     const key = JSON.stringify([choices.videoDeviceId, choices.audioDeviceId, videoSourceRef.current, fps]);
     if (captureKeyRef.current === key && returnStreamRef.current?.getTracks().every(track => track.readyState === "live")) return;
     const generation = captureGenerationRef.current;
-    let raf = 0;
     let ctx: AudioContext | undefined;
+    let analyser: AnalyserNode | undefined;
     let captured: MediaStream | undefined;
     let processed: MediaStream | undefined;
     let monitorStream: MediaStream | undefined;
@@ -751,7 +759,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     let outputGain: GainNode | undefined;
     const dispose = () => {
       if (outputGain) outputMuteGainsRef.current.delete(outputGain);
-      cancelAnimationFrame(raf);
+      if (returnAnalyserRef.current === analyser) returnAnalyserRef.current = undefined;
       captured?.getTracks().forEach(track => track.stop());
       processed?.getTracks().forEach(track => track.stop());
       monitorStream?.getTracks().forEach(track => track.stop());
@@ -778,7 +786,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       ctx = new AudioContext();
       // Camera preview is muted and must not wait for browser audio unlock.
       void ctx.resume().catch(() => undefined);
-      const analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
+      analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
       const source = ctx.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
       const gain = ctx.createGain(); gain.gain.value = returnGainRef.current / 100;
       source.connect(gain);
@@ -798,6 +806,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       const previousDispose = captureDisposeRef.current;
       captureDisposeRef.current = dispose;
       returnAudioContextRef.current = ctx;
+      returnAnalyserRef.current = analyser;
       captureKeyRef.current = key;
       returnStreamRef.current = stream;
       returnRawStreamRef.current = captured;
@@ -813,13 +822,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         void returnVideoRef.current.play().catch(() => undefined);
       }
       setReturnDevices(devices);
-      const data = new Float32Array(analyser.fftSize);
-      const tick = () => {
-        analyser.getFloatTimeDomainData(data);
-        setReturnLevel(outputMutedRef.current ? METER_FLOOR_DB : Math.round(peakDbfs(data) * 10) / 10);
-        raf = requestAnimationFrame(tick);
-      };
-      tick();
       previewReadyRef.current = true; setPreviewReady(true);
       setPreviewCaptureError("");
       previousDispose?.();
@@ -1580,7 +1582,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           {returnMonitorVisible ? <video ref={returnVideoRef} muted={studioRole === "moderator" || !returnMonitor.audio} playsInline className="return-preview" style={{ opacity: (studioRole === "moderator" ? mainStudioMonitor.video : returnMonitor.video) ? 1 : 0 }} /> : <div className="studio-preview-placeholder">{t("Ожидание источника STUDIO PLAYBACK")}</div>}
           {studioRole === "primary" && previewCaptureError && <div className="studio-preview-error" role="alert"><p>{translateWorkspaceMessage(t, previewCaptureError)}</p><button type="button" className="button-secondary" onClick={() => setPreviewRetry(value => value + 1)}>{t("Повторить")}</button></div>}
           {returnMonitorVisible && <div className="return-audio-meter studio-preview-meter">
-            <AudioMeter db={outputMuted ? METER_FLOOR_DB : returnLevel} label={STUDIO_PLAYBACK_TITLE} />
+            <StudioReturnAudioMeter analyserRef={returnAnalyserRef} muted={outputMuted} label={STUDIO_PLAYBACK_TITLE} />
           </div>}
           <section className="studio-invite-compact" aria-label={t("Приглашения и доступы")}>
             <div className="guest-invite-slot"><RoomInviteButton studioId={studioId} roomName={roomName} entryPath={simpleRoom ? entryPath : undefined} key={`${roomName}:${roomAccessVersion}`} /></div>

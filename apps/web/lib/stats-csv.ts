@@ -1,4 +1,5 @@
 import type { HistoryResponse, TelemetryRole, TelemetrySample } from "./telemetry-types";
+import { summarizeParticipants } from "./connection-history";
 const roleNames: Record<TelemetryRole, string> = { studio: "Студия", admin: "Администратор", moderator: "Модератор", guest: "Гость", output: "Выход vMix", monitor: "Монитор" };
 export function csv(rows: (string | number | null | undefined)[][]) {
   return "\ufeff" + rows.map(row => row.map(value => {
@@ -15,6 +16,12 @@ export function connectionsCsv(history: HistoryResponse) {
   return csv([["Участник", "Identity", "Сессия", "Роль", "Состояние", "Качество", "Uptime сек", "Начало UTC", "Последний замер UTC", "Переподключения", "Направление", "Тип", "Источник", "Поток участника", "Кодек", "Битрейт кбит/с", "Потери %", "Jitter мс", "RTT мс", "Ширина", "Высота", "FPS", "Байты", "Транспорт", "Тип кандидата", "Замирания", "Ограничение качества"],
     ...history.connections.flatMap(c => (c.latest.streams.length ? c.latest.streams : [undefined]).map(s => [c.name, c.identity, c.session, roleNames[c.role], c.latest.state, c.latest.quality, c.latest.uptimeSec, new Date(c.firstSeen).toISOString(), new Date(c.lastSeen).toISOString(), c.latest.reconnects,
       s?.direction, s?.kind, s?.source, s?.name, s?.codec, s?.bitrateKbps, s?.lossPct, s?.jitterMs, s?.rttMs, s?.width, s?.height, s?.fps, s?.bytes, s?.protocol, s?.candidateType, s?.freezes, s?.qualityLimitation]))]);
+}
+
+export function participantsCsv(history: HistoryResponse) {
+  return csv([["Участник", "Identity", "Роль", "Сессий в выборке", "Повторные сессии", "Сетевые переподключения (с начала сессий)", "Первый замер UTC", "Последний замер UTC"],
+    ...summarizeParticipants(history.connections).map(p => [p.name, p.identity, roleNames[p.role], p.sessions, p.repeatSessions, p.reconnects,
+      new Date(p.firstSeen).toISOString(), new Date(p.lastSeen).toISOString()])]);
 }
 
 export function audioHistoryCsv(samples: TelemetrySample[]) {

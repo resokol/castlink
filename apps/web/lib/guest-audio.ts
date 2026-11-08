@@ -4,9 +4,9 @@ export type GuestAudioProfile = "speech" | "raw";
 type AudioChoices = { audioDeviceId?: string; audioProfile?: GuestAudioProfile };
 type ProcessingOptions = Pick<AudioCaptureOptions, "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation">;
 
-/** Missing choices use original sound; explicit studio speech choices are retained. */
+/** New microphones suppress speaker echo; an explicit original-sound choice is retained. */
 export function guestAudioProfile(value?: unknown): GuestAudioProfile {
-  return value === "speech" ? "speech" : "raw";
+  return value === "raw" ? "raw" : "speech";
 }
 
 export function guestAudioProcessingOptions(choices: AudioChoices): ProcessingOptions {
@@ -30,7 +30,16 @@ function verifyNativeProcessing(track: LocalAudioTrack, expectedNoiseSuppression
     throw new Error(expectedNoiseSuppression ? "Браузер не подтвердил включение шумоподавления для этого микрофона." : "Браузер не подтвердил отключение шумоподавления для оригинального звука.");
   }
   if (settings.autoGainControl === true || (settings as MediaTrackSettings & { voiceIsolation?: boolean }).voiceIsolation === true) throw new Error("Браузер не отключил автоматическое усиление или изоляцию голоса.");
+  if (expectedNoiseSuppression && settings.echoCancellation !== true) throw new Error("Браузер не подтвердил включение эхоподавления для этого микрофона.");
   if (!expectedNoiseSuppression && settings.echoCancellation === true) throw new Error("Браузер не отключил эхоподавление для оригинального звука.");
+}
+
+/** A saved profile alone cannot confirm the browser's active processing graph. */
+export function guestAudioProcessingMatches(room: Room, profile?: GuestAudioProfile): boolean {
+  const track = room.localParticipant.getTrackPublication("microphone" as Track.Source)?.track as LocalAudioTrack | undefined;
+  if (!track) return false;
+  try { verifyNativeProcessing(track, guestAudioProfile(profile) === "speech"); return true; }
+  catch { return false; }
 }
 
 function restartOptions(track: LocalAudioTrack, choices: AudioChoices): AudioCaptureOptions {
@@ -98,7 +107,7 @@ export function switchGuestMicrophoneProfile(room: Room, previous: AudioChoices,
       if (typeof actual === "boolean") previousCapture[key] = actual;
     }
     const nextCapture = restartOptions(track, next);
-    const previousPublish = { ...publication?.options, ...guestAudioPublishOptions(previous, previousSettings) };
+    const previousPublish = publication?.options ? { ...publication.options } : guestAudioPublishOptions(previous, previousSettings);
     let detached = false;
     const unpublish = async () => {
       try { await participant.unpublishTrack(track, false); }
@@ -127,7 +136,11 @@ export function switchGuestMicrophoneProfile(room: Room, previous: AudioChoices,
       }
       if (!connected()) { track.stop(); return; }
       await track.restartTrack(previousCapture);
-      if (typeof previousSettings.noiseSuppression === "boolean" && track.getSourceTrackSettings().noiseSuppression !== previousSettings.noiseSuppression) throw new Error("Не удалось восстановить прежнюю обработку микрофона");
+      const restoredSettings = track.getSourceTrackSettings() as MediaTrackSettings & { voiceIsolation?: boolean };
+      for (const key of ["noiseSuppression", "echoCancellation", "autoGainControl", "voiceIsolation"] as const) {
+        const expected = (previousSettings as MediaTrackSettings & { voiceIsolation?: boolean })[key];
+        if (typeof expected === "boolean" && restoredSettings[key] !== expected) throw new Error("Не удалось восстановить прежнюю обработку микрофона");
+      }
       if (!connected()) { track.stop(); return; }
       // A concurrent SDK/device recovery must not be overwritten by the old track.
       const replacement = currentPublication()?.track;
@@ -177,7 +190,15 @@ export function setGuestMicrophoneEnabled(room: Room, enabled: boolean, choices:
       return false;
     }
     if (room.localParticipant.isMicrophoneEnabled !== enabled) throw new Error("Браузер не подтвердил состояние микрофона");
-    if (enabled && publication?.track) verifyNativeProcessing(publication.track as LocalAudioTrack, guestAudioProfile(current.audioProfile) === "speech");
+    if (enabled && publication?.track) {
+      try { verifyNativeProcessing(publication.track as LocalAudioTrack, guestAudioProfile(current.audioProfile) === "speech"); }
+      catch (cause) {
+        // setMicrophoneEnabled publishes before returning; do not leave an
+        // unverified new capture transmitting after reporting enable failure.
+        await room.localParticipant.setMicrophoneEnabled(false);
+        throw cause;
+      }
+    }
     return true;
   });
 }

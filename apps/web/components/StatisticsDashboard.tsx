@@ -7,7 +7,8 @@ import { translateWorkspaceMessage } from "@/lib/i18n/workspaces";
 import { useEffect, useRef, useState } from "react";
 import { mean, sumRates, type AudioHistoryResponse, type HistoryResponse, type MetricPoint, type TelemetryRole, type RuntimeHistoryResponse } from "@/lib/telemetry-types";
 import { statisticsReport } from "@/lib/stats-report";
-import { audioHistoryCsv, historyCsv, connectionsCsv } from "@/lib/stats-csv";
+import { audioHistoryCsv, historyCsv, connectionsCsv, participantsCsv } from "@/lib/stats-csv";
+import { summarizeParticipants } from "@/lib/connection-history";
 
 const periods = [[15, "15 минут"], [60, "1 час"], [360, "6 часов"], [720, "12 часов"], [1440, "24 часа"]] as const;
 const roles: Record<TelemetryRole, string> = { studio: "Студия", admin: "Администратор", moderator: "Модератор", guest: "Гость", output: "Выход vMix", monitor: "Монитор" };
@@ -133,7 +134,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     (!roleFilter || connection.role === roleFilter) &&
     (!participantFilter || connection.identity === participantFilter) &&
     (!session || connection.session === session));
-  const download = async (kind: "history" | "connections" | "report" | "audio" | "chat" | "runtime") => {
+  const download = async (kind: "history" | "connections" | "participants" | "report" | "audio" | "chat" | "runtime") => {
     if (exporting || kind !== "chat" && !history) return;
     setExporting(true);
     setExportNote("");
@@ -200,7 +201,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
       const selection = selectedConnection ? `${roles[selectedConnection.role]} · ${selectedConnection.name}` :
         selectedParticipant ? `${roles[selectedParticipant.role]} · ${selectedParticipant.name}` :
         roleFilter ? roles[roleFilter] : "Все соединения комнаты";
-      const content = kind === "report" ? statisticsReport(filtered, roomName, selection) : kind === "history" ? historyCsv(filtered) : connectionsCsv(filtered);
+      const content = kind === "report" ? statisticsReport(filtered, roomName, selection) : kind === "history" ? historyCsv(filtered) : kind === "participants" ? participantsCsv(filtered) : connectionsCsv(filtered);
       const url = URL.createObjectURL(new Blob([content], { type: kind === "report" ? "text/html;charset=utf-8" : "text/csv;charset=utf-8" }));
       const anchor = document.createElement("a"); anchor.href = url;
       anchor.download = `castlink-${kind}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min.${kind === "report" ? "html" : "csv"}`;
@@ -252,6 +253,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const sessionOptions = roleConnections.filter(connection => !participantFilter || connection.identity === participantFilter);
   const visibleConnections = history ? filterConnections(history) : [];
+  const participants = summarizeParticipants(visibleConnections);
   const studioConnections = visibleConnections.filter(connection => connection.role === "studio");
   const selected = history?.connections.find((c) => c.session === session);
   const live = history ? visibleConnections.filter((c) => c.latest.state !== "disconnected" && history.to - c.lastSeen < 35_000) : [];
@@ -290,7 +292,8 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         }}>{clearing ? t("Очистка…") : t("Сбросить отключившихся")}</button>}
         <button disabled={!history || exporting} onClick={() => void download("report")}>{t("Скачать наглядный отчёт")}</button>
         <button disabled={!history || exporting} onClick={() => void download("history")}>{t("Графики → CSV")}</button>
-        <button disabled={!history || exporting} onClick={() => void download("connections")}>{t("Участники и потоки → CSV")}</button>
+        <button disabled={!history || exporting} onClick={() => void download("participants")}>{t("Участники → CSV")}</button>
+        <button disabled={!history || exporting} onClick={() => void download("connections")}>{t("Сессии и потоки → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("audio")}>{t("История аудио → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("runtime")}>{t("Диагностика студии → JSON")}</button>
         <button onClick={() => void downloadLocalRuntime()}>{t("Журнал этой вкладки → JSON")}</button>
@@ -306,8 +309,20 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
       <div className="stats-summary">
         <div className="panel"><span>{historyDay ? t("Свежие замеры в конце выборки") : t("Сейчас передают замеры")}</span><strong>{live.length}</strong></div>
         <div className="panel"><span>{t("Соединений в выборке")}</span><strong>{visibleConnections.length}</strong></div>
+        <div className="panel"><span>{t("Участников в выборке")}</span><strong>{participants.length}</strong></div>
+        <div className="panel"><span>{t("Повторные сессии")}</span><strong>{participants.reduce((sum, p) => sum + p.repeatSessions, 0)}</strong></div>
+        <div className="panel"><span>{t("Сетевые переподключения")}</span><strong>{participants.reduce((sum, p) => sum + p.reconnects, 0)}</strong></div>
         <div className="panel"><span>{t("История в выбранном периоде")}</span><strong>{history.retainedFrom ? new Date(history.retainedFrom).toLocaleString(locale) : t("Ещё нет данных")}</strong></div>
       </div>
+      <details className="panel stats-table-wrap">
+        <summary>{t("Участники и сессии")} · {participants.length}</summary>
+        <p className="muted">{t("Участник определяется по ID и роли. Повторные сессии — дополнительные сессии в выборке, включая перезагрузки и параллельные вкладки. Это не число сетевых сбоев. Сетевые переподключения — циклы восстановления связи с начала выбранных сессий, в том числе до выбранного периода. Счётчики старых клиентов могут быть неточными.")}</p>
+        <table className="stats-table"><thead><tr><th>{t("Участник")}</th><th>{t("Роль")}</th><th>{t("Сессий в выборке")}</th><th>{t("Повторные сессии")}</th><th>{t("Сетевые переподключения")}</th></tr></thead>
+          <tbody>{participants.map(p => <tr key={JSON.stringify([p.role, p.identity])}>
+            <td><button className="stats-connection-button" onClick={() => { setRoleFilter(p.role); setParticipantFilter(p.identity); setSession(""); }}>{p.name}</button><small>{p.identity}</small></td>
+            <td>{t(roles[p.role])}</td><td>{p.sessions}</td><td>{p.repeatSessions}</td><td>{p.reconnects}</td>
+          </tr>)}</tbody></table>
+      </details>
       {history.retention && <p className="panel muted">{t("Лимит хранения:")} {history.retention.days} {t("дней /")} {format(history.retention.maxBytes / 1024 / 1024, 0)} {t("МиБ на сервере. Самый ранний сохранённый час комнаты:")} {history.retention.availableFrom ? new Date(history.retention.availableFrom).toLocaleString(locale, { timeZone: "Europe/Moscow" }) + t(" МСК") : t("Ещё нет данных")}. {historyDay ? t("Выбран день {historyDay} по МСК; время графиков — по часовому поясу браузера, CSV — UTC.", { historyDay: historyDay }) : t("Графики — по часовому поясу браузера, CSV — UTC.")}</p>}
       {history.audioSummary && <div className="panel"><h3>{t("Аудио за выбранный период")}</h3>
         <p>{t("Замеров аудио:")} {format(history.audioSummary.samples, 0)}{t(". С потерями:")} {format(history.audioSummary.lossIntervals, 0)}{t("; с concealment:")} {format(history.audioSummary.concealmentIntervals, 0)}{t("; без прироста принятых samples:")} {format(history.audioSummary.noSampleProgressIntervals, 0)}{t(". Замеров с паузой, ошибкой или отсутствием подписки:")} {format(history.audioSummary.playbackWarnings, 0)}{t(". Попыток восстановления по счётчикам сессий:")} {format(history.audioSummary.recoveryAttempts, 0)}.</p>

@@ -27,7 +27,8 @@ import { applyGuestCameraHeight, applyGuestCameraHeightInTask, enqueueGuestCamer
 import { staffGuestCameraCapture, type GuestCameraCapture } from "@/lib/guest-capture-settings";
 import type { StudioVideoCodec } from "@/lib/video-quality";
 import { GuestMicrophoneButton } from "@/components/GuestMicrophoneButton";
-import { enqueueGuestMicrophoneTask, guestAudioProfile, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
+import { enqueueGuestMicrophoneTask, guestAudioProfile, guestAudioProcessingMatches, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
+import { GuestNoiseSuppressionControl } from "./GuestNoiseSuppressionControl";
 import { connectGuestRoom, type GuestConnectionRoute, type GuestConnectionRoutes } from "@/lib/connection-route";
 import { setGuestMicrophoneGain, watchGuestMicrophoneGain } from "@/lib/guest-audio-gain";
 import { watchGuestMediaSettings } from "@/lib/guest-media-control-client";
@@ -43,7 +44,7 @@ import { watchGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
-import { startRoomTelemetry } from "@/lib/rtc-telemetry";
+import { roomTelemetryToken, startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transfer";
 import { useSessionTransfer, guestReserveStatusText } from "@/lib/use-session-transfer";
 import { parseGuestMediaCommand } from "@/lib/talkback-policy";
@@ -314,7 +315,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const changeProfile = async (audioProfile: GuestAudioProfile) => {
     const prior = choicesRef.current;
     if (!prior || profileBusy || routeBusy || codecBusy || deviceBusyRef.current) throw new Error("Настройки гостя сейчас заняты");
-    if (guestAudioProfile(prior.audioProfile) === audioProfile && guestNoiseSuppressionState(room) === (audioProfile === "speech" ? "on" : "off")) return;
+    if (guestAudioProfile(prior.audioProfile) === audioProfile && guestAudioProcessingMatches(room, audioProfile)) return;
     const request = ++profileAttempt.current;
     const generation = mediaGeneration.current;
     setProfileBusy(true); setDeviceError("");
@@ -322,6 +323,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       const changed = await switchGuestMicrophoneProfile(room, prior, { ...prior, audioProfile }, { isCurrent: () => request === profileAttempt.current && generation === mediaGeneration.current });
       if (!changed || request !== profileAttempt.current || generation !== mediaGeneration.current) throw new Error("Смена режима отменена из-за переподключения");
       setChoices(current => current ? { ...current, audioProfile } : current);
+      settingsReporter.current?.report();
     } catch (cause) {
       if (generation === mediaGeneration.current) setDeviceError(cause instanceof Error ? cause.message : "Не удалось сменить режим микрофона");
       throw cause;
@@ -442,6 +444,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     {deviceError && <p className="media-device-error caster-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
     <div className={`guest-conference-shell${selfMonitor.video ? "" : " self-preview-hidden"}`}><div className={`guest-conference-grid${studioOnly ? " studio-only-grid" : ""}`}><RoomContext.Provider value={room}><StartAudio label={t("Включить звук от студии")} className="guest-audio-button" /><RoomConference workspaceLayout sceneControlsTarget={sceneControlsTarget} selfPreviewVisible={selfMonitor.video} transportControl={!staffTransitioning && <CoPresentationPanel key={`${studioId}:${roomName}`} room={room} token={token} studioId={studioId} roomName={roomName} />} extraControls={<>{!staffTransitioning && <GuestPrivateTalkback microphoneMuteEpochRef={microphoneMuteEpochRef} room={room} roomName={roomName} studioId={studioId} token={token} microphoneId={choices.audioDeviceId || ""} micGain={choices.micGain ?? 100} audioProfile={choices.audioProfile} listenGain={choices.listenGain ?? 100} onReplyBusyChange={active => { privateReplyBusyRef.current = active; setPrivateReplyBusy(active); }} disabled={profileBusy || routeBusy || codecBusy || deviceBusy} />}</>} settingsControl={<GuestSettingsPanel><div className="panel guest-device-panel">
       <MediaDevicePicker disabledMicrophoneInput={privateReplyBusy} disabledInputs={staffTransitioning || profileBusy || routeBusy || codecBusy || deviceBusy} disabledOutput={staffTransitioning || deviceBusy} autoRequestPermissions={false} permissionInputs={{ audio: room.localParticipant.isMicrophoneEnabled, video: room.localParticipant.isCameraEnabled }} room={room} cameraId={choices.videoDeviceId} microphoneId={choices.audioDeviceId} headphonesId={choices.audioOutputId || "default"} onChange={change => { if (deviceBusyRef.current || (privateReplyBusyRef.current && change.microphoneId !== undefined)) return; setDeviceError(""); setChoices(current => current ? { ...current, ...(change.cameraId !== undefined ? { videoDeviceId: change.cameraId } : {}), ...(change.microphoneId !== undefined ? { audioDeviceId: change.microphoneId } : {}), ...(change.headphonesId !== undefined ? { audioOutputId: change.headphonesId } : {}) } : current); }} /></div>
+    <GuestNoiseSuppressionControl profile={guestAudioProfile(choices.audioProfile)} state={guestNoiseSuppressionState(room)} confirmed={guestAudioProcessingMatches(room, choices.audioProfile)} busy={profileBusy} disabled={staffTransitioning || privateReplyBusy || routeBusy || codecBusy || deviceBusy || (connectionStatus.phase !== "connected" && connectionStatus.phase !== "recovered")} onChange={profile => { void changeProfile(profile).catch(() => undefined); }} />
     <section className="panel personal-monitor-panel"><h2>{t("Собственный мониторинг")}</h2><p className="muted">{t("Звук, видео и громкость меняются только для вас. Другие участники и выходы vMix не затрагиваются.")}</p>
       <div className="personal-monitor-row"><strong>{t("Собственный мониторинг")}</strong><MonitoringControls name={t("Я")} value={selfMonitor} onChange={(patch) => setSelfMonitor((value) => ({ ...value, ...patch }))} /></div>
       <SelfAudioMonitor room={room} value={{ ...selfMonitor, audio: !studioOnly && selfMonitor.audio, volume: selfMonitor.volume * (choices.listenGain ?? 100) / 100 }} />
@@ -660,7 +663,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
       let mediaConnected = false;
       try {
         const selected = choicesRef.current?.connectionRoute || "auto";
-        const activeRoute = await connectGuestRoom(room, getLiveKitUrl(), token, {
+        const activeRoute = await connectGuestRoom(room, getLiveKitUrl(), roomTelemetryToken(room, token), {
           route: selected, relay: connectionRoutes.relay, isActive: () => active && !participantRemoved,
           onAttempt: route => { if (active && route === "relay") onConnectionStatus(current => ({ ...nextRecoveryStatus(current, "connect-start"), message: "Подключение через запасной маршрут TURN…" })); },
         });
@@ -762,8 +765,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
         } else if (room.localParticipant.isCameraEnabled) await applyGuestCameraHeightInTask(room, () => active && generation === mediaGeneration.current, current);
         });
         // A successful camera/device update does not confirm microphone DSP.
-        const expectedNoiseSuppression = current.audioProfile === "raw" ? "off" : "on";
-        if (active && (!room.localParticipant.isMicrophoneEnabled || guestNoiseSuppressionState(room) === expectedNoiseSuppression)) onDeviceError("");
+        if (active && guestAudioProcessingMatches(room, guestAudioProfile(current.audioProfile))) onDeviceError("");
       } catch (e) { if (active) onDeviceError(e instanceof Error ? `Не удалось переключить устройство: ${e.message}` : "Не удалось переключить устройство"); }
     };
     void switchInputDevices();

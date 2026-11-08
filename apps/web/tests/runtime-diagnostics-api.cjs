@@ -89,11 +89,14 @@ const post = (raw, token='valid-token') => loaded.exports.POST({headers:new Head
   claims={...claims,sub:'studio-panel-one'};
   assert.equal((await post({...sample('mismatch-room-session'),room:'media-tenant-two-Poker'})).status,400);
   assert.equal((await post({...sample('mismatch-identity-session'),identity:'studio-panel-another'})).status,400);
-  const raw={...sample('ingest-runtime-session'),at:12345,runtime:{...diagnostic,token:'secret',message:'secret',events:[{at:1,kind:'error',message:'secret'}]}};
+  const mediaTrack={present:true,readyState:'ended',muted:true,enabled:false};
+  const media={onAir:true,preview:true,source:'camera',audioContextState:'interrupted',videoPublished:true,audioPublished:true,video:mediaTrack,audio:mediaTrack};
+  const raw={...sample('ingest-runtime-session'),at:12345,runtime:{...diagnostic,media:{...media,deviceId:'secret',video:{...mediaTrack,label:'secret'}},token:'secret',message:'secret',events:[{at:1,kind:'error',message:'secret'}]}};
   assert.equal((await post(raw)).status,204);
   const stored=(await store.readRuntimeHistory('media-tenant-one-Poker',15,{session:raw.session})).samples[0];
   assert.equal(stored.clientAt,12345);assert.ok(stored.at>at);assert.equal(stored.runtime.token,undefined);
   assert.deepEqual(stored.runtime.events,[{at:1,kind:'error'}]);assert.equal(JSON.stringify(stored.runtime).includes('secret'),false);
+  assert.deepEqual(stored.runtime.media,media,'source failure and publication state survive sanitized API ingestion and exact history export');
   assert.equal((await post({...sample('ingest-invalid-session'),runtime:[]})).status,204);
   assert.equal((await store.readHistory('media-tenant-one-Poker',15,'ingest-invalid-session')).connections[0].latest.runtime,undefined);
   for(const [identity,role] of [['guest-one','guest'],['output-one','output'],['monitor-one','monitor'],['studio-moderator-one','moderator']]) {

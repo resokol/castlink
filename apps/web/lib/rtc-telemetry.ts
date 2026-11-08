@@ -1,17 +1,25 @@
 "use client";
 
-import { retainSessionHttpBearer } from "./session-http-bearer";
+import { retainSessionHttpBearer, sessionHttpBearer } from "./session-http-bearer";
+import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { readTrackStats } from "./media-stats";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track } from "livekit-client";
-import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample } from "./telemetry-types";
+import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample, StudioMediaDiagnostic } from "./telemetry-types";
 import { audioReceiveDiagnostic, sanitizeAudioPlayback, type AudioCounters } from "./audio-diagnostics";
 
 type Counter = { at: number; bytes: number; packets: number | null; lost: number | null };
 const numberOrNull = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
 const millis = (value: unknown) => { const n = numberOrNull(value); return n === null ? null : n * 1000; };
 const tokenExpiresAt = (value: string) => telemetryContext(value, "").expiresAt;
+// A manual retry reuses the Room and original React token, including after renewal.
+const renewedRoomTokens = new WeakMap<Room, { source: string; token: string }>();
+/** Reuse only a server renewal accepted for this Room and exact source token. */
+export function roomTelemetryToken(room: Room, source: string) {
+  const renewed = renewedRoomTokens.get(room);
+  return renewed?.source === source ? renewed.token : source;
+}
 
 export function rateDelta(previous: Counter | undefined, next: Counter) {
   if (!previous || next.at <= previous.at || next.bytes < previous.bytes) return { bitrateKbps: null, lossPct: null };
@@ -23,23 +31,26 @@ export function rateDelta(previous: Counter | undefined, next: Counter) {
   return { bitrateKbps, lossPct: packets + lost > 0 ? Math.min(100, lost / (packets + lost) * 100) : null };
 }
 
-export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }, viewAccess = "", playbackDiagnostic?: () => AudioPlaybackDiagnostic | undefined) {
+export function startRoomTelemetry(room: Room, roomName: string, initialToken: string, studioControl?: { clientId: string; epoch: number; role: "studio-panel" | "studio-moderator" }, viewAccess = "", playbackDiagnostic?: () => AudioPlaybackDiagnostic | undefined, mediaDiagnostic?: () => StudioMediaDiagnostic | undefined) {
   const scope = telemetryContext(initialToken, roomName);
   const httpBearer = retainSessionHttpBearer(initialToken);
+  const renewed = roomTelemetryToken(room, initialToken);
+  if (renewed !== initialToken) httpBearer.update(renewed);
   const session = crypto.randomUUID();
-  const runtime = studioControl?.role === "studio-panel" ? startBrowserRuntimeDiagnostics(session) : undefined;
+  const runtime = studioControl?.role === "studio-panel" ? startBrowserRuntimeDiagnostics(session, mediaDiagnostic) : undefined;
   const started = Date.now();
   const previous = new Map<string, Counter>();
   const previousAudio = new Map<string, AudioCounters>();
-  let token = initialToken, tokenAt = Date.now(), reconnects = 0, stopped = false;
+  let token = sessionHttpBearer(initialToken), tokenAt = Date.now(), reconnects = 0, recovering = false, stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const identity = room.localParticipant.identity;
   const role: TelemetrySample["role"] = identity.startsWith("studio-panel-") ? "studio" :
     identity.startsWith("output-") ? "output" : identity.startsWith("monitor-") ? "monitor" : "guest";
-  const onReconnect = () => { reconnects++; runtime?.event("reconnecting"); };
-  const onSignalReconnect = () => { reconnects++; runtime?.event("signal-reconnecting"); };
-  const onReconnected = () => runtime?.event("reconnected");
-  const onDisconnected = () => runtime?.event("disconnected");
+  const beginRecovery = () => { if (!recovering) reconnects++; recovering = true; };
+  const onReconnect = () => { beginRecovery(); runtime?.event("reconnecting"); };
+  const onSignalReconnect = () => { beginRecovery(); runtime?.event("signal-reconnecting"); };
+  const onReconnected = () => { recovering = false; runtime?.event("reconnected"); };
+  const onDisconnected = () => { recovering = false; runtime?.event("disconnected"); };
   room.on(RoomEvent.Reconnecting, onReconnect);
   room.on(RoomEvent.SignalReconnecting, onSignalReconnect);
   room.on(RoomEvent.Reconnected, onReconnected);
@@ -73,7 +84,11 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         }, cache: "no-store" });
         if (response.ok && !stopped) {
           const next = (await response.json()).token;
-          if (!stopped && typeof next === "string" && httpBearer.update(next)) { token = next; tokenAt = Date.now(); }
+          if (!stopped && typeof next === "string" && httpBearer.update(next)) {
+            if (scope.tokenRole === "guest") refreshGuestResumeToken(scope.studioId, scope.roomName, identity, token, next);
+            renewedRoomTokens.set(room, { source: initialToken, token: next });
+            token = next; tokenAt = Date.now();
+          }
         }
       }
       const streams: StreamStat[] = [];

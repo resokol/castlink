@@ -14,10 +14,17 @@ global.PerformanceObserver=class{static supportedEntryTypes=['longtask'];constru
 const originalNow=Date.now;Date.now=()=>wall;
 try {
  const {startBrowserRuntimeDiagnostics,localRuntimeDiagnosticReport}=load('../lib/browser-runtime-diagnostics.ts');
- const first=startBrowserRuntimeDiagnostics('session-runtime-one');
+ let media={onAir:true,preview:true,source:'camera',audioContextState:'running',videoPublished:true,audioPublished:true,
+  video:{present:true,readyState:'live',muted:false,enabled:true},audio:{present:true,readyState:'live',muted:false,enabled:true}};
+ let mediaFails=false;
+ const first=startBrowserRuntimeDiagnostics('session-runtime-one',()=>{if(mediaFails)throw Error('unavailable');return media;});
  assert.equal(timers.size,1);
  const tick=(ms)=>{mono+=ms;wall+=ms;for(const f of timers.values())f();};
  tick(1800);let s=first.snapshot();
+ assert.deepEqual(s.media,media,'runtime snapshot includes current source and publication state');
+ media.video.readyState='ended';s=first.snapshot();assert.equal(s.media.video.readyState,'ended');
+ s.media.video.enabled=false;assert.equal(media.video.enabled,true,'snapshot cannot mutate the source provider');
+ mediaFails=true;assert.equal(first.snapshot().media,undefined,'provider failure omits stale media evidence without losing runtime');mediaFails=false;
  assert.equal(s.loopLagMs,800);assert.equal(s.maxLoopLagMs,800);assert.equal(s.environment,'desktop');assert.equal(s.browser,'chrome');assert.equal(s.heapUsedBytes,1234);
  observer({getEntries:()=>[{duration:125},{duration:70}]});s=first.snapshot();assert.equal(s.longTasks,2);assert.equal(s.longTaskMaxMs,125);
  doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));tick(61000);
@@ -30,6 +37,7 @@ try {
  win.dispatchEvent(new Event('error'));assert.equal(first.snapshot().errors,50,'listeners removed on cleanup');
  const second=startBrowserRuntimeDiagnostics('session-runtime-two');
  let report=localRuntimeDiagnosticReport();assert.equal(report.active.session,'session-runtime-two');assert.equal(report.previous.session,'session-runtime-one');assert.equal(report.previous.runtime.errors,50);
+ assert.equal(report.previous.runtime.media.video.readyState,'ended','previous session preserves source failure after restart');
  second.stop();
  win.sessionStorage={getItem(){throw Error('blocked');},setItem(){throw Error('full');}};
  Object.defineProperty(global,'performance',{value:{now:()=>mono},configurable:true});delete global.PerformanceObserver;

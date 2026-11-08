@@ -1,6 +1,15 @@
 type Session = {token:string;identity:string;entryInvite?:string;tabOnly?:boolean};
 type Store = Pick<Storage,'getItem'|'setItem'|'removeItem'> & {setTabItem?:(key:string,value:string)=>void};
 export const guestResumeKey=(studioId:string,room:string)=>`castlink-guest-resume:${JSON.stringify([studioId,room])}`;
+/** Persist only an accepted renewal of an existing credential, never a new binding. */
+export function refreshGuestResumeToken(studioId:string,room:string,identity:string,previousToken:string,token:string){
+ const key=guestResumeKey(studioId,room);
+ // Check the two stores separately: another tab may own the durable credential.
+ for(const name of ['sessionStorage','localStorage'] as const)try{
+  const storage=globalThis[name],saved=JSON.parse(storage?.getItem(key)||'null');
+  if(saved?.identity===identity&&saved.token===previousToken)storage.setItem(key,JSON.stringify({...saved,token}));
+ }catch{}
+}
 /** Keep the tab's identity first, with signed recovery after that tab closes. */
 export function guestResumeStorage():Store{
  let tab:Storage|undefined,durable:Storage|undefined;

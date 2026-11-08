@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-08 — компактная студия и звук кастера / Compact studio and caster audio / 紧凑演播室与参与者音频
+
+- RU: основная студия одновременно показывает компактный STUDIO PLAYBACK, карточки кастеров и статистику с настройками. Длинный список кастеров прокручивается отдельно.
+- RU: кастер включает шумоподавление и защиту от эха в системных настройках. Новые подключения используют обработку; явный сохранённый оригинальный звук сохраняется. После установки обновите страницы вне эфира; для оригинального звука используйте наушники.
+- EN: the primary studio shows compact playback, caster cards and statistics/settings together, with independent scrolling for additional sources. Casters can enable noise suppression and echo cancellation in System settings. New connections use processing; explicit saved original sound is retained. Reload room pages off air after the update; use headphones with original sound.
+- 简体中文：主演播室可同时显示紧凑预览、参与者卡片及统计和设置，更多来源可独立滚动。参与者可在系统设置中启用降噪和回声消除；新连接默认启用处理，明确保存的原始声音设置将保留。更新后请在停播时刷新房间页面；使用原始声音时请佩戴耳机。
+
 ## Unreleased — primary studio diagnostics
 
 - Removed redundant whole-studio updates driven by audio-meter animation; microphone replacement and participant/stat changes remain visible.

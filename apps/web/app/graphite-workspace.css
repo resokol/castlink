@@ -685,3 +685,51 @@ html .graphite-workspace.studio-page .studio-transport-bar .studio-quick-control
 /* A compact studio heading returns vertical space to playback and telemetry. */
 .graphite-workspace.studio-page:has(.studio-return-layout[data-view="studio"]) .studio-header { padding-bottom: 12px; gap: 12px; }
 .graphite-workspace.studio-page:has(.studio-return-layout[data-view="studio"]) .studio-header h1 { font-size: 18px; line-height: 1.25; margin-top: 0; }
+
+/* Desktop Studio keeps playback, guests and the operating rail in one screen.
+   Flatten layout wrappers only: the existing media and controls stay mounted. */
+@media (min-width: 1101px) and (min-height: 651px) {
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
+    grid-template-rows: auto minmax(180px, .9fr) minmax(180px, 1fr);
+    align-items: stretch;
+    gap: 12px 16px;
+    height: calc(var(--studio-playback-height, 85dvh) - 16px);
+    min-height: 0;
+    min-width: 0;
+  }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-return-section:not([hidden]),
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-hero { display: contents; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-heading { grid-column: 1; grid-row: 1; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card { display: grid; grid-column: 1; grid-row: 2; grid-template-columns: minmax(0, 1fr) clamp(180px, 30%, 240px); grid-template-rows: minmax(90px, 1fr) auto; gap: 8px 12px; height: auto; min-height: 0; padding: 12px; overflow: auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-preview-card > :is(.return-preview, .studio-preview-placeholder) { grid-column: 1; grid-row: 1; min-height: 90px; height: 100%; max-height: 100%; aspect-ratio: auto; object-fit: contain; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-meter { grid-column: 1; grid-row: 2; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: minmax(0, 1fr); align-content: start; padding: 0; gap: 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-preview-error { grid-column: 1 / -1; grid-row: 3; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-invite-compact button { min-height: 32px; padding: 6px 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail { grid-column: 2; grid-row: 1 / span 3; min-height: 0; gap: 12px; align-self: stretch; scrollbar-gutter: stable; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .studio-transport-bar { flex: none; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-transport-bar .studio-quick-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-quick-controls > :is(.room-mode-toggle, .air-toggle) { grid-column: auto; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-transport-bar > .studio-settings-toggle { min-height: 32px; padding: 6px 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { flex: 1 1 0; min-height: 0; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-sources-section { display: flex; flex-direction: column; grid-column: 1; grid-row: 3; min-height: 0; gap: 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-sources-section > .workspace-section-heading { flex: none; margin: 0; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-sources-section > .source-browser { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .source-browser[data-view="studio"] > .source-deck { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); align-content: start; align-items: start; gap: 10px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] > .studio-transfer-notice { grid-column: 1 / -1; grid-row: 4; margin: 0; }
+}
+
+/* A short desktop keeps measured values, graph and all output selectors visible.
+   Remove surplus spacing rather than reducing the text or hiding diagnostics. */
+@media (min-width: 1101px) and (min-height: 651px) and (max-height: 800px) {
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .studio-return-rail > .return-stats { gap: 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stats-diagnostics { gap: 6px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stat-grid { padding-block: 0; gap: 6px 8px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stat-grid > span { gap: 2px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .return-stat-grid :is(b, strong) { line-height: 1.4; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart { flex: 1 1 90px; min-height: 90px; padding: 0; gap: 4px; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart > div { flex-direction: row; flex-wrap: nowrap; align-items: baseline; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart :is(b, small) { line-height: 1.4; }
+  html .graphite-workspace.studio-page .studio-return-layout[data-view="studio"] .bitrate-chart svg { aspect-ratio: auto; margin-top: 4px; }
+}

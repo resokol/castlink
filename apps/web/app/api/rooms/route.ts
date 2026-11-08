@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     if (moderator && !["create", "rename", "password", "mode"].includes(action)) return NextResponse.json({ error: "Модератору это действие недоступно" }, { status: 403 });
     if (typeof name !== "string" || !name.trim() || name.length > 100 || typeof password !== "string" || password.length > 256) throw Error("Некорректные данные комнаты");
     const clean = cleanName;
+    if (action === "create" && !validPublicRoomName(clean) || action === "rename" && (typeof newName !== "string" || !validPublicRoomName(newName))) return NextResponse.json({error:"Это имя зарезервировано системой"},{status:400});
     if (moderator && action === "rename") {
       if (typeof newName !== "string" || !newName.trim() || newName.length > 100) throw Error("Недопустимое название комнаты");
       const current = await readRooms(studioId);
@@ -87,7 +88,6 @@ export async function POST(request: NextRequest) {
       if ((await lk.listRooms([mediaRoom])).length && (await lk.listParticipants(mediaRoom)).length) return NextResponse.json({ error: "Переименовать можно только пустую комнату" }, { status: 409 });
     }
     if (creator && action === "rename") {
-      if (typeof newName !== "string" || !validPublicRoomName(newName)) return NextResponse.json({error:"Это имя зарезервировано системой"},{status:400});
       const state = await readStudioState(mediaRoomName(studioId, clean));
       if (state.desired.onAir || state.desired.preview || state.actual?.onAir === true || state.actual?.airBusy === true) return NextResponse.json({ error: "Выключите эфир и предпросмотр перед переименованием" }, { status: 409 });
       const lk = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);

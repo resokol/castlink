@@ -2,6 +2,7 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "guest-noise-control.cjs",
   "client-errors.cjs",
   "client-errors-routing.cjs",
   "session-http-bearer.cjs",
@@ -34,6 +35,7 @@ const tests = [
   "entry-invite-hosted.cjs",
   "guest-preflight-ui.cjs",
   "room-creation-access.cjs",
+  "room-name-namespace.cjs",
   "room-creation-password-settings.cjs",
   "room-creation-password-ui.cjs",
   "co-presentation-controls.cjs",
@@ -173,6 +175,7 @@ const tests = [
   "multiview-scene-clip.cjs",
   "multiview-media.cjs",
   "guest-resume.cjs",
+  "guest-resume-renewal.cjs",
   "guest-name-sync.cjs",
   "i18n.cjs",
   "hosted-access.cjs",
@@ -272,6 +275,8 @@ const tests = [
   "reconnect-recovery.cjs",
   "room-access-version.cjs",
   "room-mode-monitoring.cjs",
+  "personal-monitoring-entry.cjs",
+  "studio-return-meter.cjs",
   "rotation-api.cjs",
   "saved-servers.cjs",
   "screen-share-lifecycle.cjs",
@@ -302,6 +307,7 @@ const tests = [
   "runtime-diagnostics-api.cjs",
   "runtime-diagnostics-relay.cjs",
   "rtc-telemetry-runtime.cjs",
+  "rtc-telemetry-reconnect.cjs",
   "browser-runtime-diagnostics.cjs",
   "statistics-runtime.cjs",
   "studio-owner-access.cjs",
@@ -323,6 +329,7 @@ const tests = [
   "storage-backup-restore.cjs",
   "talkback-policy.cjs",
   "statistics-filters.cjs",
+  "connection-history.cjs",
   "telemetry.cjs",
   "audio-diagnostics.cjs",
   "rtc-telemetry-audio.cjs",

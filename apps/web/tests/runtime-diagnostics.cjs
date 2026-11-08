@@ -36,5 +36,18 @@ try {
     assert.ok(Number.isFinite(bounded[key]) && bounded[key] < 1e100, `${key} is bounded`);
   }
   assert.equal(JSON.stringify(bounded).includes('secret'), false);
+  const track = { present: true, readyState: 'live', muted: false, enabled: true, deviceId: 'secret', label: 'secret' };
+  const media = { onAir: true, preview: true, source: 'camera', audioContextState: 'running',
+    videoPublished: true, audioPublished: true, video: track, audio: {...track, readyState: 'ended'}, token: 'secret' };
+  const cleanMedia = sanitizeRuntimeDiagnostic({...raw, media}).media;
+  assert.deepEqual(cleanMedia, { onAir: true, preview: true, source: 'camera', audioContextState: 'running', videoPublished: true, audioPublished: true,
+    video: {present: true, readyState: 'live', muted: false, enabled: true}, audio: {present: true, readyState: 'ended', muted: false, enabled: true} }, 'media state is useful without raw device or credential fields');
+  assert.equal(JSON.stringify(cleanMedia).includes('secret'), false);
+  for (const invalidMedia of [[], null, 'secret', {...media, source: 'secret'}, {...media, onAir: 'true'}, {...media, video: {present: true, readyState: 'secret'}}]) {
+    assert.equal(sanitizeRuntimeDiagnostic({...raw, media: invalidMedia}).media, undefined, 'malformed media snapshot is omitted');
+  }
+  assert.equal(sanitizeRuntimeDiagnostic({...raw, media: {...media, audioContextState: 'interrupted'}}).media.audioContextState, 'interrupted');
+  const absent = {present: false, readyState: null, muted: null, enabled: null};
+  assert.deepEqual(sanitizeRuntimeDiagnostic({...raw, media: {...media, source: 'black', video: absent}}).media.video, absent);
   console.log('PASS: runtime diagnostics allowlist, malformed objects, unsupported metrics, bounded counters, and recent operational events');
 } finally { if (original) Module._extensions['.ts'] = original; else delete Module._extensions['.ts']; }
