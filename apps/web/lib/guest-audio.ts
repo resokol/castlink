@@ -190,15 +190,9 @@ export function setGuestMicrophoneEnabled(room: Room, enabled: boolean, choices:
       return false;
     }
     if (room.localParticipant.isMicrophoneEnabled !== enabled) throw new Error("Браузер не подтвердил состояние микрофона");
-    if (enabled && publication?.track) {
-      try { verifyNativeProcessing(publication.track as LocalAudioTrack, guestAudioProfile(current.audioProfile) === "speech"); }
-      catch (cause) {
-        // setMicrophoneEnabled publishes before returning; do not leave an
-        // unverified new capture transmitting after reporting enable failure.
-        await room.localParticipant.setMicrophoneEnabled(false);
-        throw cause;
-      }
-    }
+    // Keep the user's explicit mic state when a browser cannot report DSP.
+    // Callers retain the processing error instead of acknowledging success.
+    if (enabled && publication?.track) verifyNativeProcessing(publication.track as LocalAudioTrack, guestAudioProfile(current.audioProfile) === "speech");
     return true;
   });
 }

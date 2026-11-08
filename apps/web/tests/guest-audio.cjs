@@ -113,7 +113,7 @@ function makeRoom({ muted = false, channels = 1, absent = false } = {}) {
   const initialNS=makeRoom({absent:true});assert.equal(await setGuestMicrophoneEnabled(initialNS,true,()=>speech),true);assert.equal(guestNoiseSuppressionState(initialNS),'on');
   const initialIgnored=makeRoom({absent:true});initialIgnored.track.native=processing(false);initialIgnored.ignoreProcessing=true;
   await assert.rejects(setGuestMicrophoneEnabled(initialIgnored,true,()=>speech),/не подтвердил включение шумоподавления/,'the very first capture is verified before an enable-success result');
-  assert.equal(guestNoiseSuppressionState(initialIgnored),'off');
+  assert.equal(guestNoiseSuppressionState(initialIgnored),'off');assert.equal(initialIgnored.localParticipant.isMicrophoneEnabled,true,'unsupported processing does not silence a user-enabled microphone');
 
   for(const echo of ['false','missing']) {
     const rejected=makeRoom();rejected.track.native=processing(false);rejected.track.constraints=guestAudioCaptureOptions(raw);rejected.pub.options={source:'microphone',dtx:false,red:true,audioPreset:{maxBitrate:88000}};rejected.rejectEcho=echo;
@@ -124,7 +124,7 @@ function makeRoom({ muted = false, channels = 1, absent = false } = {}) {
     assert.equal(rejected.track.isMuted,false);
     const first=makeRoom({absent:true});first.rejectEcho=echo;
     await assert.rejects(setGuestMicrophoneEnabled(first,true,()=>speech),/эхоподавления/);
-    assert.equal(first.localParticipant.isMicrophoneEnabled,false,'failed initial processing verification cannot keep an unchecked microphone transmitting');
+    assert.equal(first.localParticipant.isMicrophoneEnabled,true,'unconfirmed processing reports an error without overriding the requested microphone-on state');
   }
   const incompleteSpeech=makeRoom();incompleteSpeech.track.native.echoCancellation=false;
   assert.equal(guestAudioProcessingMatches(incompleteSpeech,'speech'),false,'same-profile shortcut must reapply when AEC is not enabled');

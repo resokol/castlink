@@ -110,7 +110,7 @@ mocked['@/lib/guest-media-control-client']=require('../lib/guest-media-control-c
 const {GuestMicrophoneButton}=require('../components/GuestMicrophoneButton.tsx');
 mocked['@/components/GuestMicrophoneButton']={GuestMicrophoneButton};
 const filename=require.resolve('../components/GuestWorkspace.tsx');
-const workspaceModule=new Module(filename,module);workspaceModule.paths=module.paths;
+const workspaceModule=new Module(filename,module);workspaceModule.filename=filename;workspaceModule.paths=module.paths;
 workspaceModule._compile(transpile(fs.readFileSync(filename,'utf8').replace('function RoomConnector(', 'export function RoomConnector(')),filename);
 Module._load=originalLoad;
 const {GuestWorkspace,RoomConnector}=workspaceModule.exports;
