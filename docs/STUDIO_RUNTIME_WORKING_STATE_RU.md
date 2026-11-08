@@ -1,21 +1,44 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
-## Текущая доработка: прямой URL и компактные меню
+## Установлены прямой URL и компактные меню — 08.11.2026
 
-Владелец одобрил консоль А и просит только: прямое копирование индивидуального
-URL на карточке гостя, компактные удобные настройки/меню студии, убрать символ
-перед ON AIR в кнопке. Компоновка А, stats/codecs и мобильный кастер закреплены.
-UIowner mobile_ui (GPT-6.1 Sol high), rootdocs/проверки/интеграция.
-План: docs/superpowers/plans/2026-11-08-studio-console-menus.md.
-Production остаётся78db; readonly preflight21:27:56UTC0/0/0 и runtimecontracts
-совпадают. Новый scope studio-console-menus-20261108; до exact source GO никаких
-новых transfer/build/install. Настройки и контроллеры остаются single-mounted.
-UIреализован, TSC/343CI/nativebrowser и independentSolreview PASS.
-Доказательства: /workspace/studio-console-menus-confirmed и focus-proof.
-Далее exactcommit/bundle/officialbuild/guardedwebinstall, свежий activityguard.
+castlink.ru: `1.0.0-rc.9-99f89126755e`, source
+`99f89126755e057a4a218b7040677f840e2669fe`, tree
+`bef7063eb88907c542f6719c6ef5ddf17a91cd9f`. Переключено21:50:51UTC.
+Image: `sha256:7ca554c2d07868f636fbac2438bada5249483ca959d94595eba34dbfc01835f4`.
 
+Добавлена прямая кнопка индивидуальногоURL справа от аудиометра гостя с
+подтверждением копирования; используется прежний onCopy/copied. Меню устройств,
+приглашений, комнаты и гостя уплотнены и открываются возле своих кнопок.
+Расширенные группы раскрываются без пересоздания контроллеров; высота ограничена
+доступным экраном, заголовок/закрытие закреплены. Вложенный toggle не меняет
+состояние родительского меню; фокус возвращается корректно, включая Edit/Cancel.
+У ON AIR удалён только декоративный символ перед надписью. Утверждённая А,
+stats/codecs, mobilecaster8, handlers/permissions/busy/feedback и media owners
+сохранены. Действие пользователя при обновлении: обновить вкладку браузера.
 
-## Установлена выбранная консоль А — 08.11.2026
+TSC,343officialstableCI, manualmap1856, профильные unit/browser — PASS.
+Первичная матрица23контекста; финальные меню8контекстов плюс строгий320dark
+focus-proof после queuednativeToggleEvent — PASS; немедленный BODY до toggle
+не является потерей фокуса. Folded/expanded bounds иclose, реальные формы,
+копирование/success, resize, nativefocus и mediaidentity проверены.
+Локальные тестовые потоки; liveSFU/RemotePC сеансы не запускались.
+Доказательства /workspace/studio-console-menus-confirmed и focus-proof.
+Independent GPT-6.1 Sol high review закрыто без открытых замечаний.
+
+Official whole-image build +Windows/VPS smoke +41compiled features и7точных
+JS/CSSхешей через публичныйHTTPS — PASS. Root отдельно подтвердил /api/version.
+До/после0rooms/participants/tracks;281public,8соседних служб,env/mounts/security/
+limits/config/profiles/data сохранены; maintenance снят,0restarts. Rollback78db/
+image08bacedb сохранён. Миграций/очистки/публичногоGitHubpush не было.
+Receipt /workspace/castlink-studio-console-menus-final-receipt.json SHA256
+`d0e959f29528dc6b53bf40a148cf7689b38ba5afc14734c1cd05bc06779ace3f`.
+Windows scope C:/Users/Max/Projects/studiolink-ha-ops/studio-console-menus-20261108/.
+План docs/superpowers/plans/2026-11-08-studio-console-menus.md.
+UI/ops — GPT-6.1 Sol high; интеграция/проверки — root Codex;
+независимый reviewer — GPT-6.1 Sol high console_a_review. Задача завершена.
+
+## Предыдущая установка выбранной консоли А — 08.11.2026
 
 castlink.ru: `1.0.0-rc.9-78dbf4b702d1`, source
 `78dbf4b702d1dca4eadb8019956991911b504c0c`, tree

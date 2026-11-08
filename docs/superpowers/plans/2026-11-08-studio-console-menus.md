@@ -12,7 +12,7 @@ no symbol before ON AIR; preserve everything else. Base runtime78dbf4b, HEADab7a
  One batched visual inspection, material fixes in one batch, one confirmation.
 - [x] Root: TypeScript, affected unit contracts, current manualmap,343stable CI
  once finalsource; independent Solreview; no speculative unrelated fixes.
-- [ ] Exact sourcecommit/bundle to existingownedWindows, official wholeimage
+- [x] Exact sourcecommit/bundle to existingownedWindows, official wholeimage
  with exact281public; fresh activity/config/eightneighbor guards; web-onlyswap;
  public HTTPS/version/assets proof and final receipt. Active sessions hold swap.
 
@@ -34,3 +34,8 @@ viewed actual1280 main/folded/expandedguest+room and light1440access.
 Sharedhelper eventtarget guards prevent childdetails toggles fromchangingowner
 state; maximumheight derives fromchosen top; body-onlyfocus fallback respects
 existing outsidefocus. No media owner extraction orAPI/DSP/encoder changes.
+
+Delivered21:50:51UTC source99f8912/treebef7063, image7ca554c2d078… .
+41compiledfeatures/7publicassets, strict0activity,281public/eightneighbors/
+runtimecontracts PASS; maintenancecleared, rollback78db retained. Root HTTPS
+confirmed1.0.0-rc.9-99f89126755e. Receipt /workspace/castlink-studio-console-menus-final-receipt.json.
