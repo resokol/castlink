@@ -242,3 +242,15 @@ use the rail's local scroll without moving playback. Preserve mounted media and
 all existing control permissions. Narrow or very short windows keep natural flow.
 This supersedes the older full-first-screen playback / guests-below requirement.
 See docs/design/STUDIO_COMPACT_20261108_RU.md for preview evidence and limits.
+
+## Caster row and playback proportions — owner correction, 8 November 2026
+
+On mobile, caster direct actions stay in one horizontal row. Preserve 44px touch
+buttons and use a local horizontal scrollport when needed; show a small scroll
+cue. Keep native popovers reachable. The unsupported screen-share explanation
+must not create a tall narrow column below its button.
+
+STUDIO PLAYBACK uses a 16:10 window, including waiting and short-window states.
+Contain the original source without cropping or stretching; compact desktop
+sizing follows both available width and height. Preserve the shared first-screen
+studio/source/statistics layout and mounted media.

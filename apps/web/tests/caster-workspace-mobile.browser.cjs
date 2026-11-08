@@ -82,7 +82,7 @@ let browser;
     await page.route('https://conference.test/icon.svg',route=>route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(source,'app/icon.svg'))}));
     await page.route('https://conference.test/api/co-presentations',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({sessions:[]})}));
     await page.goto('https://conference.test/');
-    await page.evaluate(({theme,count})=>{document.documentElement.dataset.theme=theme;window.qaCount=count}, {theme,count});
+    await page.evaluate(({theme,count})=>{document.documentElement.dataset.theme=theme;window.qaCount=count;Object.defineProperty(navigator.mediaDevices,'getDisplayMedia',{value:undefined,configurable:true})}, {theme,count});
     await page.addStyleTag({content:css});
     await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});
     await page.waitForSelector('[data-scene-mode]');
@@ -91,23 +91,40 @@ let browser;
     const geometry=await page.evaluate(()=>{
       const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};
       const selectors=['[data-lk-source="microphone"]','.guest-camera-control > .lk-track-toggle','.guest-camera-effects-toggle','.castlink-chat-toggle','button[aria-label="Реакции"]','.guest-screen-share-button','.native-pptx-prepare','.caster-toolbar-exit','.guest-settings-toggle'];
-      return {width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,footer:box(document.querySelector('.castlink-conference-footer')),buttons:selectors.map(selector=>({selector,...box(document.querySelector(selector))})),scene:box(document.querySelector('[data-scene-mode]')),separators:document.querySelectorAll('[role="separator"]').length,headerControls:[...document.querySelectorAll('.caster-scene-controls button,.caster-scene-controls summary')].map(box)};
+      return {width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,footer:box(document.querySelector('.castlink-conference-footer')),buttons:selectors.map(selector=>({selector,...box(document.querySelector(selector))})),scene:box(document.querySelector('[data-scene-mode]')),separators:document.querySelectorAll('[role="separator"]').length,headerControls:[...document.querySelectorAll('.caster-scene-controls button,.caster-scene-controls summary')].map(box),toolbar:box(document.querySelector('.caster-action-toolbar')),toolbarScroll:{width:document.querySelector('.caster-action-toolbar').clientWidth,total:document.querySelector('.caster-action-toolbar').scrollWidth},unavailable:box(document.querySelector('.guest-screen-share-unavailable'))};
     });
     check(geometry.width<=width+1,'no horizontal page overflow');
     check(geometry.scene.x>=0&&geometry.scene.y>=0&&geometry.scene.right<=width+1&&geometry.scene.bottom<=height+1,'entire stage fits viewport');
     check(geometry.headerControls.length===3&&geometry.headerControls.every(b=>b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1&&b.h>=36),'header portal controls fit viewport and retain existing36px minimum');
     if(mobile){
       const controls=geometry.buttons;
-      if(width>480)check(Math.max(...controls.map(b=>b.y))-Math.min(...controls.map(b=>b.y))<=1,'transport controls remain in one row when width permits');
-      check(controls.every(b=>b.x>=0&&b.right<=width+1&&b.bottom<=height),'every control fits phone viewport');
+      check(Math.max(...controls.map(b=>b.y))-Math.min(...controls.map(b=>b.y))<=1,'all transport actions stay in exactly one row');
+      check(controls.every(b=>b.bottom<=height),'every control stays vertically inside phone viewport');
+      check(controls.every(b=>b.w>=44),'every mobile control has44px touch width');
+      check(geometry.toolbar.x>=0&&geometry.toolbar.right<=width+1,'toolbar scrollport fits viewport');
       check(controls.every(b=>b.h>=44),'transport controls retain44px touch height');
       check(geometry.footer.bottom<=height+1,'footer stays above phone gesture area');
       check(geometry.scene.h>=120,'video stage remains usable');
       check(geometry.separators===0,'phones never show resize separator');
     }
+    check(geometry.unavailable.w<=1&&geometry.unavailable.h<=1,'unsupported screen hint does not form a narrow text column');
+    check(await page.locator('.guest-screen-share-button').isDisabled(),'unsupported screen share is disabled');
+    check((await page.locator('.guest-screen-share-button').getAttribute('aria-label')).includes('не поддерживается'),'unsupported reason remains accessible');
+    await page.screenshot({path:path.join(out,'ready-'+theme+'-'+width+'.png')});
     await page.evaluate(()=>{window.qaMedia=[...document.querySelectorAll('video')].map(node=>({node,track:node.srcObject?.getVideoTracks()[0]}))});
     check(await page.locator('.caster-scene-controls [aria-label="Вид сцены"]').count()===1,'real scene mode controls use header portal');
     check(await page.locator('.conference-more-toggle').count()===0,'new workspace uses direct actions');
+    for(const selector of ['.guest-camera-effects-toggle','.room-reactions-toggle']){
+      await page.locator(selector).click();
+      const menu=await page.locator('[popover]:popover-open').evaluate(element=>{const r=element.getBoundingClientRect(),target=element.querySelector('button')||element,hit=document.elementFromPoint(Math.max(0,r.x+r.width/2),Math.max(0,r.y+r.height/2));return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,hit:element.contains(hit)}});
+      check(menu.x>=0&&menu.y>=0&&menu.right<=width+1&&menu.bottom<=height+1&&menu.hit,'camera/reaction popover escapes toolbar scroll clipping: '+selector);
+      await page.keyboard.press('Escape');
+    }
+    for(const selector of ['[data-lk-source="microphone"]','.guest-camera-effects-toggle','.castlink-chat-toggle','.room-reactions-toggle','.guest-screen-share-button','.native-pptx-prepare','.guest-settings-toggle','.caster-toolbar-exit']){
+      const reachable=await page.locator(selector).evaluate(element=>{element.scrollIntoView({block:'nearest',inline:'nearest'});const r=element.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1});
+      check(reachable,'every direct action is reachable through local horizontal scroll: '+selector);
+    }
+    await page.screenshot({path:path.join(out,'scroll-end-'+theme+'-'+width+'.png')});
     await page.locator('.guest-settings-toggle').click();
     const panel=await page.locator('.guest-settings-popover').boundingBox();
     check(panel.x>=0&&panel.y>=0&&panel.x+panel.width<=width+1&&panel.y+panel.height<=height+1,'system settings fit viewport');
