@@ -14958,7 +14958,7 @@ CastLink: карта архитектуры
 
 [`docs/STUDIO_RUNTIME_WORKING_STATE_RU.md`](../STUDIO_RUNTIME_WORKING_STATE_RU.md)
 
-Основная студия: производительность и диагностика — 02.11.2026
+Основная студия: рабочее состояние — 08.11.2026
 
 ### docs/STUDIO_VIDEO_QUALITY_RU.md
 
