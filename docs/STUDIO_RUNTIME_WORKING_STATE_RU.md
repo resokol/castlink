@@ -1,5 +1,40 @@
 # Основная студия: рабочее состояние — 08.11.2026
 
+## Левая группа playback и настроек — установлено08.11.2026
+
+Последняя web-версия castlink.ru: `1.0.0-rc.9-8750294fcab1`, source
+`8750294fcab1c618e215c29072aec6b840a156b6`, tree
+`85f039813041f35feedf85807de32dd1c49df444`. Установлено18:15:23UTC.
+
+Окно16:10 закреплено слева в компактной общей карточке; короткий аудиометр
+совпадает с шириной кадра. Управление и раскрываемые устройства рядом, приглашения
+ниже, измеренная статистика и4 quality selectors в соседней панели.
+Прокручивается только список устройств, transport и видео остаются видимыми.
+Карточка/заголовок до800px, монитор до360px; график190px без растягивания текста.
+Desktop compact с1101×701; меньшие/низкие окна используют поток без наложения Sources.
+
+14 Chromium cases/0errors (включая1280×720zero/photo,1024×700,651fallback),
+5 профильных suites, TypeScript, manual-docs1849 и diff--check PASS.
+Независимое GPT-6.1 Sol high final_review — без блокирующих замечаний.
+Official Docker build, isolated Windows/VPS smoke и26 compiled UI markers PASS.
+Проверены26 признаков и точные хеши4 JS/CSS через публичный HTTPS;
+root отдельно подтвердил buildId через curl. Mobile JS/CSS побайтово сохранены.
+
+До/после0медиакомнат/участников/треков. Заменена только web-служба;
+281static,8 соседних служб, env/mounts/config/profiles и данные сохранены.
+Maintenance снят,629image доступен для отката. Владелец отдельно разрешил
+точный875 patch transfer/build/install после отказа автоматической проверки.
+Постоянные source/image/proofs:
+C:/Users/Max/Projects/studiolink-ha-ops/studio-left-monitor-20261108/.
+Квитанция: /workspace/castlink-studio-left-monitor-final-receipt.json;
+проверки: /workspace/castlink-studio-left-monitor-validation.json.
+Реальные browser-снимки продуктовых компонентов с тестовыми потоками:
+/workspace/studio-grouped-preview/. Физический SFU/устройства не воспроизводились.
+Root Codex — интеграция/проверки; GPT-6.1 Sol high mobile_ui — UI,
+final_review — ревью, production_ops — сборка/установка. GitHub/установщики не менялись.
+Открытая страница студии загрузит интерфейс после reload вне эфира.
+
+
 ## Мобильная панель без прокрутки — установлено 08.11.2026
 
 Последняя web-версия castlink.ru: `1.0.0-rc.9-6294852b1d7b`, source
