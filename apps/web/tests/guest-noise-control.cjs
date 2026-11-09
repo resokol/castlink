@@ -30,4 +30,11 @@ for (const patch of [{ disabled: true }, { busy: true }]) {
   tree = GuestNoiseSuppressionControl({ ...props, ...patch });
   assert.equal(nodes(tree).find(node => node.props?.role === 'switch').props.disabled, true);
 }
+tree = GuestNoiseSuppressionControl({ ...props, asButton: true });
+toggle = nodes(tree).find(node => node.props?.role === 'switch');
+assert.equal(toggle.type, 'button'); assert.equal(toggle.props['aria-checked'], false);
+toggle.props.onClick(); assert.equal(changes.at(-1), 'speech');
+tree = GuestNoiseSuppressionControl({ ...props, asButton: true, profile: 'speech', state: 'pending' });
+assert.equal(nodes(tree).find(node => node.props?.role === 'switch').props['aria-checked'], true);
+assert.ok(nodes(tree).some(node => node.props?.role === 'status' && node.props.children === 'Обработка применится при включении микрофона.'));
 console.log('PASS: caster can select speech/raw, actual/pending/unconfirmed processing and busy/disabled states');

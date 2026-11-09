@@ -1592,9 +1592,9 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { flex:0 0 44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot .guest-settings-toggle { width:44px; min-width:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-control-row { display:flex; flex-wrap:nowrap; justify-content:space-between; gap:2px; width:100%; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-control > .lk-track-toggle { width:44px; min-width:44px; padding:10px; gap:0; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-control > .lk-track-toggle span { display:none; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-effects-toggle { width:24px; min-width:24px; padding:0; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { width:44px; min-width:44px; padding:10px; gap:0; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle span { display:none; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-media-menu-toggle { width:24px; min-width:24px; padding:0; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > span > button[aria-label] { height:44px; min-height:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > :is(button,.lk-control-bar) { flex:0 1 auto; min-width:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > button,
@@ -1688,7 +1688,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-caption {
   display: block; color: var(--muted); text-align: center; font-size: 12px; line-height: 18px; font-weight: 500; overflow-wrap: anywhere;
 }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item > :is(.guest-camera-control, .screen-share-control, .guest-settings-control, .lk-control-bar, span) {
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item > :is(.guest-microphone-control, .guest-camera-control, .screen-share-control, .guest-settings-control, .lk-control-bar, span) {
   width: 100%; min-width: 0; margin: 0;
 }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.lk-track-toggle, .castlink-chat-toggle, .room-reactions-toggle, .guest-screen-share-button, .native-pptx-prepare, .guest-settings-toggle, .caster-toolbar-exit) {
@@ -1795,4 +1795,16 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header:has(.caster-scene-controls) { flex-wrap:wrap; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions:has(.caster-scene-controls) { flex-wrap:wrap; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions:has(.caster-scene-controls) .caster-connection-status { display:inline; }
+}
+
+/* Microphone and camera keep their own device arrows in the primary action row. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) { display:flex; gap:0; width:100%; min-width:0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { flex:1 1 0; width:0; min-width:0; border-radius:8px 0 0 8px; border-right:0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-media-menu-toggle { display:grid; place-items:center; flex:0 0 24px; width:24px; min-width:24px; height:44px; padding:0; border:1px solid var(--panel-border); border-left:0; border-radius:0 8px 8px 0; background:var(--secondary-bg); color:var(--text); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control)[data-muted="true"] > button { background:#b42332; border-color:#b42332; color:#fff; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control)[data-muted="true"] > button:hover { background:#971c29; border-color:#971c29; }
+@media (max-width:700px), (max-height:600px) and (orientation:landscape) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-action-toolbar > :is(.caster-toolbar-microphone, .caster-toolbar-camera) { flex:1 1 68px; width:68px; min-width:52px; max-width:68px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { padding:4px !important; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle > svg { width:20px; height:20px; }
 }

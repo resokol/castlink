@@ -21,6 +21,7 @@ Object.defineProperty(room.localParticipant,'identity',{value:'guest-qa'});Objec
 let mic=true,camera=true;Object.defineProperty(room.localParticipant,'isMicrophoneEnabled',{get:()=>mic});Object.defineProperty(room.localParticipant,'isCameraEnabled',{get:()=>camera});
 room.localParticipant.publishData=async()=>{};
 window.qa={left:0,micCalls:0,cameraCalls:0,effectStops:0};
+export const guestAudioCaptureOptions=()=>({noiseSuppression:false,echoCancellation:false});
 export async function setGuestMicrophoneEnabled(_room,value){window.qa.micCalls++;mic=value;room.emit(RoomEvent.TrackMuted);return true}
 export async function setGuestCameraEnabled(_room,value){window.qa.cameraCalls++;camera=value;room.emit(RoomEvent.TrackMuted);return true}
 export const cameraBlurRadius=value=>value??10;
@@ -61,8 +62,8 @@ let browser;
   const openMore=async()=>{if(mobile&&!await page.locator('.caster-secondary-actions').evaluate(e=>e.matches(':popover-open')))await page.locator('.caster-more-toggle').click()};
   await openMore();
   const geometry=await toolbar.evaluate(toolbar=>{const rect=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};return{page:document.documentElement.scrollWidth,width:toolbar.clientWidth,total:toolbar.scrollWidth,items:[...toolbar.querySelectorAll('.caster-toolbar-item')].filter(item=>item.getBoundingClientRect().width>0).map(item=>{const button=item.querySelector('button'),caption=item.querySelector('.caster-toolbar-caption');return{secondary:!!item.closest('.caster-secondary-actions'),caption:caption.textContent,button:rect(button),item:rect(item),captionRect:rect(caption),captionDisplay:getComputedStyle(caption).display,color:getComputedStyle(button).backgroundColor,accessible:!!(button.getAttribute('aria-label')||button.textContent)}})}});
-  assert.equal(geometry.items.length,mobile?9:8);assert(geometry.page<=width,'no page overflow');assert(geometry.total<=geometry.width+1,'no horizontal toolbar scrolling');
-  for(const item of geometry.items){assert(item.accessible,'icon has accessible name');assert(item.button.x>=0&&item.button.right<=width+1,'all visible controls fit viewport');assert(item.button.w>=(mobile?Math.min(44,(width-40)/8)-1:24),'honest responsive touch width '+JSON.stringify({width,height,item}));assert(item.button.h>=44);if(mobile)assert.equal(item.captionDisplay,item.secondary?'block':'none');else{assert.equal(item.captionDisplay,'block');assert(item.captionRect.y>=item.button.bottom+7,'caption below desktop button')}}
+  assert.equal(geometry.items.length,8);assert(geometry.page<=width,'no page overflow');assert(geometry.total<=geometry.width+1,'no horizontal toolbar scrolling');
+  for(const item of geometry.items){assert(item.accessible,'icon has accessible name');assert(item.button.x>=0&&item.button.right<=width+1,'all visible controls fit viewport');assert(item.button.w>=(mobile?Math.min(44,(width-40)/10)-1:24),'honest responsive touch width '+JSON.stringify({width,height,item}));assert(item.button.h>=44);if(mobile)assert.equal(item.captionDisplay,item.secondary?'block':'none');else{assert.equal(item.captionDisplay,'block');assert(item.captionRect.y>=item.button.bottom+7,'caption below desktop button')}}
   const direct=geometry.items.filter(item=>!mobile||!item.secondary);
   assert.equal(new Set(direct.map(item=>item.button.y)).size,1,'primary actions keep one horizontal row');
   if(!mobile)assert.equal(new Set(geometry.items.map(item=>item.item.w)).size,1,'equal desktop widths');
@@ -75,7 +76,7 @@ let browser;
   await page.evaluate(()=>window.qa.media=document.querySelector('[data-qa-media]'));
   await toolbar.locator('[data-lk-source="microphone"]').click();assert.equal(await page.evaluate(()=>window.qa.micCalls),1);assert.equal(await toolbar.locator('[data-lk-source="microphone"]').getAttribute('aria-pressed'),'false');
   await toolbar.locator('[data-lk-source="camera"]').click();assert.equal(await page.evaluate(()=>window.qa.cameraCalls),1);assert.equal(await toolbar.locator('[data-lk-source="camera"]').getAttribute('aria-pressed'),'false');
-  await openMore();await page.locator('.guest-camera-effects-toggle').click();const cameraMenu=page.locator('.guest-camera-effects-menu');await cameraMenu.waitFor({state:'visible'});
+  await page.locator('.guest-camera-effects-toggle').click();const cameraMenu=page.locator('.guest-camera-effects-menu');await cameraMenu.waitFor({state:'visible'});
   const bounds=await cameraMenu.boundingBox();assert(bounds.x>=0&&bounds.y>=0&&bounds.x+bounds.width<=width+1&&bounds.y+bounds.height<=height+1,'camera menu bounded '+JSON.stringify({width,height,bounds}));
   await page.screenshot({path:path.join(out,`camera-${theme}-${width}x${height}.png`)});await page.keyboard.press('Escape');
   await page.locator('.room-reactions-toggle').click();assert(await page.locator('[popover]:popover-open').count()>0);await page.keyboard.press('Escape');

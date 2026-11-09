@@ -86,7 +86,6 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
   const [deviceError, setDeviceError] = useState("");
   const moreId = useId();
   const [uploadTarget, setUploadTarget] = useState<HTMLDivElement | null>(null);
-  const [cameraEffectsTarget, setCameraEffectsTarget] = useState<HTMLDivElement | null>(null);
   const [compactControls,setCompactControls] = useState(false), [moreOpen,setMoreOpen] = useState(false);
   useEffect(() => {
     const query = window.matchMedia('(max-width:700px), (max-height:600px) and (orientation:landscape)');
@@ -128,7 +127,6 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
     <div id={moreId} className="caster-secondary-actions" popover={compactControls ? "auto" : undefined} role={compactControls ? "dialog" : undefined} aria-label={t("Дополнительные действия")} onToggle={event => setMoreOpen(event.newState === "open")}>
       <header className="caster-more-heading"><h2>{t("Дополнительные действия")}</h2><button type="button" popoverTarget={moreId} popoverTargetAction="hide" aria-label={t("Закрыть")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
       <div className="caster-upload-slot" ref={setUploadTarget} />
-      {!readOnly && <div className="caster-toolbar-item caster-toolbar-effects"><div className="caster-camera-effects-slot" ref={setCameraEffectsTarget}/><span className="caster-toolbar-caption" aria-hidden="true">{t("Фон и размытие камеры")}</span></div>}
     </div>
     {!readOnly && action(<button type="button" className="caster-toolbar-exit" aria-label={t("Выйти из комнаты")} title={t("Выйти из комнаты")} onClick={onLeave}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c5-6 13-6 18 0l-2 4-5-2v-3h-4v3l-5 2Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg></button>, t("Выйти"), "leave")}
   </div> : legacyTransport;
@@ -138,7 +136,7 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
     {deviceError && <p className="media-device-error" role="alert">{translateWorkspaceMessage(t, deviceError)}</p>}
     {!readOnly && !workspaceLayout && <p className="screen-share-hint">{t("Кнопка показа экрана позволяет выбрать экран или окно приложения. Чтобы передать звук, включите его в диалоге браузера, если такая настройка доступна.")}</p>}
   </footer>;
-  return <CasterToolbarSlots.Provider value={{upload: uploadTarget, cameraEffects: compactControls ? cameraEffectsTarget : null}}><div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly && showChat : undefined} data-lk-theme="default" data-studio-only={studioOnly || undefined} data-self-preview={selfPreviewVisible} data-single-participant={galleryCount === 1} data-track-count={galleryCount}>
+  return <CasterToolbarSlots.Provider value={{upload: uploadTarget, cameraEffects: null}}><div className={workspaceLayout ? "lk-video-conference caster-conference" : "lk-video-conference"} data-workspace-chat={workspaceLayout ? !studioOnly && showChat : undefined} data-lk-theme="default" data-studio-only={studioOnly || undefined} data-self-preview={selfPreviewVisible} data-single-participant={galleryCount === 1} data-track-count={galleryCount}>
     <LayoutContextProvider value={layout} onWidgetChange={state => setShowChat(state.showChat)}>
       <div className="lk-video-conference-inner">
         {studioOnly && <div className="studio-only-notice" role="status">{t("Студия включила только свой просмотр")}</div>}
