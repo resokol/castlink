@@ -89,6 +89,10 @@
       "version": "2.1.28+dfsg-10"
     },
     {
+      "source": "cyrus-sasl2",
+      "version": "2.1.28+dfsg-10+deb12u1"
+    },
+    {
       "source": "dash",
       "version": "0.5.12-2"
     },
@@ -917,6 +921,20 @@
       "sha256": "a15886d7da5958bd27f35b7c871dd872f6dc5b9917c9b6b15e3de014c7dab3d9",
       "size": 797472,
       "component": "cyrus-sasl2 2.1.28+dfsg-10"
+    },
+    {
+      "url": "https://security.debian.org/debian-security/pool/updates/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg-10+deb12u1.debian.tar.xz",
+      "path": "debian/cyrus-sasl2_2.1.28+dfsg-10+deb12u1.debian.tar.xz",
+      "sha256": "390fa9435dc9e7de7c4fe18423cf04b5c2e54050ef0fd344972dab50980fb8b4",
+      "size": 99600,
+      "component": "cyrus-sasl2 2.1.28+dfsg-10+deb12u1"
+    },
+    {
+      "url": "https://security.debian.org/debian-security/pool/updates/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg-10+deb12u1.dsc",
+      "path": "debian/cyrus-sasl2_2.1.28+dfsg-10+deb12u1.dsc",
+      "sha256": "088990ef19c88abfbf66321eba0d0c3566ee2a5ce135e165eff5b6c2716a2ff0",
+      "size": 3670,
+      "component": "cyrus-sasl2 2.1.28+dfsg-10+deb12u1"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/d/dbus/dbus_1.14.10-1~deb12u1.debian.tar.xz",
