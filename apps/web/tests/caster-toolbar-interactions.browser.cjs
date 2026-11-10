@@ -21,6 +21,7 @@ Object.defineProperty(room.localParticipant,'identity',{value:'guest-qa'});Objec
 let mic=true,camera=true;Object.defineProperty(room.localParticipant,'isMicrophoneEnabled',{get:()=>mic});Object.defineProperty(room.localParticipant,'isCameraEnabled',{get:()=>camera});
 room.localParticipant.publishData=async()=>{};
 window.qa={left:0,micCalls:0,cameraCalls:0,effectStops:0};
+export const guestAudioCaptureOptions=()=>({noiseSuppression:false,echoCancellation:false});
 export async function setGuestMicrophoneEnabled(_room,value){window.qa.micCalls++;mic=value;room.emit(RoomEvent.TrackMuted);return true}
 export async function setGuestCameraEnabled(_room,value){window.qa.cameraCalls++;camera=value;room.emit(RoomEvent.TrackMuted);return true}
 export const cameraBlurRadius=value=>value??10;
@@ -51,18 +52,24 @@ let browser;
  const css=fs.readFileSync(require.resolve('@livekit/components-styles'),'utf8')+'\n'+fs.readFileSync(path.join(web,'app/globals.css'),'utf8')+'\n'+fs.readFileSync(path.join(web,'app/graphite-workspace.css'),'utf8')+'\n'+fs.readFileSync(path.join(web,'components/native-pptx.css'),'utf8')+'\n'+fs.readFileSync(path.join(out,'bundle.css'),'utf8');
  browser=await chromium.launch({executablePath:process.env.CASTLINK_QA_CHROMIUM_BINARY||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const proof=[];
- for(const [width,height] of [[1440,900],[900,900],[701,900],[700,900],[390,844],[320,844],[844,390],[568,320]])for(const theme of ['dark','light']){
+ for(const [width,height] of (process.env.CASTLINK_TOOLBAR_DESKTOP_ONLY ? [[1440,900]] : [[1440,900],[900,900],[701,900],[700,900],[390,844],[320,844],[844,390],[568,320]]))for(const theme of ['dark','light']){
   const mobile=width<=700||height<=600,page=await browser.newPage({viewport:{width,height}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('https://toolbar.test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>'}));
   await page.goto('https://toolbar.test/');await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.addStyleTag({content:css});await page.addScriptTag({content:fs.readFileSync(path.join(out,'bundle.js'),'utf8')});
   await page.waitForSelector('.caster-toolbar-exit');
   const toolbar=page.locator('.caster-action-toolbar');
-  const geometry=await toolbar.evaluate(toolbar=>{const rect=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};return{page:document.documentElement.scrollWidth,items:[...toolbar.querySelectorAll('.caster-toolbar-item')].map(item=>{const button=item.querySelector('button'),caption=item.querySelector('.caster-toolbar-caption');return{caption:caption.textContent,button:rect(button),item:rect(item),captionRect:rect(caption),captionDisplay:getComputedStyle(caption).display,color:getComputedStyle(button).backgroundColor,accessible:!!(button.getAttribute('aria-label')||button.textContent)}})}});
-  assert.equal(geometry.items.length,8);assert.deepEqual(geometry.items.map(i=>i.caption),['Микрофон','Камера','Чат','Реакции','Демонстрация','Загрузить','Настройки','Выйти']);assert(geometry.page<=width,'no page overflow '+JSON.stringify({width,height,geometry}));
-  for(const item of geometry.items){assert(item.accessible,'icon has accessible name');assert(item.button.x>=0&&item.button.right<=width+1,'action fits viewport');assert(item.button.h>=44);if(mobile)assert.equal(item.captionDisplay,'none');else{assert.equal(item.captionDisplay,'block');assert(item.captionRect.y>=item.button.bottom+7,'caption below button')}}
-  if(!mobile){assert.equal(new Set(geometry.items.map(item=>item.item.w)).size,1,'equal desktop widths');assert.equal(new Set(geometry.items.map(item=>item.button.y)).size,1,'desktop one row')}
-  assert.equal(geometry.items[0].color,geometry.items[1].color,'graphite microphone and camera');assert.equal(geometry.items[5].color,'rgb(181, 210, 242)');assert.equal(geometry.items[7].color,'rgb(197, 70, 80)');
+  const openMore=async()=>{if(mobile&&!await page.locator('.caster-secondary-actions').evaluate(e=>e.matches(':popover-open')))await page.locator('.caster-more-toggle').click()};
+  await openMore();
+  const geometry=await toolbar.evaluate(toolbar=>{const rect=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};return{page:document.documentElement.scrollWidth,width:toolbar.clientWidth,total:toolbar.scrollWidth,items:[...toolbar.querySelectorAll('.caster-toolbar-item')].filter(item=>item.getBoundingClientRect().width>0).map(item=>{const button=item.querySelector('button'),caption=item.querySelector('.caster-toolbar-caption');return{secondary:!!item.closest('.caster-secondary-actions'),caption:caption.textContent,button:rect(button),item:rect(item),captionRect:rect(caption),captionDisplay:getComputedStyle(caption).display,color:getComputedStyle(button).backgroundColor,accessible:!!(button.getAttribute('aria-label')||button.textContent)}})}});
+  assert.equal(geometry.items.length,8);assert(geometry.page<=width,'no page overflow');assert(geometry.total<=geometry.width+1,'no horizontal toolbar scrolling');
+  for(const item of geometry.items){assert(item.accessible,'icon has accessible name');assert(item.button.x>=0&&item.button.right<=width+1,'all visible controls fit viewport');assert(item.button.w>=(mobile?Math.min(44,(width-40)/10)-1:24),'honest responsive touch width '+JSON.stringify({width,height,item}));assert(item.button.h>=44);if(mobile)assert.equal(item.captionDisplay,item.secondary?'block':'none');else{assert.equal(item.captionDisplay,'block');assert(item.captionRect.y>=item.button.bottom+7,'caption below desktop button')}}
+  const direct=geometry.items.filter(item=>!mobile||!item.secondary);
+  assert.equal(new Set(direct.map(item=>item.button.y)).size,1,'primary actions keep one horizontal row');
+  if(!mobile)assert.equal(new Set(geometry.items.map(item=>item.item.w)).size,1,'equal desktop widths');
+  const item=caption=>geometry.items.find(item=>item.caption===caption);
+  assert.equal(item('Микрофон').color,item('Камера').color,'graphite microphone and camera');assert.equal(item('Загрузить').color,'rgb(181, 210, 242)');assert.equal(item('Выйти').color,'rgb(197, 70, 80)');
+  await page.keyboard.press('Escape');
   assert.equal(await page.locator('header .room-leave-button').count(),0);
   assert.equal(await page.locator('[data-qa-media]').count(),1,'real conference mounts the media node');
   await page.screenshot({path:path.join(out,`ready-${theme}-${width}x${height}.png`)});
@@ -75,15 +82,21 @@ let browser;
   await page.locator('.room-reactions-toggle').click();assert(await page.locator('[popover]:popover-open').count()>0);await page.keyboard.press('Escape');
   await page.locator('.guest-settings-toggle').click();await page.locator('.guest-settings-popover').waitFor({state:'visible'});await page.getByLabel('Свой предпросмотр').uncheck();await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Чат',exact:true}).click();assert.equal(await page.locator('.caster-conference').getAttribute('data-workspace-chat'),'true');await page.getByRole('button',{name:'Чат',exact:true}).click();
-  const picker=page.waitForEvent('filechooser');await page.locator('.native-pptx-prepare').click();
+  await openMore();const picker=page.waitForEvent('filechooser');await page.locator('.native-pptx-prepare').click();
   await (await picker).setFiles({name:'Toolbar QA.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n%%EOF')});
   await page.locator('.presentation-file-menu').waitFor({state:'visible'});
   assert(await page.locator('.presentation-file-menu button').first().isVisible(),'prepared Show action visible');assert(await page.getByRole('button',{name:'Удалить файл',exact:true}).isVisible(),'prepared Delete action visible');
-  await page.keyboard.press('Escape');await page.locator('.native-pptx-prepare').click();await page.locator('.presentation-file-menu').waitFor({state:'visible'});
+  await page.keyboard.press('Escape');await openMore();await page.locator('.native-pptx-prepare').click();await page.locator('.presentation-file-menu').waitFor({state:'visible'});
   const fileMenuBounds=await page.locator('.presentation-file-menu').boundingBox();assert(fileMenuBounds.x>=0&&fileMenuBounds.y>=0&&fileMenuBounds.x+fileMenuBounds.width<=width+1&&fileMenuBounds.y+fileMenuBounds.height<=height+1,'prepared file menu fits viewport');
   await page.keyboard.press('Escape');
+  await page.evaluate(()=>window.qa.fileInput=document.querySelector('.co-presentation-control > input[type=file]'));
+  await page.setViewportSize({width:mobile?1440:393,height:mobile?900:873});await page.waitForTimeout(80);await page.setViewportSize({width,height});await page.waitForTimeout(80);
+  assert(await page.evaluate(()=>window.qa.fileInput===document.querySelector('.co-presentation-control > input[type=file]')&&!window.qa.fileInput.closest('.caster-secondary-actions')),'file input retained outside More across resize');
+  assert(await page.locator('[data-prepared-presentation]').evaluate(e=>!e.closest('.caster-secondary-actions')),'prepared viewer stays outside More');
+  await openMore();
   await page.evaluate(()=>window.qa.disable(true));await page.waitForFunction(()=>document.querySelector('[data-lk-source="microphone"]').disabled);assert(await page.locator('[data-lk-source="camera"]').isDisabled());assert(await page.locator('.guest-camera-effects-toggle').isDisabled());
   await page.screenshot({path:path.join(out,`toolbar-${theme}-${width}x${height}.png`)});
+  await page.keyboard.press('Escape');
   await page.locator('.caster-toolbar-exit').click();assert.equal(await page.evaluate(()=>window.qa.left),1);
   assert(await page.evaluate(()=>window.qa.media===document.querySelector('[data-qa-media]')),'media DOM retained across controls/chat/settings/preview');assert.equal(await page.evaluate(()=>window.qa.effectStops),0,'camera effects controller retained');assert.deepEqual(errors,[]);
   proof.push({width,height,theme,mobile,geometry});await page.close();

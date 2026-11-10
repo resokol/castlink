@@ -68,6 +68,11 @@ function makeCameraRoom({muted=false,absent=false}={}){
   assert.equal(rejoined.calls.some(call=>call[0]==='restart'),false,'helper independently binds capture to the initial participant SID');
  }
  const dishonest=makeRoom();dishonest.ignoreDevice=true;await assert.rejects(switchGuestMicrophoneDevice(dishonest,()=>choices,'new',()=>true),/не подтвердил/);assert.equal(dishonest.pub.track,dishonest.track);assert.equal(dishonest.active,'old');
+ for(const echo of [false,undefined]){
+  const badEcho=makeRoom();badEcho.afterRestart=options=>{if(options.deviceId.exact==='new')badEcho.track.native.echoCancellation=echo;};
+  await assert.rejects(switchGuestMicrophoneDevice(badEcho,()=>({...choices,audioProfile:'speech'}),'new',()=>true),/не подтвердил/,'device switch cannot confirm speech mode without actual AEC');
+  assert.equal(badEcho.track.native.deviceId,'old');assert.equal(badEcho.track.native.echoCancellation,false);assert.equal(badEcho.track.native.noiseSuppression,false);assert.equal(badEcho.pub.options.dtx,false);
+ }
  const failed=makeRoom();failed.failPublish=1;await assert.rejects(switchGuestMicrophoneDevice(failed,()=>choices,'new',()=>true),/publish failure/);assert.equal(failed.track.native.deviceId,'old');assert.equal(failed.track.isMuted,false);assert.equal(failed.track.mediaStreamTrack.enabled,true);assert.equal(failed.pub.track,failed.track);
  const failedCapture=makeRoom();failedCapture.failRestart=1;await assert.rejects(switchGuestMicrophoneDevice(failedCapture,()=>choices,'new',()=>true),/restart failure/);assert.equal(failedCapture.track.native.deviceId,'old');assert.equal(failedCapture.pub.track,failedCapture.track);
  const camera=makeCameraRoom();assert.equal(await switchGuestCameraDevice(camera,()=>({...choices,videoDeviceId:'old',videoCodec:'av1'}),'new',()=>true),'applied');assert.equal(camera.track.native.deviceId,'new');assert.equal(camera.track.codec,'av1');assert.equal(camera.calls.find(call=>call[0]==='restart')[1].resolution,undefined,'new camera never inherits prior width');assert.deepEqual(camera.calls.find(call=>call[0]==='restart')[1].height,{ideal:720});assert.equal(camera.pub.options.scalabilityMode,'L3T3_KEY');assert.equal(camera.pub.options.backupCodec,false);

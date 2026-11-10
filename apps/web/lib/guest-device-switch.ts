@@ -76,7 +76,8 @@ export function switchGuestMicrophoneDevice(room: Room, choices: () => GuestChoi
       if (!usable()) throw new Error("Запрос устройства уже устарел");
       await track.restartTrack({ ...track.constraints, ...guestAudioCaptureOptions({ ...previous, audioDeviceId: deviceId }) });
       const actual = track.getSourceTrackSettings();
-      if (actual.deviceId !== deviceId || actual.noiseSuppression !== (guestAudioProfile(previous.audioProfile) === "speech") || actual.autoGainControl === true || (actual as MediaTrackSettings & { voiceIsolation?: boolean }).voiceIsolation === true || previous.audioProfile === "raw" && actual.echoCancellation === true) throw new Error("Браузер не подтвердил устройство и обработку микрофона");
+      const speech = guestAudioProfile(previous.audioProfile) === "speech";
+      if (actual.deviceId !== deviceId || actual.noiseSuppression !== speech || actual.autoGainControl === true || (actual as MediaTrackSettings & { voiceIsolation?: boolean }).voiceIsolation === true || (speech ? actual.echoCancellation !== true : actual.echoCancellation === true)) throw new Error("Браузер не подтвердил устройство и обработку микрофона");
       if (track.isMuted !== muted || !enabled && track.mediaStreamTrack.enabled) throw new Error("Браузер изменил состояние выключенного микрофона");
       if (!usable() || currentPublication()?.track) throw new Error("Запрос устройства уже устарел");
       await participant.publishTrack(track, { ...publication?.options, ...guestAudioPublishOptions(previous, actual) });

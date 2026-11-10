@@ -9,6 +9,7 @@ import styles from './ConferenceScene.module.css';
 
 export type ConferenceSceneItem = SceneSource & { node: ReactNode; hidden?: boolean; secondaryOnly?: boolean };
 const STORAGE = 'castlink.conference-scene.v1';
+const MOBILE_SCENE = '(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)';
 const copy = {
   ru: { speaker:'Окно', tiles:'Плитка', mode:'Вид сцены', settings:'Настройки вида', auto:'Автоматически выбирать спикера', hint:'Смена после секунды устойчивой активности. Без закрепления приоритет у демонстрации экрана.', pin:'Закрепить у себя', unpin:'Открепить', divider:'Размер сцены и панели участников', empty:'Ожидание участников…' },
   en: { speaker:'Windows', tiles:'Tiles', mode:'Stage layout', settings:'View settings', auto:'Automatically select the speaker', hint:'Switch after one second of sustained activity. Shared content takes priority unless you pin a tile.', pin:'Pin for me', unpin:'Unpin', divider:'Stage and participant panel size', empty:'Waiting for participants…' },
@@ -16,7 +17,7 @@ const copy = {
 };
 
 /** A single keyed tile layer keeps every video mounted when focus or mode changes. */
-export function ConferenceScene({ items, room, className = '', controlsTarget }: { items: readonly ConferenceSceneItem[]; room?: Room; className?: string; controlsTarget?: HTMLElement | null }) {
+export function ConferenceScene({ items, room, className = '', controlsTarget, mobileDefaultTiles = false }: { mobileDefaultTiles?: boolean; items: readonly ConferenceSceneItem[]; room?: Room; className?: string; controlsTarget?: HTMLElement | null }) {
   const { locale } = useI18n(), text = copy[locale];
   const id = useId();
   const [mode, setMode] = useState<'speaker'|'tiles'>('speaker');
@@ -31,22 +32,37 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
   const settings = useRef<HTMLDetailsElement>(null);
   const state = useRef<SpeakerState>({ selected:'',candidate:'',since:0 });
   const dragging = useRef<number | undefined>(undefined);
+  const mobileEntry = useRef(false);
   const visibleItems = items.filter(item => !item.hidden && !item.secondaryOnly);
   const roster = JSON.stringify([...new Set(visibleItems.filter(item => item.kind === 'camera').map(item => item.identity))]);
   const sourceKey = JSON.stringify(visibleItems.map(({id,identity,kind}) => [id,identity,kind]));
   useEffect(() => {
+    // Entry policy is latched once; orientation and source changes keep this visit’s choice.
+    mobileEntry.current = mobileDefaultTiles && window.matchMedia(MOBILE_SCENE).matches;
+    let savedMode: 'speaker' | 'tiles' = 'speaker';
     try { const value = JSON.parse(localStorage.getItem(STORAGE) || '{}');
-      if (value.mode === 'speaker' || value.mode === 'tiles') setMode(value.mode);
+      if (value.mode === 'speaker' || value.mode === 'tiles') savedMode = value.mode;
       if (typeof value.automatic === 'boolean') setAutomatic(value.automatic);
       // Apply the compact rail once, including browsers with the old wide default.
       // Subsequent user resizing remains a saved local preference.
       setSplit(sceneSplit(value.railVersion === 2 ? value.split : NaN));
     } catch { /* Private browsing and malformed saved choices use defaults. */ }
+    setMode(mobileEntry.current ? 'tiles' : savedMode);
     setReady(true);
   }, []);
-  useEffect(() => { if (ready) try { localStorage.setItem(STORAGE, JSON.stringify({ mode, automatic, split, railVersion: 2 })); } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
+  useEffect(() => { if (ready) try {
+    let storedMode = mode;
+    if (mobileEntry.current) {
+      // Preserve even a newer desktop-tab choice; phone layout is visit-local.
+      storedMode = 'speaker';
+      try { const value = JSON.parse(localStorage.getItem(STORAGE) || '{}');
+        if (value.mode === 'speaker' || value.mode === 'tiles') storedMode = value.mode;
+      } catch { /* Malformed preferences keep the desktop default. */ }
+    }
+    localStorage.setItem(STORAGE, JSON.stringify({ mode: storedMode, automatic, split, railVersion: 2 }));
+  } catch { /* Layout works without storage. */ } }, [mode,automatic,split,ready]);
   useEffect(() => {
-    const query = window.matchMedia('(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)');
+    const query = window.matchMedia(MOBILE_SCENE);
     const update = () => { setMobile(query.matches); setPortraitWindow(window.innerHeight >= window.innerWidth); };
     update(); query.addEventListener('change', update); window.addEventListener('resize', update);
     return () => { query.removeEventListener('change', update); window.removeEventListener('resize', update); };
@@ -88,13 +104,18 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
   const allocation = resizable ? split : 0.76;
   const rail = sceneRail(size.width,size.height,railCount,allocation,portrait);
   const divider = resizable ? 12 : 0;
-  const mainHeight = Math.max(0, (size.height - 16) * allocation);
+  // A portrait Window uses the same proportional frames as its filmstrip.
+  // Available height bounds the main frame; it never stretches the image box.
+  const mainHeight = portrait
+    ? Math.min(size.width * 9 / 16, Math.max(0, size.height - (solo ? 0 : rail.tileHeight + 8)))
+    : Math.max(0, (size.height - 16) * allocation);
+  const mainWidth = portrait ? mainHeight * 16 / 9 : size.width;
   // Desktop keeps the owner-selected proportional filmstrip; mobile keeps its compact rail.
   const canvasStyle: CSSProperties = !mobile && focusedMode && !solo ? {
     gridTemplateColumns:`minmax(0,1fr) ${divider}px ${rail.tileWidth}px`,
     gridTemplateRows:`repeat(${railCount},${rail.tileHeight}px)`, height:rail.height,
-  } : solo ? { gridTemplateColumns:'minmax(0,1fr)', gridTemplateRows:'minmax(0,1fr)' } : focusedMode ? portrait ? {
-    gridTemplateColumns:`repeat(${railCount},minmax(110px,1fr))`, gridTemplateRows:`${mainHeight}px minmax(0,1fr)`,
+  } : solo ? { gridTemplateColumns:'minmax(0,1fr)', gridTemplateRows:portrait ? `${mainHeight}px` : 'minmax(0,1fr)', alignContent:portrait ? 'start' : undefined } : focusedMode ? portrait ? {
+    gridTemplateColumns:`repeat(${railCount},${rail.tileWidth}px)`, gridTemplateRows:`${mainHeight}px ${rail.tileHeight}px`, alignContent:'start',
   } : {
     gridTemplateColumns:`minmax(0,${allocation}fr) ${divider}px minmax(0,${1-allocation}fr)`,
     gridTemplateRows:`repeat(${railCount},minmax(90px,1fr))`,
@@ -134,7 +155,7 @@ export function ConferenceScene({ items, room, className = '', controlsTarget }:
       <div className={`${styles.canvas} ${focusedMode ? styles.focus : styles.gallery}`} style={canvasStyle}>
         {items.map(item => {
           const main = focusedMode && item.id === focused?.id, index = others.findIndex(other => other.id === item.id);
-          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:size.width,height:mainHeight,position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0,alignSelf:'start' } : portrait ? {gridColumn:index+1,gridRow:2} : {gridColumn:3,gridRow:index+1};
+          const position: CSSProperties = !focusedMode ? {} : solo ? {gridColumn:1,gridRow:1,...(portrait ? {width:mainWidth,height:mainHeight} : {})} : main ? portrait ? { gridColumn:'1 / -1',gridRow:1,width:mainWidth,height:mainHeight,position:'sticky',left:0 } : { gridColumn:1,gridRow:`1 / span ${railCount}`,height:size.height,position:'sticky',top:0,alignSelf:'start' } : portrait ? {gridColumn:index+1,gridRow:2,width:rail.tileWidth,height:rail.tileHeight} : {gridColumn:3,gridRow:index+1};
           const pinned = item.id === pinnedId;
           return <div key={item.id} className={`${styles.tile} ${main ? styles.primary : ''}`} data-scene-primary={main || undefined} data-scene-source={item.kind} hidden={item.hidden} data-scene-preview={item.secondaryOnly || undefined} style={item.hidden ? { display: 'none' } : item.secondaryOnly ? {position:'absolute',right:8,bottom:8,width:'clamp(110px,22%,220px)',height:'auto',aspectRatio:'16 / 9',zIndex:4} : position}>
             {item.node}

@@ -87,7 +87,7 @@ const mocked={
   '@/lib/studio-video-recovery':{watchStudioVideo:()=>noop},'@/lib/video-quality':{...require('../lib/video-quality.ts'),DEFAULT_GUEST_VIDEO_BITRATE_KBPS:6000},
   '@/lib/guest-video-bitrate':{watchGuestVideoBitrate:()=>noop},'@/lib/livekit-url':{getLiveKitUrl:()=> 'wss://room.example.test'},
   '@/lib/personal-monitoring':{usePersonalMonitoring:()=>({participants:[],preferences:{},videoEnabled:()=>true})},
-  '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop},
+  '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop,roomTelemetryToken:(room,token)=>token},
   '@/lib/client-transfer':{readTransferSnapshot:()=>undefined,clearTransferSnapshot:noop},
   '@/lib/use-session-transfer':{useSessionTransfer:options=>{transferOptions=options;return{view:{}};},guestReserveStatusText:()=>null},
   '@/lib/talkback-policy':{parseGuestMediaCommand:payload=>payload?.source?payload:undefined},'@/lib/reconnect-status':recovery,
@@ -107,10 +107,12 @@ mocked['@/lib/guest-video-codec']=require('../lib/guest-video-codec.ts');
 mocked['@/components/GuestCodecCameraButton']={GuestCodecCameraButton:component};
 mocked['@/lib/connection-route']=require('../lib/connection-route.ts');
 mocked['@/lib/guest-media-control-client']=require('../lib/guest-media-control-client.ts');
+mocked['./GuestMediaMenu']={GuestMediaMenu:component};
+mocked['./GuestMicrophoneTest']={GuestMicrophoneTest:component};
 const {GuestMicrophoneButton}=require('../components/GuestMicrophoneButton.tsx');
 mocked['@/components/GuestMicrophoneButton']={GuestMicrophoneButton};
 const filename=require.resolve('../components/GuestWorkspace.tsx');
-const workspaceModule=new Module(filename,module);workspaceModule.paths=module.paths;
+const workspaceModule=new Module(filename,module);workspaceModule.filename=filename;workspaceModule.paths=module.paths;
 workspaceModule._compile(transpile(fs.readFileSync(filename,'utf8').replace('function RoomConnector(', 'export function RoomConnector(')),filename);
 Module._load=originalLoad;
 const {GuestWorkspace,RoomConnector}=workspaceModule.exports;
@@ -210,15 +212,15 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(room.publications.microphone.options.dtx,false);
   assert.equal(room.calls.filter(call=>call[0]==='connect').length,1,'ordinary SDK reconnect does not create a second initial join');
   const microphoneControl=nodes(tree).find(node=>node.props?.microphoneControl).props.microphoneControl;
-  const microphone=renderer(GuestMicrophoneButton);let button=microphone.render(microphoneControl.props);
+  const microphone=renderer(GuestMicrophoneButton);let button=nodes(microphone.render(microphoneControl.props)).find(node=>node.props?.["data-lk-source"]==="microphone");
   room.failMic=true;
-  button.props.onClick();await settle();button=microphone.render(microphoneControl.props);
+  button.props.onClick();await settle();button=nodes(microphone.render(microphoneControl.props)).find(node=>node.props?.["data-lk-source"]==="microphone");
   assert.equal(button.props['aria-pressed'],true,'failed mute must not spoof the toolbar state');
-  button.props.onClick();await settle();button=microphone.render(microphoneControl.props);
+  button.props.onClick();await settle();button=nodes(microphone.render(microphoneControl.props)).find(node=>node.props?.["data-lk-source"]==="microphone");
   assert.equal(button.props['aria-pressed'],false,'toolbar follows confirmed mute');
   assert.equal(room.publications.microphone.track.isMuted,true);
   tree=workspace.render(props);
-  const picker=nodes(tree).find(node=>node.props?.microphoneId&&node.props?.permissionInputs);
+  const picker=nodes(microphoneControl.props.menuContent).find(node=>node.props?.kinds?.includes('audioinput'));
   picker.props.onChange({microphoneId:'replacement-mic'});
   tree=workspace.render(props);connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();
   assert.equal(room.activeDevices.audioinput,'replacement-mic','changing selected mic while muted stores the future device without unmuting');
@@ -373,5 +375,26 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(preferenceRoom.publications.camera.track.nativeConstraints.frameRate.ideal,50,'workspace reconnect does not reset guest FPS');
   assert.equal(preferenceRoom.publications.camera.track.nativeConstraints.height.ideal,720,'workspace reconnect does not reset guest resolution');
   preferenceConnector.unmount();
+  // Telemetry renews JWTs without changing the original React media token.
+  // The actual connector must use that accepted credential for a later join.
+  const realTelemetry=require('./load-typescript.cjs').load('../lib/rtc-telemetry.ts');
+  mocked['@/lib/rtc-telemetry'].roomTelemetryToken=(room,token)=>realTelemetry.roomTelemetryToken?.(room,token)??token;
+  const renewalRoom=new Room(),renewalConnector=renderer(RoomConnector);
+  Object.assign(renewalRoom.localParticipant,{identity:'guest-renewal',name:'Renewal',trackPublications:new Map()});
+  const renewalNow=Math.floor(Date.now()/1000);
+  const renewalJwt=exp=>'header.'+Buffer.from(JSON.stringify({iss:'test',sub:'guest-renewal',exp,video:{room:'test-room'},metadata:JSON.stringify({studioId:'test-studio',roomDisplayName:'test-room',role:'guest'})})).toString('base64url')+'.signature';
+  const originalJwt=renewalJwt(renewalNow+110),renewedJwt=renewalJwt(renewalNow+7200);
+  const beforeRenewalFetch=global.fetch;
+  global.fetch=async(url,options)=>url.startsWith('/api/token')?{ok:true,json:async()=>({token:renewedJwt})}:beforeRenewalFetch(url,options);
+  const stopRenewal=realTelemetry.startRoomTelemetry(renewalRoom,'test-room',originalJwt);await settle();stopRenewal();await settle();
+  const renewalChoices={height:720,micGain:100,listenGain:100,audioEnabled:false,videoEnabled:false};
+  const renewalProps={room:renewalRoom,token:originalJwt,choices:renewalChoices,choicesRef:{current:renewalChoices},mediaGeneration:{current:0},connectionRoutes:{relay:{configured:false}},attempt:1,onConnectionStatus:noop,onRemoteChange:noop,onRemoved:noop,onDeviceError:noop,videoEnabled:()=>true};
+  renewalConnector.render(renewalProps);await settle();
+  assert.equal(renewalRoom.calls.find(call=>call[0]==='connect')[2],renewedJwt,'production manual retry joins LiveKit using the accepted renewed JWT');
+  renewalConnector.unmount();await settle();
+  assert.equal(realTelemetry.roomTelemetryToken(new Room(),originalJwt),originalJwt,'another Room cannot inherit a cached renewed credential');
+  const replacementJwt=renewalJwt(renewalNow+1000);
+  assert.equal(realTelemetry.roomTelemetryToken(renewalRoom,replacementJwt),replacementJwt,'another source token cannot inherit the old source credential');
+  global.fetch=beforeRenewalFetch;
   console.log('PASS: production guest workspace applies raw mode to queued enable, confirms toolbar mute, preserves muted devices/profile across same-identity relay reconnect and transfer snapshot');
 })().catch(error=>{console.error(error);process.exitCode=1;});

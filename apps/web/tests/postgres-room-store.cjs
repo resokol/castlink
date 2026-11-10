@@ -26,9 +26,11 @@ const installationId = randomUUID();
   const backend = new PostgresRoomStoreBackend(pool, installationId);
   await assert.rejects(() => backend.validate(), /default studio room store is empty/);
 
+  const slotAssociationB = randomUUID();
+  const slotAssociationA = randomUUID();
   await backend.update("studio-default", () => [
-    { name: "room-b", studioOnly: true },
-    { name: "room-a", creatorAccessId: randomUUID(), studioPasswordHash: "durable-credential-hash" },
+    { name: "room-b", studioOnly: true, slotAssociationId: slotAssociationB },
+    { name: "room-a", creatorAccessId: randomUUID(), studioPasswordHash: "durable-credential-hash", slotAssociationId: slotAssociationA },
   ]);
   await backend.validate();
 
@@ -37,10 +39,16 @@ const installationId = randomUUID();
   assert.equal(first[0].studioOnly, true);
   assert.ok(first[1].creatorAccessId);
   assert.equal(first[1].studioPasswordHash,"durable-credential-hash");
+  assert.deepEqual(first.map(room => room.slotAssociationId), [slotAssociationB, slotAssociationA]);
+  await backend.update("studio-default", rooms => rooms);
+  assert.deepEqual((await backend.read("studio-default")).map(room => room.slotAssociationId),
+    [slotAssociationB, slotAssociationA], "no-op mutations must preserve caster slot associations");
   const creatorId=first[1].creatorAccessId;
   await backend.update("studio-default",rooms=>rooms.map(r=>r.name==="room-a"?{...r,name:"room-renamed"}:r));
   const reopened=new PostgresRoomStoreBackend(pool,installationId);
   assert.equal((await reopened.read("studio-default"))[1].creatorAccessId,creatorId,"creator identity survives rename and backend restart");
+  assert.deepEqual((await reopened.read("studio-default")).map(room => room.slotAssociationId),
+    [slotAssociationB, slotAssociationA], "renaming another room must preserve every room's caster slot association");
   await reopened.update("studio-default",rooms=>rooms.map(r=>r.name==="room-renamed"?{...r,name:"room-a"}:r));
 
   await Promise.all([
@@ -56,6 +64,7 @@ const installationId = randomUUID();
   const roomB = afterConcurrent.find(room => room.name === "room-b");
   assert.equal(roomB.transferRoomId, "server-a");
   assert.equal(roomB.outputAccessVersion, "version-b");
+  assert.deepEqual(afterConcurrent.map(room => room.slotAssociationId), [slotAssociationB, slotAssociationA]);
 
   await backend.update("studio-second", () => [
     { name: "room-b", studioOnly: false },

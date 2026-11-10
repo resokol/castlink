@@ -1,4 +1,5 @@
 {
+  "CasterToolbarSlots": "Стабильные layout-слоты для кнопок загрузки и параметров камеры; медиа, file input и активные контроллеры не перемещаются.",
   "desktop-stop-panel": "Optional Electron STOP bridge: version detection, capture generation, single-flight stop, retries and cleanup. Ordinary browsers keep the Document PiP controller.",
   "access": "Подписи scoped-сессий, проверка паролей, cookie, шифрование паролей комнат и проверка origin; не новый platform login.",
   "app-update": "Сравнение версии приложения и безопасное построение URL обновления вкладки.",
@@ -132,5 +133,8 @@
   "package-server-offline": "Проверка закрытого digest-bound offline OCI bundle и импорт в выбранный Docker engine; не создаёт release signature или права перераспространения.",
   "producer-server-offline": "Создание ограниченного offline OCI архива из проверенных image descriptors/layers; source/version/schema coherence проверяются отдельно.",
   "document-picture-in-picture": "Общий browser PiP: независимые области слайдов/STOP, gesture и безопасная очистка.",
-  "floating-panel-position": "Перемещение за заголовок: pointer/keyboard, bounds и resize cleanup."
+  "floating-panel-position": "Перемещение за заголовок: pointer/keyboard, bounds и resize cleanup.",
+  "StudioConsoleIcon": "Компактные SVG-иконки консоли студии; семантические подписи задаёт вызывающая кнопка.",
+  "StudioConsolePopover": "Нативное раскрытие настроек студии с заголовком и закрытием; дочерние media/control owners остаются смонтированы.",
+  "studio-console-popover-position": "Размещение нативных меню студии возле вызывающей кнопки с ограничением viewport; общая геометрия без media/control состояния."
 }

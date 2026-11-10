@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict'),{EventEmitter}=require('node:events'),{load}=require('./load-typescript.cjs');
+const sdk=require('livekit-client');
+const original={fetch:global.fetch,setTimeout:global.setTimeout,clearTimeout:global.clearTimeout};
+const snapshots=[],events=[];let started=0,stopped=0,provider;const timers=new Set();
+const runtime={visibility:'visible',browser:'chrome',environment:'browser',loopLagMs:9,maxLoopLagMs:12,errors:0,rejections:0,events:[]};
+const {startRoomTelemetry}=load('../lib/rtc-telemetry.ts',{'./browser-runtime-diagnostics':{startBrowserRuntimeDiagnostics:(session,mediaProvider)=>{started++;provider=mediaProvider;assert.match(session,/^[a-z0-9-]+$/);return{snapshot:()=>({...runtime,...(provider?{media:provider()}: {})}),event:k=>events.push(k),stop:()=>stopped++};}}});
+const room=id=>Object.assign(new EventEmitter(),{state:'connected',localParticipant:{identity:id,name:'Test',trackPublications:new Map()},remoteParticipants:new Map()});
+const settle=async()=>{for(let i=0;i<20;i++)await Promise.resolve();};
+(async()=>{let stop;try{
+ global.fetch=async(url,options)=>{assert.equal(url,'/api/stats');snapshots.push(JSON.parse(options.body));return{ok:true};};
+ global.setTimeout=(callback,ms)=>{const t={callback,ms};timers.add(t);return t;};global.clearTimeout=t=>timers.delete(t);
+ const media={onAir:true,preview:true,source:'black',audioContextState:'suspended',videoPublished:true,audioPublished:true,
+  video:{present:true,readyState:'live',muted:false,enabled:true},audio:{present:true,readyState:'ended',muted:false,enabled:true}};
+ const mediaProvider=()=>media;
+ const r=room('studio-panel-main');stop=startRoomTelemetry(r,'one','malformed',{role:'studio-panel',clientId:'client-runtime-id',epoch:1},'',undefined,mediaProvider);await settle();
+ assert.equal(provider,mediaProvider,'primary telemetry forwards a lazy source snapshot provider');assert.deepEqual(snapshots[0].runtime.media,media);
+ assert.equal(started,1);assert.equal(snapshots[0].runtime.loopLagMs,9);assert.equal(timers.size,1,'RTC collection cadence remains unchanged');
+ for(const name of [sdk.RoomEvent.Reconnecting,sdk.RoomEvent.SignalReconnecting,sdk.RoomEvent.Reconnected,sdk.RoomEvent.Disconnected])r.emit(name);
+ assert.deepEqual(events,['reconnecting','signal-reconnecting','reconnected','disconnected']);
+ stop();stop=undefined;assert.equal(stopped,1);assert.equal(snapshots.at(-1).runtime.maxLoopLagMs,12);assert.equal(snapshots.at(-1).state,'disconnected');assert.equal(timers.size,0);
+ for(const name of [sdk.RoomEvent.Reconnecting,sdk.RoomEvent.SignalReconnecting,sdk.RoomEvent.Reconnected,sdk.RoomEvent.Disconnected])assert.equal(r.listenerCount(name),0);
+ stop=startRoomTelemetry(room('studio-moderator-one'),'one','malformed',{role:'studio-moderator',clientId:'client-runtime-id',epoch:1},'',undefined,()=>{throw Error('moderator must not inspect capture');});await settle();assert.equal(started,1);assert.equal(snapshots.at(-1).runtime,undefined);stop();stop=undefined;
+ console.log('PASS primary-only runtime telemetry pipeline, unchanged collection cadence, lifecycle events and complete teardown');
+}finally{stop?.();Object.assign(global,original);}})().catch(e=>{console.error(e);process.exitCode=1;});

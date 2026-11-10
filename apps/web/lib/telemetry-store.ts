@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { appendFile, mkdir, readdir, readFile, writeFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { mean, sumRates, type AudioHistoryResponse, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetryRole, type TelemetrySample } from "./telemetry-types";
+import { mean, sumRates, type AudioHistoryResponse, type RuntimeHistoryResponse, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetryRole, type TelemetrySample } from "./telemetry-types";
 import { addAudioSummary, emptyAudioSummary } from "./audio-diagnostics";
+import { sanitizeRuntimeDiagnostic } from "./runtime-diagnostics";
 import { rememberLiveSample } from "./live-telemetry-cache";
 import { persistentStatsDir } from "./persistent-storage";
 import { archiveTelemetryHour, historyEnd, openTelemetryHour, statsMaxBytes, statsRetentionDays, telemetryHours, STATS_HOUR } from "./telemetry-archives";
@@ -149,19 +150,31 @@ export async function readHistory(room: string, minutes: number, selectedSession
   return { from, to, bucketMs, series, retainedFrom, retention, audioSummary, connections: visible.sort((a, b) => b.lastSeen - a.lastSeen) };
 }
 
-/** Exact stored samples, with scoped filtering before the page limit. No media or tokens. */
-export async function readAudioHistory(room: string, minutes: number, options: {
+type DiagnosticHistoryOptions = {
   session?: string; identity?: string; role?: TelemetryRole; limit?: number; cursor?: string; to?: number;
-} = {}): Promise<AudioHistoryResponse> {
-  if (![15, 60, 360, 720, 1440].includes(minutes)) throw new Error("invalid_audio_period");
+};
+
+/** Exact stored samples, with scoped filtering before the page limit. No media or tokens. */
+export function readAudioHistory(room: string, minutes: number, options: DiagnosticHistoryOptions = {}): Promise<AudioHistoryResponse> {
+  return readDiagnosticHistory(room, minutes, options, "audio") as Promise<AudioHistoryResponse>;
+}
+
+export function readRuntimeHistory(room: string, minutes: number, options: DiagnosticHistoryOptions = {}): Promise<RuntimeHistoryResponse> {
+  return readDiagnosticHistory(room, minutes, options, "runtime");
+}
+
+async function readDiagnosticHistory(room: string, minutes: number, options: DiagnosticHistoryOptions, mode: "audio" | "runtime") {
+  if (![15, 60, 360, 720, 1440].includes(minutes)) throw new Error(`invalid_${mode}_period`);
   const to = historyEnd(options.to);
   const from = to - minutes * 60_000;
   const limit = options.limit ?? 1000;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 2000) throw new Error("invalid_audio_limit");
-  if (options.cursor && !/^\d{1,12}:\d{1,12}$/.test(options.cursor)) throw new Error("invalid_audio_cursor");
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 2000) throw new Error(`invalid_${mode}_limit`);
+  if (options.cursor && !/^\d{1,12}:\d{1,12}$/.test(options.cursor)) throw new Error(`invalid_${mode}_cursor`);
   const [cursorHour, cursorOffset] = options.cursor?.split(":").map(Number) ?? [0, 0];
-  if (options.cursor && (cursorHour * HOUR < from - HOUR || cursorHour * HOUR > to)) throw new Error("invalid_audio_cursor");
-  const response: AudioHistoryResponse = { from, to, samples: [], nextCursor: null, limited: false, summary: emptyAudioSummary() };
+  if (options.cursor && (cursorHour * HOUR < from - HOUR || cursorHour * HOUR > to)) throw new Error(`invalid_${mode}_cursor`);
+  const response: RuntimeHistoryResponse & { summary?: AudioHistoryResponse["summary"] } = {
+    from, to, samples: [], nextCursor: null, limited: false, ...(mode === "audio" ? { summary: emptyAudioSummary() } : {}),
+  };
   const directory = roomDirectory(room), recoveryBySession = new Map<string, number>();
   const hours = await telemetryHours(directory);
   let scannedBytes = 0, responseBytes = 0;
@@ -179,20 +192,24 @@ export async function readAudioHistory(room: string, minutes: number, options: {
         if (offset <= requestedOffset) continue;
         let sample: TelemetrySample | undefined;
         try { sample = JSON.parse(line); } catch {}
+        const runtime = mode === "runtime" && sample?.role === "studio" && typeof sample.identity === "string" && sample.identity.startsWith("studio-panel-")
+          ? sanitizeRuntimeDiagnostic(sample.runtime) : undefined;
         if (sample && sample.room === room && sample.at >= from && sample.at <= to &&
           (!options.session || sample.session === options.session) && (!options.identity || sample.identity === options.identity) &&
-          (!options.role || sample.role === options.role) && (sample.audioPlayback || sample.streams?.some(s => s.kind === "audio"))) {
+          (!options.role || sample.role === options.role) && (mode === "runtime" ? runtime : sample.audioPlayback || sample.streams?.some(s => s.kind === "audio"))) {
           const detail: TelemetrySample = { at: sample.at, clientAt: sample.clientAt, room: sample.room, identity: sample.identity,
             name: sample.name, session: sample.session, role: sample.role, state: sample.state, quality: sample.quality,
-            reconnects: sample.reconnects, uptimeSec: sample.uptimeSec, audioPlayback: sample.audioPlayback,
-            streams: sample.streams.filter(s => s.kind === "audio") };
+            reconnects: sample.reconnects, uptimeSec: sample.uptimeSec,
+            ...(mode === "runtime" ? { runtime, streams: [] } : {
+              audioPlayback: sample.audioPlayback, streams: sample.streams.filter(s => s.kind === "audio"),
+            }) };
           const detailBytes = Buffer.byteLength(JSON.stringify(detail), "utf8");
           if (response.samples.length && responseBytes + detailBytes > 2 * 1024 * 1024) {
             response.nextCursor = `${hour}:${offset - bytes}`; response.limited = true; return response;
           }
           responseBytes += detailBytes;
           response.samples.push(detail);
-          addAudioSummary(response.summary, sample, recoveryBySession);
+          if (response.summary) addAudioSummary(response.summary, sample, recoveryBySession);
         }
         if (response.samples.length >= limit || scannedBytes >= 32 * 1024 * 1024) {
           response.nextCursor = `${hour}:${offset}`;

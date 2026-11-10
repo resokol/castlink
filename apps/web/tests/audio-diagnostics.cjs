@@ -28,7 +28,7 @@ let authRoom = 'Poker', authStudio = 'tenant-one';
 class NextResponse extends Response {static json(body, init){return new Response(JSON.stringify(body),init);}}
 class TokenVerifier {async verify(token){if(token !== 'valid-token') throw Error('invalid');return claims;}}
 const imports = {'next/server':{NextResponse},'livekit-server-sdk':{TokenVerifier},'@/lib/telemetry-store':store,
-  '@/lib/audio-diagnostics':diagnostics,'@/lib/access':{isStudio:()=>owner,sameOrigin:()=>true},
+  '@/lib/audio-diagnostics':diagnostics,'@/lib/runtime-diagnostics':require('../lib/runtime-diagnostics.ts'),'@/lib/access':{isStudio:()=>owner,sameOrigin:()=>true},
   '@/lib/room-admin':{isRoomAdmin:async(_,room,studio)=>admin && room===authRoom && studio===authStudio},
   '@/lib/room-studio-access':{canHostNamedRoom:async(_,room,studio)=>owner && room===authRoom && studio===authStudio},
   '../../../lib/studio-scope':{defaultStudioId:()=> 'tenant-one',validateStudioId:value=>value,mediaRoomName:()=> 'media-tenant-one'}};

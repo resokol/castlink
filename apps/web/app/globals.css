@@ -1304,6 +1304,10 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content :is(label, select, input) { min-width: 0; max-width: 100%; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content label { display: grid; gap: 6px; font-size: 12px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content select { width: 100%; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--panel-border); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .guest-noise-control > label { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--media-accent); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-noise-control p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel h2 { margin: 0 0 8px; font-size: 14px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-panel p { margin: 0 0 12px; font-size: 12px; line-height: 1.6; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .personal-monitor-row { display: grid; gap: 8px; margin: 0; padding: 12px 0; border-bottom: 1px solid var(--panel-border); }
@@ -1588,9 +1592,9 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot { flex:0 0 44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-settings-slot .guest-settings-toggle { width:44px; min-width:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-control-row { display:flex; flex-wrap:nowrap; justify-content:space-between; gap:2px; width:100%; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-control > .lk-track-toggle { width:44px; min-width:44px; padding:10px; gap:0; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-control > .lk-track-toggle span { display:none; }
- html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-camera-effects-toggle { width:24px; min-width:24px; padding:0; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { width:44px; min-width:44px; padding:10px; gap:0; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle span { display:none; }
+ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .guest-media-menu-toggle { width:24px; min-width:24px; padding:0; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > span > button[aria-label] { height:44px; min-height:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > :is(button,.lk-control-bar) { flex:0 1 auto; min-width:44px; }
  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-control-row > button,
@@ -1684,7 +1688,7 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-caption {
   display: block; color: var(--muted); text-align: center; font-size: 12px; line-height: 18px; font-weight: 500; overflow-wrap: anywhere;
 }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item > :is(.guest-camera-control, .screen-share-control, .guest-settings-control, .lk-control-bar, span) {
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item > :is(.guest-microphone-control, .guest-camera-control, .screen-share-control, .guest-settings-control, .lk-control-bar, span) {
   width: 100%; min-width: 0; margin: 0;
 }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.lk-track-toggle, .castlink-chat-toggle, .room-reactions-toggle, .guest-screen-share-button, .native-pptx-prepare, .guest-settings-toggle, .caster-toolbar-exit) {
@@ -1718,18 +1722,53 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-extra-controls { flex: none; width: 100%; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .screen-share-control { position: relative; display: flex; flex-wrap: wrap; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .screen-share-control > :is(small, .screen-share-stop-panel-toggle) { flex: 1 0 100%; min-width: 0; font-size: 11px; overflow-wrap: anywhere; white-space: normal; }
+/* The disabled action already exposes the unsupported reason in its accessible
+   name and title. Keep its live status available without a narrow text column. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .screen-share-control > .guest-screen-share-unavailable { position: absolute; width: 1px; height: 1px; max-width: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 html[data-theme="light"] .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-screen-share-button:not([aria-pressed="true"]) { background: #245d43; border-color: #245d43; color: #fff; }
+/* Hidden by default in every camera surface; the mobile More menu opts in. */
+.caster-effects-icon { display: none; }
+
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .native-pptx-prepare > svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Secondary action targets stay mounted on desktop and phones. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.caster-secondary-actions:not([popover]), .caster-upload-slot, .caster-toolbar-main > .co-presentation-control, .caster-toolbar-main .caster-presentation-context) { display: contents; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace :is(.caster-more-toggle, .caster-more-heading, .caster-toolbar-effects, .caster-effects-icon) { display: none; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-microphone { order: 0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-camera { order: 1; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-chat { order: 2; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-reactions { order: 3; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-share { order: 4; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-upload { order: 5; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-settings { order: 6; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-leave { order: 7; }
 @media (max-width: 700px), (max-height: 600px) and (orientation: landscape) {
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { padding-top: 12px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .caster-action-toolbar { --caster-button-width: 44px; display: grid; grid-template-columns: repeat(8, minmax(44px, 1fr)); align-items: start; gap: 8px 4px; }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item { justify-self: center; gap: 0; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference > .castlink-conference-footer { padding-top: 10px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .caster-action-toolbar { --caster-button-width: 44px; display: flex; flex-wrap: nowrap; justify-content: center; align-items: start; gap: 2px; overflow: visible; padding: 4px; box-sizing: border-box; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item { flex: 1 1 44px; width: 44px; min-width: 0; max-width: 44px; gap: 0; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-caption { display: none; }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-camera { width: 68px; }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-camera-control > .lk-track-toggle { width: 40px; min-width: 40px; padding: 8px !important; }
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-camera-effects-toggle { width: 28px; min-width: 28px; }
-}
-@media (max-width: 480px) {
-  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .caster-action-toolbar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-camera { flex: 1 1 44px; width: 44px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-camera-control > .lk-track-toggle { width: 100%; min-width: 0; border: 1px solid var(--panel-border); border-radius: 8px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-chat { order: 2; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-reactions { order: 3; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-share { order: 4; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-main .caster-action-toolbar > .caster-more-toggle { display: grid; box-sizing: border-box; place-items: center; order: 6; flex: 1 1 44px; min-width: 0; max-width: 44px; width: 44px; height: 44px; min-height: 44px; padding: 10px; color: var(--text); background: var(--secondary-bg); border: 1px solid var(--panel-border); border-radius: 8px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-toggle[aria-expanded="true"] { color: var(--page-bg); background: var(--primary); border-color: var(--primary); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-toggle svg { width: 22px; height: 22px; fill: currentColor; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-settings { order: 5; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-leave { order: 7; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions[popover] { position: fixed; inset: auto auto 88px 50%; transform: translateX(-50%); margin: 0; width: min(360px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 112px); box-sizing: border-box; padding: 16px; overflow: auto; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-bg); color: var(--text); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions:popover-open { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-heading { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 8px; order: -1; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-heading h2 { margin: 0; font-size: 14px; line-height: 1.4; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-heading button { display: grid; box-sizing: border-box; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 10px; background: var(--secondary-bg); color: var(--text); border: 1px solid var(--panel-border); border-radius: 8px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-more-heading svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .caster-toolbar-item { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; flex: none; width: auto; min-width: 0; max-width: none; gap: 12px; order: 0; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .caster-toolbar-caption { display: block; text-align: left; font-size: 13px; line-height: 18px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .guest-camera-effects-toggle { display: grid; place-items: center; width: 100%; height: 44px; min-height: 44px; border: 1px solid var(--panel-border); border-radius: 8px; color: var(--text); background: var(--secondary-bg); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .caster-effects-chevron { display: none; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .caster-effects-icon { display: block; fill: var(--secondary-bg); }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-secondary-actions .guest-camera-effects-toggle svg { width: 22px; height: 22px; }
 }
 
 /* Keep caster media and transport in the first viewport; service controls follow in document flow. */
@@ -1756,4 +1795,16 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header:has(.caster-scene-controls) { flex-wrap:wrap; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions:has(.caster-scene-controls) { flex-wrap:wrap; }
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-page-header-actions:has(.caster-scene-controls) .caster-connection-status { display:inline; }
+}
+
+/* Microphone and camera keep their own device arrows in the primary action row. */
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) { display:flex; gap:0; width:100%; min-width:0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { flex:1 1 0; width:0; min-width:0; border-radius:8px 0 0 8px; border-right:0; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item .guest-media-menu-toggle { display:grid; place-items:center; flex:0 0 24px; width:24px; min-width:24px; height:44px; padding:0; border:1px solid var(--panel-border); border-left:0; border-radius:0 8px 8px 0; background:var(--secondary-bg); color:var(--text); }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control)[data-muted="true"] > button { background:#b42332; border-color:#b42332; color:#fff; }
+html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control)[data-muted="true"] > button:hover { background:#971c29; border-color:#971c29; }
+@media (max-width:700px), (max-height:600px) and (orientation:landscape) {
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-action-toolbar > :is(.caster-toolbar-microphone, .caster-toolbar-camera) { flex:1 1 68px; width:68px; min-width:52px; max-width:68px; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle { padding:4px !important; }
+  html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-toolbar-item :is(.guest-camera-control, .guest-microphone-control) > .lk-track-toggle > svg { width:20px; height:20px; }
 }

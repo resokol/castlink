@@ -17,6 +17,7 @@
 .actions .close { margin-left:12px; border-color:transparent; background:transparent; font-size:24px; padding:0 7px; min-width:30px; }
 .toolbar,.templatebar { display:flex; align-items:center; flex-wrap:wrap; flex-shrink:0; gap:7px; padding:10px 18px; border-bottom:1px solid var(--mv-line); }
 .toolbar { background:#15181a; }
+.commandGroup { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-width:0; }
 .editorGridControls { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
 .editorGridControls label { display:flex; align-items:center; gap:7px; color:#a4adab; font-size:11px; }
 .editorGridControls select { width:auto; min-width:78px; }
@@ -193,28 +194,29 @@
 :global(html[data-design-preview="on"]) .editor button:hover:not(:disabled) { background:var(--secondary-hover,#30363d); border-color:var(--mv-muted); }
 :global(html[data-design-preview="on"]) .editor button:disabled { opacity:.42; }
 :global(html[data-design-preview="on"]) .editor select { color-scheme:inherit; }
-:global(html[data-design-preview="on"]) .header { padding:23px 30px; min-height:86px; gap:18px; }
+:global(html[data-design-preview="on"]) .header { padding:10px 16px; min-height:52px; gap:16px; box-sizing:border-box; }
 :global(html[data-design-preview="on"]) .heading { gap:12px; }
-:global(html[data-design-preview="on"]) .heading h2 { font-size:25px; font-weight:650; letter-spacing:-.03em; }
+:global(html[data-design-preview="on"]) .heading h2 { font-size:20px; font-weight:650; letter-spacing:-.03em; }
 :global(html[data-design-preview="on"]) .logo { font-size:26px; }
 :global(html[data-design-preview="on"]) .room { font-size:11px; padding-left:12px; }
 :global(html[data-design-preview="on"]) .actions { gap:7px; }
 :global(html[data-design-preview="on"]) .actions .close { min-width:36px; min-height:36px; font-size:24px; margin-left:5px; padding:0; background:transparent; }
-:global(html[data-design-preview="on"]) :is(.toolbar,.templatebar) { padding:12px 30px; gap:8px; background:var(--mv-bg); }
-:global(html[data-design-preview="on"]) .toolbar { row-gap:10px; }
+:global(html[data-design-preview="on"]) :is(.toolbar,.templatebar) { padding:6px 16px; gap:8px 12px; background:var(--mv-bg); }
+:global(html[data-design-preview="on"]) .toolbar { row-gap:6px; }
+:global(html[data-design-preview="on"]) .toolbar :is(button,input,select) { min-height:30px; padding:4px 7px; }
 :global(html[data-design-preview="on"]) .toolbarLabel { font-size:10px; color:var(--mv-muted); }
 :global(html[data-design-preview="on"]) .sceneSelect { gap:9px; font-size:11px; }
-:global(html[data-design-preview="on"]) .sceneSelect select { width:170px; font-size:12px; }
+:global(html[data-design-preview="on"]) .sceneSelect select { width:140px; font-size:12px; }
 :global(html[data-design-preview="on"]) .segment { gap:3px; padding:3px; border:1px solid var(--mv-line); border-radius:8px; background:var(--mv-panel); }
 :global(html[data-design-preview="on"]) .segment button { border:0; border-radius:5px; margin:0; background:transparent; min-height:28px; padding:4px 9px; }
 :global(html[data-design-preview="on"]) .segment button[aria-pressed="true"] { background:color-mix(in srgb,var(--mv-mint) 15%,var(--mv-panel)); color:var(--text,#eef0f2); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mv-mint) 35%,var(--mv-line)); }
 :global(html[data-design-preview="on"]) .editor .toolbar button[aria-pressed="true"] { color:var(--text,#eef0f2); }
 :global(html[data-design-preview="on"]) .divider { margin-inline:3px; }
-:global(html[data-design-preview="on"]) .templatebar { padding-top:10px; padding-bottom:10px; }
+:global(html[data-design-preview="on"]) .templatebar { padding-top:6px; padding-bottom:6px; }
 :global(html[data-design-preview="on"]) .templatebar > button { min-height:32px; padding:5px 10px; }
 :global(html[data-design-preview="on"]) .customGrid { gap:8px; }
 :global(html[data-design-preview="on"]) .customGrid input { min-height:32px; padding:4px; }
-:global(html[data-design-preview="on"]) .workspace { grid-template-columns:180px minmax(0,1fr) 278px; }
+:global(html[data-design-preview="on"]) .workspace { grid-template-columns:160px minmax(0,1fr) 238px; }
 :global(html[data-design-preview="on"]) :is(.sources,.properties) { background:var(--mv-bg); padding:20px 16px; scrollbar-width:thin; scrollbar-color:var(--field-border) transparent; }
 :global(html[data-design-preview="on"]) .sources { padding-left:20px; }
 :global(html[data-design-preview="on"]) .properties { padding-right:20px; }
@@ -236,16 +238,16 @@
 :global(html[data-design-preview="on"]) .sourceInfo :is(.online,.offline) { font-size:9px; }
 :global(html[data-design-preview="on"]) .dragIcon { font-size:14px; color:var(--mv-muted); }
 :global(html[data-design-preview="on"]) .hint { font-size:10px; line-height:1.7; }
-:global(html[data-design-preview="on"]) .stage { background:var(--mv-bg); padding:20px 22px 16px; }
+:global(html[data-design-preview="on"]) .stage { background:var(--mv-bg); padding:12px; }
 :global(html[data-design-preview="on"]) .stageTitle { font-size:11px; color:var(--mv-muted); }
 :global(html[data-design-preview="on"]) .stageTitle > span:last-child { color:var(--mv-muted); font-size:10px; }
-:global(html[data-design-preview="on"]) .canvasArea { padding:24px 8px; }
+:global(html[data-design-preview="on"]) .canvasArea { padding:8px; box-sizing:border-box; }
 :global(html[data-design-preview="on"]) .canvas { background:#090b0d; box-shadow:0 0 0 1px var(--field-border); }
 :global(html[data-design-preview="on"]) .canvas::after { outline-color:var(--field-border); }
 :global(html[data-design-preview="on"]) .slotContent { background-color:#1c2025; background-image:conic-gradient(#262b31 25%,#1c2025 0 50%,#262b31 0 75%,#1c2025 0); }
 :global(html[data-design-preview="on"]) .tileCaption { background:#101315c9; padding:5px 7px; font-size:10px; }
-:global(html[data-design-preview="on"]) .stageHelp { color:var(--mv-muted); line-height:1.65; text-align:center; padding-bottom:14px; }
-:global(html[data-design-preview="on"]) .stageButtons { border-color:var(--mv-line); gap:12px; padding-top:14px; }
+:global(html[data-design-preview="on"]) .stageHelp { color:var(--mv-muted); line-height:1.5; text-align:center; padding-bottom:6px; }
+:global(html[data-design-preview="on"]) .stageButtons { border-color:var(--mv-line); gap:12px; padding-top:6px; }
 :global(html[data-design-preview="on"]) .stageButtons .hint { font-size:10px; }
 :global(html[data-design-preview="on"]) .field { font-size:11px; gap:7px; margin-top:14px; color:var(--mv-muted); }
 :global(html[data-design-preview="on"]) .field :is(input,select) { font-size:12px; min-height:37px; }
@@ -259,10 +261,10 @@
 :global(html[data-design-preview="on"]) .editor .removeButton { min-height:36px; color:var(--error-text,#ffadb5); background:transparent; border-color:var(--mv-line); font-size:11px; margin-top:12px; }
 :global(html[data-design-preview="on"]) .geometry { gap:10px; }
 :global(html[data-design-preview="on"]) .geometry input { padding:5px; min-height:34px; font-size:11px; }
-:global(html[data-design-preview="on"]) .footer { padding:17px 24px; gap:20px; background:var(--mv-bg); }
+:global(html[data-design-preview="on"]) .footer { padding:8px 16px; gap:16px; background:var(--mv-bg); }
 :global(html[data-design-preview="on"]) .outputActions p { color:var(--mv-muted); font-size:10px; line-height:1.65; max-width:55ch; }
 :global(html[data-design-preview="on"]) .status { color:var(--mv-muted); }
-:global(html[data-design-preview="on"]) .applyActions { gap:9px; }
+:global(html[data-design-preview="on"]) .applyActions { gap:4px; flex:none; }
 :global(html[data-design-preview="on"]) .editor .applyButton { background:var(--mv-mint); color:#14211a; border-color:var(--mv-mint); font-weight:650; min-width:115px; }
 :global(html[data-design-preview="on"]) .editor .applyButton:hover:not(:disabled) { background:#bce6c9; border-color:#bce6c9; }
 :global(html[data-design-preview="on"]) .deleteConfirmation { background:var(--mv-panel); border-color:var(--mv-line); border-radius:12px; padding:24px; }
@@ -271,6 +273,29 @@
 @media(min-width:1700px) {
   :global(html[data-design-preview="on"]) .workspace { grid-template-columns:208px minmax(0,1fr) 308px; }
   :global(html[data-design-preview="on"]) .stage { padding-inline:30px; }
+}
+@media(min-width:761px) {
+  :global(html[data-design-preview="on"]) .header { padding-block:8px; }
+  :global(html[data-design-preview="on"]) .editor .toolbar :is(button,input,select) { min-height:30px; padding:4px 7px; }
+  :global(html[data-design-preview="on"]) .editor .toolbar .segment { padding:2px; }
+  :global(html[data-design-preview="on"]) .editor .toolbar .segment button { min-height:26px; padding:3px 7px; }
+  :global(html[data-design-preview="on"]) .templatebar { box-sizing:border-box; min-height:0; }
+  :global(html[data-design-preview="on"]) .stageButtons { flex-wrap:nowrap; gap:8px; }
+  :global(html[data-design-preview="on"]) .stageButtons > button { flex:none; }
+  :global(html[data-design-preview="on"]) .stageButtons > .hint { flex:1; min-width:0; line-height:1.5; }
+  :global(html[data-design-preview="on"]) .editor .footer button { min-height:32px; padding:4px 8px; }
+  :global(html[data-design-preview="on"]) .outputActions { display:flex; flex:1; align-items:center; gap:12px; max-width:none; }
+  :global(html[data-design-preview="on"]) .outputActions > div { flex:none; }
+  :global(html[data-design-preview="on"]) .outputActions p { margin:0; max-width:40ch; }
+  :global(html[data-design-preview="on"] .studio-console) .backdrop { left:160px; }
+}
+@media(min-width:761px) and (max-width:1023px) {
+  :global(html[data-design-preview="on"] .studio-console) .backdrop { left:0; }
+}
+/* Zoomed or short windows scroll the editor instead of reducing a scene to a thumbnail. */
+@media(min-width:761px) and (max-width:1023px) and (max-height:650px), (min-width:761px) and (max-height:499px) {
+  :global(html[data-design-preview="on"]) .editor { overflow:auto; }
+  :global(html[data-design-preview="on"]) .workspace { flex:1 0 360px; min-height:360px; }
 }
 @media(max-width:1180px) {
   :global(html[data-design-preview="on"]) .backdrop { left:184px; }

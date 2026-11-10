@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TokenVerifier } from "livekit-server-sdk";
-import { clearDisconnected, readAudioHistory, readHistory, saveSample } from "@/lib/telemetry-store";
+import { clearDisconnected, readAudioHistory, readRuntimeHistory, readHistory, saveSample } from "@/lib/telemetry-store";
 import { sanitizeAudioPlayback, sanitizeAudioReceive } from "@/lib/audio-diagnostics";
+import { sanitizeRuntimeDiagnostic } from "@/lib/runtime-diagnostics";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { canHostNamedRoom } from "@/lib/room-studio-access";
@@ -72,7 +73,8 @@ export async function POST(request: NextRequest) {
     await saveSample({ at: Date.now(), room: auth.mediaRoom, identity: auth.identity, name: text(data.name), session: data.session,
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,
       uptimeSec: metric(data.uptimeSec) ?? 0, streams, clientAt: metric(data.at, 1e15) ?? undefined,
-      audioPlayback: sanitizeAudioPlayback(data.audioPlayback) });
+      audioPlayback: sanitizeAudioPlayback(data.audioPlayback),
+      ...(role === "studio" && auth.identity.startsWith("studio-panel-") ? { runtime: sanitizeRuntimeDiagnostic(data.runtime) } : {}) });
     return new NextResponse(null, { status: 204 });
   } catch {
     return NextResponse.json({ error: "Не удалось сохранить замер" }, { status: 400 });
@@ -106,16 +108,21 @@ export async function GET(request: NextRequest) {
   if (selectedSession && !/^[a-zA-Z0-9-]{10,80}$/.test(selectedSession)) return NextResponse.json({ error: "Некорректная сессия" }, { status: 400 });
   if (selectedIdentity && selectedIdentity.length > 160) return NextResponse.json({ error: "Некорректный участник" }, { status: 400 });
   if (rawRole && !allowedRoles.includes(rawRole as TelemetryRole)) return NextResponse.json({ error: "Некорректная роль" }, { status: 400 });
-  if (request.nextUrl.searchParams.get("diagnostics") === "audio") {
+  const diagnostics = request.nextUrl.searchParams.get("diagnostics");
+  if (diagnostics === "audio" || diagnostics === "runtime") {
     const params = request.nextUrl.searchParams;
     try {
-      const detail = await readAudioHistory(mediaRoom, minutes, { session: selectedSession, identity: selectedIdentity,
+      const readDiagnostics = diagnostics === "runtime" ? readRuntimeHistory : readAudioHistory;
+      const detail = await readDiagnostics(mediaRoom, minutes, { session: selectedSession, identity: selectedIdentity,
         role: rawRole ? rawRole as TelemetryRole : undefined, limit: Number(params.get("limit") || 1000),
         cursor: params.get("cursor") || undefined, to: params.has("to") ? Number(params.get("to")) : undefined });
       return NextResponse.json(detail, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
-      const invalid = error instanceof Error && error.message.startsWith("invalid_audio_");
-      return NextResponse.json({ error: invalid ? "Некорректные параметры аудиоистории" : "Не удалось прочитать аудиоисторию" }, { status: invalid ? 400 : 500 });
+      const invalid = error instanceof Error && /^invalid_(audio|runtime)_/.test(error.message);
+      const errorMessage = diagnostics === "runtime"
+        ? invalid ? "Некорректные параметры диагностики студии" : "Не удалось прочитать диагностику студии"
+        : invalid ? "Некорректные параметры аудиоистории" : "Не удалось прочитать аудиоисторию";
+      return NextResponse.json({ error: errorMessage }, { status: invalid ? 400 : 500 });
     }
   }
   try {

@@ -23,6 +23,7 @@ Module._load = function(name, ...args) {
   if (name === '@/lib/i18n' || name.startsWith('@/lib/i18n/')) return loadTs(path.join(__dirname, '..', name.slice(2)) + '.ts');
   if (name.endsWith('/session-http-bearer')) return loadTs(path.join(__dirname, '../lib/session-http-bearer.ts'));
   if (name === '@/lib/app-update') return loadTs(path.join(__dirname, '../lib/app-update.ts'));
+  if (name === '@/lib/connection-history') return loadTs(path.join(__dirname, '../lib/connection-history.ts'));
   return original.call(this, name, ...args);
 };
 module.exports = fixture;

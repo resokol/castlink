@@ -229,3 +229,138 @@ a fresh click. Do not present these releases as the owner reclaiming control.
 ## Compact caster toolbar — owner approved, 26 October 2026
 
 Caster workspace transport uses equal 56×48px targets, 20×20px icons and 6px gaps. Center every wrapped row on desktop and mobile, including camera options and settings. Only Chat retains its visible label; other triggers retain accessible names and tooltips. Preserve state colors, mounted media, popovers and existing control authority. This supersedes the former mobile single-row More menu for this workspace only. Browser geometry checked in both themes at 320/390/700/844-landscape/1440; no live-media claim.
+
+
+## Compact primary Studio — owner approved, 8 November 2026
+
+Playback, caster previews and the operating rail must share the first desktop
+viewport. Keep a contained playback picture and its meter on the left, compact
+invitations beside it, and a bounded source deck below. The right rail retains
+ON AIR, device settings, measured outgoing statistics, bitrate graph and all four
+quality selectors. Scroll additional sources independently. Expanded device settings
+use the rail's local scroll without moving playback. Preserve mounted media and
+all existing control permissions. Narrow or very short windows keep natural flow.
+This supersedes the older full-first-screen playback / guests-below requirement.
+See docs/design/STUDIO_COMPACT_20261108_RU.md for preview evidence and limits.
+
+## Caster row and playback proportions — owner correction, 8 November 2026
+
+On mobile, caster direct actions stay in one horizontal row. Preserve 44px touch
+buttons and use a local horizontal scrollport when needed; show a small scroll
+cue. Keep native popovers reachable. The unsupported screen-share explanation
+must not create a tall narrow column below its button.
+
+STUDIO PLAYBACK uses a 16:10 window, including waiting and short-window states.
+Contain the original source without cropping or stretching; compact desktop
+sizing follows both available width and height. Preserve the shared first-screen
+studio/source/statistics layout and mounted media.
+
+## Mobile caster toolbar without scrolling — owner correction, 8 November 2026
+
+The mobile transport must fit a320px viewport without scrolling or wrapping.
+Keep microphone, camera, chat, reactions, screen sharing, settings, More and
+Leave directly visible. The owner explicitly kept reactions, sharing, settings
+and the unlabelled chat icon outside More. More contains only upload and camera
+options, in labelled rows. Mobile primary actions use icons without captions.
+
+Use equal responsive widths:44px on393px phones,40px on360px,35px on320px;
+keep44px touch height and20–22px consistent icons. Eight44px targets cannot fit
+in320px with page insets. Direct action access and no scrolling take priority
+here; never claim35px buttons are44px wide. Preserve the incumbent graphite/mint
+palette, light theme and state colors.
+
+Only action triggers move into stable layout slots. Media, camera-effects
+controllers, prepared presentations, active source controls and Stop surfaces
+stay mounted and keep their existing authority and lifecycle. Desktop retains
+its direct actions and camera options. Resize and closing More do not end media.
+This supersedes the earlier mobile scrollport solution.
+
+## Primary Studio playback group — owner correction, 8 November 2026
+
+Desktop playback is one coherent operating block. Align the16:10 monitor to the
+left edge, with a short audio meter matching the actual frame width directly
+below. Place live controls and expandable device settings beside the monitor
+inside the same flat panel; invitations form a compact row below. Keep measured
+outgoing statistics and quality selectors in the adjacent rail, and sources
+visible below in their bounded deck. Expanded device settings scroll locally.
+
+The previous centered frame with a full-cell-width meter is superseded. Preserve
+video containment, mounted media, roles, ON AIR authority, and isolated meter
+updates. Caster mobile toolbar remains the approved unscrolling8-action design.
+
+## Short desktop Studio and vertical meter — owner correction, 8 November 2026
+
+Playback, controls, statistics and guest pictures must share the actual browser
+viewport, including at1280×540/560/600. The former701px fallback was incorrect:
+it stacked controls across the page and pushed guests below the screen. Use the
+actual header, footer and remaining workspace budget; the footer must be present
+in screenshot fixtures. Keep other tabs and narrow/mobile page flow usable.
+
+The Studio meter is vertical immediately to the right of the16:10 picture,
+with low levels at the bottom, red peaks at the top, a legible scale and numeric
+value. It reuses the existing analyser and isolated update loop. Other meters
+keep their horizontal default. Keep the operating controls bounded beside this
+monitor group; compact desktop controls and charts before losing guest pictures.
+Additional guests scroll only inside the source deck. Expanded devices scroll
+inside their own column, with transport reachable. Preserve the approved caster
+mobile toolbar, actor permissions and mounted media.
+
+## Studio Console A — owner approved, 8 November 2026
+
+The owner selected variant A after actual browser previews. This replaces the
+previous playback/control panel and sources-below arrangement on desktop. Use
+a slim sidebar, a left program column with a contained16:10 picture and vertical
+meter immediately right, compact ON AIR and sound controls below, and native
+disclosures for devices and invitations. Put the compact source grid beside the
+program and retain the approved measured statistics/codecs panel in the right rail.
+Guest cards show name, picture, microphone action and meter; advanced controls
+remain in each labelled native menu, with actual pending/error feedback visible.
+
+Budget against the real header and footer at1280×540/560/600. Five guest pictures
+must fit on that screen; longer decks scroll locally. Keep other tabs in normal
+flow, mounted media and all existing control gates. The approved caster mobile
+toolbar is unchanged. Approved reference and scope:
+`docs/superpowers/specs/2026-11-08-studio-console-a-design.md`.
+
+## Console A menu refinement — owner correction, 8 November2026
+
+Preserve the approved console composition, statistics/codecs rail and caster
+mobile toolbar. Put a direct Copy URL shortcut on each compact guest card, using
+its existing individual-output callback and copied state. Keep the name readable;
+a compact shortcut by the meter is permitted when a third header action crowds it.
+The ON AIR button has text only, without a preceding decorative indicator.
+
+Studio devices, invitations/access, room settings and guest advanced menus share
+compact spacing, readable labels, bounded placement by their invoker, accessible
+close/focus and local scrolling. Fold advanced groups without unmounting device
+or media owners; preserve all commands, role/busy gates, fields and feedback.
+This is a narrow refinement of A, with no changes to the program/source geometry.
+
+## Mobile Window proportions and URL accent — owner correction, 8 November2026
+
+The owner explicitly identified the portrait mobile Window screen, not the Tiles
+mode: the primary camera tile must not become a tall near-square from a percent
+of viewport height. Keep proportional media frames, contain original video and
+keep secondary participants readable. Preserve mobile transport, mounted media,
+pinning/source priority and desktop/Tiles behavior.
+
+Highlight the compact Studio guest Copy URL shortcut in warm orange (#f0a261
+with #2c190d ink, lighter hover). Preserve the existing green copied confirmation,
+accessible labels, target size, actual handler and approved Console A geometry.
+
+## Phone entry, taller graph and Multiview repair — owner correction, 8 November2026
+
+A fresh phone caster visit starts in Tiles even when Window was saved before.
+Manual switching remains local to that visit; preserve the desktop saved mode.
+Use the existing first-screen header/media/eight-action transport, with the real
+application footer below the viewport and reachable by page scroll. Do not hide it.
+
+Studio statistics use the available vertical rail space for the measured chart;
+keep axis type unscaled and all four quality selectors visible. Data, labels,
+telemetry ownership and the approved program/source composition remain unchanged.
+
+The Multiview editor uses the current160px Studio sidebar offset, compact grouped
+commands and a proportional canvas that fills its center budget. Side lists scroll
+locally; short/narrow/zoomed windows can scroll the editor to reach every command.
+Preserve model/scene geometry, drag/resize/snap, history, import/export, Apply and
+existing output permissions/media owners. This repairs layout, not the renderer.

@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const card = fs.readFileSync(path.join(__dirname, '../components/GuestVideoCard.tsx'), 'utf8');
 const row = card.indexOf('guest-card-bitrate');
-assert.ok(row >= 0 && row < card.indexOf('{quickControls &&'), 'camera limit and actual room-send rate must be visible above Sound/Video controls');
+assert.ok(row >= 0 && row < card.indexOf('className="source-card-actions"'), 'camera limit and actual room-send rate must be visible above Sound/Video controls');
 assert.ok(row < card.indexOf('<MonitoringControls'), 'camera bitrate row must be above the personal Sound on / Video on buttons');
 assert.ok(row < card.indexOf('<details className="source-card-advanced"'), 'camera bitrate row must stay visible with Settings collapsed');
 assert.match(card, /guest\.roomSendBitrateKbps/, 'room-send readout must have a distinct measurement from card reception');

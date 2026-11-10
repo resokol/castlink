@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0 — 2026-11-10
+
+- RU: стабильный выпуск web/runtime и исходников текущей боевой версии castlink.ru. Включены компактная студийная консоль, меню устройств микрофона и камеры кастера, исправления мобильной раскладки, графика и мультивью, обновление HTTP-сессии и диагностика соединения. После обновления сервера перезагрузите страницы студии и кастера вне эфира. [Примечания](distribution/RELEASE_NOTES_1_0_0.md).
+- EN: stable web/runtime and source release of the production castlink.ru version. Includes the compact studio console, caster microphone and camera device menus, mobile layout, graph and multiview fixes, HTTP session renewal and connection diagnostics. Reload studio and caster pages off air after the server update. [Release notes](distribution/docs/en/RELEASE_NOTES_1_0_0.md).
+- 简体中文：castlink.ru 当前生产版本的稳定网页运行时及源代码发布。包含紧凑演播室控制台、参与者麦克风和摄像头设备菜单、移动端布局、图表和多画面修复、HTTP 会话续期及连接诊断。服务器更新后，请在停播时刷新演播室及参与者页面。[发行说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_0.md)。
+
+## 2026-11-08 — компактная студия и звук кастера / Compact studio and caster audio / 紧凑演播室与参与者音频
+
+- RU: основная студия одновременно показывает компактный STUDIO PLAYBACK, карточки кастеров и статистику с настройками. Длинный список кастеров прокручивается отдельно.
+- RU: кастер включает шумоподавление и защиту от эха в системных настройках. Новые подключения используют обработку; явный сохранённый оригинальный звук сохраняется. После установки обновите страницы вне эфира; для оригинального звука используйте наушники.
+- EN: the primary studio shows compact playback, caster cards and statistics/settings together, with independent scrolling for additional sources. Casters can enable noise suppression and echo cancellation in System settings. New connections use processing; explicit saved original sound is retained. Reload room pages off air after the update; use headphones with original sound.
+- 简体中文：主演播室可同时显示紧凑预览、参与者卡片及统计和设置，更多来源可独立滚动。参与者可在系统设置中启用降噪和回声消除；新连接默认启用处理，明确保存的原始声音设置将保留。更新后请在停播时刷新房间页面；使用原始声音时请佩戴耳机。
+
+## Unreleased — primary studio diagnostics
+
+- Removed redundant whole-studio updates driven by audio-meter animation; microphone replacement and participant/stat changes remain visible.
+- Added bounded primary-studio browser runtime telemetry, current/previous tab snapshots, latest metrics and filtered JSON export. Existing server retention and access checks apply; no media recording is added.
+- Reload the studio after the server is updated. Other standalone servers need an updated server build. See [Русский](distribution/STUDIO_DIAGNOSTICS.md), [English](distribution/docs/en/STUDIO_DIAGNOSTICS.md), [简体中文](distribution/docs/zh-CN/STUDIO_DIAGNOSTICS.md). Existing published installers are unchanged.
+
+
 ## 2026-10-27 — камера, H.265 и рабочая область / Camera, H.265 and workspace / 摄像头、H.265 与工作区
 
 - RU: в проверке перед входом кастер выбирает разрешение камеры (Авто, 720p, 1080p) и частоту кадров. Выбор можно запомнить вместе с именем; настройки студии имеют приоритет. Запрашиваемые параметры зависят от возможностей камеры и браузера.

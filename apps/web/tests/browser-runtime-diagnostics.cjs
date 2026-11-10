@@ -1,0 +1,50 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+assert.ok(fs.existsSync(require('node:path').join(__dirname, '../lib/browser-runtime-diagnostics.ts')), 'primary studio must collect runtime evidence without React state');
+const {load} = require('./load-typescript.cjs');
+let mono=0, wall=1_800_000_000_000;
+const original={window:global.window,document:global.document,navigator:global.navigator,performance:global.performance,PerformanceObserver:global.PerformanceObserver,setInterval:global.setInterval,clearInterval:global.clearInterval};
+const win=new EventTarget(),doc=new EventTarget(),stored=new Map(),timers=new Map();doc.visibilityState='visible';
+win.sessionStorage={getItem:k=>stored.get(k)||null,setItem:(k,v)=>stored.set(k,v)};
+Object.assign(global,{window:win,document:doc,setInterval:(f)=>{const id={};timers.set(id,f);return id;},clearInterval:id=>timers.delete(id)});
+Object.defineProperty(global,'navigator',{value:{userAgent:'Mozilla Chrome/140.0 Electron/38.0'},configurable:true});
+Object.defineProperty(global,'performance',{value:{now:()=>mono,memory:{usedJSHeapSize:1234,jsHeapSizeLimit:9999}},configurable:true});
+let observer,disconnected=false;
+global.PerformanceObserver=class{static supportedEntryTypes=['longtask'];constructor(f){observer=f;}observe(){}disconnect(){disconnected=true;}};
+const originalNow=Date.now;Date.now=()=>wall;
+try {
+ const {startBrowserRuntimeDiagnostics,localRuntimeDiagnosticReport}=load('../lib/browser-runtime-diagnostics.ts');
+ let media={onAir:true,preview:true,source:'camera',audioContextState:'running',videoPublished:true,audioPublished:true,
+  video:{present:true,readyState:'live',muted:false,enabled:true},audio:{present:true,readyState:'live',muted:false,enabled:true}};
+ let mediaFails=false;
+ const first=startBrowserRuntimeDiagnostics('session-runtime-one',()=>{if(mediaFails)throw Error('unavailable');return media;});
+ assert.equal(timers.size,1);
+ const tick=(ms)=>{mono+=ms;wall+=ms;for(const f of timers.values())f();};
+ tick(1800);let s=first.snapshot();
+ assert.deepEqual(s.media,media,'runtime snapshot includes current source and publication state');
+ media.video.readyState='ended';s=first.snapshot();assert.equal(s.media.video.readyState,'ended');
+ s.media.video.enabled=false;assert.equal(media.video.enabled,true,'snapshot cannot mutate the source provider');
+ mediaFails=true;assert.equal(first.snapshot().media,undefined,'provider failure omits stale media evidence without losing runtime');mediaFails=false;
+ assert.equal(s.loopLagMs,800);assert.equal(s.maxLoopLagMs,800);assert.equal(s.environment,'desktop');assert.equal(s.browser,'chrome');assert.equal(s.heapUsedBytes,1234);
+ observer({getEntries:()=>[{duration:125},{duration:70}]});s=first.snapshot();assert.equal(s.longTasks,2);assert.equal(s.longTaskMaxMs,125);
+ doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));tick(61000);
+ assert.equal(first.snapshot().maxLoopLagMs,800,'background timer throttling is not a visible freeze');
+ doc.visibilityState='visible';doc.dispatchEvent(new Event('visibilitychange'));tick(1000);assert.equal(first.snapshot().loopLagMs,0);
+ for(let i=0;i<50;i++)win.dispatchEvent(new Event('error'));
+ win.dispatchEvent(new Event('unhandledrejection'));s=first.snapshot();assert.equal(s.errors,50);assert.equal(s.rejections,1);assert.equal(s.events.length,20);
+ assert.ok(!JSON.stringify(s).includes('Mozilla'),'raw user agent is never retained');
+ first.event('reconnected');tick(10000);first.stop();assert.equal(timers.size,0);assert.equal(disconnected,true);
+ win.dispatchEvent(new Event('error'));assert.equal(first.snapshot().errors,50,'listeners removed on cleanup');
+ const second=startBrowserRuntimeDiagnostics('session-runtime-two');
+ let report=localRuntimeDiagnosticReport();assert.equal(report.active.session,'session-runtime-two');assert.equal(report.previous.session,'session-runtime-one');assert.equal(report.previous.runtime.errors,50);
+ assert.equal(report.previous.runtime.media.video.readyState,'ended','previous session preserves source failure after restart');
+ second.stop();
+ win.sessionStorage={getItem(){throw Error('blocked');},setItem(){throw Error('full');}};
+ Object.defineProperty(global,'performance',{value:{now:()=>mono},configurable:true});delete global.PerformanceObserver;
+ const third=startBrowserRuntimeDiagnostics('session-runtime-three');tick(1000);assert.equal(third.snapshot().heapUsedBytes,null);assert.equal(third.snapshot().longTasks,null);third.stop();
+ delete global.window;delete global.document;const noop=startBrowserRuntimeDiagnostics('node');assert.equal(noop.snapshot(),undefined);noop.stop();
+ console.log('PASS runtime lag/background/longtask/heap/error/events, persistent previous session, unavailable APIs/storage, no post-stop listeners');
+} finally {
+ Date.now=originalNow;
+ for(const [k,v]of Object.entries(original))Object.defineProperty(global,k,{value:v,writable:true,configurable:true});
+}
