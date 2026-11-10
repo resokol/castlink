@@ -4,23 +4,23 @@
 
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| Windows Client | Приложение Windows: студия и кастер | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/CastLink-Client-1.0.0-rc.9-a994895c5fa9-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.9-a994895c5fa9/SHA256SUMS) |
-| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
-| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0-rc.9](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.9-7ff7880b402f/SHA256SUMS) |
+| Windows Client | Приложение Windows: студия и кастер | [1.0.0](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) |
+| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/SHA256SUMS) |
 
 **[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
-Перед запуском проверьте SHA256SUMS выбранного выпуска. EXE не подписаны. Новый Client предлагает проверенное обновление, но установка требует отдельного согласия; старый Client замените вручную. Серверные службы обновляются после вашего действия и могут прервать эфир. Данные резервируйте самостоятельно; три направления выпускаются независимо.
+Перед запуском проверьте SHA256SUMS выбранного выпуска. EXE не подписаны. Client проверяет обновление перед установкой и отдельно запрашивает согласие; ручная установка нужна, если старый клиент не находит выпуск. Серверные службы обновляются после вашего действия и могут прервать эфир. Данные резервируйте самостоятельно; три направления выпускаются независимо.
 
-Server Setup build: `1.0.0-rc.9-7ff7880b402f` · source: `7ff7880b402fb83db02301678cab52c29912fbe0`
+Server Setup build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
 
-Linux build: `1.0.0-rc.9-7ff7880b402f` · source: `7ff7880b402fb83db02301678cab52c29912fbe0`
+Linux build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
 
-Client build: `1.0.0-rc.9-a994895c5fa9` · source: `a994895c5fa976a073965f845ba23a4f61f94387`
+Client build: `1.0.0-93d9b93e17da` · source: `93d9b93e17daced23b3eb4207c8464d6091bea0c`
 
-**Обновление с rc.8:** старый Client может не найти новый выпуск после переименования репозитория. Один раз скачайте установщик rc.9 вручную по ссылке выше и проверьте SHA256SUMS. Для собственного сервера отдельно обновите Server Setup или Linux. [Что нового и порядок обновления](RELEASE_NOTES_RC9.md).
+**Обновление до 1.0.0:** используйте встроенную проверку обновлений Client. Если старый клиент не находит выпуск (например, после переименования репозитория), один раз скачайте установщик 1.0.0 вручную по ссылке выше и проверьте SHA256SUMS. Для собственного сервера отдельно обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. [Что нового и порядок обновления](RELEASE_NOTES_1_0_0.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-rc.9-a994895c5fa9) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-rc.9-7ff7880b402f) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-rc.9-7ff7880b402f)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-1ea894bd94ad) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-1ea894bd94ad)
 
 ## Инструкции и опубликованные архивы
 

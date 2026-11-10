@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
+<p align="center"><strong>CastLink 1.0.0</strong></p>
 <p align="center"><strong>Remote guests. Separate sources. Your broadcast.</strong></p>
 <p align="center">Join in a browser · OBS and vMix · Self-hosted</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -19,7 +19,7 @@
   <a href="https://t.me/sklvmax"><strong>♡ Support CastLink</strong></a>
 </p>
 
-<p align="center">Open source under <a href="LICENSE">MIT</a> · <a href="distribution/PRODUCTS.md">All downloads and checksums</a></p>
+<p align="center">Open source under <a href="LICENSE">MIT</a> · <a href="distribution/docs/en/PRODUCTS.md">All downloads and checksums</a></p>
 
 
 ---
@@ -28,15 +28,15 @@ CastLink is a self-hosted studio for bringing remote guests, presentations, and 
 
 ## Download and install
 
-Choose a package from the [product catalog](distribution/PRODUCTS.md) or [releases](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup, and standalone Linux have independent release tracks. Download each package and its `SHA256SUMS` from the same product release.
+Choose a package from the [product catalog](distribution/docs/en/PRODUCTS.md) or [releases](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup, and standalone Linux have independent release tracks. Download each package and its `SHA256SUMS` from the same product release.
 
 | Product | Purpose |
 | --- | --- |
 | Windows Client | Join a studio as a guest or host. Install using `setup.exe`; Docker is not required. |
 | Windows Server Setup | Install your server on Windows or on Linux Ubuntu over SSH. Extract all of `CastLink-Windows.zip` and run `EasySetup.exe`. |
-| Linux Ubuntu | Install a server directly on Linux. The [Linux manual](distribution/LINUX_MANUAL.md) covers quick and advanced setup. |
+| Linux Ubuntu | Install a server directly on Linux. The [Linux manual](distribution/docs/en/LINUX_MANUAL.md) covers quick and advanced setup. |
 
-[Installation: Русский / English / 简体中文](distribution/INSTALL.md) · [User documentation](distribution/README.md) · [Remote PC control (Russian)](docs/REMOTE_PC_CONTROL_RU.md).
+[Installation: Русский / English / 简体中文](distribution/INSTALL.md) · [User documentation](distribution/docs/en/GUIDE.md) · [Remote PC control (Russian)](docs/REMOTE_PC_CONTROL_RU.md).
 
 [resokol/castlink](https://github.com/resokol/castlink) is the canonical public repository for MIT-licensed source, releases, and instructions. Release archives and checksums are publicly accessible. The former `resokol/castlink-releases` address redirects here to preserve existing download and installer links. The single GitHub `releases/latest` entry does not select the latest release of all three products; use the product catalog.
 
