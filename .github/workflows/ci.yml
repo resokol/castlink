@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Keep the validated canonical sudo layout used by the fixed-identity CLI gate.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
