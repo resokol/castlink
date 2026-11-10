@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0-rc.8</strong></p>
+<p align="center"><strong>CastLink 1.0.0</strong></p>
 <p align="center"><strong>远程嘉宾，独立音视频源，打造你的直播。</strong></p>
 <p align="center">浏览器接入 · OBS 和 vMix · 自托管</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-rc.8-f6c47a27a62c/CastLink-Client-1.0.0-rc.8-f6c47a27a62c-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-rc.8-d703726cd50b/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-rc.8-d703726cd50b/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">官网</a> &nbsp; / &nbsp;
@@ -19,7 +19,7 @@
   <a href="https://t.me/sklvmax"><strong>♡ 支持 CastLink</strong></a>
 </p>
 
-<p align="center">开源许可证： <a href="LICENSE">MIT</a> · <a href="distribution/PRODUCTS.md">下载与校验和</a></p>
+<p align="center">开源许可证： <a href="LICENSE">MIT</a> · <a href="distribution/docs/zh-CN/PRODUCTS.md">下载与校验和</a></p>
 
 
 ---
@@ -28,15 +28,15 @@ CastLink 是一个自托管演播室，可将远程嘉宾、演示文稿及独�
 
 ## 下载与安装
 
-请从[产品目录](distribution/PRODUCTS.md)或[发行版页面](https://github.com/resokol/castlink/releases)选择安装包。Windows Client、Windows Server Setup 和独立 Linux 安装程序分别发布。安装包和 `SHA256SUMS` 必须来自同一产品的同一发行版。
+请从[产品目录](distribution/docs/zh-CN/PRODUCTS.md)或[发行版页面](https://github.com/resokol/castlink/releases)选择安装包。Windows Client、Windows Server Setup 和独立 Linux 安装程序分别发布。安装包和 `SHA256SUMS` 必须来自同一产品的同一发行版。
 
 | 产品 | 用途 |
 | --- | --- |
 | Windows Client | 以嘉宾或主持人身份加入演播室。运行 `setup.exe` 安装，无需 Docker。 |
 | Windows Server Setup | 在 Windows 上，或通过 SSH 在 Linux Ubuntu 上安装服务器。完整解压 `CastLink-Windows.zip` 后运行 `EasySetup.exe`。 |
-| Linux Ubuntu | 直接在 Linux 上安装服务器。[Linux 手册](distribution/LINUX_MANUAL.md)提供快速和高级安装说明。 |
+| Linux Ubuntu | 直接在 Linux 上安装服务器。[Linux 手册](distribution/docs/zh-CN/LINUX_MANUAL.md)提供快速和高级安装说明。 |
 
-[安装指南：Русский / English / 简体中文](distribution/INSTALL.md) · [用户文档](distribution/README.md) · [远程电脑控制（俄语）](docs/REMOTE_PC_CONTROL_RU.md)。
+[安装指南：Русский / English / 简体中文](distribution/INSTALL.md) · [用户文档](distribution/docs/zh-CN/GUIDE.md) · [远程电脑控制（俄语）](docs/REMOTE_PC_CONTROL_RU.md)。
 
 [resokol/castlink](https://github.com/resokol/castlink) 是本项目唯一的公开主仓库，提供 MIT 许可的源代码、发行版及说明。安装包和校验和可公开下载。旧地址 `resokol/castlink-releases` 重定向到此仓库，以兼容旧下载链接和安装程序。GitHub 的单个 `releases/latest` 入口不代表三个产品各自的最新版本，请使用产品目录选择。
 

@@ -4,7 +4,7 @@
 
 Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH terminal. No Windows wizard is needed. This guide uses the official package advertising `network-modes-v1` and `linux-compose-v1`; new documentation does not add features to an older package. [Installation overview](INSTALL.md) · [User guide](../../README.md) · [Releases](https://github.com/resokol/castlink/releases).
 
-The new interactive steps below describe CLI **1.0.0-rc.9**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses the new rc.9 CLI. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
+The new interactive steps below describe CLI **1.0.0**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses CLI 1.0.0. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
 
 ## Prepare the host and verify the package
 
@@ -21,14 +21,14 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.0-rc.9**, source commit `7ff7880b402f`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.0**, source commit `1ea894bd94adb96f861398cc30addc93d1bf9d21`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 Release files are public in [resokol/castlink](https://github.com/resokol/castlink/releases); downloading does not require signing in. This example uses `curl` and an exact Linux tag. Old embedded `castlink-releases` links redirect to this same repository.
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.0-rc.9-7ff7880b402f'
+RELEASE_TAG='linux-v1.0.0-1ea894bd94ad'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -52,7 +52,7 @@ The persistent `/opt/castlink-manual` directory must be new and private. `init` 
 <a id="legacy-1472"></a>
 ## Historical CLI1472: the older prompts
 
-The `easy-setup-1472cd052d7e` package has no `--advanced` flag. Run the command below and select `quick` or `advanced` in its first prompt. Quick then asks for the public origin, media IPv4 and public-certificate choice; advanced continues with networking fields. These are the older package prompts, not the new rc.8 interaction. The shared JSON examples and start/status/update commands below apply to both when their manifest advertises the required capabilities.
+The `easy-setup-1472cd052d7e` package has no `--advanced` flag. Run the command below and select `quick` or `advanced` in its first prompt. Quick then asks for the public origin, media IPv4 and public-certificate choice; advanced continues with networking fields. These are the older package prompts, not the CLI 1.0.0 interaction. The shared JSON examples and start/status/update commands below apply to both when their manifest advertises the required capabilities.
 
 ```bash
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang en
@@ -74,7 +74,7 @@ Use this for a dedicated public VPS or LAN server. For a VPS, point the domain's
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang en
 ```
 
-In CLI rc.8, quick setup is the default: enter the server domain or IPv4; the `https://` prefix is optional. There is no separate quick-mode or certificate question. A domain with one IPv4 A record supplies the media IPv4 through DNS; missing or ambiguous DNS prompts for the server IPv4. A global media IPv4 selects a public certificate; private/loopback addresses select the private CA. Use `--advanced` to select networking and certificates explicitly.
+In CLI 1.0.0, quick setup is the default: enter the server domain or IPv4; the `https://` prefix is optional. There is no separate quick-mode or certificate question. A domain with one IPv4 A record supplies the media IPv4 through DNS; missing or ambiguous DNS prompts for the server IPv4. A global media IPv4 selects a public certificate; private/loopback addresses select the private CA. Use `--advanced` to select networking and certificates explicitly.
 
 Replace examples with your addresses. Default `127.0.0.1` values are reachable only on the server; do not keep them for remote clients. Quick mode uses HTTPS, HTTP/HTTPS 80/443, media TCP 7881, media UDP 7882, TURN UDP 3478 and relay UDP 30000–30031. Caddy binds to `0.0.0.0` unless the media IPv4 is loopback.
 
@@ -127,7 +127,7 @@ Verify the certificate's origin on your server, then install it in the trusted r
 <a id="advanced"></a>
 ## Advanced: custom ports, HTTP or an external HTTPS proxy
 
-For CLI rc.8, explicitly enable advanced setup:
+For CLI 1.0.0, explicitly enable advanced setup:
 
 ```bash
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang en
@@ -215,7 +215,7 @@ docker compose -f "$CASTLINK_STATE/compose.json" logs --tail 100
 
 For network failures check DNS, firewall, port conflicts, media IP, certificate trust and the proxy route. Do not publish env/state/secrets, invitations or raw logs. `render` rewrites generated configuration from saved state; manual edits to those files may be lost.
 
-The following commands require the new package with `public-updates-v1` and `production-retention-v1` capabilities. Previously published rc.8 packages do not acquire them automatically; install the new package first and check `--help`.
+The following commands require the new package with `public-updates-v1` and `production-retention-v1` capabilities. Previously published 1.0.0-rc.8 packages do not acquire them automatically; install the new package first and check `--help`.
 
 Interactive `start` and `status` check the separate Linux GitHub Releases channel. When a newer version is available, choose update, stay on the current version, or enter `off` to disable automatic checks. A failed network check does not stop the server. Noninteractive commands never prompt.
 
