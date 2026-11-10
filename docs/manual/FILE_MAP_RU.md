@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1866**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1869**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -14700,7 +14700,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 30 файлов
+## distribution · 33 файлов
 
 ### distribution/INSTALL.md
 
@@ -14731,6 +14731,12 @@ PDF, PPTX и управление презентацией
 [`distribution/README.md`](../../distribution/README.md)
 
 CastLink: установка и работа
+
+### distribution/RELEASE_NOTES_1_0_0.md
+
+[`distribution/RELEASE_NOTES_1_0_0.md`](../../distribution/RELEASE_NOTES_1_0_0.md)
+
+CastLink 1.0.0
 
 ### distribution/RELEASE_NOTES_RC9.md
 
@@ -14786,6 +14792,12 @@ PDF, PPTX, and presentation control
 
 CastLink packages
 
+### distribution/docs/en/RELEASE_NOTES_1_0_0.md
+
+[`distribution/docs/en/RELEASE_NOTES_1_0_0.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_0.md)
+
+CastLink 1.0.0
+
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/en/RELEASE_NOTES_RC9.md`](../../distribution/docs/en/RELEASE_NOTES_RC9.md)
@@ -14839,6 +14851,12 @@ PDF、PPTX 与演示控制
 [`distribution/docs/zh-CN/PRODUCTS.md`](../../distribution/docs/zh-CN/PRODUCTS.md)
 
 CastLink 软件包
+
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_0.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_0.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_0.md)
+
+CastLink 1.0.0
 
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 
