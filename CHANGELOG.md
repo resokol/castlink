@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — 2026-11-11 — восстановление связи серверов / Server connection recovery / 服务器连接恢复
+
+- RU: восстановление прежней связи после замены ПК без файлов старого компьютера: десятиминутный код выдаётся на сохранившемся сервере и вводится в новой серверной панели Windows или Linux `recover`. Повтор того же кода продолжает ту же связь; действующий резерв или перенос блокирует замену. Службы не перезапускаются; резерв нужно подготовить заново, потерянные комнаты и медиа не восстанавливаются. Нужны обновлённые обе стороны; в опубликованных пакетах 1.0.0 функции ещё нет. [Инструкция](distribution/README.md#server-pair-recovery).
+- EN: restore an existing connection after replacing a PC without files from the old computer. A ten-minute code from the surviving server is entered in the new Windows server panel or Linux `recover`. Retrying the same code resumes the same connection; active reserves or transfers block replacement. Services do not restart; prepare a fresh reserve afterwards. Lost rooms and media are not restored. Both sides need the update; published 1.0.0 packages do not yet include this feature. [Instructions](distribution/docs/en/GUIDE.md#server-pair-recovery).
+- 简体中文：更换电脑后，无需旧电脑文件即可恢复原有连接。在仍可运行的服务器上获取十分钟有效的恢复码，在新 Windows 服务器面板或 Linux `recover` 中输入。同一码可重试以继续恢复同一连接；仍有效的备用准备或迁移会阻止替换。服务不会重启，恢复后需重新准备备用服务器，不会恢复丢失的房间和媒体。两端均需更新；已发布的 1.0.0 软件包尚无此功能。[操作说明](distribution/docs/zh-CN/GUIDE.md#server-pair-recovery)。
+
 ## 1.0.0 — 2026-11-10
 
 - RU: стабильный выпуск web/runtime и исходников текущей боевой версии castlink.ru. Включены компактная студийная консоль, меню устройств микрофона и камеры кастера, исправления мобильной раскладки, графика и мультивью, обновление HTTP-сессии и диагностика соединения. После обновления сервера перезагрузите страницы студии и кастера вне эфира. [Примечания](distribution/RELEASE_NOTES_1_0_0.md).

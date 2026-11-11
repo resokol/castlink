@@ -202,6 +202,23 @@ python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_
 命令会隐藏输入并确认创建房间密码。它仅为正在运行的独立 Linux 安装初始化缺失的密码，不会替换已配置密码。房间、数据与网络设置会保留，无需重启服务。成功后刷新创建房间页面。无人值守运行也可使用 `--room-creation-password-file`。仅编辑 `web.env` 不够：helper 会在下次运行时重新生成该文件。更新不会改变已配置密码。
 
 
+<a id="server-pair-recovery"></a>
+## 在新的 Linux 服务器上恢复连接
+
+两台服务器都需使用 **1.0.1 或更高版本**，且 helper 的 `--help` 中应列出 `recover`。1.0.0 软件包不包含此功能。先安装并启动新服务器，保留被替换服务器原有的外部 HTTPS 地址；局域网 IP 和端口转发可以改变。无需旧电脑上的文件。
+
+在仍可运行的主服务器上获取有效期为十分钟的恢复码：**房间服务器 → 原有连接 → 恢复连接**。安装级共享连接需由 Super Admin 或受信任的操作员授权；房间创建者只能恢复自己房间的连接。[完整步骤与 Windows 操作](GUIDE.md#server-pair-recovery)。
+
+在更新后的软件包目录运行以下命令。`CASTLINK_STATE` 必须是**新服务器上已经运行的安装所用的准确绝对状态目录**，不要指向新的空目录。在终端的隐藏输入提示中粘贴恢复码：
+
+```bash
+python3 scripts/linux-compose-setup.py recover --state-dir "$CASTLINK_STATE" --lang zh-CN
+```
+
+如需从文件输入，添加 `--recovery-code-file /path/to/recovery-code.txt`：使用属于当前用户、仅该用户可访问的私有 UTF-8 文件（`chmod 600`）。不要把恢复码本身作为命令参数。
+
+尝试失败时，使用同一码和相同的 `--state-dir` 重试，以继续恢复同一连接；十分钟后请获取新码。仍有效的备用准备或迁移需先结束或等待过期，再重试恢复。恢复后重新准备备用服务器。服务不会重启；旧电脑上丢失的房间与媒体数据不会恢复。
+
 ## 诊断和更新
 
 新的 SSH 会话中，重新设置 `CASTLINK_STATE=/opt/castlink-manual` 并进入所需版本的解压目录。先检查当前安装：

@@ -3,7 +3,7 @@
   "repository": "resokol/castlink",
   "tracks": {
     "client": { "version": "1.0.0", "branch": "main", "tagPrefix": "client-v" },
-    "server-setup": { "version": "1.0.0", "branch": "main", "tagPrefix": "server-setup-v" },
-    "linux": { "version": "1.0.0", "branch": "main", "tagPrefix": "linux-v" }
+    "server-setup": { "version": "1.0.1", "branch": "main", "tagPrefix": "server-setup-v" },
+    "linux": { "version": "1.0.1", "branch": "main", "tagPrefix": "linux-v" }
   }
 }

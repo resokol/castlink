@@ -3,6 +3,7 @@ import { useI18n } from "@/components/I18nProvider";
 import { translateManagementMessage } from "@/lib/i18n/management";
 import { displayBuildId } from "@/lib/app-update";
 import {useEffect,useRef,useState} from 'react';
+import {RecoveryCode} from './RecoveryCode';
 
 type Profile={id:string;label:string;origin:string;scope:string;update?:{host:string;port:number;installationId:string}};
 type Job={id:string;state:'running'|'complete'|'failed';stage:string;createdAt?:number;updatedAt?:number;error?:string;bytes?:number;total?:number;bytesPerSecond?:number;previousBuildId?:string;targetBuildId?:string;buildId?:string;backup?:string;outcome?:string};
@@ -101,6 +102,7 @@ export function ServerConnections({room,studioId,onChange}:{room:string;studioId
    <strong>{profile.label}</strong><p className="muted" style={{margin:'4px 0'}}>{profile.origin}</p>
    <small className="muted">{profile.scope==='installation'?t("Общее подключение установки. Изменяет владелец сервера."):t("Подключение только этой комнаты")}</small>
    {profile.scope==='room'&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>{profile.update&&<button type="button" className="button-secondary" disabled={pending} onClick={()=>selectUpdate(profile)}>{t("Обновить")}</button>}<button type="button" className="button-secondary" disabled={pending} onClick={()=>{setError('');setNotice('');setRemoveTarget(profile);}}>{t("Удалить подключение")}</button></div>}
+   {profile.scope==='room'&&<RecoveryCode key={JSON.stringify([room,studioId,profile.id])} peerId={profile.id} room={room} studioId={studioId} disabled={pending} />}
   </div>)}</div>
   <button type="button" className="button-secondary" disabled={pending} onClick={()=>void refreshConnections()}>{t("Обновить список подключений")}</button>
   {removeTarget&&<div role="group" aria-label={t("Подтверждение удаления подключения")} style={{border:'1px solid var(--border)',borderRadius:10,padding:12,marginTop:12}}>

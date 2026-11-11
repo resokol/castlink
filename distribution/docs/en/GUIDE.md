@@ -226,6 +226,18 @@ In **“Room servers,”** you can install CastLink on another VPS or connect a 
 
 Disabling automation is complete only after the backup confirms it. Old links do not become permanent redirects: give new casters and viewers links from the target server after a transfer.
 
+<a id="server-pair-recovery"></a>
+### Restore a connection after replacing a computer
+
+Both servers require **version 1.0.1 or later**, together with an updated Windows server panel or Linux helper. Version 1.0.0 packages do not include this feature.
+
+1. Install and start CastLink on the new computer using the replaced server’s existing external HTTPS origin (domain and port). Its LAN IP and port forwarding may change; no files from the old PC are needed.
+2. On the surviving primary server, open **Room servers**, select the old connection and click **Restore connection** to get a code. Room creators can recover only their own room’s connections; installation-wide connections require a code from Super Admin or a trusted server operator.
+3. On the new Windows server, open the server panel, expand **Recover server connection**, paste the code and click **Restore connection**. On Linux, use the [`recover` command](LINUX_MANUAL.md#server-pair-recovery).
+4. The code lasts **10 minutes**. If an attempt fails, retry the same code on the same new server to resume recovery of the same connection. Get a new code after expiry.
+
+An active reserve or transfer blocks replacement: end it or wait for it to expire, then retry recovery. Prepare a fresh reserve afterwards. Connection recovery does not restart services or restore lost rooms or media from the old PC.
+
 ### SSH key in the studio panel
 
 When connecting a backup, select password login or a private SSH key. In the key creation section, first create and download the private file, then click “Install generated key on VPS.” This requires a valid password or an already configured key, and you must verify the server fingerprint separately. After successfully verifying the new login, select the downloaded file to install or connect CastLink. Existing keys and password login are not removed. The generated private file has no passphrase protection: store it like a server password.

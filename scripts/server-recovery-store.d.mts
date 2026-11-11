@@ -1,0 +1,12 @@
+import type {ServerPeer,ServerProfileIdentity} from './server-profile-store.mjs';
+export {serverPeerBinding} from './server-profile-store.mjs';
+export type RecoveryAuthority={kind:'installation'}|{kind:'room';studioId:string;roomId:string;version:string};
+export type ServerRecoveryCode={version:1;origin:string;installationId:string;ca?:string;grantId:string;token:string;expiresAt:number};
+export type RecoveryCandidate={grantId:string;token:string;identity:ServerProfileIdentity;secret:string};
+export type RecoveryContext={peer:ServerPeer;previous:ServerPeer;source:ServerProfileIdentity;authority:RecoveryAuthority;committed:boolean};
+export type RecoveryAuthorization=(authority:RecoveryAuthority,peer:ServerPeer)=>Promise<void>;
+export function parseServerRecoveryCode(code:string):ServerRecoveryCode;
+export function issueServerRecovery(input:{peerId:string;authority:RecoveryAuthority;assertAuthorized:RecoveryAuthorization},env?:NodeJS.ProcessEnv):Promise<{code:string;expiresAt:number}>;
+export function revokeServerRecovery(input:{peerId:string;assertAuthorized:(authority:undefined,peer:ServerPeer)=>Promise<void>},env?:NodeJS.ProcessEnv):Promise<{revoked:true}>;
+export function prepareServerRecovery(input:RecoveryCandidate,env?:NodeJS.ProcessEnv):Promise<RecoveryContext>;
+export function commitServerRecovery(input:RecoveryCandidate&{assertAuthorized:RecoveryAuthorization},env?:NodeJS.ProcessEnv):Promise<{ok:true;peer:ServerPeer}>;

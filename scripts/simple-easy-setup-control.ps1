@@ -355,6 +355,30 @@ function Get-SimpleControlStatus([string]$Folder) {
   $result.summary=if($result.stopped){'Службы удалены, данные сохранены'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count -and $result.https -cin @('Доступен по HTTPS','Доступен по HTTP')){'CastLink доступен'}elseif(-not @($result.services|Where-Object{$_.state -cne 'running'}).Count){'Контейнеры запущены; HTTPS не готов'}else{'Часть служб не работает'}
   return $result
 }
+function Invoke-SimpleControlRecovery([string]$Folder,[string]$Code) {
+  $operationGuard=$null;$guard=$null;$inputText=$null
+  try {
+    if([string]::IsNullOrWhiteSpace($Code) -or $Code.Length -gt 65536){throw 'invalid recovery input'}
+    $installation=Read-SimpleControlInstallation $Folder
+    $operationGuard=Enter-SimpleRetentionGuard $Folder
+    $guard=Enter-SimpleControlGuard $installation.state.installationId 1
+    $installation=Read-SimpleControlInstallation $Folder
+    if($installation.state.stopped){throw 'installation stopped'}
+    $desktop=Find-Desktop;if(-not $desktop){throw 'Docker Desktop unavailable'}
+    Set-SimpleControlDocker $Folder $desktop
+    if(-not(Test-LinuxEngine $script:DockerExe)){throw 'Docker engine unavailable'}
+    $rows=@(Get-SimpleControlServices $installation)
+    Assert-SimpleControlContainers $installation $rows
+    $web=@($rows|Where-Object{$_.name -ceq 'web' -and $_.state -ceq 'running'})
+    if($web.Count -ne 1){throw 'web must already be running'}
+    $inputText=@{action='recover';code=$Code.Trim()}|ConvertTo-Json -Compress
+    $result=Invoke-DeploymentCompose -Arguments @('exec','-T','web','node','/app/scripts/server-recovery-client.mjs') -InputText $inputText -TimeoutSeconds 75 -ProjectName $installation.project
+    $reply=$result|ConvertFrom-Json
+    if($reply.ok -ne $true -or -not $reply.profile){throw 'recovery acknowledgement missing'}
+    return 'Связь восстановлена. Службы не перезапускались.'
+  } catch {throw 'Связь не восстановлена. Проверь доступность серверов и повтори тот же код до истечения срока или получи новый код.'}
+  finally {$Code=$null;$inputText=$null;Exit-SimpleControlGuard $guard;Exit-SimpleRetentionGuard $operationGuard}
+}
 function New-SimpleControlWindow([string]$Language='ru') {
   Add-Type -AssemblyName PresentationFramework
   [xml]$xaml=@'
@@ -666,6 +690,16 @@ function New-SimpleControlWindow([string]$Language='ru') {
           <Expander.Header><TextBlock x:Name="ServicesTitle" Text="Службы" FontSize="13"/></Expander.Header>
           <TextBlock x:Name="Services" Text="Docker Desktop: проверка…" FontSize="13" LineHeight="25" TextWrapping="Wrap" Margin="0,12,0,0"/>
         </Expander>
+        <Expander x:Name="RecoveryDetails" IsExpanded="False" Margin="0,16,0,0" HorizontalContentAlignment="Stretch">
+          <Expander.Header><TextBlock x:Name="RecoveryTitle" Text="Восстановить связь с сервером"/></Expander.Header>
+          <StackPanel Margin="0,12,0,0">
+            <TextBlock x:Name="RecoveryHelp" Text="Получите код на работающем сервере и вставьте его здесь. Код действует 10 минут; файлы прежнего компьютера не нужны." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+            <TextBlock x:Name="RecoveryCodeLabel" Text="Код восстановления" Margin="0,12,0,6"/>
+            <PasswordBox x:Name="RecoveryCode" MaxLength="65536" MinHeight="36" Padding="8" AutomationProperties.Name="Код восстановления"/>
+            <Button x:Name="RecoveryButton" Content="Восстановить связь" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+            <TextBlock x:Name="RecoveryStatus" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" AutomationProperties.LiveSetting="Polite"/>
+          </StackPanel>
+        </Expander>
         <Border BorderBrush="{DynamicResource PanelLineBrush}" BorderThickness="0,1,0,0" Margin="0,22,0,0" Padding="0,16,0,0">
           <TextBlock x:Name="Footer" Text="Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются." TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
         </Border>
@@ -701,7 +735,10 @@ function Update-SimpleControlLanguage([object]$Window,[string]$Language,[object]
   $Window.FindName('Summary').Text=ConvertTo-SimpleControlText 'Проверяю службы…' $Language
   $Window.FindName('Services').Text=ConvertTo-SimpleControlText 'Docker Desktop: проверка…' $Language
   $texts=@{LocalTitle='Локальный сервер';LanguageTitle='Язык';ServicesTitle='Службы';Footer='Закрытие окна скрывает панель в трей; службы продолжают работать. Кнопка «Остановить службы» останавливает только этот CastLink; данные сохраняются.'}
+  $texts.RecoveryTitle='Восстановить связь с сервером';$texts.RecoveryHelp='Получите код на работающем сервере и вставьте его здесь. Код действует 10 минут; файлы прежнего компьютера не нужны.';$texts.RecoveryCodeLabel='Код восстановления'
   foreach($name in $texts.Keys){$Window.FindName($name).Text=ConvertTo-SimpleControlText $texts[$name] $Language}
+  $Window.FindName('RecoveryButton').Content=ConvertTo-SimpleControlText 'Восстановить связь' $Language
+  [Windows.Automation.AutomationProperties]::SetName($Window.FindName('RecoveryCode'),(ConvertTo-SimpleControlText 'Код восстановления' $Language))
   foreach($button in @(@('Open','Открыть CastLink'),@('Start','Запустить службы'),@('Stop','Остановить службы'),@('Refresh','Обновить статус'),@('Hide','Скрыть в трей'))){$Window.FindName($button[0]).Content=ConvertTo-SimpleControlText $button[1] $Language}
   foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
     $selected=($item[1] -ceq $Language);$button=$Window.FindName($item[0])
@@ -768,6 +805,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     $window.FindName('BuildText').Text=Format-SimpleBuildText $build $language
     $summary=$window.FindName('Summary');$address=$window.FindName('Address');$notice=$window.FindName('Notice')
     $open=$window.FindName('Open');$start=$window.FindName('Start');$stop=$window.FindName('Stop');$refresh=$window.FindName('Refresh');$hide=$window.FindName('Hide')
+    $recoveryButton=$window.FindName('RecoveryButton');$recoveryCode=$window.FindName('RecoveryCode');$recoveryStatus=$window.FindName('RecoveryStatus')
     $address.Text=$installation.url;$start.IsEnabled=-not $installation.state.stopped
     $open.Add_Click({Start-Process -FilePath $installation.url}.GetNewClosure())
     $tray=New-Object Windows.Forms.NotifyIcon
@@ -779,6 +817,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     $trayOpen=$trayMenu.Items.Add('Открыть панель');$null=$trayMenu.Items.Add('-');$trayExit=$trayMenu.Items.Add('Остановить и выйти')
     $tray.ContextMenuStrip=$trayMenu;$tray.Visible=$true
     $job=[pscustomobject]@{pipeline=$null;handle=$null;mode='start';next=[DateTime]::UtcNow;language=$language;build=$build;status=$null;notice='';stopped=[bool]$installation.state.stopped;closing=$false;canClose=$false;initial=$true;tray=$tray;trayOpen=$trayOpen;trayExit=$trayExit;phaseStarted=[DateTime]::UtcNow;serviceNames=$installation.services}
+    $job|Add-Member -NotePropertyName recoveryStatus -NotePropertyValue ''
     $window.Tag=$job
     $source=$PSCommandPath
     # Event closures keep all helpers/catalog in a private bound object.
@@ -792,6 +831,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
         if($State.closing -or ($State.pipeline -and $State.mode -cin @('start','stop'))){Update-SimpleControlTransition $View $State}elseif($State.status){Update-SimpleControlWindow $View $State.status $State.language}
         $State.trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $State.language
         $State.trayExit.Text=ConvertTo-SimpleControlText 'Остановить и выйти' $State.language
+        $View.FindName('RecoveryStatus').Text=ConvertTo-SimpleControlText $State.recoveryStatus $State.language
       }
       function UpdateStatus([object]$View,[object]$State,[string]$Locale){Update-SimpleControlWindow $View $State $Locale}
       function UpdateTransition([object]$View,[object]$State){Update-SimpleControlTransition $View $State}
@@ -806,7 +846,8 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     }.GetNewClosure()
     # Hide already removes the taskbar button. Changing ShowInTaskbar can
     # recreate the native handle and detach the single-instance restore hook.
-    $hide.Add_Click({if(-not $job.closing){$window.Hide()}}.GetNewClosure())
+    $hide.Add_Click({$recoveryCode.Clear();if(-not $job.closing){$window.Hide()}}.GetNewClosure())
+    $window.FindName('RecoveryDetails').Add_Collapsed({$recoveryCode.Clear()}.GetNewClosure())
     $trayOpen.Add_Click({& $restore}.GetNewClosure());$tray.Add_DoubleClick({& $restore}.GetNewClosure())
     $window.Add_SourceInitialized({
       $handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
@@ -819,15 +860,17 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       $hook=[Windows.Interop.HwndSourceHook]$hookScript
       $nativeSource.AddHook($hook)
     }.GetNewClosure())
-    $begin={param([string]$Mode)
+    $begin={param([string]$Mode,[string]$RecoveryCode='')
       if($job.pipeline){return}
       $job.notice=if($Mode -ceq 'start'){'Запускаю Docker Desktop и службы. Это может занять до 2 минут.'}elseif($Mode -ceq 'stop'){'Останавливаю службы CastLink. Данные сохраняются.'}else{''}
       $notice.Text=$uiHelpers.Translate($job.notice,$job.language)
-      $start.IsEnabled=$false;$stop.IsEnabled=$false;$refresh.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
+      $start.IsEnabled=$false;$stop.IsEnabled=$false;$refresh.IsEnabled=$false;$recoveryButton.IsEnabled=$false;$hide.IsEnabled=-not $job.closing;$job.mode=$Mode
+      if($Mode -ceq 'recover'){$job.recoveryStatus='Восстанавливаю связь…';$recoveryStatus.Text=$uiHelpers.Translate($job.recoveryStatus,$job.language)}
       if($Mode -cin @('start','stop')){$job.status=$null;$job.phaseStarted=[DateTime]::UtcNow;$uiHelpers.UpdateTransition($window,$job)}
       $job.pipeline=[PowerShell]::Create()
-      $null=$job.pipeline.AddScript('param($source,$folder,$mode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{$message=Stop-SimpleControlServices $folder;[pscustomobject]@{controlResult="stopped";message=[string]$message}}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode)
+      $null=$job.pipeline.AddScript('param($source,$folder,$mode,$recoveryCode);. $source -FunctionsOnly;. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-deploy.ps1");. (Join-Path (Split-Path $source -Parent) "simple-easy-setup-runtime.ps1");if($mode -ceq "recover"){try{Invoke-SimpleControlRecovery $folder $recoveryCode}finally{$recoveryCode=$null}}elseif($mode -ceq "start"){Start-SimpleControlServices $folder}elseif($mode -ceq "stop"){try{$message=Stop-SimpleControlServices $folder;[pscustomobject]@{controlResult="stopped";message=[string]$message}}catch{if($_.Exception.Data["SimpleControlStatus"]){[pscustomobject]@{controlResult="stop-refused";status=$_.Exception.Data["SimpleControlStatus"]}}else{throw}}}else{Get-SimpleControlStatus $folder}').AddArgument($source).AddArgument($Folder).AddArgument($Mode).AddArgument($RecoveryCode)
       $job.handle=$job.pipeline.BeginInvoke()
+      $RecoveryCode=$null
     }.GetNewClosure()
     foreach($item in @(@('LanguageRu','ru'),@('LanguageEn','en'),@('LanguageZh','zh-CN'))){
       $selectedLanguage=$item[1]
@@ -839,6 +882,10 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
     }
     $start.Add_Click({if(-not $job.closing){& $begin 'start'}}.GetNewClosure());$refresh.Add_Click({if(-not $job.closing){& $begin 'status'}}.GetNewClosure())
     $stop.Add_Click({if(-not $job.closing){& $begin 'stop'}}.GetNewClosure())
+    $recoveryButton.Add_Click({
+      $code=$recoveryCode.Password;$recoveryCode.Clear()
+      try{if(-not $job.closing -and -not $job.pipeline){& $begin 'recover' $code}}finally{$code=$null}
+    }.GetNewClosure())
     $trayExit.Add_Click({
       & $restore;$job.closing=$true;$job.phaseStarted=[DateTime]::UtcNow;$job.status=$null
       $uiHelpers.UpdateTransition($window,$job)
@@ -846,6 +893,7 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
       if(-not $job.pipeline){& $begin 'stop'}
     }.GetNewClosure())
     $window.Add_Closing({param($sender,$event)
+      $recoveryCode.Clear()
       if($job.canClose){return}
       $event.Cancel=$true;$window.Hide()
     }.GetNewClosure())
@@ -863,7 +911,8 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
             if($output.Count -ne 1 -or $output[0].controlResult -cne 'stopped'){throw 'operation-refused'}
             $output=@($output[0].message)
           }elseif($job.pipeline.HadErrors){throw 'operation-refused'}
-          if($job.closing -and $completedMode -cne 'stop'){$uiHelpers.UpdateTransition($window,$job)}elseif($completedMode -ceq 'status'){$job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)}else{$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
+          if($completedMode -ceq 'recover'){$job.recoveryStatus='Связь восстановлена. Службы не перезапускались.';$recoveryStatus.Text=$uiHelpers.Translate($job.recoveryStatus,$job.language)}
+          if($job.closing -and $completedMode -cne 'stop'){$uiHelpers.UpdateTransition($window,$job)}elseif($completedMode -ceq 'status'){$job.status=$output[-1];$job.stopped=[bool]$job.status.stopped;$uiHelpers.UpdateStatus($window,$job.status,$job.language)}elseif($completedMode -cne 'recover'){$job.notice=[string]$output[-1];$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }catch{
           $failed=$true
           if($completedMode -ceq 'stop'){
@@ -871,11 +920,12 @@ function Show-SimpleControlWindow([string]$Folder,[string]$ReadyEvent='') {
             if($failureStatus){$uiHelpers.UpdateStatus($window,$failureStatus,$job.language)}else{$window.FindName('Services').Text=$uiHelpers.Translate('Статус служб недоступен',$job.language)}
             $summary.Text=$uiHelpers.Translate('Не удалось остановить службы',$job.language)
             $job.notice='Проверь Docker Desktop и повтори остановку служб. Данные сохранены; панель остаётся открытой.'
-          }elseif(-not $job.closing){$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.'}
+          }elseif($completedMode -ceq 'recover'){$job.recoveryStatus='Связь не восстановлена. Проверь доступность серверов и повтори тот же код до истечения срока или получи новый код.';$recoveryStatus.Text=$uiHelpers.Translate($job.recoveryStatus,$job.language)}elseif(-not $job.closing){$summary.Text=$uiHelpers.Translate('Требуется проверка',$job.language);$job.notice='Проверь Docker Desktop и сохранённую установку. Если службы удалены, восстанови их через Easy Setup с той же папкой.'}
           if($job.closing){$uiHelpers.UpdateTransition($window,$job)}else{$notice.Text=$uiHelpers.Translate($job.notice,$job.language)}
         }finally{
           $job.pipeline.Dispose();$job.pipeline=$null;$job.handle=$null;$job.initial=$false
           $start.IsEnabled=-not ($job.stopped -or $job.closing);$stop.IsEnabled=-not ($job.stopped -or $job.closing);$refresh.IsEnabled=-not $job.closing;$hide.IsEnabled=-not $job.closing
+          $recoveryButton.IsEnabled=-not ($job.stopped -or $job.closing)
           $job.next=[DateTime]::UtcNow.AddSeconds(10)
         }
         if($completedMode -ceq 'stop' -and -not $failed){if($job.closing){$job.canClose=$true;$window.Close();return};$job.next=[DateTime]::UtcNow}

@@ -13,6 +13,7 @@ import re
 import secrets
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tarfile
@@ -65,6 +66,50 @@ CREATION_TEXT = {
         'configured':'创建房间密码已设置，保持不变。请在工作室的“创建房间”页中修改。',
         'created':'创建房间密码已设置。请刷新浏览器页面；服务未重启。'}
 }
+
+RECOVERY_TEXT = {
+ 'ru': {'prompt':'Код восстановления с работающего сервера (ввод скрыт): ', 'input':'Введите код скрыто в терминале или используйте приватный UTF-8 файл --recovery-code-file.', 'retry':'Связь не восстановлена. Проверьте адрес и доступность серверов; повторите тот же код до истечения срока или получите новый код.', 'ready':'Связь восстановлена. Службы не перезапускались.'},
+ 'en': {'prompt':'Recovery code from the surviving server (hidden input): ', 'input':'Enter the code in a terminal with hidden input or use a private UTF-8 --recovery-code-file.', 'retry':'Connection was not restored. Check both servers and retry the same code before it expires, or issue a new code.', 'ready':'Connection restored. Services were not restarted.'},
+ 'zh-CN': {'prompt':'输入仍在运行的服务器提供的恢复码（隐藏输入）：', 'input':'请在终端中隐藏输入恢复码，或使用私有 UTF-8 文件 --recovery-code-file。', 'retry':'连接未恢复。请检查两台服务器，并在恢复码过期前使用同一码重试，或获取新码。', 'ready':'连接已恢复，服务未重启。'}
+}
+
+
+def read_recovery_code(source, lang):
+    try:
+        if source:
+            fd = os.open(source, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
+            with os.fdopen(fd, 'rb') as handle:
+                info = os.fstat(handle.fileno())
+                if Path(source).is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or (hasattr(os, 'geteuid') and info.st_uid != os.geteuid()):
+                    raise ValueError('private file required')
+                raw = handle.read(65537)
+                if len(raw) > 65536: raise ValueError('oversized code')
+                code = raw.decode('utf-8').strip()
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', getpass.GetPassWarning)
+                code = getpass.getpass(RECOVERY_TEXT[lang]['prompt']).strip()
+        if not code or len(code.encode('utf-8')) > 65536 or any(c in code for c in '\r\n\0'):
+            raise ValueError('invalid code')
+        return code
+    except (ValueError, OSError, EOFError, getpass.GetPassWarning):
+        raise ValueError(RECOVERY_TEXT[lang]['input']) from None
+
+
+def recover_connection(folder, state, source, lang):
+    try:
+        with installation_lock(folder):
+            state = load_state(folder)
+            if not state.get('completed'): raise ValueError('existing running installation required')
+            code = read_recovery_code(source, lang)
+            try:
+                result = json.loads(compose(folder, state, ['exec', '-T', 'web', 'node', '/app/scripts/server-recovery-client.mjs'], stdin=json.dumps({'action':'recover', 'code':code}), timeout=75))
+            finally:
+                code = None
+            if result.get('ok') is not True or not isinstance(result.get('profile'), dict): raise ValueError('recovery acknowledgement missing')
+    except (ValueError, OSError, KeyError, TypeError):
+        raise ValueError(RECOVERY_TEXT[lang]['retry']) from None
+    print(RECOVERY_TEXT[lang]['ready'])
 
 
 def read_creation_password_hash(source, lang):
@@ -1165,7 +1210,7 @@ def interactive(lang, mode='quick'):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister', 'creation-password'])
+    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister', 'creation-password', 'recover'])
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
     p.add_argument('--installation-id', help='Required installation identity for unattended cleanup/lifecycle')
     p.add_argument('--package', type=Path, help='Use an already downloaded package; update otherwise downloads the current public Linux release')
@@ -1173,10 +1218,13 @@ def main(argv=None):
     p.add_argument('--config', type=Path, help='JSON configuration for noninteractive init/validate')
     p.add_argument('--advanced', action='store_true', help='Ask for custom networking, ports and certificates during init')
     p.add_argument('--room-creation-password-file', type=Path, help='With fresh init or creation-password: UTF-8 password file with no trailing newline; otherwise hidden confirmed terminal input')
+    p.add_argument('--recovery-code-file', type=Path, help='With recover: private UTF-8 file containing the recovery code; otherwise hidden terminal input. Never pass the code as an argument.')
     p.add_argument('--lang', choices=list(LANG), default='ru')
     args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = (args.package or Path(__file__).resolve().parents[1]).resolve()
     if args.room_creation_password_file and args.command not in ('init', 'creation-password'):
         p.error('--room-creation-password-file requires init or creation-password')
+    if args.recovery_code_file and args.command != 'recover':
+        p.error('--recovery-code-file requires recover')
     try:
         if args.command == 'validate':
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
@@ -1194,6 +1242,8 @@ def main(argv=None):
             state = init_state(folder, c, release, creation_hash); render(folder, state, state['release'])
         else:
             state = load_state(folder)
+            if args.command == 'recover':
+                recover_connection(folder, state, args.recovery_code_file, args.lang); return 0
             if args.command == 'creation-password':
                 initialize_creation_password(folder, state, args.room_creation_password_file, args.lang); return 0
             if args.command == 'updates':

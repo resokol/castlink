@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename,rm,lstat} from 'node:fs/promises';
 import {request} from 'node:http';
 import {isIP} from 'node:net';
@@ -31,6 +31,10 @@ export function validatePeer(value){
  return {id:value.id,label:value.label,installationId:value.installationId,origin:value.origin,secret:value.secret,scope:value.scope.kind==='room'?{kind:'room',roomId:value.scope.roomId}:{kind:'installation'},...(value.ca?{ca:value.ca}:{}),...(value.connectAddress?{connectAddress:value.connectAddress}:{})};
 }
 const directory=(env)=>env.STUDIOLINK_DATA_DIR||'/data';
+export function serverPeerBinding(peer){return createHash('sha256').update(JSON.stringify(validatePeer(peer))).digest('hex');}
+export function invalidateServerRecoveries(state,peerId){
+ for(const [id,grant] of Object.entries(state.recoveryGrants||{}))if(grant.peerId===peerId)delete state.recoveryGrants[id];
+}
 async function readState(env){
  const installationId=requireUuid(env.STUDIOLINK_INSTALLATION_ID);
  try{
@@ -40,6 +44,22 @@ async function readState(env){
   if(state.schemaVersion!==1||state.installationId!==installationId||!Array.isArray(state.peers))throw Error('Server profile installation mismatch');
   state.peers=state.peers.map(validatePeer);return state;
  }catch(error){if(error.code==='ENOENT')return {schemaVersion:1,installationId,peers:[]};throw error;}
+}
+export async function readServerProfileState(env=process.env){return readState(env);}
+// All application routes and recovery grants share this queue and one document.
+export async function serverProfileTransaction(change,env=process.env){
+ const folder=path.resolve(directory(env)),key=Symbol.for('castlink.server-profile-write-queue');
+ const queues=globalThis[key]||(globalThis[key]=new Map());
+ const operation=(queues.get(folder)||Promise.resolve()).catch(()=>undefined).then(async()=>{
+  const state=await readState(env),result=await change(state);
+  const serialized=JSON.stringify(state);
+  if(Buffer.byteLength(serialized,'utf8')>4*1024*1024)throw Error('Server profile size limit reached');
+  await mkdir(folder,{recursive:true,mode:0o700});
+  const temporary=path.join(folder,'.server-profiles-'+randomUUID()+'.json');
+  try{await writeFile(temporary,serialized,{mode:0o600,flag:'wx'});await rename(temporary,path.join(folder,'server-profiles.json'));return result;}
+  finally{await rm(temporary,{force:true});}
+ });
+ queues.set(folder,operation);const done=()=>{if(queues.get(folder)===operation)queues.delete(folder);};void operation.then(done,done);return operation;
 }
 export async function serverProfileIdentity(env=process.env){
  const installationId=requireUuid(env.STUDIOLINK_INSTALLATION_ID);
@@ -56,45 +76,41 @@ export async function getIncomingServerPeer(peerId,env=process.env){requireUuid(
 // the same write queue used by pairing to prevent stale creator operations.
 export async function removeRoomServerPeer({peerId,roomId,assertAuthorized},env=process.env){
  requireUuid(peerId);requireUuid(roomId);
- const folder=path.resolve(directory(env)),key=Symbol.for('castlink.server-profile-write-queue');
- const queues=globalThis[key]||(globalThis[key]=new Map());
- const operation=(queues.get(folder)||Promise.resolve()).catch(()=>undefined).then(async()=>{
-  const state=await readState(env),peer=state.peers.find(p=>p.id===peerId);
+ return serverProfileTransaction(async state=>{
+  const peer=state.peers.find(p=>p.id===peerId);
   if(!peer||peer.scope.kind!=='room'||peer.scope.roomId!==roomId)throw Error('Room server connection not found');
   await assertAuthorized();
-  const temporary=path.join(folder,'.server-profiles-'+randomUUID()+'.json');
-  try{
-   state.peers=state.peers.filter(p=>p.id!==peerId);
-   await writeFile(temporary,JSON.stringify(state),{mode:0o600,flag:'wx'});await rename(temporary,path.join(folder,'server-profiles.json'));
-   return {removed:true};
-  }finally{await rm(temporary,{force:true});}
- });
- queues.set(folder,operation);const done=()=>{if(queues.get(folder)===operation)queues.delete(folder);};void operation.then(done,done);return operation;
+  state.peers=state.peers.filter(p=>p.id!==peerId);invalidateServerRecoveries(state,peerId);
+  return {removed:true};
+ },env);
 }
 export async function putServerPeer(value,env=process.env){
- const peer=validatePeer(value),folder=path.resolve(directory(env));
- const key=Symbol.for('castlink.server-profile-write-queue');
- const queues=globalThis[key]||(globalThis[key]=new Map());
- const operation=(queues.get(folder)||Promise.resolve()).catch(()=>undefined).then(async()=>{
-  await mkdir(folder,{recursive:true,mode:0o700});
-  const temporary=path.join(folder,'.server-profiles-'+randomUUID()+'.json');
-  try{
-  const state=await readState(env),existing=state.peers.find(p=>p.id===peer.id);
+ const peer=validatePeer(value);
+ return serverProfileTransaction(state=>{
+  const existing=state.peers.find(p=>p.id===peer.id);
   if(existing&&JSON.stringify(existing)!==JSON.stringify(peer))throw Error('Server pairing conflict');
   if(!existing){if(state.peers.length>=256)throw Error('Server profile limit reached');state.peers.push(peer);}
-  await writeFile(temporary,JSON.stringify(state),{mode:0o600,flag:'wx'});await rename(temporary,path.join(folder,'server-profiles.json'));
   return peer;
-  }finally{await rm(temporary,{force:true});}
- });
- queues.set(folder,operation);
- const done=()=>{if(queues.get(folder)===operation)queues.delete(folder);};
- void operation.then(done,done);return operation;
+ },env);
 }
-export async function registerPeerViaOperator(peer,env=process.env){
- requireUuid(env.STUDIOLINK_INSTALLATION_ID);validatePeer(peer);
+export async function replaceServerPeer({peer:value,expectedBinding,assertAuthorized},env=process.env){
+ const peer=validatePeer(value);
+ if(expectedBinding!==null&&(typeof expectedBinding!=='string'||!/^[a-f0-9]{64}$/.test(expectedBinding)))throw Error('Invalid expected peer binding');
+ return serverProfileTransaction(async state=>{
+  const old=state.peers.find(p=>p.id===peer.id);
+  if((old?serverPeerBinding(old):null)!==expectedBinding)throw Error('Server peer binding changed');
+  if(old&&(old.label!==peer.label||old.origin!==peer.origin||JSON.stringify(old.scope)!==JSON.stringify(peer.scope)))throw Error('Server peer identity or scope changed');
+  if(!old&&state.peers.length>=256)throw Error('Server profile limit reached');
+  await assertAuthorized();
+  if(old)state.peers=state.peers.map(p=>p.id===peer.id?peer:p);else state.peers.push(peer);
+  invalidateServerRecoveries(state,peer.id);return peer;
+ },env);
+}
+async function profileOperatorRequest(input,env){
+ requireUuid(env.STUDIOLINK_INSTALLATION_ID);validatePeer(input.peer);
  const token=env.CASTLINK_SETUP_TOKEN;
  if(typeof token!=='string'||token.length<32)throw Error('Installation operator token is unavailable');
- const body=JSON.stringify({expectedInstallationId:env.STUDIOLINK_INSTALLATION_ID,peer});
+ const body=JSON.stringify({expectedInstallationId:env.STUDIOLINK_INSTALLATION_ID,...input});
  return new Promise((resolve,reject)=>{
   const req=request({hostname:'127.0.0.1',port:3000,path:'/api/server-provisioning/operator',method:'POST',timeout:15000,headers:{'content-type':'application/json','x-castlink-profile-operator':token}},res=>{
    let count=0,text='';res.on('data',chunk=>{count+=chunk.length;if(count>65536){req.destroy();reject(Error('Operator response is invalid'));return;}text+=chunk;});
@@ -104,10 +120,16 @@ export async function registerPeerViaOperator(peer,env=process.env){
   req.on('error',()=>reject(Error('Operator registration failed')));req.on('timeout',()=>req.destroy());req.end(body);
  });
 }
+export async function registerPeerViaOperator(peer,env=process.env){return profileOperatorRequest({peer},env);}
+export async function replacePeerViaOperator(peer,expectedBinding,env=process.env){
+ if(expectedBinding!==null&&(typeof expectedBinding!=='string'||!/^[a-f0-9]{64}$/.test(expectedBinding)))throw Error('Invalid expected peer binding');
+ return profileOperatorRequest({action:'replace',peer,expectedBinding},env);
+}
 // Trusted installation operator entry: JSON secrets travel only through stdin.
 export async function operator(input,env=process.env){
  if(input?.action==='identity')return serverProfileIdentity(env);
  if(input?.action==='register'){await registerPeerViaOperator(input.peer,env);return {ok:true,...await serverProfileIdentity(env)};}
+ if(input?.action==='replace'){await replacePeerViaOperator(input.peer,input.expectedBinding,env);return {ok:true,...await serverProfileIdentity(env)};}
  throw Error('Invalid server profile operation');
 }
 async function runOperator(){

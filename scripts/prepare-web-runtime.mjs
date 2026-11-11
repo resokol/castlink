@@ -33,7 +33,8 @@ export const operatorScripts = [
  'setup-observer-internal-v1.mjs','runtime-startup-observe-v1.mjs',
  'node-heartbeat.mjs','heartbeat-host-metrics.mjs','storage-backup.mjs','storage-restore.mjs',
  'server-profile-store.mjs','server-ssh-authorize-key.py','server-provision-vps.py','ubuntu-easy-setup-bootstrap.sh',
- 'server-peer-request.mjs','server-provisioning.mjs','server-provisioning-ssh.mjs','server-provisioning-operator.mjs'
+ 'server-peer-request.mjs','server-provisioning.mjs','server-provisioning-ssh.mjs','server-provisioning-operator.mjs',
+ 'server-recovery-store.mjs','server-recovery-client.mjs'
 ];
 
 // Presentation sources remain private and optional. Also remove old generated
