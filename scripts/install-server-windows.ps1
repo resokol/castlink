@@ -147,7 +147,7 @@ function Assert-CastlinkGuestIdentity($State) {
 }
 
 function Assert-CastlinkMirroredRuntime($State) {
-    $mode = @(Invoke-CastlinkWsl @('--distribution',$State.distroName,'--user','root','--exec','/usr/lib/wsl/wslinfo','--networking-mode')) -join ''
+    $mode = @(Invoke-CastlinkWsl @('--distribution',$State.distroName,'--user','root','--exec','/usr/bin/wslinfo','--networking-mode')) -join ''
     if ($mode.Trim() -cne 'mirrored') { throw 'WSL is not currently using mirrored networking. Restart Windows, then rerun this command. Other distributions were not stopped.' }
 }
 

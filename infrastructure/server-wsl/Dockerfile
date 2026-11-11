@@ -19,6 +19,11 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbi
  && pg_dropcluster --stop 16 main \
  && systemctl mask postgresql.service postgresql@16-main.service haproxy.service \
  && rm -f /usr/sbin/policy-rc.d
+# WSL opens a PAM-backed systemd user session before executing the first command.
+# Keep this small layer separate so existing OS/dependency build caches remain valid.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
+ && apt-get install -y --no-install-recommends libpam-systemd dbus-user-session \
+ && rm -f /usr/sbin/policy-rc.d
 COPY --from=web /usr/local/bin/node /usr/local/bin/node
 COPY --from=web /usr/local/LICENSE /opt/castlink/third_party/node/LICENSE
 COPY --from=web /app/ /opt/castlink/app/

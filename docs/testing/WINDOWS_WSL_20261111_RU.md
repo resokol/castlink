@@ -4,6 +4,45 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Продолжение после локального согласия пользователя
+
+Mirrored setting и named Hyper-V TCP/UDP rules применены пользователем. Import
+успешен, но rc.3 завершился exit1 до создания guest marker и init: WSL пишет
+Failed to start the systemd user session for root. Подтверждено отсутствие
+libpam-systemd, dbus-user-session и /etc/pam.d/systemd-user. До диагностической
+записи проверены registration BasePath своего QA guest, release8e302887 и отсутствие
+app state. Точные два .deb сверены с SHA256 retained APT indexes и переданы offline
+из Windows (guest DNS недоступен). После их установки и scoped terminate/boot:
+root session active, /run/user/0/bus socket, stderr пустой. Это controlled probe;
+готовый rc.3 archive не исправлялся и не должен использоваться для новой установки.
+
+В producer добавлены эти пакеты с policy-rc.d101; packager требует PAM config и
+user dbus.socket. Новый отрицательный package test дал RED missing rejection,
+после guards — GREEN8 Node tests. Runtime20 и actual WinPS5.1 suite проходят.
+Actual /usr/bin/wslinfo является symlink на /init и возвращает mirrored; прежний
+путь /usr/lib/wsl/wslinfo отсутствует. Product и fixture исправлены RED→GREEN.
+
+Старые networked units скрывали весь /mnt и вместе с ним WSL resolver symlink.
+Шесть служб теперь используют TemporaryFileSystem=/mnt:ro и единственный optional
+read-only bind /mnt/wsl/resolv.conf, сохраняя deny /media и /run/WSL. Converter не
+менялся. Настоящий transient systemd unit с Caddy user/security properties и
+приватным synthetic resolver воспроизводит старый PermissionError; новый вариант
+читает resolver, получает EROFS при записи и не видит посторонний /mnt marker.
+Это proof mount isolation, не внешний DNS. Sol high source review без замечаний.
+
+Отдельно подтверждена общая проблема VM/GNS: и guest, и wsl --system видят только
+lo (127 и tunnel address), без других IPv4 routes/NIC. /mnt/wsl tmpfs есть, resolver
+target отсутствует. WSL3.0.1 source подтверждает: GNS настраивает сетевой стек по
+notifications wslservice; это не Ubuntu networkd/udev. Automount=false не отключает
+специальный shared mount; пустой manufacturer resolv.conf штатно заменён symlink.
+Read-only Windows event-log probe доступных соответствующих ошибок не вернул.
+Scoped terminate/natural idle и один manual empty-VM shutdown не восстановили сеть.
+Перед последним сверены только два известных registrations (QA и stopped builder)
+и running count0; installer по-прежнему никогда не делает global shutdown сам.
+VPN, Windows adapters, HNS и общие firewall rules не менялись. Нужен Windows reboot
+с участием пользователя; сначала подготовить новый artifact, если builder доступен.
+Полный сервер ещё не запускался, пароль/CA/owner bearer не вводились и не выдавались.
+
 ## Текущий пакет 1.0.2-rc.3
 
 Чистый source commit `8e3028878d11f1b046a9f919868a1b2040725732`, tag в manifest

@@ -23,7 +23,7 @@ try {
   Assert-Throws { Assert-CastlinkMirroredRuntime ([pscustomobject]@{distroName='CastLink-Server-fixture'}) } 'mirrored'
   $script:GuestResponse = 'mirrored'
   Assert-CastlinkMirroredRuntime ([pscustomobject]@{distroName='CastLink-Server-fixture'})
-  Assert (($script:CapturedWslArguments -join '|') -eq '--distribution|CastLink-Server-fixture|--user|root|--exec|/usr/lib/wsl/wslinfo|--networking-mode') 'Runtime networking queried wrong distro'
+  Assert (($script:CapturedWslArguments -join '|') -eq '--distribution|CastLink-Server-fixture|--user|root|--exec|/usr/bin/wslinfo|--networking-mode') 'Runtime networking queried wrong distro or WSL-provided tool'
   $script:GuestResponse = 'foreign'
   Assert-Throws { Assert-CastlinkGuestIdentity ([pscustomobject]@{distroName='CastLink-Server-fixture';installationId=('a'*32)}) } 'ownership'
   $script:GuestResponse = ('a'*32)

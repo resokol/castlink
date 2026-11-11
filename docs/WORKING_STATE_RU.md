@@ -35,12 +35,27 @@ SHA256 восьми файлов и запуск Windows installer -Help про�
 Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
 --version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
 и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
-Новый pinned rc.3 повторно собран и проверен; genuine Initialize из generated
-установщика проходит. phase=created само по себе не означает ожидание prompt —
-проверять receipt дочернего процесса. Теперь собственная консоль действительно
-показывает Add networkingMode=mirrored, receipts=0; пользователь должен ответить
-локально, затем пройти firewall/скрытый пароль. WSL/firewall/CA ещё не менялись.
-Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
+Пользователь прошёл mirrored/firewall prompts. QA-дистрибутив импортирован, но
+rc.3 остановился до guest marker/init: в Docker-derived Ubuntu отсутствуют
+libpam-systemd/dbus-user-session. Их точная диагностическая установка только в
+новый failed QA guest и повторный boot дали root session active, bus socket и
+нулевой stderr. Artifact rc.3 не менялся; для пользователя нужен новый rc.4.
+Также исправляется путь wslinfo на реальный /usr/bin/wslinfo. Node8 и runtime20
+PASS; Windows fixtures и genuine canonical mode probe PASS.
+
+Службам возвращён только read-only DNS resolver через tmpfs /mnt; Windows mounts
+скрыты, converter сохраняет полную изоляцию. Настоящий systemd sandbox test дал
+RED PermissionError на старом правиле и GREEN readable/EROFS/другие mounts скрыты
+на новом (с приватным synthetic resolver, не доказательство внешнего DNS).
+
+Остаётся отдельный Windows/WSL GNS blocker: direct guest и --system видят только
+lo с DNS-tunnel address, /mnt/wsl/resolv.conf отсутствует. Shared mirrored setting
+и два named firewall rules уже применены; CA/пароль/init ещё не выполнялись.
+После свежей проверки двух известных registrations и нуля running workloads
+вручную остановлена пустая VM один раз; это не автоматическое действие installer.
+Сеть не восстановилась. VPN/адаптеры/HNS и общие firewall policy не менялись.
+Следующий шаг: новый проверенный пакет и Windows reboot с локальным участием
+пользователя перед продолжением target install. Не запускать перезагрузку молча.
 Полный Windows Install, firewall/CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).

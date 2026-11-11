@@ -57,3 +57,19 @@ allow corresponding archives to be reused. All8 hashes, generated -Help and genu
 generated Initialize pass. New actual console verified at Add networkingMode=mirrored,
 child receipts=0; waiting for user's local consent/hidden password. Old failed
 controller closed by held identity; its created state preserved. No public release.
+
+Step 3 after consent: mirror/firewall set, rc.3 import succeeded but failed before
+marker/init because PAM/DBus user session packages are absent. Two exact debs in
+the owned empty diagnostic guest prove fresh root session/bus/empty stderr. Add
+packages under policy101 and mandatory package guards (RED→GREEN, Node8/runtime20).
+Fix canonical /usr/bin/wslinfo path (WinPS fixture RED→GREEN and genuine probe).
+Fix networked unit resolver masking through read-only tmpfs plus one bind; actual
+systemd sandbox RED→GREEN proves resolver readable/EROFS/other mounts hidden.
+Independent Sol high review clean. Rebuild a clean rc.4; diagnostic rc.3 is not a
+shipping artifact. A proposed global IPv4 gate was not introduced because explicit
+loopback-only installs remain supported.
+
+Separate target blocker: VM/global GNS has only lo/no generated resolver. Scoped
+idle restart and one manually guarded empty-VM stop did not recover it. No VPN,
+host adapter/HNS/global firewall changes. Finish unaffected package work, then
+request local Windows reboot for further install/network/media verification.

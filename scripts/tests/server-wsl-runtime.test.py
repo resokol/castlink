@@ -279,11 +279,14 @@ finally{server.closeAllConnections();server.close();}
 
     def test_nonroot_services_cannot_read_manually_attached_windows_mounts(self):
         directory = ROOT / 'infrastructure/server-wsl'
-        for name in ['converter', 'web', 'livekit', 'caddy', 'postgres']:
+        for name in ['web', 'livekit', 'caddy', 'postgres', 'bootstrap', 'turn-tls']:
             with self.subTest(service=name):
                 unit = (directory / ('castlink-' + name + '.service')).read_text()
-                self.assertIn('InaccessiblePaths=-/mnt -/media -/run/WSL', unit)
+                self.assertIn('InaccessiblePaths=-/media -/run/WSL', unit)
+                self.assertIn('TemporaryFileSystem=/mnt:ro', unit)
+                self.assertIn('BindReadOnlyPaths=-/mnt/wsl/resolv.conf', unit)
         converter = (directory / 'castlink-converter.service').read_text()
+        self.assertIn('InaccessiblePaths=-/mnt -/media -/run/WSL', converter)
         self.assertIn('ReadWritePaths=/run/castlink-converter', converter)
         self.assertIn('PrivateTmp=yes', converter)
         self.assertIn('PrivateNetwork=yes', converter)
