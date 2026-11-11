@@ -1,0 +1,18 @@
+[Unit]
+Description=CastLink verified database initialization
+PartOf=castlink-server.target
+Requires=castlink-postgres.service
+After=castlink-postgres.service
+Before=castlink-web.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/castlink-server bootstrap
+TimeoutStartSec=180
+UMask=0077
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+ReadWritePaths=/var/lib/castlink-server /run/castlink-postgres

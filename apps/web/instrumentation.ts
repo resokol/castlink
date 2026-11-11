@@ -6,5 +6,7 @@ export async function register() {
     await validateRoomStore();
     const { startReserveHeartbeatWorker } = await import("./lib/reserve-heartbeat-worker");
     startReserveHeartbeatWorker();
+    const { startServerObservability } = await import("./lib/server-observability-worker");
+    startServerObservability();
   }
 }

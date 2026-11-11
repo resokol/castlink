@@ -1,0 +1,6 @@
+u castlink 10000 "CastLink web" /nonexistent /usr/sbin/nologin
+u castlink-converter 10001 "CastLink isolated converter" /nonexistent /usr/sbin/nologin
+u castlink-livekit - "CastLink LiveKit" /nonexistent /usr/sbin/nologin
+u castlink-caddy - "CastLink HTTPS" /nonexistent /usr/sbin/nologin
+u castlink-turn - "CastLink TURN TLS" /nonexistent /usr/sbin/nologin
+m castlink castlink-converter

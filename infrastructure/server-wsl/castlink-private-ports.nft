@@ -1,0 +1,9 @@
+# Only this dedicated distro: private control listeners never accept LAN traffic.
+# Exclusive creation makes the whole batch fail if the table already exists.
+create table inet castlink_private
+table inet castlink_private {
+ chain input {
+  type filter hook input priority -10; policy accept;
+  iifname != "lo" tcp dport { 3000, 5432, 5348, 5349, 7880, 8443 } drop
+ }
+}

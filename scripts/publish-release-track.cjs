@@ -22,7 +22,7 @@ function checkDestination(choice=process.env.CASTLINK_RELEASE_DESTINATION||'prim
 function releaseFiles(info){
   const common=['manifest.json','SHA256SUMS'];
   if(info.track==='client')return [...common,`CastLink-${info.version}-${info.sourceCommit.slice(0,12)}-Windows.exe`,`CastLink-Client-${info.version}-${info.sourceCommit.slice(0,12)}-setup.exe`,`CastLink-Client-${info.version}-${info.sourceCommit.slice(0,12)}-win-x64.zip`];
-  return [...common,...(info.track==='server-setup'?['CastLink-Windows.zip']:[]),'CastLink-Linux.tar.gz','CastLink-Provisioning.json','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz'];
+  return [...common,...(info.track==='server-setup'?['CastLink-Windows.zip']:['install-server.sh']),'CastLink-Linux.tar.gz','CastLink-Provisioning.json','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz'];
 }
 function verifyFiles(directory,info){
   const names=releaseFiles(info),sums=new Map();

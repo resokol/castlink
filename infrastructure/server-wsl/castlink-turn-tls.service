@@ -1,0 +1,24 @@
+[Unit]
+Description=CastLink TURN TLS and HTTPS multiplexer
+PartOf=castlink-server.target
+Requires=castlink-private-ports.service
+Wants=castlink-caddy.service castlink-livekit.service
+After=castlink-private-ports.service castlink-caddy.service castlink-livekit.service
+
+[Service]
+Type=simple
+RuntimeDirectory=castlink-turn-tls
+RuntimeDirectoryMode=0700
+ExecStart=/usr/local/bin/castlink-server turn-daemon
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=20
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+ReadWritePaths=/run/castlink-turn-tls
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077

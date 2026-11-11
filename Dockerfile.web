@@ -5,10 +5,15 @@ LABEL ru.castlink.image.owner="castlink" \
       ru.castlink.image.source="${CASTLINK_SOURCE_COMMIT}" \
       ru.castlink.image.stage="web-builder"
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+ENV NODE_USE_ENV_PROXY=1
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --frozen-lockfile --filter web...
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    pnpm install --frozen-lockfile --filter web...
 COPY apps/web apps/web
 COPY design-preview/new design-preview/new
 COPY scripts scripts

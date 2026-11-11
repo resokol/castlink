@@ -93,6 +93,12 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(linux.track,'linux');assert.equal(linux.tag,releaseTracks.resolveTrack('linux','a'.repeat(40)).tag);assert.equal(linux.sourceCommit,'a'.repeat(40));
   await assert.rejects(fs.stat(path.join(linuxOutput,'CastLink-Windows.zip')),/ENOENT/);
   assert.ok((await fs.stat(path.join(linuxOutput,'CastLink-Linux.tar.gz'))).size>0);
+  const bootstrap=await fs.readFile(path.join(linuxOutput,'install-server.sh'),'utf8');
+  assert.ok(bootstrap.includes(linux.tag));
+  assert.ok(!bootstrap.includes('@@CASTLINK_'));
+  const bootstrapSums=await fs.readFile(path.join(linuxOutput,'SHA256SUMS'),'utf8');
+  assert.ok(bootstrapSums.includes(createHash('sha256').update(bootstrap).digest('hex')+'  install-server.sh'));
+  await assert.rejects(fs.stat(path.join(output,'install-server.sh')),/ENOENT/);
   for(const name of ['distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md']){
    const bytes=execFileSync('tar',['-xOzf',path.join(linuxOutput,'CastLink-Linux.tar.gz'),name]);
    const text=bytes.toString('utf8'),source=await fs.readFile(name,'utf8');

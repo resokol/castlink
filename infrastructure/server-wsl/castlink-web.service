@@ -1,0 +1,25 @@
+[Unit]
+Description=CastLink web application
+PartOf=castlink-server.target
+Requires=castlink-bootstrap.service castlink-private-ports.service
+Wants=castlink-converter.service castlink-livekit.service
+After=castlink-bootstrap.service castlink-converter.service castlink-livekit.service
+
+[Service]
+Type=simple
+User=castlink
+Group=castlink
+SupplementaryGroups=castlink-converter
+WorkingDirectory=/opt/castlink/app
+EnvironmentFile=/etc/castlink-server/web.env
+ExecStart=/usr/local/bin/node /opt/castlink/app/apps/web/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+ReadWritePaths=/var/lib/castlink-server/data
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
