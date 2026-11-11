@@ -18,7 +18,7 @@ async function fixture(){
   "'@CASTLINK_WSL_MANIFEST_SHA256@'", "'@CASTLINK_WSL_REPOSITORY@'"
  ].join('\n'));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.writeFile(path.join(root,name),'fixture legal notice');
- for(const name of ['usr/lib/systemd/systemd','etc/pam.d/systemd-user','usr/lib/systemd/user/dbus.socket','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','opt/castlink/app/apps/web/server.js']){
+ for(const name of ['usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','opt/castlink/app/apps/web/server.js']){
   await fs.mkdir(path.dirname(path.join(tree,name)),{recursive:true});await fs.writeFile(path.join(tree,name),'fixture executable');
  }
  await fs.mkdir(path.join(tree,'etc'),{recursive:true});
@@ -105,7 +105,7 @@ test('refuses runtime with Docker, prepared installation secrets or missing syst
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
 });
 test('refuses a WSL rootfs missing systemd user-session prerequisites',async()=>{
- for(const missing of ['etc/pam.d/systemd-user','usr/lib/systemd/user/dbus.socket']){
+ for(const missing of ['usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket']){
   const f=await fixture();try{
    await fs.rm(path.join(f.tree,missing));f.pack();
    await assert.rejects(assembleWslPackage(f),/runtime|systemd|session/i);

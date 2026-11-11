@@ -15,7 +15,7 @@ export async function hashFile(file){
 const audit=String.raw`
 import hashlib,json,re,sys,tarfile
 archive,version,commit,inventory_path,sources_path,upstream_path,upstream_manifest=sys.argv[1:]
-required={'usr/lib/systemd/systemd','etc/pam.d/systemd-user','usr/lib/systemd/user/dbus.socket',
+required={'usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket',
           'usr/local/bin/node','usr/local/bin/caddy',
           'usr/local/bin/livekit-server','usr/local/bin/castlink-server',
           'opt/castlink/app/apps/web/server.js','etc/wsl.conf','opt/castlink/release.json','opt/castlink/packages.tsv'}

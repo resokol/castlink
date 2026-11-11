@@ -16,7 +16,7 @@ app state. Точные два .deb сверены с SHA256 retained APT indexe
 root session active, /run/user/0/bus socket, stderr пустой. Это controlled probe;
 готовый rc.3 archive не исправлялся и не должен использоваться для новой установки.
 
-В producer добавлены эти пакеты с policy-rc.d101; packager требует PAM config и
+В producer добавлены эти пакеты с policy-rc.d101; packager требует PAM module и
 user dbus.socket. Новый отрицательный package test дал RED missing rejection,
 после guards — GREEN8 Node tests. Runtime20 и actual WinPS5.1 suite проходят.
 Actual /usr/bin/wslinfo является symlink на /init и возвращает mirrored; прежний
@@ -42,6 +42,14 @@ Scoped terminate/natural idle и один manual empty-VM shutdown не восс
 VPN, Windows adapters, HNS и общие firewall rules не менялись. Нужен Windows reboot
 с участием пользователя; сначала подготовить новый artifact, если builder доступен.
 Полный сервер ещё не запускался, пароль/CA/owner bearer не вводились и не выдавались.
+
+Первый rebuilt rc.4 из6fb7d583 собрался, но audit остановил упаковку
+по неверно заданному required path /etc/pam.d/systemd-user. Actual dpkg-query -L
+libpam-systemd в самом image подтвердил PAM module в
+/usr/lib/x86_64-linux-gnu/security/pam_systemd.so; пакет не содержит предполагаемый
+config file. Guard и fixture теперь проверяют именно реальный обязательный module
+и dbus.socket. Это исправление validation predicate, не обход проверки. Нужен
+чистый новый source commit для окончательного artifact; исходный failed rootfs сохранён.
 
 ## Текущий пакет 1.0.2-rc.3
 
