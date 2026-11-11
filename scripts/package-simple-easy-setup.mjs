@@ -21,7 +21,8 @@ function packageDocumentation(name,text,product){
   if(historical<0)throw Error('Linux manual historical boundary missing');
   const current=text.slice(0,historical),pinned=/^RELEASE_TAG='(linux-v(.+)-([a-f0-9]{12}))'$/m.exec(current);
   if(!pinned)throw Error('Linux manual pinned release missing');
-  return current.replaceAll(pinned[1],product.tag).replaceAll('`'+pinned[3]+'`','`'+product.sourceCommit.slice(0,12)+'`').replaceAll('**'+pinned[2]+'**','**'+product.version+'**')+text.slice(historical);
+  const sourcePin=new RegExp('`'+pinned[3]+'(?:[a-f0-9]{28})?`','g');
+  return current.replaceAll(pinned[1],product.tag).replace(sourcePin,'`'+product.sourceCommit.slice(0,12)+'`').replaceAll('**'+pinned[2]+'**','**'+product.version+'**')+text.slice(historical);
  }
  if(name.endsWith('/PRODUCTS.md')){
   const label=product.track==='linux'?'Linux':'Server Setup',row=product.track==='linux'?'| Linux Ubuntu |':'| Windows Server |';
