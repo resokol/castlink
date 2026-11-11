@@ -5,22 +5,24 @@
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
 | Windows Client | Приложение Windows: студия и кастер | [1.0.0](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) |
-| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.0](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/SHA256SUMS) |
-| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.0](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/SHA256SUMS) |
+| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.1](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.1](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) |
 
 **[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
 Перед запуском проверьте SHA256SUMS выбранного выпуска. EXE не подписаны. Client проверяет обновление перед установкой и отдельно запрашивает согласие; ручная установка нужна, если старый клиент не находит выпуск. Серверные службы обновляются после вашего действия и могут прервать эфир. Данные резервируйте самостоятельно; три направления выпускаются независимо.
 
-Server Setup build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
+Server Setup build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
 
-Linux build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
+Linux build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
 
 Client build: `1.0.0-93d9b93e17da` · source: `93d9b93e17daced23b3eb4207c8464d6091bea0c`
 
-**Обновление до 1.0.0:** используйте встроенную проверку обновлений Client. Если старый клиент не находит выпуск (например, после переименования репозитория), один раз скачайте установщик 1.0.0 вручную по ссылке выше и проверьте SHA256SUMS. Для собственного сервера отдельно обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. [Что нового и порядок обновления](RELEASE_NOTES_1_0_0.md).
+**Обновление серверов до 1.0.1:** обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. Восстановление связи требует 1.0.1 или новее на обоих серверах. Windows Client остаётся на 1.0.0; используйте его встроенную проверку обновлений. Если старый клиент не находит выпуск, один раз скачайте установщик 1.0.0 вручную по ссылке выше и проверьте SHA256SUMS. [Восстановление связи](README.md#server-pair-recovery) · [История изменений](../CHANGELOG.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-1ea894bd94ad) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-1ea894bd94ad)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.1-eaa94d193230) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.1-eaa94d193230)
+
+Исходники приложения: [ветка main](https://github.com/resokol/castlink/tree/main) · [ZIP main](https://github.com/resokol/castlink/archive/refs/heads/main.zip). Версии пакетов и исходные коммиты сборок указаны выше.
 
 ## Инструкции и опубликованные архивы
 

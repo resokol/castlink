@@ -5,22 +5,24 @@
 | CastLink | Purpose | Download |
 | --- | --- | --- |
 | Windows Client | Windows app: studio and caster | [1.0.0](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) |
-| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.0](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/SHA256SUMS) |
-| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.0](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/SHA256SUMS) |
+| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.1](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) |
+| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.1](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) |
 
 **[Installation manual](LINUX_MANUAL.md)** — Out of the box and advanced.
 
 Verify the selected release’s SHA256SUMS before running it. EXEs are unsigned. Client verifies updates before installation and requests separate consent; install manually if an older Client cannot find the release. Server updates require user action and can interrupt broadcasts. Back up needed data yourself; the three tracks release independently.
 
-Server Setup build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
+Server Setup build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
 
-Linux build: `1.0.0-1ea894bd94ad` · source: `1ea894bd94adb96f861398cc30addc93d1bf9d21`
+Linux build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
 
 Client build: `1.0.0-93d9b93e17da` · source: `93d9b93e17daced23b3eb4207c8464d6091bea0c`
 
-**Upgrading to 1.0.0:** use the Client’s built-in update check. If an older Client cannot find the release (for example, after the repository rename), download the 1.0.0 installer manually once using the link above and verify SHA256SUMS. Update Server Setup or Linux separately for your own server, off air and using the existing installation. [Changes and update steps](RELEASE_NOTES_1_0_0.md).
+**Upgrading servers to 1.0.1:** update Server Setup or Linux off air, selecting the existing installation. Connection recovery requires 1.0.1 or later on both servers. Windows Client stays at 1.0.0; use its built-in update check. If an older Client cannot find the release, download the 1.0.0 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.0-1ea894bd94ad) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.0-1ea894bd94ad)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.1-eaa94d193230) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.1-eaa94d193230)
+
+Application source: [main branch](https://github.com/resokol/castlink/tree/main) · [main ZIP](https://github.com/resokol/castlink/archive/refs/heads/main.zip). Package versions and build source commits are listed above.
 
 ## Instructions and published archives
 

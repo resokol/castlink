@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0</strong></p>
+<p align="center"><strong>CastLink 1.0.1</strong></p>
 <p align="center"><strong>远程嘉宾，独立音视频源，打造你的直播。</strong></p>
 <p align="center">浏览器接入 · OBS 和 vMix · 自托管</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">官网</a> &nbsp; / &nbsp;
@@ -27,6 +27,8 @@
 CastLink 是一个自托管演播室，可将远程嘉宾、演示文稿及独立音视频流接入 OBS 或 vMix。主持人和嘉宾可以使用浏览器，也可以使用专用 Windows 客户端。本仓库提供应用源代码、构建工具、发行版和开发文档。
 
 ## 下载与安装
+
+Windows Server Setup 和 Linux 为 **1.0.1**；Windows Client 为 **1.0.0**。
 
 请从[产品目录](distribution/docs/zh-CN/PRODUCTS.md)或[发行版页面](https://github.com/resokol/castlink/releases)选择安装包。Windows Client、Windows Server Setup 和独立 Linux 安装程序分别发布。安装包和 `SHA256SUMS` 必须来自同一产品的同一发行版。
 
