@@ -31,3 +31,16 @@ Step 1 RED: the new offline integration test ran on the actual failed Windows
 producer image `castlink-wsl-build-78327495ead0-rootfs`, exit 1. Of 190 installed
 source versions, exactly apt=2.8.3 and pcre2=10.42-4ubuntu2.1 are absent. The
 test uses no network, downloads or mock APT responses.
+
+Step 1 GREEN: the clean committed source `0ce26451` built a new actual rootfs
+on the Windows producer. The embedded check reports 190 installed source versions,
+missing=[] and exit 0. Node packaging/source suites 7 PASS, runtime 20 PASS,
+export 1 PASS. Independent GPT-6.1 Sol high review: no actionable findings.
+Step 2 complete: corresponding-source target retried after a confirmed transient
+connection failure (liborcus exact-version probe then passed). Official package
+audit and all eight SHA256 checks pass; actual generated Windows installer -Help
+passes. GitHub CI58 is green. Exact sizes/hashes are recorded in
+docs/testing/WINDOWS_WSL_20261111_RU.md. No public WSL release exists.
+Step 3: opened real Windows PowerShell installer console; own build Docker Desktop
+stopped with no running containers. phase=created, awaiting local consent/hidden
+password. No global WSL shutdown or automatic consent was used.

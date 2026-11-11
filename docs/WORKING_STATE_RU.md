@@ -26,11 +26,17 @@ Publisher сначала загружает draft, сверяет GitHub asset s
 проверки. Публикация пакета сама не обновляет установленный сервер.
 
 Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
-Windows без Docker/WSL2 остаётся отдельным кандидатом: rootfs собрался, но этап
-получения соответствующих Ubuntu sources остановился на `apt=2.8.3`, которого
-нет в текущих source indexes. Полный WSL-пакет не опубликован; установки на
-Windows, mirrored networking, firewall, CA и внешний HTTPS/TURN ещё не проверены.
-Нужен исправленный воспроизводимый source build и настоящее Windows испытание.
+Windows без Docker/WSL2: полный кандидат1.0.2-rc.2 собран из чистого `0ce26451`
+в [PR #20](https://github.com/resokol/castlink/pull/20). Старые apt/pcre2 обновляются
+из тех же APT indexes; реальная offline проверка всех190 source версий дала
+RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
+SHA256 восьми файлов и запуск Windows installer -Help проверены; CI58 прошёл.
+На ПК открыта отдельная консоль установки в новый QA-каталог; phase=created,
+ожидается локальное согласие на mirrored networking и скрытый ввод пароля.
+Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
+Полный Windows Install, firewall/CA, keepalive, HTTPS и внешний TURN ещё не
+подтверждены; публичного WSL release нет.
+[Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.
 Подробные проверки суточной истории:
