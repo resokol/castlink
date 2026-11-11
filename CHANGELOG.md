@@ -1,31 +1,18 @@
 # Changelog
 
-## 1.0.2 — кандидат серверного выпуска / Server release candidate / 服务器候选版
+## 1.0.2 — серверный выпуск / Server release / 服务器发行版
 
 [Русский](distribution/RELEASE_NOTES_1_0_2.md) · [English](distribution/docs/en/RELEASE_NOTES_1_0_2.md) · [简体中文](distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md)
 
-## Кандидат: история и журнал за сутки — 11.11.2026
+- RU: Super Admin хранит историю реальных показателей и структурированный журнал событий за последние 24 часа; сбор работает при закрытой панели, данные переживают перезапуск. Добавлены периоды 1/6/24 часа, пики, фильтр уровня событий и страницы. Linux включает закреплённый по выпуску/SHA256 `install-server.sh`. Локальный Windows-сервер в обычном Server Setup использует Docker Desktop. Обновляйте сервер вне эфира штатным механизмом с прежним каталогом данных; затем перезагрузите страницы. Windows Client остаётся 1.0.0.
+- EN: Super Admin retains 24 hours of measured history and structured events. Collection continues with the panel closed and data survives restarts. Adds 1/6/24-hour ranges, peak charts, severity filters and pagination. Linux includes release/SHA256-pinned `install-server.sh`. The ordinary local Windows Server Setup uses Docker Desktop. Update off air through the normal mechanism with the original data directory, then reload pages. Windows Client stays at 1.0.0.
+- 简体中文：Super Admin 保存最近 24 小时的真实指标历史与结构化事件。关闭面板后继续采集，重启后数据保留；新增 1/6/24 小时时段、峰值图表、级别筛选与分页。Linux 包含固定发行版及 SHA256 的 `install-server.sh`。普通 Windows 本地 Server Setup 使用 Docker Desktop。请在停播时通过正常机制更新，并使用原数据目录，然后刷新页面。Windows Client 保持 1.0.0。
 
-- Мониторинг сохраняет последние 24 часа на диске и собирает замеры примерно раз
-  в 15 секунд, даже если панель закрыта. Перезапуск сохраняет историю.
-- Добавлен структурированный журнал событий/предупреждений/ошибок CastLink с
-  фильтром уровня и постраничным просмотром; секреты не записываются.
-- Периоды 1/6/24 часа используют ограниченное число точек и явно подписанные пики.
-  Старые записи, очередь и размер хранилища ограничены автоматически.
-- Обновление приложения использует прежний каталог данных; дополнительная служба
-  БД не нужна. Предыдущие опубликованные пакеты меняются только после обновления.
+[Пакеты / Downloads / 下载](distribution/PRODUCTS.md) · Source: `78327495ead06f3d74902cf0c60a7973a0828f2e`.
 
-## Кандидат: установка сервера и графики — 11.11.2026
+### Отдельный кандидат Windows/WSL2 / Separate Windows/WSL2 candidate / 独立 Windows/WSL2 候选版
 
-- Добавлен Linux bootstrap `install-server.sh` с точным выпуском/SHA256, подготовкой
-  зависимостей по явному флагу и сохранением существующей установки.
-- Добавлен отдельный Windows11/WSL2 путь без Docker: готовый Ubuntu-rootfs, службы,
-  keepalive, добровольный автозапуск, безопасный доступ владельца и локальный CA.
-- Super Admin получил графики комнат/кастеров, CPU/RAM/диска/сети и состояние служб;
-  история в памяти10минут, явные пропуски и области измерения.
-- Новая установка не переносит существующий Docker-сервер и не обновляет его.
-  Пакеты ещё не опубликованы; требуется настоящий Windows/WSL lifecycle и внешний
-  HTTPS/TURN тест. [RU/EN/简体中文 инструкции](distribution/SERVER_INSTALL.md).
+Windows без Docker через WSL2 остаётся отдельным кандидатом. Docker-free Windows/WSL2 is not a stable package: actual installation and external media-call/HTTPS/TURN tests remain unverified. 无 Docker 的 Windows/WSL2 仍为候选版，安装及外部媒体通话/HTTPS/TURN 尚未验证。[RU/EN/简体中文](distribution/SERVER_INSTALL.md).
 
 ## 1.0.1 — 2026-11-11 — восстановление связи серверов / Server connection recovery / 服务器连接恢复
 

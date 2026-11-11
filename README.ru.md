@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.1</strong></p>
+<p align="center"><strong>CastLink 1.0.2</strong></p>
 <p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
 <p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Сайт</a> &nbsp; / &nbsp;
@@ -27,7 +27,9 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
-Windows Server Setup и Linux — **1.0.1**; Windows Client — **1.0.0**.
+Windows Server Setup и Linux — **1.0.2**; Windows Client — **1.0.0**.
+
+В 1.0.2 доступны [Linux одной командой и серверный мониторинг за 24 часа](distribution/SERVER_INSTALL.md): история графиков и журнал событий сохраняются после перезапуска. Локальный Windows-сервер в обычном Server Setup использует Docker Desktop. Вариант Windows/WSL2 без Docker остаётся отдельным кандидатом без подтверждённых испытаний установки и внешнего медиазвонка.
 
 Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
 
@@ -41,13 +43,13 @@ Windows Server Setup и Linux — **1.0.1**; Windows Client — **1.0.0**.
 
 Единственный публичный репозиторий CastLink — [resokol/castlink](https://github.com/resokol/castlink): собственные исходники по MIT, выпуски и инструкции. Архивы и `SHA256SUMS` доступны без предоставления отдельного доступа. Прежнее имя `resokol/castlink-releases` перенаправляет сюда и сохраняется для совместимости старых ссылок и установщиков; это не отдельное зеркало. Общий `releases/latest` не определяет сразу три продукта.
 
-Существующие архивы и их SHA256 сохранены без пересборки. Встроенные manifests и старые проверки обновлений могут содержать прежнее имя `castlink-releases`: GitHub перенаправляет этот адрес в тот же `castlink`. Для ручной установки выбирайте точный выпуск из каталога.
+Прежние опубликованные архивы и их SHA256 сохранены без пересборки. Встроенные manifests и старые проверки обновлений могут содержать прежнее имя `castlink-releases`: GitHub перенаправляет этот адрес в тот же `castlink`. Для ручной установки выбирайте точный выпуск из каталога.
 
 Для Windows-сервера нужен Docker Desktop с Linux-контейнерами; VPS-установка поддерживает Ubuntu 22.04/24.04 amd64. Самостоятельная установка работает на инфраструктуре её владельца. Условия сети, HTTPS, порты и обновление описаны в руководствах.
 
 ## Разработка
 
-Нужны Git, Node.js 22 и pnpm 9.15.0. Версии зависимостей закреплены в `pnpm-lock.yaml`.
+Нужны Git, Node.js 22.13+ и pnpm 9.15.0. Серверные пакеты используют Node.js 22.23.3 со встроенным SQLite. Версии зависимостей закреплены в `pnpm-lock.yaml`.
 
 ```sh
 git clone https://github.com/resokol/castlink.git

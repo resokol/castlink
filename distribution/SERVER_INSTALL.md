@@ -2,23 +2,18 @@
 
 [Русский](SERVER_INSTALL.md) · [English](docs/en/SERVER_INSTALL.md) · [简体中文](docs/zh-CN/SERVER_INSTALL.md)
 
-Описанные ниже новые установщики должны входить в **новый проверенный выпуск**.
-В прежних опубликованных архивах их нет. Эта разработка не публикует выпуск и
-не заменяет уже установленный сервер. Windows/WSL требует проверки на Windows
-перед публичным распространением.
+Linux-загрузчик и серверные графики с историей и журналом за 24 часа входят в **1.0.2**. [Пакеты и контрольные суммы](PRODUCTS.md) · [Примечания к выпуску](RELEASE_NOTES_1_0_2.md). Локальный Windows-сервер в обычном Server Setup 1.0.2 использует Docker Desktop; описанный ниже Windows/WSL2 без Docker остаётся отдельным кандидатом без подтверждённых испытаний установки и внешнего медиазвонка.
 
 ## Linux Ubuntu
 
 Поддерживаются Ubuntu22.04/24.04 amd64. В Linux-выпуск добавлен самостоятельный
-`install-server.sh` с закреплёнными версией и SHA256 архива. После выпуска возьмите
-точную ссылку этого asset (не общий `releases/latest`) и выполните:
+`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.2 (не общий `releases/latest`) и выполните:
 
 ```bash
-curl -fsSL "$INSTALLER_URL" | sudo bash -s -- --install-runtime
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-`INSTALLER_URL` — HTTPS-ссылка на `install-server.sh` **выбранного нового Linux
-выпуска**. Скрипт запросит адрес и отдельный пароль создания комнат, сохранит
+Скрипт из **linux-v1.0.2-78327495ead0** запросит адрес и отдельный пароль создания комнат, сохранит
 пакет/настройки в `/opt/castlink-server`, загрузит включённые образы и запустит
 существующий Linux installer. `--install-runtime` разрешает установку зависимостей
 и запуск Docker; без этого флага требуется готовый Docker/Compose. Домен, DNS и
@@ -31,7 +26,7 @@ curl -fsSL "$INSTALLER_URL" | sudo bash -s -- --install-runtime
 Для автоматизированной установки существуют `--config` и
 `--room-creation-password-file` (UTF-8 без завершающего перевода строки).
 
-## Windows без Docker
+## Windows/WSL2 без Docker — непроверенный кандидат
 
 Нужны Windows11 x64, build22621+, WSL2 версии2.4.13+ и поддержка виртуализации.
 Установщик `install-server-windows.ps1` из отдельного канала `server-wsl-v…`

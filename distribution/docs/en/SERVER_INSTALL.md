@@ -2,21 +2,18 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](SERVER_INSTALL.md) · [简体中文](../zh-CN/SERVER_INSTALL.md)
 
-These installers belong to a **new verified release**. Older public archives do not
-contain them. This development does not publish a release or upgrade an existing
-server. Actual Windows/WSL installation is a release gate.
+The Linux bootstrap and server charts with 24-hour history and an event journal are included in **1.0.2**. [Packages and checksums](PRODUCTS.md) · [Release notes](RELEASE_NOTES_1_0_2.md). The ordinary local Windows Server Setup 1.0.2 uses Docker Desktop. Docker-free Windows/WSL2 below remains a separate candidate without verified installation and external media-call tests.
 
 ## Ubuntu Linux
 
 Ubuntu22.04/24.04 amd64 is supported. The Linux channel adds a self-contained
-`install-server.sh` pinned to its release and archive SHA256. After publication,
-use that exact asset URL, rather than global `releases/latest`:
+`install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.2 asset URL, rather than global `releases/latest`:
 
 ```bash
-curl -fsSL "$INSTALLER_URL" | sudo bash -s -- --install-runtime
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-Set `INSTALLER_URL` to the selected new Linux release asset. Setup asks for the
+The **linux-v1.0.2-78327495ead0** bootstrap asks for the
 server address and room creation password, stores its package/configuration at
 `/opt/castlink-server`, loads bundled images and runs the existing Linux installer.
 `--install-runtime` authorizes prerequisites and starting Docker; otherwise Docker
@@ -29,7 +26,7 @@ saved helper's `status` command. Keep the same absolute `--state-dir` for custom
 locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
-## Windows without Docker
+## Docker-free Windows/WSL2 — unverified candidate
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready

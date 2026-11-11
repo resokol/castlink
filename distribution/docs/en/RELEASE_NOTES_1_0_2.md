@@ -1,4 +1,4 @@
-# CastLink Server 1.0.2 — release preparation
+# CastLink Server 1.0.2
 
 [Русский](../../RELEASE_NOTES_1_0_2.md) · [English](RELEASE_NOTES_1_0_2.md) · [简体中文](../zh-CN/RELEASE_NOTES_1_0_2.md)
 
@@ -8,4 +8,6 @@
 
 Update through your server package's normal mechanism using the same data directory, then reload pages off air. Only the platform administrator can access server statistics; room roles do not grant this access. History uses the existing server data directory and requires no additional database service. Windows Client stays at 1.0.0.
 
-Docker-free Windows via WSL2 remains a separate candidate. These notes do not claim a verified Windows release; actual Windows11/WSL and external HTTPS/TURN tests are still required. Published packages and exact checksums remain in the [catalog](PRODUCTS.md).
+The ordinary local Windows Server Setup 1.0.2 uses Docker Desktop with Linux containers. Docker-free Windows via WSL2 remains a separate candidate without verified Windows11/WSL installation or external media-call/HTTPS/TURN tests. It is not offered as a stable package. [Download server 1.0.2 and SHA256SUMS](PRODUCTS.md).
+
+Server Setup and Linux build: `1.0.2-78327495ead0`; source commit: [`78327495ead06f3d74902cf0c60a7973a0828f2e`](https://github.com/resokol/castlink/tree/78327495ead06f3d74902cf0c60a7973a0828f2e). [Source release](https://github.com/resokol/castlink/releases/tag/source-v1.0.2-78327495ead0) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/SHA256SUMS).
