@@ -15644,7 +15644,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — сервер и суточный мониторинг, 11.11.2026
+Текущее состояние — Windows WSL и суточный мониторинг, 12.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -15842,7 +15842,7 @@ Server pairing recovery on another computer
 
 [`docs/testing/WINDOWS_WSL_20261111_RU.md`](../testing/WINDOWS_WSL_20261111_RU.md)
 
-Windows/WSL: сборка и испытание 11.11.2026
+Windows/WSL: сборка и испытание 11–12.11.2026
 
 ### docs/zh-CN/REMOTE_PC_CONTROL.md
 

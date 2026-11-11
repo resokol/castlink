@@ -1,8 +1,37 @@
-# Windows/WSL: сборка и испытание 11.11.2026
+# Windows/WSL: сборка и испытание 11–12.11.2026
 
 Проверяется отдельный сервер без Docker на Windows11/WSL2, согласно утверждённой
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
+
+## Проверенный пакет 1.0.2-rc.4
+
+Окончательный clean source `61ce65a2b99d1f557bf254997063b81ad5125f9e`, manifest tag
+`server-wsl-v1.0.2-rc.4-61ce65a2b99d`. Manufacturer build и mandatory package audit
+завершены exit0. Все190 corresponding-source версий доступны; новый source inventory
+побайтно совпал с прежним, оба source archives повторно сверены целиком и каждым
+DSC/payload/upstream manifest. PAM guard требует фактический amd64 pam_systemd.so
+и dbus.socket. Все8 checksums/manifest bindings и generated Windows -Help проходят.
+
+| Файл | Размер, байт | SHA256 |
+| --- | ---: | --- |
+| CastLink-Server-WSL-amd64.tar.gz | 476533340 | `afe711055873607a786ebfc46af65e34bebf492c3ad2d664183c65dec37d18cf` |
+| manifest.json | 1143 | `10332b1d6dae28e2069765e699ecdeafad7f31053958b59f50441b81c5c5457c` |
+| install-server-windows.ps1 | 42501 | `20e2de73d66a010834090ed47ebc5a4f2a7d2497d5612c9bc92056b569f667e8` |
+
+Ubuntu/upstream sources и packages.tsv имеют прежние hashes из таблиц ниже.
+Windows fixtures проходят из clean source; genuine helper принимает уже созданные
+Hyper-V rules в NonInteractive без повторного согласия. Отдельный strict guest
+Python probe подтвердил наличие PAM module, включение его common-session, socket
+/run/user/0/bus и loginctl State=active с пустым stderr.
+
+После закрытия builder (running containers0) и scoped restart только QA guest сеть
+всё ещё отсутствует: только lo, resolver target missing. Probe сохранён отдельно от
+artifact verification. Docker Desktop и QA guest остановлены; новые rc.4 данные
+ещё не создавались. Нужна локальная перезагрузка Windows, затем проверить GNS/NIC/DNS
+и запустить новый pinned installer в fresh QA-каталог. Публикации и full server
+readiness пока нет; CA/password/owner invitation ещё не создавались. CI63 для61ce65a2
+выполняется. Исполнитель Codex root; independent source review GPT-6.1 Sol high.
 
 ## Продолжение после локального согласия пользователя
 
@@ -51,7 +80,7 @@ config file. Guard и fixture теперь проверяют именно ре�
 и dbus.socket. Это исправление validation predicate, не обход проверки. Нужен
 чистый новый source commit для окончательного artifact; исходный failed rootfs сохранён.
 
-## Текущий пакет 1.0.2-rc.3
+## Предыдущий пакет 1.0.2-rc.3
 
 Чистый source commit `8e3028878d11f1b046a9f919868a1b2040725732`, tag в manifest
 `server-wsl-v1.0.2-rc.3-8e3028878d11`. Новые web/rootfs собраны штатными Dockerfile;

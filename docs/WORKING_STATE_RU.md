@@ -1,4 +1,4 @@
-# Текущее состояние — сервер и суточный мониторинг, 11.11.2026
+# Текущее состояние — Windows WSL и суточный мониторинг, 12.11.2026
 
 ## Серверный выпуск 1.0.2
 
@@ -26,12 +26,12 @@ Publisher сначала загружает draft, сверяет GitHub asset s
 проверки. Публикация пакета сама не обновляет установленный сервер.
 
 Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
-Windows без Docker/WSL2: полный кандидат1.0.2-rc.3 собран из чистого `8e302887`
+Windows без Docker/WSL2: полный кандидат1.0.2-rc.4 собран из чистого `61ce65a2`
 в [PR #20](https://github.com/resokol/castlink/pull/20). Старые apt/pcre2 обновляются
 из тех же APT indexes; реальная offline проверка всех190 source версий дала
 RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
 SHA256 восьми файлов и запуск Windows installer -Help проверены. CI58 прошёл для
-первого closure-fix `0ce26451`; CI60 для исправленного Windows `8e302887` выполняется.
+первого closure-fix `0ce26451`; CI63 для `61ce65a2` выполняется.
 Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
 --version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
 и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
@@ -39,8 +39,8 @@ SHA256 восьми файлов и запуск Windows installer -Help про�
 rc.3 остановился до guest marker/init: в Docker-derived Ubuntu отсутствуют
 libpam-systemd/dbus-user-session. Их точная диагностическая установка только в
 новый failed QA guest и повторный boot дали root session active, bus socket и
-нулевой stderr. Artifact rc.3 не менялся; для пользователя нужен новый rc.4.
-Также исправляется путь wslinfo на реальный /usr/bin/wslinfo. Node8 и runtime20
+нулевой stderr. Artifact rc.3 не менялся; новый rc.4 уже построен и проверен.
+Также исправлен путь wslinfo на реальный /usr/bin/wslinfo. Node8 и runtime20
 PASS; Windows fixtures и genuine canonical mode probe PASS.
 
 Службам возвращён только read-only DNS resolver через tmpfs /mnt; Windows mounts
@@ -54,9 +54,14 @@ lo с DNS-tunnel address, /mnt/wsl/resolv.conf отсутствует. Shared mi
 После свежей проверки двух известных registrations и нуля running workloads
 вручную остановлена пустая VM один раз; это не автоматическое действие installer.
 Сеть не восстановилась. VPN/адаптеры/HNS и общие firewall policy не менялись.
-Следующий шаг: новый проверенный пакет и Windows reboot с локальным участием
-пользователя перед продолжением target install. Не запускать перезагрузку молча.
-Полный Windows Install, firewall/CA, keepalive, HTTPS и внешний TURN ещё не
+Новый пакет прошёл mandatory rootfs/PAM/dbus/source audit; actual inventory всех190
+source версий совпал с проверенными архивами. PAM guard сверяет реальный module,
+не предполагаемый config path. Existing named firewall rules приняты actual helper
+в NonInteractive без нового prompt. Сборщик закрыт после проверки нуля контейнеров;
+последующий network probe по-прежнему видит только lo. QA-дистрибутив остановлен.
+Следующий шаг: Windows reboot с локальным участием пользователя, затем проверка
+сети и fresh rc.4 Install. Не запускать перезагрузку молча. Старые QA state/VHD
+сохранены, rc.4 ещё не импортирован. Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 

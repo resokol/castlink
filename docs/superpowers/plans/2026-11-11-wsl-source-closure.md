@@ -73,3 +73,13 @@ Separate target blocker: VM/global GNS has only lo/no generated resolver. Scoped
 idle restart and one manually guarded empty-VM stop did not recover it. No VPN,
 host adapter/HNS/global firewall changes. Finish unaffected package work, then
 request local Windows reboot for further install/network/media verification.
+
+Step 3 package ready: first rc.4 audit rejected an incorrect PAM config predicate;
+actual dpkg image inventory established the installed module path. Corrected guard
+and negative fixtures (Node8 PASS). Clean61ce65a2 rc.4 fully builds, official audit
+and all8 hashes/generated -Help pass. Actual source inventory remains190 and exact
+corresponding archives are revalidated. Strict native assertions verify PAM module,
+PAM common-session, user bus socket and loginctl active; existing firewall helper
+accepts configured rules noninteractively. Builder closed, QA stopped, post-builder
+network still onlylo/noresolver. Prepared artifact is concrete; pending local Windows
+reboot is the next target gate. No public release, no silent host reboot.
