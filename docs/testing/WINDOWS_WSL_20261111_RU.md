@@ -4,9 +4,35 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Текущий пакет 1.0.2-rc.3
+
+Чистый source commit `8e3028878d11f1b046a9f919868a1b2040725732`, tag в manifest
+`server-wsl-v1.0.2-rc.3-8e3028878d11`. Новые web/rootfs собраны штатными Dockerfile;
+реальная offline проверка190 source версий снова проходит. Новый packages.tsv
+побайтно совпадает с rc.2. Архивы Ubuntu/upstream из таблицы rc.2 сверены целиком
+по SHA256, а штатная assembleWslPackage повторно проверила новый rootfs, точный
+inventory, каждый DSC/payload и upstream manifest. Проверки не пропускались.
+Все8 файлов нового пакета повторно сверены с SHA256SUMS/manifest. Windows -Help и
+genuine Initialize-CastlinkWsl из самого generated installer проходят, exit0.
+
+| Новый файл | Размер, байт | SHA256 |
+| --- | ---: | --- |
+| CastLink-Server-WSL-amd64.tar.gz | 476267240 | `c8c57ab506330a0a79e148a6ff041577be4eb7676134ee7fd3ecc9d2bb4dff40` |
+| manifest.json | 1143 | `25c75bb2d2a011a24070a2a0cf809d48d2805bc17543205f6e20ba69d51dcd9e` |
+| install-server-windows.ps1 | 42505 | `b28db56bad2e3edbdce65a90fb7044d3854054ee3b89b04319dce2828f3393b1` |
+
+Старое окно с failed rc.2 закрыто только после проверки command line собственного
+завершённого QA controller. Его created-state сохранён. Для rc.3 открыт новый
+QA-каталог и отдельная консоль. Наблюдение подтверждено содержимым только этой
+консоли: `Add networkingMode=mirrored to .wslconfig? [y/N]`, phase=created,
+attempt receipts=0, .wslconfig отсутствует. Это действительный pending consent,
+а не предположение по одному phase. Пароля/owner bearer ещё не вводили; import,
+firewall/CA и работа служб не подтверждены. Никакого автоматического ответа нет.
+CI60 для `8e302887` выполняется; CI58 относится к исходному closure-fix `0ce26451`.
+
 ## Исправление полной сборки
 
-Исходник кандидата: `0ce26451f886fb02aa3a293179e9f4b81488731d`,
+Исходник предыдущего кандидата: `0ce26451f886fb02aa3a293179e9f4b81488731d`,
 версия `1.0.2-rc.2`, [PR #20](https://github.com/resokol/castlink/pull/20).
 Producer использует отдельный чистый checkout с LF, Windows11 build26100.9457,
 WSL3.0.1 и Docker Desktop только для изготовления пакета.
@@ -81,9 +107,9 @@ rawRegexVersion пусто, после удаления NUL —3.0.1.0. Одно
 Проверены обычный/NUL current, NUL minimum, старый2.4.12 и malformed отказ.
 Настоящий Initialize-CastlinkWsl с actual wsl.exe после исправления проходит без
 изменения сети. Node package suites7 PASS; независимое Sol high review без замечаний.
-Требуется новый pinned пакет из чистого исправленного коммита (rc.3); источники
-Ubuntu/upstream можно повторно использовать только через штатный audit точного
-нового inventory, DSC и payload SHA256. rc.2 больше не использовать для Install.
+Новый pinned пакет из чистого исправленного коммита (rc.3) построен и проверен
+выше; Ubuntu/upstream повторно использованы через штатный audit точного нового
+inventory, DSC и payload SHA256. rc.2 больше не использовать для Install.
 
 Следующие обязательные результаты: import/первый Install, HTTPS/DB/PPTX и owner
 доступ; история/события; сохранность после stop/start; keepalive90 секунд после

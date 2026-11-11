@@ -50,3 +50,10 @@ RED→GREEN, genuine Initialize passes, 7 Node tests pass and Sol high review is
 Rebuild rc.3 with exact source metadata; reuse existing corresponding archives only
 through official inventory/DSC/payload audit. No global WSL shutdown or automatic
 consent was used. WSL settings/firewall/CA have not been changed.
+
+Step 3 resumed: clean source `8e302887` builds rc.3; actual190-version check,
+identical old/new OS inventory, explicit archive SHA256 and full official audit
+allow corresponding archives to be reused. All8 hashes, generated -Help and genuine
+generated Initialize pass. New actual console verified at Add networkingMode=mirrored,
+child receipts=0; waiting for user's local consent/hidden password. Old failed
+controller closed by held identity; its created state preserved. No public release.

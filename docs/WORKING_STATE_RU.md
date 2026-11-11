@@ -26,17 +26,21 @@ Publisher сначала загружает draft, сверяет GitHub asset s
 проверки. Публикация пакета сама не обновляет установленный сервер.
 
 Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
-Windows без Docker/WSL2: полный кандидат1.0.2-rc.2 собран из чистого `0ce26451`
+Windows без Docker/WSL2: полный кандидат1.0.2-rc.3 собран из чистого `8e302887`
 в [PR #20](https://github.com/resokol/castlink/pull/20). Старые apt/pcre2 обновляются
 из тех же APT indexes; реальная offline проверка всех190 source версий дала
 RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
-SHA256 восьми файлов и запуск Windows installer -Help проверены; CI58 прошёл.
+SHA256 восьми файлов и запуск Windows installer -Help проверены. CI58 прошёл для
+первого closure-fix `0ce26451`; CI60 для исправленного Windows `8e302887` выполняется.
 Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
 --version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
 и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
-Нужен новый pinned rc.3 из чистого коммита. phase=created само по себе не означает
-ожидание prompt — проверять receipt дочернего процесса. Настройки WSL/firewall/CA
-не менялись. Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
+Новый pinned rc.3 повторно собран и проверен; genuine Initialize из generated
+установщика проходит. phase=created само по себе не означает ожидание prompt —
+проверять receipt дочернего процесса. Теперь собственная консоль действительно
+показывает Add networkingMode=mirrored, receipts=0; пользователь должен ответить
+локально, затем пройти firewall/скрытый пароль. WSL/firewall/CA ещё не менялись.
+Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
 Полный Windows Install, firewall/CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
