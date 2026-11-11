@@ -14,10 +14,21 @@ Windows WSL — отдельный 1.0.2-rc.1 кандидат, без утве�
 Пакеты 1.0.1 в каталоге остаются прежними до проверки и публикации новых assets.
 
 Предыдущий CI-отказ output-source-quality был на архивной основе; текущий main
-уже исправил этот тест. Итоговые проверки перенесённого дерева выполняются заново.
+уже исправил этот тест. Итоговый `pnpm test:ci` прошёл: 361 stable CI test. `pnpm typecheck` (web и CLI),
+production Next build, 25 packaging tests и 17 bootstrap tests прошли;
+проверки Linux owner-access/recovery и runtime также прошли. Независимый Sol high
+review переноса не нашёл материальных регрессий. Новый Node22 runtime и
+production Chromium desktop/mobile proof прошли: фильтры, cursor, hidden-tab
+poll pause при продолжающемся серверном сборе; оба настоящих API гостю 403.
+Для локального standalone стенда разрешены только сгенерированные абсолютные
+dependency symlinks; исходники runtime не менялись. Полноценные distribution
+archives после переноса ещё не строились.
 Windows ПК сейчас offline; реальный WSL lifecycle/media не выполнен. Коннектор
 GitHub поддерживает PR/refs, но не dispatch/release; CLI API пока Forbidden из-за
-сетевой политики окружения. Следующий результат — проверенный source PR и затем
+сетевой политики окружения. Автоматическая проверка отклонила push в новый публичный репозиторий: требуется
+явное подтверждение именно `resokol/castlink` и публикации новых исходников.
+Удалённая feature-ветка не создана; это проверено чтением refs.
+Следующий результат после подтверждения — source PR и затем
 пакеты через действующий ручной release workflow с SHA256 и соответствующими sources.
 
 ## Задача и принятые решения — исходный локальный этап
