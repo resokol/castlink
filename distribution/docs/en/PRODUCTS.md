@@ -5,24 +5,28 @@
 | CastLink | Purpose | Download |
 | --- | --- | --- |
 | Windows Client | Windows app: studio and caster | [1.0.0](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) |
-| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.1](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) |
-| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.1](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) |
+| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.2](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/SHA256SUMS) |
+| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.2](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/SHA256SUMS) |
 
 **[Installation manual](LINUX_MANUAL.md)** — Out of the box and advanced.
 
 Verify the selected release’s SHA256SUMS before running it. EXEs are unsigned. Client verifies updates before installation and requests separate consent; install manually if an older Client cannot find the release. Server updates require user action and can interrupt broadcasts. Back up needed data yourself; the three tracks release independently.
 
-Server Setup build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
+Server Setup build: `1.0.2-78327495ead0` · source: `78327495ead06f3d74902cf0c60a7973a0828f2e`
 
-Linux build: `1.0.1-eaa94d193230` · source: `eaa94d193230a39647292dcb1b8bb3061fd67ef1`
+Linux build: `1.0.2-78327495ead0` · source: `78327495ead06f3d74902cf0c60a7973a0828f2e`
 
 Client build: `1.0.0-93d9b93e17da` · source: `93d9b93e17daced23b3eb4207c8464d6091bea0c`
 
-**Upgrading servers to 1.0.1:** update Server Setup or Linux off air, selecting the existing installation. Connection recovery requires 1.0.1 or later on both servers. Windows Client stays at 1.0.0; use its built-in update check. If an older Client cannot find the release, download the 1.0.0 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
+**Server 1.0.2:** 24-hour metric history and an event journal in Super Admin survive restarts. Linux also includes [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/install-server.sh) for one-command installation. [Instructions](SERVER_INSTALL.md) · [1.0.2 release notes](RELEASE_NOTES_1_0_2.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.1-eaa94d193230) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.1-eaa94d193230)
+The ordinary local Windows Server Setup requires Docker Desktop with Linux containers. Docker-free Windows/WSL2 is a separate candidate without verified installation and external media-call tests; this table does not offer a stable WSL package.
 
-Application source: [main branch](https://github.com/resokol/castlink/tree/main) · [main ZIP](https://github.com/resokol/castlink/archive/refs/heads/main.zip). Package versions and build source commits are listed above.
+**Upgrading servers to 1.0.2:** update Server Setup or Linux off air, selecting the existing installation. Connection recovery requires 1.0.1 or later on both servers. Windows Client stays at 1.0.0; use its built-in update check. If an older Client cannot find the release, download the 1.0.0 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
+
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.2-78327495ead0) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.2-78327495ead0)
+
+Server 1.0.2 source: [release](https://github.com/resokol/castlink/releases/tag/source-v1.0.2-78327495ead0) · [exact commit](https://github.com/resokol/castlink/tree/78327495ead06f3d74902cf0c60a7973a0828f2e) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/CastLink-Source-1.0.2.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/CastLink-Source-1.0.2.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/SHA256SUMS). The source is MIT-licensed; its archive is not an installer. Current development: [main branch](https://github.com/resokol/castlink/tree/main).
 
 ## Instructions and published archives
 
@@ -32,7 +36,7 @@ Text instructions inside an already published archive reflect its build-time sna
 
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 
-The archives were copied without rebuilding: names, embedded build/source IDs and checksums are preserved. The table maps each original build commit to the repository's current history; a new source link does not mean a new binary package.
+Earlier archives were copied without rebuilding: names, embedded build/source IDs and checksums are preserved. The table maps each original build commit to the repository's current history; a new source link does not mean a new binary package.
 
 | Original build commit | Source in current history |
 | --- | --- |

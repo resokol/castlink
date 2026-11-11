@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.1</strong></p>
+<p align="center"><strong>CastLink 1.0.2</strong></p>
 <p align="center"><strong>远程嘉宾，独立音视频源，打造你的直播。</strong></p>
 <p align="center">浏览器接入 · OBS 和 vMix · 自托管</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">官网</a> &nbsp; / &nbsp;
@@ -28,7 +28,9 @@ CastLink 是一个自托管演播室，可将远程嘉宾、演示文稿及独�
 
 ## 下载与安装
 
-Windows Server Setup 和 Linux 为 **1.0.1**；Windows Client 为 **1.0.0**。
+Windows Server Setup 和 Linux 为 **1.0.2**；Windows Client 为 **1.0.0**。
+
+1.0.2 新增[Linux 单命令安装与 24 小时服务器监控](distribution/docs/zh-CN/SERVER_INSTALL.md)：图表历史和事件日志在重启后保留。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 方案仍是独立候选版，尚未完成安装及外部媒体通话验证。
 
 请从[产品目录](distribution/docs/zh-CN/PRODUCTS.md)或[发行版页面](https://github.com/resokol/castlink/releases)选择安装包。Windows Client、Windows Server Setup 和独立 Linux 安装程序分别发布。安装包和 `SHA256SUMS` 必须来自同一产品的同一发行版。
 
@@ -42,13 +44,13 @@ Windows Server Setup 和 Linux 为 **1.0.1**；Windows Client 为 **1.0.0**。
 
 [resokol/castlink](https://github.com/resokol/castlink) 是本项目唯一的公开主仓库，提供 MIT 许可的源代码、发行版及说明。安装包和校验和可公开下载。旧地址 `resokol/castlink-releases` 重定向到此仓库，以兼容旧下载链接和安装程序。GitHub 的单个 `releases/latest` 入口不代表三个产品各自的最新版本，请使用产品目录选择。
 
-现有安装包及 SHA256 保持不变，未重新构建。包内清单或更新检查仍可能使用旧仓库名称，GitHub 会将其重定向到当前仓库。手动安装时请使用目录中列出的具体发行版。
+此前发布的安装包及 SHA256 保持不变，未重新构建。包内清单或更新检查仍可能使用旧仓库名称，GitHub 会将其重定向到当前仓库。手动安装时请使用目录中列出的具体发行版。
 
 Windows 服务器需要运行 Linux 容器的 Docker Desktop。VPS 安装支持 Ubuntu 22.04/24.04 amd64。服务器部署在你自己的基础设施上；网络、HTTPS、端口及更新要求见安装文档。
 
 ## 开发
 
-需要 Git、Node.js 22 和 pnpm 9.15.0。依赖版本固定在 `pnpm-lock.yaml` 中。
+需要 Git、Node.js 22.13+ 和 pnpm 9.15.0。服务器软件包使用内置 SQLite 的 Node.js 22.23.3。依赖版本固定在 `pnpm-lock.yaml` 中。
 
 ```sh
 git clone https://github.com/resokol/castlink.git

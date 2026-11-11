@@ -1,4 +1,4 @@
-# CastLink Server 1.0.2 — 发行准备
+# CastLink Server 1.0.2
 
 [Русский](../../RELEASE_NOTES_1_0_2.md) · [English](../en/RELEASE_NOTES_1_0_2.md) · [简体中文](RELEASE_NOTES_1_0_2.md)
 
@@ -8,4 +8,6 @@
 
 通过服务器软件包的正常更新机制升级，并继续使用原数据目录，然后在停播时刷新页面。只有平台管理员能查看服务器统计，房间角色不提供此权限。历史使用原服务器数据目录，无需新增数据库服务。Windows Client 保持 1.0.0。
 
-通过 WSL2 运行的无 Docker Windows 服务器仍为独立候选版。此说明不表示已验证的 Windows 发行版；仍需真实 Windows11/WSL 及外部 HTTPS/TURN 测试。已发布软件包和准确校验值仍见[目录](PRODUCTS.md)。
+普通 Windows 本地 Server Setup 1.0.2 使用运行 Linux 容器的 Docker Desktop。无 Docker 的 Windows/WSL2 仍为独立候选版，Windows11/WSL 安装及外部媒体通话/HTTPS/TURN 尚未验证，不作为稳定软件包提供。[下载服务器 1.0.2 与 SHA256SUMS](PRODUCTS.md)。
+
+Server Setup 与 Linux 构建：`1.0.2-78327495ead0`；源提交：[`78327495ead06f3d74902cf0c60a7973a0828f2e`](https://github.com/resokol/castlink/tree/78327495ead06f3d74902cf0c60a7973a0828f2e)。[源代码发行版](https://github.com/resokol/castlink/releases/tag/source-v1.0.2-78327495ead0) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.2-78327495ead0/SHA256SUMS)。

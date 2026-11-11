@@ -2,19 +2,18 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](../en/SERVER_INSTALL.md) · [简体中文](SERVER_INSTALL.md)
 
-以下新安装器必须随**经过验证的新版本**提供，旧版公开压缩包不包含它们。
-本次开发不会发布版本，也不会升级现有服务器。公开发布前必须在真实 Windows/WSL 上验证。
+Linux 加载脚本、24 小时服务器图表历史与事件日志包含在 **1.0.2** 中。[软件包及校验和](PRODUCTS.md) · [发行说明](RELEASE_NOTES_1_0_2.md)。普通 Windows 本地 Server Setup 1.0.2 使用 Docker Desktop；下方无 Docker 的 Windows/WSL2 仍为独立候选版，尚未完成安装及外部媒体通话验证。
 
 ## Ubuntu Linux
 
 支持 Ubuntu22.04/24.04 amd64。Linux 版本提供独立 `install-server.sh`，固定版本及
-压缩包 SHA256。发布后使用所选新 Linux 版本的准确下载地址，不使用全局 `releases/latest`：
+压缩包 SHA256。使用以下 1.0.2 的准确下载地址，不使用全局 `releases/latest`：
 
 ```bash
-curl -fsSL "$INSTALLER_URL" | sudo bash -s -- --install-runtime
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-`INSTALLER_URL` 为该版本安装脚本的 HTTPS 地址。安装器询问服务器地址及创建房间密码，
+**linux-v1.0.2-78327495ead0** 安装器询问服务器地址及创建房间密码，
 将软件包和配置保存在 `/opt/castlink-server`，载入附带镜像并运行现有 Linux 安装流程。
 `--install-runtime` 允许安装依赖及启动 Docker；不加此参数则需要可用的 Docker/Compose。
 DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模式](LINUX_MANUAL.md)。
@@ -24,7 +23,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 自定义目录须每次使用相同的绝对 `--state-dir`。无人值守安装支持 `--config` 和
 `--room-creation-password-file`（UTF-8，末尾不换行）。
 
-## Windows 无 Docker 安装
+## 无 Docker 的 Windows/WSL2 候选版 — 尚未验证
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。

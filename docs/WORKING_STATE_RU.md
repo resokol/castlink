@@ -1,37 +1,40 @@
 # Текущее состояние — сервер и суточный мониторинг, 11.11.2026
 
-## Публикация — текущий этап
+## Серверный выпуск 1.0.2
 
-Пользователь разрешил публикацию. Фактический активный репозиторий теперь
-`resokol/castlink`, публичные исходники MIT и выпуски в одном канале; прежний
-`resokol/studiolink` перенаправляет в архив `castlink-private-archive-20261026`.
-Старую ветку/коммиты не меняли. Новая рабочая копия `/workspace/castlink-publish`,
-временная ветка `feat/server-install-monitoring`, основа actual public main
-`8426400d390f7daca0cd72c5164ae0814861b296`. Сохранены текущие recovery/UI/документы.
-Новый bootstrap/WSL packager используют канонический `resokol/castlink`.
-Подготовлена версия серверных направлений 1.0.2; Client остаётся 1.0.0.
-Windows WSL — отдельный 1.0.2-rc.1 кандидат, без утверждения о проверке Windows.
-Пакеты 1.0.1 в каталоге остаются прежними до проверки и публикации новых assets.
+Основной публичный репозиторий — `resokol/castlink`. PR #18 с установщиками и
+суточным мониторингом слит после успешного полного GitHub CI. Исходный коммит
+серверных пакетов и архива исходников: `78327495ead06f3d74902cf0c60a7973a0828f2e`.
+Windows Client остаётся 1.0.0. Ссылки и точные build/source IDs — в
+[каталоге продуктов](../distribution/PRODUCTS.md).
 
-Предыдущий CI-отказ output-source-quality был на архивной основе; текущий main
-уже исправил этот тест. Итоговый `pnpm test:ci` прошёл: 361 stable CI test. `pnpm typecheck` (web и CLI),
-production Next build, 25 packaging tests и 17 bootstrap tests прошли;
-проверки Linux owner-access/recovery и runtime также прошли. Независимый Sol high
-review переноса не нашёл материальных регрессий. Новый Node22 runtime и
-production Chromium desktop/mobile proof прошли: фильтры, cursor, hidden-tab
-poll pause при продолжающемся серверном сборе; оба настоящих API гостю 403.
-Для локального standalone стенда разрешены только сгенерированные абсолютные
-dependency symlinks; исходники runtime не менялись. Полноценные distribution
-archives после переноса ещё не строились.
-Windows ПК сейчас offline; реальный WSL lifecycle/media не выполнен. Коннектор
-GitHub поддерживает PR/refs, но не dispatch/release; CLI API пока Forbidden из-за
-сетевой политики окружения. Первый push остановила автоматическая проверка,
-после чего пользователь явно подтвердил публикацию новых исходников именно в
-публичный `resokol/castlink`. Ветка опубликована; создан
-[PR #18](https://github.com/resokol/castlink/pull/18) в `main`.
-Проверки GitHub и слияние отслеживаются в PR; готовые distribution archives
-после переноса ещё не опубликованы. Остались пакеты через действующий ручной
-release workflow с SHA256 и соответствующими sources; WSL требует Windows proof.
+Linux и обычный Windows Server Setup 1.0.2 собраны штатным producer на Windows11
+через Docker Desktop из отдельного чистого checkout. Проверены настоящие
+PostgreSQL/HTTP/TURN smoke, Windows Framework/WPF launcher и recovery fixtures.
+Аудит всех слоёв: 5 образов, 37 слоёв, 20570 файлов, приватных файлов и исходников
+приложения в распространяемых слоях не обнаружено. Linux bootstrap проверен
+как сгенерированный release asset через настоящий `bash` pipeline.
+
+Сторонние source inputs восстановлены из прежнего опубликованного source asset:
+1004 основных и 348 дополнительных файлов повторно сверены с неизменёнными
+текущими manifests и индивидуальными SHA256. Старые внешние URL могут возвращать
+404; проверки состава, версий и bytes не ослаблялись. Каждое направление имеет
+свои 7 assets и SHA256SUMS. ZIP/TAR собственных исходников содержат одинаковые
+1961 Git blob; manifest фиксирует commit/tree, версии и контрольные суммы.
+Publisher сначала загружает draft, сверяет GitHub asset size/digest с локальными
+файлами и только затем открывает release. Ссылки в main обновляются после этой
+проверки. Публикация пакета сама не обновляет установленный сервер.
+
+Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
+Windows без Docker/WSL2 остаётся отдельным кандидатом: rootfs собрался, но этап
+получения соответствующих Ubuntu sources остановился на `apt=2.8.3`, которого
+нет в текущих source indexes. Полный WSL-пакет не опубликован; установки на
+Windows, mirrored networking, firewall, CA и внешний HTTPS/TURN ещё не проверены.
+Нужен исправленный воспроизводимый source build и настоящее Windows испытание.
+
+Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.
+Подробные проверки суточной истории:
+[OBSERVABILITY_24H_20261111_RU.md](testing/OBSERVABILITY_24H_20261111_RU.md).
 
 ## Задача и принятые решения — исходный локальный этап
 

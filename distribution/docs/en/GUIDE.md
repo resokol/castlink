@@ -2,7 +2,9 @@
 
 # CastLink: installation and operation
 
-The current Windows Server Setup and standalone Linux packages are **1.0.1**; Windows Client is **1.0.0**. [Changelog](../../../CHANGELOG.md) · [Connection recovery](#server-pair-recovery).
+The current Windows Server Setup and standalone Linux packages are **1.0.2**; Windows Client is **1.0.0**. [Changelog](../../../CHANGELOG.md) · [Connection recovery](#server-pair-recovery).
+
+Version 1.0.2 adds [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The local Windows Server Setup still uses Docker Desktop; Docker-free Windows/WSL2 is a separate unverified candidate.
 
 Choose the [package and checksums for your track](PRODUCTS.md). Windows Client joins an existing server; Windows Server Setup and Linux install a server. Ordinary participants need a supported browser and HTTPS.
 
@@ -42,7 +44,7 @@ PDF/PPTX and slide navigation are documented [separately](PRESENTATIONS.md): the
 
 ## Setup mode and server address
 
-In 1.0.1, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
+In 1.0.2, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
 
 When updating, select the existing installation: saved modes, addresses, ports, UUID and secrets are retained. A completed installation's network layout is not changed automatically. Backup servers can be added after quick setup.
 
@@ -111,8 +113,8 @@ Choose a PDF or PPTX of up to **1,500,000,000 bytes** each, wait for its preview
 | Package | Purpose |
 | --- | --- |
 | [CastLink-Client-1.0.0-93d9b93e17da-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) | Windows app for studio and casters; connects to an existing server without Docker |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/SHA256SUMS) | The graphical `EasySetup.exe` wizard and the console version, `EasySetup-Console.cmd`; local or VPS installation |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/SHA256SUMS) | Standalone server package for Linux Ubuntu without the Windows wizard. For SSH deployment, the Windows wizard uses the Linux dependency from its own Server Setup release. |
 
 [All releases and their notes](https://github.com/resokol/castlink/releases). Get files and checksums from the same release. The wizard verifies downloaded packages automatically. To verify the Windows ZIP manually, run this in PowerShell:
 

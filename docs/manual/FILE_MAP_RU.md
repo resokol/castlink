@@ -15180,7 +15180,7 @@ CastLink 1.0.0
 
 [`distribution/RELEASE_NOTES_1_0_2.md`](../../distribution/RELEASE_NOTES_1_0_2.md)
 
-CastLink Server 1.0.2 — подготовка выпуска
+CastLink Server 1.0.2
 
 ### distribution/RELEASE_NOTES_RC9.md
 
@@ -15252,7 +15252,7 @@ CastLink 1.0.0
 
 [`distribution/docs/en/RELEASE_NOTES_1_0_2.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_2.md)
 
-CastLink Server 1.0.2 — release preparation
+CastLink Server 1.0.2
 
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
@@ -15324,7 +15324,7 @@ CastLink 1.0.0
 
 [`distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md)
 
-CastLink Server 1.0.2 — 发行准备
+CastLink Server 1.0.2
 
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 
