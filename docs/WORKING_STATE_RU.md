@@ -31,7 +31,7 @@ Windows без Docker/WSL2: полный кандидат1.0.2-rc.4 собран
 из тех же APT indexes; реальная offline проверка всех190 source версий дала
 RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
 SHA256 восьми файлов и запуск Windows installer -Help проверены. CI58 прошёл для
-первого closure-fix `0ce26451`; CI63 для `61ce65a2` выполняется.
+первого closure-fix `0ce26451`; CI63 для `61ce65a2` также прошёл.
 Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
 --version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
 и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
@@ -59,8 +59,16 @@ source версий совпал с проверенными архивами. P
 не предполагаемый config path. Existing named firewall rules приняты actual helper
 в NonInteractive без нового prompt. Сборщик закрыт после проверки нуля контейнеров;
 последующий network probe по-прежнему видит только lo. QA-дистрибутив остановлен.
-Следующий шаг: Windows reboot с локальным участием пользователя, затем проверка
-сети и fresh rc.4 Install. Не запускать перезагрузку молча. Старые QA state/VHD
+После пользовательской полной перезагрузки сеть осталась только lo. Найден
+конкретный unsupported host setting: DisabledComponents=0xFFFFFFFF глобально
+отключает IPv6. Microsoft связывает такое отключение со сбоем WSL; WSL3.0.1
+ошибочно сравнивает значение строго с0xFF, поэтому0xFFFFFFFF обходит fallback.
+Предложен единственный DWORD0x20 (prefer IPv4, IPv6 разрешён). Preview сохранён
+с JSON/.reg backup, readback по-прежнему0xFFFFFFFF; Apply не запускался. Требуется
+отдельное согласие пользователя из-за общей сети Windows и возможного IPv6 вне
+IPv4-only VPN, затем Windows restart и контроль NIC/DNS. Existing bindings/VPN
+не менялись. Не считать причинность доказанной до контрольного запуска.
+Пакет61ce65a2 остаётся проверенным и не требует пересборки. Старые QA state/VHD
 сохранены, rc.4 ещё не импортирован. Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).

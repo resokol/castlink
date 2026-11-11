@@ -83,3 +83,12 @@ PAM common-session, user bus socket and loginctl active; existing firewall helpe
 accepts configured rules noninteractively. Builder closed, QA stopped, post-builder
 network still onlylo/noresolver. Prepared artifact is concrete; pending local Windows
 reboot is the next target gate. No public release, no silent host reboot.
+
+After user's full Windows reboot: same noNIC/noresolver. Read-only host inspection
+finds DisabledComponents=0xFFFFFFFF, all observed IPv6 bindings enabled, WSL3.0.1
+and required Windows services running. Microsoft documents registry-disabled IPv6
+as incompatible; version3.0.1 fallback wrongly tests ==0xFF. Prepared one-DWORD
+0x20 proposal with original JSON/.reg backup, Preview-only and unchanged readback.
+Separate explicit approval pending because IPv6 is reenabled and may bypass an
+IPv4-only VPN. Do not apply before response. CI63 for artifact61ce65a2 is success;
+no rebuild needed. Controlled post-change Windows restart/retest remains required.

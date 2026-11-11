@@ -4,6 +4,36 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## После полной Windows перезагрузки: IPv6 configuration conflict
+
+Пользователь выполнил restart; новая LastBootUpTime подтверждена. Guest и system
+дистрибутив снова видят только lo, отсутствуют обычные NIC/routes и resolver target.
+Службы WslService/hns/iphlpsvc/nsi/Dnscache/MpsSvc работают; service/CLI имеют
+версию3.0.1.0. Read-only inspection нашёл DWORD DisabledComponents=0xFFFFFFFF
+в HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters. При этом найденные
+IPv6 adapter bindings имеют Enabled=true — registry toggle и bindings независимы.
+
+Microsoft [указывает](https://learn.microsoft.com/en-us/windows/wsl/troubleshooting#wsl-has-no-network-connection-when-disabling-ipv6):
+“If IPv6 is disabled using ... DisabledComponents, WSL network connectivity can fail.”
+В [WSL3.0.1](https://github.com/microsoft/WSL/blob/3.0.1/src/windows/service/exe/WslCoreVm.cpp#L2993)
+mirrored networking не поддерживает такое отключение, но fallback проверяет строго
+0xFF. Значение0xFFFFFFFF пропускает этот guard, что согласуется с отсутствием
+предупреждения и сохранённым mode=mirrored. Это сильный подтверждённый конфликт
+конфигурации, но связь именно с noNIC ещё требует controlled change/retest.
+
+[Windows guidance](https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/configure-ipv6-in-windows)
+рекомендует предпочитать IPv4 вместо отключения IPv6: DWORD32/0x20;0 возвращает
+default IPv6 preference, а0xFFFFFFFF указан как неверное disable value. Изменение
+требует полной перезагрузки Windows.0x20 разрешает IPv6; IPv4-only VPN может не
+покрывать этот трафик. Поэтому root запросил отдельное согласие, не меняет VPN
+или adapter bindings автоматически и не трактует ожидание как approval.
+
+Подготовлен узкий script с Preview/Apply/Restore, строго один64-bit-view DWORD,
+проверка исходного kind/value и current32 перед rollback. Preview выполнен обычным
+пользователем: сохранены исходные JSON/.reg, registryChanged=false; independent
+readback остаётся4294967295. Apply не запускался; Windows restart не назначался.
+Пакет61ce65a2 не менялся, его полный GitHub CI63 теперь success.
+
 ## Проверенный пакет 1.0.2-rc.4
 
 Окончательный clean source `61ce65a2b99d1f557bf254997063b81ad5125f9e`, manifest tag
