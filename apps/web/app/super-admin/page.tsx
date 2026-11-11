@@ -4,6 +4,7 @@ import { useI18n } from "@/components/I18nProvider";
 
 import { StatisticsDashboard } from "../../components/StatisticsDashboard";
 import { PlatformParticipantActions } from "../../components/PlatformParticipantActions";
+import { ServerRecoveryConnections } from "../../components/ServerRecoveryConnections";
 import type { StreamStat } from "../../lib/telemetry-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -223,6 +224,8 @@ export default function SuperAdminPage() {
     {inviteUrl && <section className="panel super-admin-invite"><strong>{t("Одноразовая ссылка Super Admin · срок 15 минут")}</strong><input readOnly value={inviteUrl} onFocus={event => event.target.select()} /></section>}
     {message && <p className="panel" role="status">{notice(message)}</p>}
     {error && <p className="panel av-error" role="alert">{notice(error)}</p>}
+
+    <ServerRecoveryConnections />
 
     <section className="super-admin-summary">
       <div className="panel"><span>{t("Ноды")}</span><strong>{summary?.nodes ?? "—"}</strong><small>{summary ? t("{count} исправных", {count: summary.healthyNodes}) : "—"}</small></div>

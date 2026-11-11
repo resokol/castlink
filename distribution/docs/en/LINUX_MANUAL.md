@@ -202,6 +202,23 @@ python3 scripts/linux-compose-setup.py creation-password --state-dir "$CASTLINK_
 The command asks for and confirms the room creation password with hidden input. It initializes only a missing password on a running standalone Linux installation; it does not replace an already configured password. Rooms, data, and networking are preserved, and services do not need restarting. After success refresh the room creation page. The same `--room-creation-password-file` option supports unattended use. Editing only `web.env` is insufficient: the helper regenerates it on the next run. Updates do not change an existing configured password.
 
 
+<a id="server-pair-recovery"></a>
+## Restore a connection on a new Linux server
+
+Both servers require **version 1.0.1 or later**, and the helper must list `recover` in `--help`. Version 1.0.0 packages do not include this feature. First install and start the new server with the replaced server’s existing external HTTPS origin; its LAN IP and port forwarding may change. No files from the old PC are needed.
+
+Get a ten-minute code on the surviving primary server: **Room servers → old connection → Restore connection**. Installation-wide connections require Super Admin or a trusted operator; a room creator can recover only their own room’s connections. [Full steps and Windows](GUIDE.md#server-pair-recovery).
+
+From the updated package folder, run the command below. `CASTLINK_STATE` must contain **the exact absolute state directory of the installation already running on the new server**. Do not point it at a new empty folder. Paste the code at the hidden terminal prompt:
+
+```bash
+python3 scripts/linux-compose-setup.py recover --state-dir "$CASTLINK_STATE" --lang en
+```
+
+For file input, add `--recovery-code-file /path/to/recovery-code.txt`: use a private UTF-8 file owned by the current user and accessible only to that user (`chmod 600`). The code itself is not a command-line argument.
+
+If an attempt fails, retry the same code with the same `--state-dir` to resume the same connection; get a new code after ten minutes. End any active reserve or transfer, or wait for it to expire, before retrying. Prepare a fresh reserve after recovery. Services do not restart; lost rooms and media from the old PC are not restored.
+
 ## Diagnose and update
 
 In a new SSH session, set `CASTLINK_STATE=/opt/castlink-manual` again and enter the appropriate extracted release folder. Inspect only this installation first:

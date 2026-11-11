@@ -1,5 +1,12 @@
 ﻿# Shared GUI-only catalog; importing this file does not read or write preferences.
 $script:SimpleGuiTranslations=@{
+  'Восстановить связь с сервером'=@{en='Recover server connection';'zh-CN'='恢复服务器连接'}
+  'Получите код на работающем сервере и вставьте его здесь. Код действует 10 минут; файлы прежнего компьютера не нужны.'=@{en='Get a code from the surviving server and paste it here. It lasts 10 minutes; no files from the old computer are needed.';'zh-CN'='从仍在运行的服务器获取恢复码并粘贴到此处。恢复码有效期为 10 分钟；无需旧电脑上的文件。'}
+  'Код восстановления'=@{en='Recovery code';'zh-CN'='恢复码'}
+  'Восстановить связь'=@{en='Restore connection';'zh-CN'='恢复连接'}
+  'Восстанавливаю связь…'=@{en='Restoring connection…';'zh-CN'='正在恢复连接…'}
+  'Связь восстановлена. Службы не перезапускались.'=@{en='Connection restored. Services were not restarted.';'zh-CN'='连接已恢复，服务未重启。'}
+  'Связь не восстановлена. Проверь доступность серверов и повтори тот же код до истечения срока или получи новый код.'=@{en='Connection was not restored. Check both servers and retry the same code before it expires, or get a new code.';'zh-CN'='连接未恢复。请检查两台服务器，并在恢复码过期前使用同一码重试，或获取新码。'}
   'Задайте пароль создания комнат (8–256 символов; только для студии)'=@{en='Set the room creation password (8–256 characters; studio only)';'zh-CN'='设置创建房间密码（8–256 个字符；仅供演播室使用）'}
   'Повторите пароль создания комнат'=@{en='Repeat the room creation password';'zh-CN'='再次输入创建房间密码'}
   'Пароль создания комнат: от 8 до 256 символов, без переводов строк и пустого значения.'=@{en='Room creation password: 8 to 256 characters, with no line breaks or blank value.';'zh-CN'='创建房间密码：8 至 256 个字符，不可包含换行或仅为空白。'}

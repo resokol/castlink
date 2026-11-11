@@ -2,6 +2,7 @@ require('./i18n-fixture.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject};}
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
+function RecoveryCode(){return null;}
 function fixture({profiles=[]}={}){
  const hooks=[],effects=[],intervals=new Map(),deadlines=[],polls=[];let cursor=0,tree,onChange=()=>{},timerId=0,startPending,generatePending,fingerprintPending,removePending,room='Room';const submissions=[],downloads=[],requests=[];
  const react={
@@ -28,7 +29,7 @@ function fixture({profiles=[]}={}){
  };
  const compiled=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../components/ServerConnections.tsx'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  const module={exports:{}};
- vm.runInNewContext(compiled,{module,exports:module.exports,require:name=>name==='react'?react:name==='react/jsx-runtime'?{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'}:require(name),fetch:request,URL:{createObjectURL:()=> 'blob:fixture-key',revokeObjectURL:()=>{}},Blob,document:{createElement:()=>({click(){downloads.push(this.download);}})},URLSearchParams,AbortSignal:{timeout(ms){const controller=new AbortController();deadlines.push({ms,abort:()=>controller.abort(new DOMException('Timed out','TimeoutError'))});return controller.signal;}},setInterval(callback){const id=++timerId;intervals.set(id,callback);return id;},clearInterval(id){intervals.delete(id);},setTimeout,clearTimeout,Date,Error,DOMException,console});
+ vm.runInNewContext(compiled,{module,exports:module.exports,require:name=>name==='react'?react:name==='react/jsx-runtime'?{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props}),Fragment:'fragment'}:name==='./RecoveryCode'?{RecoveryCode}:require(name),fetch:request,URL:{createObjectURL:()=> 'blob:fixture-key',revokeObjectURL:()=>{}},Blob,document:{createElement:()=>({click(){downloads.push(this.download);}})},URLSearchParams,AbortSignal:{timeout(ms){const controller=new AbortController();deadlines.push({ms,abort:()=>controller.abort(new DOMException('Timed out','TimeoutError'))});return controller.signal;}},setInterval(callback){const id=++timerId;intervals.set(id,callback);return id;},clearInterval(id){intervals.delete(id);},setTimeout,clearTimeout,Date,Error,DOMException,console});
  const render=callback=>{if(callback)onChange=callback;cursor=0;tree=module.exports.ServerConnections({room,studioId:'studio-default',onChange});while(effects.length)effects.shift()();return tree;};
  const nodes=(node=tree,result=[])=>{if(Array.isArray(node)){for(const value of node)if(value!==undefined)nodes(value,result);}else if(node&&typeof node==='object'){result.push(node);if(node.props?.children!==undefined)nodes(node.props.children,result);}return result;};
  const text=node=>Array.isArray(node)?node.map(text).join(''):node&&typeof node==='object'?text(node.props?.children):String(node??'');
@@ -38,6 +39,10 @@ function fixture({profiles=[]}={}){
  async function begin(){await prepare();button('Подключить сервер').props.onClick();await flush();render();}
  return {render,begin,prepare,input,button,nodes,submissions,requests,downloads,select(label){return nodes(nodes().find(node=>node.type==='label'&&text(node).startsWith(label))).find(node=>node.type==='select');},setRoom(value){room=value;},setRemovePending(value){removePending=value;},setGeneratePending(value){generatePending=value;},setFingerprintPending(value){fingerprintPending=value;},polls,deadlines,intervals,text:()=>text(tree),setStartPending(value){startPending=value;},dispose(){for(const hook of hooks)hook?.cleanup?.();}};
 }
+test('room recovery controls retain exact room scope while installation peers keep the owner note',async()=>{
+ const f=fixture({profiles:[{id:'room-peer',label:'Room server',origin:'https://room.example',scope:'room'},{id:'global-peer',label:'Global server',origin:'https://global.example',scope:'installation'}]});
+ try{f.render();await flush();f.render();const issuers=f.nodes().filter(node=>node.type===RecoveryCode);assert.equal(issuers.length,1);assert.equal(issuers[0].props.peerId,'room-peer');assert.equal(issuers[0].props.room,'Room');assert.equal(issuers[0].props.studioId,'studio-default');assert.match(f.text(),/Общее подключение установки. Изменяет владелец сервера./);assert.ok(f.button('Удалить подключение'));assert.ok(f.button('Обновить список подключений'));}finally{f.dispose();}
+});
 test('running SSH job keeps its polling lifecycle through studio rerenders and uses the latest completion callback',async()=>{
  const f=fixture();let completed=0;
  try{

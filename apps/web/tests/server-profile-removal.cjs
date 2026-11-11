@@ -1,6 +1,24 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),ts=require('typescript');
 const {randomUUID}=require('node:crypto');
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+test('recovery holds all-room reserve and transfer guards through replacement of a shared peer',async()=>{
+ const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'castlink-recovery-guard-'));process.env.STUDIOLINK_DATA_DIR=dir;process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();
+ const roomId=randomUUID(),otherRoom=randomUUID(),peer={id:randomUUID(),installationId:randomUUID(),label:'Shared',origin:'https://reserve.example',secret:'a'.repeat(64),scope:{kind:'installation'}};
+ const reserve=require('../lib/server-reserve.ts'),transfer=require('../lib/server-transfer.ts'),guard=require('../lib/server-profile-removal.ts');let writes=0;
+ try{
+  assert.equal(typeof guard.withUnusedServerPeer,'function');
+  const replace=()=>guard.withUnusedServerPeer(peer,async()=>{writes++;return 'replaced';});
+  await reserve.reserveTransaction(s=>{s.sources.other={peerId:peer.id,roomId:otherRoom,status:'armed',readyUntil:Date.now()+300000,grants:{}};});
+  await assert.rejects(replace,/Сначала сними/);assert.equal(writes,0);
+  await reserve.reserveTransaction(s=>{s.sources.other.status='disarmed';s.cohorts.incoming={peerId:peer.id,roomId,status:'activating',readyUntil:Date.now()-1};});
+  await assert.rejects(replace,/Сначала сними/);assert.equal(writes,0);
+  await reserve.reserveTransaction(s=>{s.cohorts.incoming.status='disarmed';});
+  await transfer.updateTransferState(s=>{s.active.other={targetId:peer.id,roomId:otherRoom,exp:Date.now()+300000};});
+  await assert.rejects(replace,/Сначала сними/);assert.equal(writes,0);
+  await transfer.updateTransferState(s=>{s.active.other.exp=Date.now()-1;});
+  assert.equal(await replace(),'replaced');assert.equal(writes,1);
+ }finally{await fsp.rm(dir,{recursive:true,force:true});}
+});
 test('prepared source, target cohort and active transfer block deletion; disarmed state permits atomic removal',async()=>{
  const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'castlink-remove-'));process.env.STUDIOLINK_DATA_DIR=dir;process.env.STUDIOLINK_INSTALLATION_ID=randomUUID();
  const roomId=randomUUID(),peer={id:randomUUID(),installationId:randomUUID(),label:'Reserve',origin:'https://reserve.example',secret:'a'.repeat(64),scope:{kind:'room',roomId}};
