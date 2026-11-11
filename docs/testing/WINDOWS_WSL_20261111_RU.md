@@ -69,9 +69,21 @@ firewall — штатного administrator consent. CA current-user и logon ta
 После успешной проверки пакета открыта отдельная консоль настоящего Windows
 PowerShell с generated installer, PackageDirectory и новым QA-каталогом внутри
 LocalAppData. Docker Desktop сборщика штатно остановлен, работающих контейнеров
-перед этим нет. На первом наблюдении state phase=created, .wslconfig отсутствует:
-установщик ожидает локального согласия на mirrored networking. Настройки и скрытый
-ввод пароля подтверждает пользователь в этом окне; автоматического ответа нет.
+перед этим нет. Первый Install завершился exit1 до mirrored networking/import:
+WSL3.0.1.0 ошибочно сочтён устаревшим. phase=created не доказывает ожидание prompt;
+необходимо проверять receipt дочернего процесса. Сообщение прочитано только из
+собственной консоли, до ввода пароля. .wslconfig, firewall и CA не менялись.
+
+Actual WinPS5.1 native probe: WSL --version exit0, containsNul=true,
+rawRegexVersion пусто, после удаления NUL —3.0.1.0. Однострочная нормализация
+перед прежней regex сохраняет minimum2.4.13. Новая behavioral fixture сначала
+воспроизвела отказ на старом шаблоне, затем весь Windows suite прошёл на исправленном.
+Проверены обычный/NUL current, NUL minimum, старый2.4.12 и malformed отказ.
+Настоящий Initialize-CastlinkWsl с actual wsl.exe после исправления проходит без
+изменения сети. Node package suites7 PASS; независимое Sol high review без замечаний.
+Требуется новый pinned пакет из чистого исправленного коммита (rc.3); источники
+Ubuntu/upstream можно повторно использовать только через штатный audit точного
+нового inventory, DSC и payload SHA256. rc.2 больше не использовать для Install.
 
 Следующие обязательные результаты: import/первый Install, HTTPS/DB/PPTX и owner
 доступ; история/события; сохранность после stop/start; keepalive90 секунд после

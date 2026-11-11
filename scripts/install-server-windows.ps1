@@ -380,7 +380,7 @@ function Initialize-CastlinkWsl {
         if ($process.ExitCode -notin @(0,3010)) { throw "WSL prerequisite installation failed (exit $($process.ExitCode)). Enable CPU virtualization in firmware if needed." }
         throw 'WSL prerequisites were requested. Restart Windows, then rerun this same command. The installer never restarts Windows automatically.'
     }
-    $versionText = @(Invoke-CastlinkWsl @('--version')) -join ' '
+    $versionText = (@(Invoke-CastlinkWsl @('--version')) -join ' ') -replace '\x00', ''
     $versionMatch = [regex]::Match($versionText,'\d+\.\d+\.\d+(?:\.\d+)?')
     if (-not $versionMatch.Success -or [version]$versionMatch.Value -lt [version]'2.4.13') { throw 'Update WSL first: wsl --update. WSL 2.4.13 or newer is required for mirrored networking and its firewall.' }
 }

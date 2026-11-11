@@ -31,9 +31,12 @@ Windows без Docker/WSL2: полный кандидат1.0.2-rc.2 собран
 из тех же APT indexes; реальная offline проверка всех190 source версий дала
 RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
 SHA256 восьми файлов и запуск Windows installer -Help проверены; CI58 прошёл.
-На ПК открыта отдельная консоль установки в новый QA-каталог; phase=created,
-ожидается локальное согласие на mirrored networking и скрытый ввод пароля.
-Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
+Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
+--version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
+и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
+Нужен новый pinned rc.3 из чистого коммита. phase=created само по себе не означает
+ожидание prompt — проверять receipt дочернего процесса. Настройки WSL/firewall/CA
+не менялись. Docker Desktop сборщика закрыт после проверки отсутствия контейнеров.
 Полный Windows Install, firewall/CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).

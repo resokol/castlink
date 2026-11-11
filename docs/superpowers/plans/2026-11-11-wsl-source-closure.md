@@ -42,5 +42,11 @@ audit and all eight SHA256 checks pass; actual generated Windows installer -Help
 passes. GitHub CI58 is green. Exact sizes/hashes are recorded in
 docs/testing/WINDOWS_WSL_20261111_RU.md. No public WSL release exists.
 Step 3: opened real Windows PowerShell installer console; own build Docker Desktop
-stopped with no running containers. phase=created, awaiting local consent/hidden
-password. No global WSL shutdown or automatic consent was used.
+stopped with no running containers. First actual Install exited 1 before networking
+or import: native WSL UTF-16 output has NULs and hid version3.0.1.0 from the regex.
+phase=created did not imply an active prompt; verify the child receipt as well.
+One-line NUL normalization preserves version requirements; actual Windows fixtures
+RED→GREEN, genuine Initialize passes, 7 Node tests pass and Sol high review is clean.
+Rebuild rc.3 with exact source metadata; reuse existing corresponding archives only
+through official inventory/DSC/payload audit. No global WSL shutdown or automatic
+consent was used. WSL settings/firewall/CA have not been changed.

@@ -73,6 +73,28 @@ try {
   Assert ($again.installationId -eq $state.installationId) 'Rerun replaced identity'
   Assert-Throws { Get-CastlinkInstallation $root 'server-wsl-v1.1.0' 'resokol/castlink-releases' ('a'*64) } 'different|release'
   $script:WslExe = 'C:\Windows\System32\wsl.exe'
+  $actualWslExecutable = $script:WslExe
+  function Test-CastlinkWslNative {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq '--version') { return $script:TestWslVersion }
+  }
+  try {
+    $script:WslExe = 'Test-CastlinkWslNative'
+    $script:TestWslVersion = 'WSL version: 3.0.1.0'
+    Initialize-CastlinkWsl
+    # Actual Windows PowerShell 5.1 decodes WSL's UTF-16 output with embedded NULs.
+    $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes('WSL version: 3.0.1.0'))
+    Initialize-CastlinkWsl
+    $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes('WSL version: 2.4.13'))
+    Initialize-CastlinkWsl
+    foreach ($unsupported in @('WSL version: 2.4.12', 'no version available')) {
+      $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes($unsupported))
+      Assert-Throws { Initialize-CastlinkWsl } 'Update WSL'
+    }
+  } finally {
+    $script:WslExe = $actualWslExecutable
+    Remove-Item Function:Test-CastlinkWslNative
+  }
   $originalKeepaliveHandle = (Get-Command Get-CastlinkKeepaliveHandle).ScriptBlock
   $originalKeepaliveEvidence = (Get-Command Get-CastlinkProcessEvidence).ScriptBlock
   $script:FakeProcess = [pscustomobject]@{Id=321;StartTime=[DateTime]'2026-11-11T12:00:00Z';HasExited=$false;Handle=42;Killed=$false}
