@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.0</strong></p>
+<p align="center"><strong>CastLink 1.0.1</strong></p>
 <p align="center"><strong>Remote guests. Separate sources. Your broadcast.</strong></p>
 <p align="center">Join in a browser · OBS and vMix · Self-hosted</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -27,6 +27,8 @@
 CastLink is a self-hosted studio for bringing remote guests, presentations, and separate audio/video feeds into OBS or vMix. Hosts and guests can use a browser; a dedicated Windows client is also available. This repository contains the application source, build tools, releases, and developer documentation.
 
 ## Download and install
+
+Windows Server Setup and Linux are **1.0.1**; Windows Client is **1.0.0**.
 
 Choose a package from the [product catalog](distribution/docs/en/PRODUCTS.md) or [releases](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup, and standalone Linux have independent release tracks. Download each package and its `SHA256SUMS` from the same product release.
 

@@ -2,7 +2,7 @@
 
 # CastLink: установка и работа
 
-Текущий стабильный выпуск — **1.0.0** для Windows Client, Windows Server Setup и standalone Linux. [Изменения и обновление](RELEASE_NOTES_1_0_0.md).
+Текущие серверные пакеты Windows Server Setup и standalone Linux — **1.0.1**; Windows Client — **1.0.0**. [История изменений](../CHANGELOG.md) · [Восстановление связи](#server-pair-recovery).
 
 Выберите [пакет и суммы своего направления](PRODUCTS.md). Windows Client подключается к существующему серверу; Windows Server Setup и Linux устанавливают сервер. Для обычного входа участнику достаточно поддерживаемого браузера и HTTPS.
 
@@ -42,7 +42,7 @@ PDF/PPTX и листание слайдов описаны [отдельно](PR
 
 ## Режим установки и адрес сервера
 
-В 1.0.0 быстрый режим включён по умолчанию. Для технических параметров явно включите **«Расширенная настройка»** в Windows-мастере; в самостоятельном Linux CLI добавьте `--advanced`. Быстрый режим использует обычный HTTPS и стандартные порты. Расширенный позволяет выбрать HTTP, прямой HTTPS или внешний HTTPS-прокси, адреса и порты сайта и медиа. Мастер и Linux CLI поддерживают RU / EN / 简体中文. [Режимы и примеры конфигурации](INSTALL.md).
+В 1.0.1 быстрый режим включён по умолчанию. Для технических параметров явно включите **«Расширенная настройка»** в Windows-мастере; в самостоятельном Linux CLI добавьте `--advanced`. Быстрый режим использует обычный HTTPS и стандартные порты. Расширенный позволяет выбрать HTTP, прямой HTTPS или внешний HTTPS-прокси, адреса и порты сайта и медиа. Мастер и Linux CLI поддерживают RU / EN / 简体中文. [Режимы и примеры конфигурации](INSTALL.md).
 
 При обновлении выбирайте прежнюю установку: сохранённые режим, адреса, порты, UUID и секреты не заменяются значениями нового диалога. Смена сетевой схемы завершённой установки не выполняется автоматически. Резервные серверы можно добавить после быстрого запуска.
 
@@ -111,8 +111,8 @@ PDF/PPTX и листание слайдов описаны [отдельно](PR
 | Пакет | Для чего нужен |
 | --- | --- |
 | [CastLink-Client-1.0.0-93d9b93e17da-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) | Windows-клиент студии и кастера; подключается к существующему серверу, Docker не нужен |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 

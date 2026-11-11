@@ -2,7 +2,7 @@
 
 # CastLink：安装与使用
 
-Windows Client、Windows Server Setup 及独立 Linux 当前的稳定版本均为 **1.0.0**。[更新内容与步骤](RELEASE_NOTES_1_0_0.md)。
+Windows Server Setup 及独立 Linux 当前版本为 **1.0.1**；Windows Client 为 **1.0.0**。[更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
 
 请选择[对应产品的软件包与校验和](PRODUCTS.md)。Windows Client 用于加入现有服务器；Windows Server Setup 与 Linux 用于安装服务器。普通参与者需要受支持的浏览器与 HTTPS。
 
@@ -42,7 +42,7 @@ PDF/PPTX 与幻灯片翻页见[独立说明](PRESENTATIONS.md)，其权限范围
 
 ## 安装模式与服务器地址
 
-1.0.0 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
+1.0.1 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
 
 更新时请选择原有安装：保存的模式、地址、端口、UUID 和密钥不会被新对话框的默认值覆盖。已完成安装的网络结构不会自动更改。快速安装完成后可再添加备用服务器。
 
@@ -111,8 +111,8 @@ Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`
 | 安装包 | 用途 |
 | --- | --- |
 | [CastLink-Client-1.0.0-93d9b93e17da-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) | 演播室与参与者的 Windows 应用；连接现有服务器，无需 Docker |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.0-1ea894bd94ad/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.0-1ea894bd94ad/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.1-eaa94d193230/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.1-eaa94d193230/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 
