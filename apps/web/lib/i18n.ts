@@ -4,13 +4,14 @@ import { managementMessages } from "./i18n/management";
 import { workspacesMessages } from "./i18n/workspaces";
 
 import { entryMessages } from "./i18n/entry";
+import { serverMonitorMessages } from "./i18n/server-monitor";
 
 export const LOCALE_STORAGE_KEY = "castlink-language";
 export type Locale = "ru" | "en" | "zh-CN";
 export type TranslationParams = Record<string, string | number>;
 export type Translator = (source: string, params?: TranslationParams) => string;
 export const messages: Record<string, readonly [string, string, string?]> = {
-  ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages, ...entryMessages,
+  ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages, ...entryMessages, ...serverMonitorMessages,
 };
 export function normalizeLocale(value: unknown): Locale {
   return value === "en" || value === "zh-CN" ? value : "ru";

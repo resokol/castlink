@@ -1,0 +1,32 @@
+[Unit]
+Description=CastLink isolated PPTX converter
+PartOf=castlink-server.target
+
+[Service]
+Type=simple
+User=castlink-converter
+Group=castlink-converter
+RuntimeDirectory=castlink-converter
+RuntimeDirectoryMode=0755
+ExecStart=/usr/bin/python3 /opt/castlink/app/scripts/presentation-converter/server.py
+Environment=HOME=/tmp
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+ReadWritePaths=/run/castlink-converter
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+MemoryMax=2G
+TasksMax=128
+CPUQuota=100%
+UMask=0022

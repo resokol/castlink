@@ -1,0 +1,74 @@
+name: Docker-free WSL server candidate package
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Candidate version (build only; no release publication)
+        required: true
+        default: 1.0.2-rc.1
+permissions:
+  contents: read
+concurrency:
+  group: server-wsl-package
+  cancel-in-progress: false
+jobs:
+  windows-parser:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell parser and behavioral boundaries
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/scripts/install-server-windows.ps1",[ref]$tokens,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List; throw 'PowerShell parser failed' }
+          & scripts/tests/server-windows.test.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # This job proves parser/fixtures, not a supported Windows11 WSL install.
+  package:
+    needs: windows-parser
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned dependencies
+        run: npx --yes pnpm@9.15.0 install --frozen-lockfile
+      - name: Installer and package checks
+        run: |
+          node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs
+          python3 scripts/tests/server-wsl-runtime.test.py
+          python3 scripts/tests/server-wsl-export.test.py
+          python3 scripts/tests/server-bootstrap.test.py
+          python3 scripts/tests/linux-owner-access.test.py
+      - name: Monitoring checks
+        run: |
+          node apps/web/tests/server-monitor.cjs
+          node apps/web/tests/server-monitor-api.cjs
+          node apps/web/tests/server-monitor-collection.cjs
+          node apps/web/tests/server-monitor-ui.cjs
+          node apps/web/tests/server-monitor-aggregation.cjs
+          node apps/web/tests/server-monitor-read-only.cjs
+          node apps/web/tests/server-observability-store.cjs
+          node apps/web/tests/server-observability-worker.cjs
+          node apps/web/tests/server-observability-instrumentation.cjs
+          node apps/web/tests/server-observability-events.cjs
+          node apps/web/tests/server-observability-node-errors.cjs
+          node apps/web/tests/server-event-journal.cjs
+          node apps/web/tests/server-event-journal-ui.cjs
+          node apps/web/tests/server-events-api.cjs
+      - name: Build candidate rootfs and exact corresponding-source package
+        env:
+          CASTLINK_BUILD_VERSION: ${{ inputs.version }}
+        run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: castlink-server-wsl-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/server-wsl/package/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Required release gates
+        run: |
+          echo 'Candidate build only: no public release was created.'
+          echo 'Before release: actual Windows11 WSL install/reboot/start/stop, CA/firewall, external HTTPS and forced TCP443 relay.'

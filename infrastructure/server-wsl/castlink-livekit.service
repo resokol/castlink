@@ -1,0 +1,21 @@
+[Unit]
+Description=CastLink LiveKit SFU and authenticated TURN
+PartOf=castlink-server.target
+Requires=castlink-private-ports.service
+After=castlink-private-ports.service network-online.target
+
+[Service]
+Type=simple
+User=castlink-livekit
+Group=castlink-livekit
+ExecStart=/usr/local/bin/livekit-server --config /etc/castlink-server/livekit.json
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+LimitNOFILE=65536
+UMask=0077

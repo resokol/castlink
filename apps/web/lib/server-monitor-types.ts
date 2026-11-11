@@ -1,0 +1,34 @@
+export type MonitorServiceState = "ok" | "unavailable" | "unconfigured";
+export type MonitorScope = "host" | "wsl" | "container";
+export type ServerMonitorSample = {
+  at: number;
+  from?: number;
+  gapBefore?: boolean;
+  cpuPercent: number | null;
+  memoryUsedBytes: number | null;
+  memoryTotalBytes: number | null;
+  diskUsedBytes: number | null;
+  diskTotalBytes: number | null;
+  diskAvailableBytes: number | null;
+  networkInMbps: number | null;
+  networkOutMbps: number | null;
+  processRssBytes: number;
+  processUptimeSec: number;
+  configuredRooms: number | null;
+  activeRooms: number | null;
+  connections: number | null;
+  casters: number | null;
+  services: { web: MonitorServiceState; livekit: MonitorServiceState; roomStore: MonitorServiceState };
+};
+export type ServerMonitorSnapshot = {
+  generatedAt: number;
+  scope: MonitorScope;
+  intervalMs: number;
+  retentionMs: number;
+  history: ServerMonitorSample[];
+  latest: ServerMonitorSample | null;
+  windowMs: number;
+  resolutionMs: number;
+  aggregation: "raw" | "max";
+  storage: import("./server-event-types").ObservabilityStorage;
+};

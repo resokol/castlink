@@ -21,7 +21,7 @@ import tempfile
 import time
 import uuid
 import warnings
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 STATE = '.castlink-install.json'
@@ -1114,6 +1114,56 @@ def probe_origin(folder, state):
             time.sleep(2)
 
 
+def issue_owner_access(folder, state, destination):
+    """Explicit operator action: create a new protected, single-use platform invite."""
+    destination = Path(destination)
+    origin = state['network']['publicOrigin']
+    expected = urlsplit(origin)
+    if state.get('completed') is not True or expected.scheme != 'https':
+        raise ValueError('Owner access requires a completed installation with an HTTPS origin')
+    if not destination.is_absolute() or not destination.parent.is_dir():
+        raise ValueError('Owner access output must be an absolute file in an existing directory')
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('Owner access output already exists; it was not replaced. Choose a new private file')
+    remote = '/data/.castlink-owner-access-' + uuid.uuid4().hex + '.txt'
+    try:
+        # The existing program preserves platform access_version unless the
+        # explicit --revoke-all option is used. This command never supplies it.
+        compose(folder, state, ['exec', '-T', 'web', 'node', '/app/scripts/super-admin-owner.mjs',
+                               '--origin', origin, '--output', remote], timeout=60)
+        with tempfile.TemporaryDirectory(prefix='.castlink-owner-access-', dir=destination.parent) as temporary:
+            copied = Path(temporary) / 'invitation.txt'
+            compose(folder, state, ['cp', 'web:' + remote, str(copied)], timeout=60)
+            if copied.is_symlink() or not copied.is_file() or copied.stat().st_size > 2048:
+                raise ValueError('Owner access export did not produce a regular bounded file')
+            copied.chmod(0o600)
+            try:
+                text = copied.read_text(encoding='utf-8')
+                link = urlsplit(text[:-1]) if text.endswith('\n') and text.count('\n') == 1 else None
+                fragment = parse_qs(link.fragment, strict_parsing=True) if link else {}
+                port = link.port if link else None
+            except ValueError:
+                raise ValueError('Owner access export has an invalid invitation format') from None
+            access = fragment.get('access', [])
+            if (not link or link.scheme != 'https' or link.hostname != expected.hostname
+                    or (port or 443) != (expected.port or 443) or link.username or link.password
+                    or link.path != '/super-admin' or link.query or set(fragment) != {'access'}
+                    or len(access) != 1 or not re.fullmatch(r'csa2\.[A-Za-z0-9_-]{43}', access[0])):
+                raise ValueError('Owner access export did not match the configured origin and invitation format')
+            descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'w', encoding='utf-8', newline='\n') as output:
+                output.write(text); output.flush(); os.fsync(output.fileno())
+    finally:
+        try:
+            compose(folder, state, ['exec', '-T', 'web', 'node', '-e',
+                "require('node:fs').unlinkSync(process.argv[1])", remote], timeout=30)
+        except ValueError:
+            # Any residual copy stays in the protected application data volume;
+            # its single-use credential still expires after fifteen minutes.
+            pass
+    print('Owner invitation saved to ' + str(destination) + '. Single use, expires in 15 minutes. Do not publish this file.')
+
+
 def complete(folder, state):
     for phase, predecessor in [('migrations', 'new'), ('seed', 'migrations')]:
         if state['databasePhase'] != predecessor: continue
@@ -1210,7 +1260,7 @@ def interactive(lang, mode='quick'):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister', 'creation-password', 'recover'])
+    p.add_argument('command', choices=['init', 'validate', 'render', 'start', 'status', 'check-updates', 'update', 'updates', 'cleanup', 'cleanup-unregister', 'creation-password', 'recover', 'owner-access'])
     p.add_argument('--state-dir', type=Path, default=Path('castlink-install'))
     p.add_argument('--installation-id', help='Required installation identity for unattended cleanup/lifecycle')
     p.add_argument('--package', type=Path, help='Use an already downloaded package; update otherwise downloads the current public Linux release')
@@ -1219,12 +1269,15 @@ def main(argv=None):
     p.add_argument('--advanced', action='store_true', help='Ask for custom networking, ports and certificates during init')
     p.add_argument('--room-creation-password-file', type=Path, help='With fresh init or creation-password: UTF-8 password file with no trailing newline; otherwise hidden confirmed terminal input')
     p.add_argument('--recovery-code-file', type=Path, help='With recover: private UTF-8 file containing the recovery code; otherwise hidden terminal input. Never pass the code as an argument.')
+    p.add_argument('--owner-access-file', type=Path, help='With owner-access: new absolute protected invitation file (default: STATE/owner-access.txt)')
     p.add_argument('--lang', choices=list(LANG), default='ru')
     args = p.parse_args(argv); t = LANG[args.lang]; folder = args.state_dir.resolve(); package = (args.package or Path(__file__).resolve().parents[1]).resolve()
     if args.room_creation_password_file and args.command not in ('init', 'creation-password'):
         p.error('--room-creation-password-file requires init or creation-password')
     if args.recovery_code_file and args.command != 'recover':
         p.error('--recovery-code-file requires recover')
+    if args.owner_access_file and args.command != 'owner-access':
+        p.error('--owner-access-file requires owner-access')
     try:
         if args.command == 'validate':
             validate_config(json.loads(args.config.read_text()) if args.config else load_state(folder)); print(t['ready']); return 0
@@ -1244,6 +1297,10 @@ def main(argv=None):
             state = load_state(folder)
             if args.command == 'recover':
                 recover_connection(folder, state, args.recovery_code_file, args.lang); return 0
+            if args.command == 'owner-access':
+                with installation_lock(folder):
+                    issue_owner_access(folder, load_state(folder), args.owner_access_file or folder / 'owner-access.txt')
+                return 0
             if args.command == 'creation-password':
                 initialize_creation_password(folder, state, args.room_creation_password_file, args.lang); return 0
             if args.command == 'updates':

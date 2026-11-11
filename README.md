@@ -27,6 +27,10 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
+Разрабатываемые установщики: [Linux одной командой, Windows через WSL2 без Docker,
+серверная панель](distribution/SERVER_INSTALL.md). Это отдельный новый выпуск;
+факт разработки не означает публикацию или проверку установки на Windows.
+
 Windows Server Setup и Linux — **1.0.1**; Windows Client — **1.0.0**.
 
 Готовые пакеты и контрольные суммы: [каталог продуктов](distribution/PRODUCTS.md), [выпуски основного репозитория](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup и standalone Linux имеют независимые версии; пакет и `SHA256SUMS` нужно брать из одного выпуска одного продукта.
@@ -47,7 +51,7 @@ Windows Server Setup и Linux — **1.0.1**; Windows Client — **1.0.0**.
 
 ## Разработка
 
-Нужны Git, Node.js 22 и pnpm 9.15.0. Версии зависимостей закреплены в `pnpm-lock.yaml`.
+Нужны Git, Node.js 22.13+ и pnpm 9.15.0. Серверные пакеты используют Node.js 22.23.3 со встроенным SQLite. Версии зависимостей закреплены в `pnpm-lock.yaml`.
 
 ```sh
 git clone https://github.com/resokol/castlink.git

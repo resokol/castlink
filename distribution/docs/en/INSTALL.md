@@ -2,6 +2,9 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
+New development: [one-command Linux, Windows without Docker and server graphs](SERVER_INSTALL.md).
+Availability requires a new verified release; existing packages are unchanged.
+
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 
 Existing archives and their SHA256 values are preserved without rebuilding. Embedded manifests and older update checks may still contain `castlink-releases`; GitHub redirects that address to the same `castlink` repository. For manual installation, choose the exact release in the catalog.

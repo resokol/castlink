@@ -1,0 +1,8 @@
+[Unit]
+Description=CastLink dedicated WSL server
+Requires=castlink-private-ports.service
+Wants=castlink-postgres.service castlink-converter.service castlink-livekit.service castlink-web.service castlink-caddy.service castlink-turn-tls.service
+After=network-online.target castlink-private-ports.service
+
+[Install]
+WantedBy=multi-user.target

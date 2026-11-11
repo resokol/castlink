@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
+import { enqueueServerEvent } from "./server-event-journal";
 
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
@@ -43,6 +44,7 @@ export function serverLog(
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
+  enqueueServerEvent(level, event, fields);
 }
 
 export function requestHeaders(id: string, extra: Record<string, string> = {}) {

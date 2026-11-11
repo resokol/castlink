@@ -4,6 +4,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import releaseTracks from './release-track.cjs';
+import {buildServerBootstrap} from './package-server-bootstrap.mjs';
 async function sha256File(file){const hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);return hash.digest('hex');}
 export const stockReferences = {
  postgres:'docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea',
@@ -59,7 +60,7 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  await fs.copyFile(path.join(path.dirname(image),officeSourceName),path.join(output,officeSourceName));
  const thirdPartySources={asset:sourceName,sha256:await sha256File(path.join(output,sourceName)),supplements:[{asset:officeSourceName,sha256:await sha256File(path.join(output,officeSourceName))}]};
  const documentationFiles={};
- const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md'];
+ const userDocumentation=['THIRD_PARTY_NOTICES','distribution/README.md','distribution/INSTALL.md','distribution/docs/en/INSTALL.md','distribution/docs/zh-CN/INSTALL.md','distribution/SERVER_INSTALL.md','distribution/docs/en/SERVER_INSTALL.md','distribution/docs/zh-CN/SERVER_INSTALL.md','distribution/LINUX_MANUAL.md','distribution/docs/en/LINUX_MANUAL.md','distribution/docs/zh-CN/LINUX_MANUAL.md','distribution/PRODUCTS.md','distribution/docs/en/PRODUCTS.md','distribution/docs/zh-CN/PRODUCTS.md'];
  for(const name of userDocumentation){await fs.mkdir(path.dirname(path.join(stage,name)),{recursive:true});const text=await fs.readFile(path.join(root,name),'utf8');await fs.writeFile(path.join(stage,name),packageDocumentation(name,text,product));}
  await fs.cp(path.join(path.dirname(image),'third_party'),path.join(stage,'third_party'),{recursive:true});
  async function hashDocumentation(directory){for(const entry of await fs.readdir(directory,{withFileTypes:true})){const file=path.join(directory,entry.name);if(entry.isDirectory())await hashDocumentation(file);else if(entry.isFile()){const name=path.relative(stage,file).split(path.sep).join('/');documentationFiles[name]=createHash('sha256').update(await fs.readFile(file)).digest('hex');}else throw Error('Unexpected documentation link');}}
@@ -89,7 +90,8 @@ with zipfile.ZipFile(sys.argv[2], 'w', compression=zipfile.ZIP_STORED) as z:
  }
  await fs.writeFile(path.join(output,'CastLink-Provisioning.json'),JSON.stringify({schemaVersion:1,commit,capabilities})+'\n');
  await fs.writeFile(path.join(output,'manifest.json'),JSON.stringify(product,null,2)+'\n');
- const sums=[];for(const name of [...(track==='server-setup'?['CastLink-Windows.zip']:[]),'CastLink-Linux.tar.gz','CastLink-Provisioning.json',sourceName,officeSourceName,'manifest.json'])sums.push((await sha256File(path.join(output,name)))+'  '+name);
+ const bootstrap=track==='linux'?await buildServerBootstrap({root,output,product}):null;
+ const sums=[];for(const name of [...(track==='server-setup'?['CastLink-Windows.zip']:[]),'CastLink-Linux.tar.gz','CastLink-Provisioning.json',sourceName,officeSourceName,'manifest.json',...(bootstrap?[bootstrap.name]:[])])sums.push((await sha256File(path.join(output,name)))+'  '+name);
  await fs.writeFile(path.join(output,'SHA256SUMS'),sums.join('\n')+'\n'); return release;
 }
 if(import.meta.url===new URL('file://'+process.argv[1]).href){ const [output,image,commit,imageId,idsFile,launcher,track='server-setup']=process.argv.slice(2); await assemble({output:path.resolve(output),image:path.resolve(image),commit,imageId,officialImageIds:JSON.parse(await fs.readFile(idsFile,'utf8')),launcher:launcher||undefined,track}); }

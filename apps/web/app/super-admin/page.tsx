@@ -3,6 +3,7 @@ import type { TranslationParams } from "@/lib/i18n";
 import { useI18n } from "@/components/I18nProvider";
 
 import { StatisticsDashboard } from "../../components/StatisticsDashboard";
+import { ServerMonitor } from "../../components/ServerMonitor";
 import { PlatformParticipantActions } from "../../components/PlatformParticipantActions";
 import { ServerRecoveryConnections } from "../../components/ServerRecoveryConnections";
 import type { StreamStat } from "../../lib/telemetry-types";
@@ -226,6 +227,7 @@ export default function SuperAdminPage() {
     {error && <p className="panel av-error" role="alert">{notice(error)}</p>}
 
     <ServerRecoveryConnections />
+    <ServerMonitor />
 
     <section className="super-admin-summary">
       <div className="panel"><span>{t("Ноды")}</span><strong>{summary?.nodes ?? "—"}</strong><small>{summary ? t("{count} исправных", {count: summary.healthyNodes}) : "—"}</small></div>

@@ -1,0 +1,26 @@
+[Unit]
+Description=CastLink PostgreSQL 16
+PartOf=castlink-server.target
+After=castlink-private-ports.service
+Requires=castlink-private-ports.service
+
+[Service]
+Type=notify
+User=postgres
+Group=postgres
+RuntimeDirectory=castlink-postgres
+RuntimeDirectoryMode=0755
+ExecStartPre=+/usr/local/bin/castlink-server postgres-init
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /var/lib/castlink-server/postgres
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+InaccessiblePaths=-/mnt -/media -/run/WSL
+ReadWritePaths=/var/lib/castlink-server/postgres /run/castlink-postgres
+UMask=0077

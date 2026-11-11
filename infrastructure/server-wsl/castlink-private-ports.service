@@ -1,0 +1,12 @@
+[Unit]
+Description=Restrict CastLink private control listeners to loopback
+PartOf=castlink-server.target
+Before=castlink-livekit.service castlink-web.service castlink-caddy.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/local/bin/castlink-server preflight
+ExecStart=/usr/sbin/nft -f /usr/lib/castlink-server/castlink-private-ports.nft
+# Stop ordering waits for dependent listeners before removing only our table.
+ExecStop=/usr/sbin/nft delete table inet castlink_private
