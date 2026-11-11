@@ -29,11 +29,16 @@ export function audioHistoryCsv(samples: TelemetrySample[]) {
     "Направление", "Источник", "Поток участника", "ID потока", "Битрейт кбит/с", "Потери %", "Потеряно пакетов (счётчик)", "Jitter мс", "RTT мс",
     "RTC timestamp мс", "Интервал мс", "Принято samples (счётчик)", "Concealed samples (счётчик)", "Concealment events (счётчик)",
     "Принято samples за интервал", "Concealed samples за интервал", "Concealment events за интервал", "Concealed %", "Jitter buffer мс за интервал", "Уровень аудио",
-    "Воспроизведение разрешено", "Подписка", "Track state", "Paused", "Muted", "Ready state", "Current time сек", "Ошибка media code", "AudioContext",
-    "Попыток восстановления (счётчик)", "Последнее восстановление UTC", "Причина восстановления"],
+    "Воспроизведение разрешено", "Подписка", "Track state", "Paused", "Muted элемента воспроизведения", "Ready state", "Current time сек", "Ошибка media code", "AudioContext",
+    "Попыток восстановления (счётчик)", "Последнее восстановление UTC", "Причина восстановления",
+    "Publication muted", "SDK track muted", "MediaStreamTrack enabled", "MediaStreamTrack muted", "MediaStreamTrack readyState",
+    "Capture sampleRate Гц", "Capture channelCount", "Capture noiseSuppression", "Capture echoCancellation", "Capture autoGainControl", "Capture voiceIsolation", "Media-source audioLevel",
+    "Silent concealed samples (счётчик)", "Silent concealed samples за интервал", "Inserted samples for deceleration (счётчик)", "Inserted samples for deceleration за интервал",
+    "Removed samples for acceleration (счётчик)", "Removed samples for acceleration за интервал"],
   ...samples.flatMap(sample => {
     const streams = sample.streams.filter(stream => stream.kind === "audio");
     const p = sample.audioPlayback;
+    const bool = (value: boolean | null | undefined) => value == null ? null : Number(value);
     return (streams.length ? streams : [undefined]).map(s => [new Date(sample.at).toISOString(), sample.clientAt ? new Date(sample.clientAt).toISOString() : null,
       sample.name, sample.identity, sample.session, roleNames[sample.role], sample.state, sample.reconnects, s?.direction, s?.source, s?.participant, s?.id,
       s?.bitrateKbps, s?.lossPct, s?.lostPackets, s?.jitterMs, s?.rttMs, s?.audio?.statsAt, s?.audio?.intervalMs,
@@ -41,6 +46,11 @@ export function audioHistoryCsv(samples: TelemetrySample[]) {
       s?.audio?.concealedSamplesDelta, s?.audio?.concealmentEventsDelta, s?.audio?.concealedPct, s?.audio?.jitterBufferDelayMs, s?.audio?.audioLevel,
       p ? Number(p.enabled) : null, p?.subscribed == null ? null : Number(p.subscribed), p?.trackState,
       p?.paused == null ? null : Number(p.paused), p?.muted == null ? null : Number(p.muted), p?.readyState, p?.currentTime,
-      p?.errorCode, p?.contextState, p?.recoveryAttempts, p?.lastRecoveryAt ? new Date(p.lastRecoveryAt).toISOString() : null, p?.lastRecoveryReason]);
+      p?.errorCode, p?.contextState, p?.recoveryAttempts, p?.lastRecoveryAt ? new Date(p.lastRecoveryAt).toISOString() : null, p?.lastRecoveryReason,
+      bool(s?.audioTrack?.publicationMuted), bool(s?.audioTrack?.trackMuted), bool(s?.audioTrack?.mediaTrackEnabled), bool(s?.audioTrack?.mediaTrackMuted), s?.audioTrack?.mediaTrackReadyState,
+      s?.audioTrack?.capture?.sampleRate, s?.audioTrack?.capture?.channelCount, bool(s?.audioTrack?.capture?.noiseSuppression), bool(s?.audioTrack?.capture?.echoCancellation),
+      bool(s?.audioTrack?.capture?.autoGainControl), bool(s?.audioTrack?.capture?.voiceIsolation), s?.audioTrack?.sourceAudioLevel,
+      s?.audio?.silentConcealedSamples, s?.audio?.silentConcealedSamplesDelta, s?.audio?.insertedSamplesForDeceleration, s?.audio?.insertedSamplesForDecelerationDelta,
+      s?.audio?.removedSamplesForAcceleration, s?.audio?.removedSamplesForAccelerationDelta]);
   })]);
 }

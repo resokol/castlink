@@ -19,3 +19,13 @@ New runtime fields contain no media recordings, passwords, tokens, full URLs, de
 A complete renderer/GPU crash or process exit may prevent a final sample. Gaps and preceding measurements narrow the investigation but do not prove a cause. After an incident, export server JSON for that time and the original tab's local log, and record the time and screen appearance.
 
 Timeweb and standalone servers update separately. Other installations need updated Windows/Linux server packages; updating a Client EXE does not update its server. A client opening an updated server receives the new studio web code after reloading.
+
+## Audio diagnostics
+
+Builds with extended audio diagnostics export publication, SDK-track, native MediaStreamTrack and playback-element mute separately. `Muted элемента воспроизведения` replaces the old `Muted` CSV heading; it does not indicate whether the caster muted their microphone. Existing column positions are preserved; new columns are appended.
+
+Outgoing audio records available actual capture sample rate, channel count, NS/AEC/AGC/voice isolation and the linked media-source level. Device names and IDs are not collected. Incoming audio adds cumulative and interval silentConcealedSamples, inserted samples and removed samples for decoder rate correction. These distinguish silent substitution from speech concealment and rate adjustment; they do not by themselves identify the cause of audible distortion.
+
+100% Concealed does not mean 100% network loss: a receiver can keep producing concealed silence while a publication is muted. Compare sender mute, RTP arrival, source level and other receivers. Unsupported values and older records remain blank. Missing track RTP statistics can also mean missing diagnostic fields. New fields require a server update and off-air reload of sender/receiver pages; old history is not backfilled. No automatic microphone restart or unmute is added.
+
+A `partial` file contains only part of the selected period, starting with earlier records; a later incident may be absent. Check the final timestamp and select a shorter live period or one participant/session. For an arbitrary historical interval, an operator can read retained hourly files or the existing authorized API with fixed `to`, `minutes` and sequential `cursor` values.

@@ -19,6 +19,9 @@ let rtcAt=1000, received=1000, calls=[];
 const publication=(kind,sid,getRTCStatsReport)=>({kind,source:kind==='audio'?'microphone':'camera',trackSid:sid,track:{getRTCStatsReport}});
 const hungAudio=publication('audio','hung-audio',()=>{calls.push('hung-audio');return new Promise(()=>{});});
 const healthy=publication('audio','healthy',async()=>{calls.push('healthy-audio');return new Map([['audio',{id:'audio',type:'inbound-rtp',timestamp:rtcAt,bytesReceived:received,packetsReceived:received,packetsLost:0,totalSamplesReceived:received,concealedSamples:0}]]);});
+healthy.isMuted=true;healthy.track.isMuted=true;
+healthy.track.mediaStreamTrack={enabled:false,muted:false,readyState:'live',getSettings(){throw Error('processed settings must not be read');}};
+healthy.track.getSourceTrackSettings=()=>{throw Error('remote capture settings must not be read');};
 const hungVideo=publication('video','hung-video',()=>{calls.push('hung-video');return new Promise(()=>{});});
 const participant={identity:'guest-one',name:'Guest',isLocal:false,trackPublications:new Map([['video',hungVideo],['audio-hung',hungAudio],['audio-good',healthy]])};
 room.remoteParticipants.set('guest-one',participant);
@@ -29,16 +32,47 @@ room.remoteParticipants.set('guest-one',participant);
  assert.deepEqual(calls,['hung-audio','healthy-audio','hung-video'],'audio is sampled before video');
  assert.equal(samples[0].audioPlayback.recoveryAttempts,3,'recovery counters are recorded even when stats hang');
  assert.equal(samples[0].streams.length,1);assert.equal(samples[0].streams[0].audio.receivedSamplesDelta,null);
+ assert.ok(samples[0].streams[0].audioTrack,'audio stream must include publication and native track state');
+ assert.equal(samples[0].streams[0].audioTrack.publicationMuted,true,'publisher intent is distinct from playback element mute');
+ assert.equal(samples[0].streams[0].audioTrack.trackMuted,true);
+ assert.equal(samples[0].streams[0].audioTrack.mediaTrackEnabled,false);
+ assert.equal(samples[0].streams[0].audioTrack.mediaTrackMuted,false);
+ assert.equal(samples[0].streams[0].audioTrack.mediaTrackReadyState,'live');
+ assert.equal(samples[0].streams[0].audioTrack.capture,undefined,'remote streams never inspect local capture settings');
  // Remove the track for a complete cycle, then reinsert the same reported IDs.
  participant.trackPublications.clear();await tasks.shift().callback();
  rtcAt=3000;received=3000;participant.trackPublications.set('audio-good',healthy);await tasks.shift().callback();
  assert.equal(samples.at(-1).streams[0].audio.receivedSamplesDelta,null,'discontinued counters are pruned before reused track IDs');
  rtcAt=5000;received=5000;await tasks.shift().callback();
  assert.equal(samples.at(-1).streams[0].audio.receivedSamplesDelta,2000);
+ let settingsReads=0,sourceId='source-a';
+ const local=publication('audio','local',async()=>new Map([
+  ['sent',{id:'sent',type:'outbound-rtp',timestamp:rtcAt,bytesSent:received,packetsSent:10,mediaSourceId:sourceId}],
+  ['source-a',{id:'source-a',type:'media-source',kind:'audio',audioLevel:0.25}],
+  ['other',{id:'other',type:'media-source',kind:'audio',audioLevel:0.99}],
+  ['wrong-type',{id:'wrong-type',type:'inbound-rtp',audioLevel:0.88}],
+ ]));
+ local.isMuted=false;local.track.isMuted=false;
+ local.track.mediaStreamTrack={enabled:true,muted:false,readyState:'live',getSettings(){throw Error('processed track is not original capture');}};
+ local.track.getSourceTrackSettings=()=>{settingsReads++;return{sampleRate:48000,channelCount:2,noiseSuppression:true,echoCancellation:true,autoGainControl:false,voiceIsolation:false,deviceId:'secret',groupId:'secret'};};
+ room.localParticipant.trackPublications.set('local',local);await tasks.shift().callback();
+ let sent=samples.at(-1).streams.find(s=>s.direction==='out');
+ assert.equal(sent.audioTrack.capture.sampleRate,48000);assert.equal(sent.audioTrack.capture.channelCount,2);
+ assert.equal(sent.audioTrack.capture.noiseSuppression,true);assert.equal(sent.audioTrack.capture.autoGainControl,false);
+ assert.equal(sent.audioTrack.capture.voiceIsolation,false);assert.equal(sent.audioTrack.capture.deviceId,undefined);
+ assert.equal(sent.audioTrack.sourceAudioLevel,0.25,'source energy is linked to this RTP stream, not first media-source');
+ assert.equal(settingsReads,1,'capture settings read once per publication collection');
+ sourceId=undefined;await tasks.shift().callback();
+ sent=samples.at(-1).streams.find(s=>s.direction==='out');assert.equal(sent.audioTrack.sourceAudioLevel,null,'unlinked audio energy remains unknown');
+ sourceId='wrong-type';await tasks.shift().callback();
+ sent=samples.at(-1).streams.find(s=>s.direction==='out');assert.equal(sent.audioTrack.sourceAudioLevel,null,'non media-source records cannot supply capture energy');
+ local.track.getSourceTrackSettings=()=>{throw Error('capture no longer available');};await tasks.shift().callback();
+ sent=samples.at(-1).streams.find(s=>s.direction==='out');assert.equal(sent.audioTrack.capture.sampleRate,null,'failed settings read does not drop RTP diagnostics');
+ room.localParticipant.trackPublications.clear();
  participant.trackPublications=new Map([['hung',hungAudio]]);
  const pending=tasks.shift().callback();await Promise.resolve();stop();const afterStop=samples.length;await pending;
  assert.equal(samples.length,afterStop,'a pending stats read cannot send connected telemetry after teardown');
  assert.equal(samples.at(-1).state,'disconnected');assert.equal(tasks.length,0);
- console.log('PASS: audio-first 1000ms collection budget, hung-track playback diagnostics, pruned track counters, interval sampling, no post-stop writes');
+ console.log('PASS: audio-first bounded collection, mute/track metadata, original local capture settings, linked source energy, pruned counters, interval sampling, no post-stop writes');
 })().finally(()=>{if(original)Module._extensions['.ts']=original;else delete Module._extensions['.ts'];})
  .catch(error=>{console.error(error);process.exitCode=1;});
