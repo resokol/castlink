@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1961**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1963**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15374,7 +15374,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 78 файлов
+## docs · 79 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15789,6 +15789,12 @@ Server observability24h implementation plan
 [`docs/superpowers/plans/2026-11-11-server-pair-recovery.md`](../superpowers/plans/2026-11-11-server-pair-recovery.md)
 
 Server Pair Recovery Implementation Plan
+
+### docs/superpowers/plans/2026-11-11-wsl-source-closure.md
+
+[`docs/superpowers/plans/2026-11-11-wsl-source-closure.md`](../superpowers/plans/2026-11-11-wsl-source-closure.md)
+
+Windows WSL release: resume plan
 
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 
@@ -16482,7 +16488,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 260 файлов
+## scripts · 261 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -18046,6 +18052,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-runtime.test.py
 
 [`scripts/tests/server-wsl-runtime.test.py`](../../scripts/tests/server-wsl-runtime.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-source-closure.test.py
+
+[`scripts/tests/server-wsl-source-closure.test.py`](../../scripts/tests/server-wsl-source-closure.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
