@@ -51,6 +51,8 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
     const text=bytes.toString('utf8');
     assert.ok(text.includes("RELEASE_TAG='"+product.tag+"'"),name+' selected release download');
     assert.ok(text.includes('`'+product.sourceCommit.slice(0,12)+'`'),name+' current source commit');
+    const original=await fs.readFile(name,'utf8'),boundary='<a id="legacy-1472"></a>';
+    assert.equal(text.slice(text.indexOf(boundary)),original.slice(original.indexOf(boundary)),name+' historical source pins are unchanged');
     assert.match(text,/sha256sum --check --ignore-missing SHA256SUMS/);
     assert.ok(text.includes('easy-setup-1472cd052d7e'),name+' historical procedure preserved');
    }else if(name.endsWith('/PRODUCTS.md')){
@@ -97,6 +99,8 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
    if(name.endsWith('/LINUX_MANUAL.md')){
     assert.ok(text.includes("RELEASE_TAG='"+linux.tag+"'"),name+' standalone download uses its own release');
     assert.ok(text.includes('`'+linux.sourceCommit.slice(0,12)+'`'),name+' standalone source commit');
+    const boundary='<a id="legacy-1472"></a>';
+    assert.equal(text.slice(text.indexOf(boundary)),source.slice(source.indexOf(boundary)),name+' standalone historical source pins are unchanged');
    }else{
     assert.ok(text.includes('Linux build: `'+linux.buildNumber+'` · source: `'+linux.sourceCommit+'`'));
     assert.ok(text.includes('/'+linux.tag+'/CastLink-Linux.tar.gz'));
