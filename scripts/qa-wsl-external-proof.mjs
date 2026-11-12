@@ -63,7 +63,21 @@ function stun(c, signal) {
   });
 }
 const observePCs = () => {
-  window.__qaPCs=[];window.__qaICEErrors=[];
+  window.__qaPCs=[];window.__qaICEErrors=[];window.__qaHistory=[];
+  const snapshot=async()=>{
+    const peers=[];
+    for(const pc of window.__qaPCs){
+      try{
+        const stats=[...(await pc.getStats()).values()];
+        peers.push({state:pc.connectionState,iceState:pc.iceConnectionState,gatherState:pc.iceGatheringState,
+          localCandidates:stats.filter(s=>s.type==='local-candidate').map(s=>({type:s.candidateType,protocol:s.protocol,relayProtocol:s.relayProtocol||null})),
+          pairs:stats.filter(s=>s.type==='candidate-pair').map(s=>({state:s.state,nominated:s.nominated===true,bytesSent:s.bytesSent||0,bytesReceived:s.bytesReceived||0})),
+          dtls:stats.filter(s=>s.type==='transport').map(s=>s.dtlsState||null)});
+      }catch{}
+    }
+    window.__qaHistory.push(peers);if(window.__qaHistory.length>8)window.__qaHistory.shift();
+  };
+  window.__qaSnapshotTimer=setInterval(()=>snapshot(),1000);
   const P=window.RTCPeerConnection;
   window.RTCPeerConnection=new Proxy(P,{construct(t,args){const pc=Reflect.construct(t,args);window.__qaPCs.push(pc);pc.addEventListener('icecandidateerror',e=>{if(Number.isInteger(e.errorCode))window.__qaICEErrors.push(e.errorCode);});return pc;}});
 };
@@ -84,7 +98,7 @@ const setupBrowser = () => {
         })};
       });
       const message=typeof error?.message==='string'?error.message:'';
-      return {connected:false,status:Number.isInteger(error?.status)&&error.status>=100&&error.status<=599?error.status:null,iceErrorCodes:window.__qaICEErrors,reason:Number.isInteger(error?.reason)&&error.reason>=0&&error.reason<=20?error.reason:null,signalFailure:/signal|websocket/i.test(message),peerFailure:/peer|ice/i.test(message),timeout:/timeout|timed out/i.test(message),peers};
+      return {connected:false,status:Number.isInteger(error?.status)&&error.status>=100&&error.status<=599?error.status:null,iceErrorCodes:window.__qaICEErrors,history:window.__qaHistory,pcEstablishFailure:/could not establish (?:pc|publisher|subscriber) connection/i.test(message),reason:Number.isInteger(error?.reason)&&error.reason>=0&&error.reason<=20?error.reason:null,signalFailure:/signal|websocket/i.test(message),peerFailure:/peer|ice/i.test(message),timeout:/timeout|timed out/i.test(message),peers};
     }
   };
   q.publish=async()=>{
