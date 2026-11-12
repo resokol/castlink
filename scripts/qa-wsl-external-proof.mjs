@@ -63,9 +63,9 @@ function stun(c, signal) {
   });
 }
 const observePCs = () => {
-  window.__qaPCs=[];
+  window.__qaPCs=[];window.__qaICEErrors=[];
   const P=window.RTCPeerConnection;
-  window.RTCPeerConnection=new Proxy(P,{construct(t,args){const pc=Reflect.construct(t,args);window.__qaPCs.push(pc);return pc;}});
+  window.RTCPeerConnection=new Proxy(P,{construct(t,args){const pc=Reflect.construct(t,args);window.__qaPCs.push(pc);pc.addEventListener('icecandidateerror',e=>{if(Number.isInteger(e.errorCode))window.__qaICEErrors.push(e.errorCode);});return pc;}});
 };
 const setupBrowser = () => {
   const LK=window.LivekitClient;
@@ -84,7 +84,7 @@ const setupBrowser = () => {
         })};
       });
       const message=typeof error?.message==='string'?error.message:'';
-      return {connected:false,reason:Number.isInteger(error?.reason)&&error.reason>=0&&error.reason<=20?error.reason:null,signalFailure:/signal|websocket/i.test(message),peerFailure:/peer|ice/i.test(message),timeout:/timeout|timed out/i.test(message),peers};
+      return {connected:false,status:Number.isInteger(error?.status)&&error.status>=100&&error.status<=599?error.status:null,iceErrorCodes:window.__qaICEErrors,reason:Number.isInteger(error?.reason)&&error.reason>=0&&error.reason<=20?error.reason:null,signalFailure:/signal|websocket/i.test(message),peerFailure:/peer|ice/i.test(message),timeout:/timeout|timed out/i.test(message),peers};
     }
   };
   q.publish=async()=>{
@@ -141,6 +141,9 @@ async function media(c,signal,cleanup,progress) {
   const pages=[];
   for(let i=0;i<2;i++){
     check(!signal.aborted);const ctx=await browser.newContext({ignoreHTTPSErrors:false});await ctx.addInitScript(observePCs);const page=await ctx.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(15000);pages.push(page);cleanup.push(()=>page.evaluate(()=>window.__qa?.stop()));
+    const networkFacts=[];
+    page.on('response',r=>{try{const u=new URL(r.url());if(u.origin===c.origin&&['/rtc/validate','/rtc/v1/validate'].includes(u.pathname))networkFacts.push({route:u.pathname,status:r.status()});}catch{}});
+    page.on('websocket',ws=>{try{const u=new URL(ws.url());if(u.hostname===c.serviceIp&&['/rtc','/rtc/v1'].includes(u.pathname))ws.on('socketerror',e=>{const m=/\b(401|403|404|413|429|500|502|503)\b/.exec(String(e));networkFacts.push({route:u.pathname,status:m?Number(m[1]):null,socketError:true});});}catch{}});
     progress("browser-page-"+i);
     await page.goto(c.origin,{waitUntil:'domcontentloaded'});
     progress("browser-auth-token-"+i);
@@ -149,7 +152,7 @@ async function media(c,signal,cleanup,progress) {
       if(!auth.ok)throw Error();const query=new URLSearchParams({role:'guest',studioId,room,name,nameIntent:'join'});
       const r=await fetch('/api/token?'+query,{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error();const v=await r.json();if(!v.token||!v.identity?.startsWith('guest-')||v.connectionRoutes?.relay?.configured!==true||v.connectionRoutes.relay.transport!=='tls443')throw Error();return v.token;
     },{studioId:c.studioId,room:c.room,invite:c.invite,name:'External synthetic '+(i+1)});
-    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);const connection=await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});if(!connection.connected)console.error('external connection facts='+JSON.stringify(connection));check(connection.connected);progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
+    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);const connection=await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});if(!connection.connected)console.error('external connection facts='+JSON.stringify({...connection,networkFacts}));check(connection.connected);progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
   }
   progress("browser-receive");
   for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0));
