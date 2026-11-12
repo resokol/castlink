@@ -72,7 +72,21 @@ const setupBrowser = () => {
   window.__qa={room:new LK.Room({adaptiveStream:false,dynacast:false}),videos:[],tracks:[]};
   const q=window.__qa;
   q.room.on(LK.RoomEvent.TrackSubscribed,track=>{if(track.kind!=='video')return;const video=track.attach();video.muted=true;video.autoplay=true;video.playsInline=true;document.body.append(video);video.play().catch(()=>{});q.videos.push(video);});
-  q.connect=async(origin,token)=>{await q.room.connect(origin.replace(/^https:/,'wss:'),token,{autoSubscribe:true,rtcConfig:{iceTransportPolicy:'relay'}});};
+  q.connect=async(origin,token)=>{
+    try{await q.room.connect(origin.replace(/^https:/,'wss:'),token,{autoSubscribe:true,rtcConfig:{iceTransportPolicy:'relay'}});return {connected:true};}
+    catch(error){
+      const host=new URL(origin).hostname;
+      const peers=window.__qaPCs.map(pc=>{
+        const urls=(pc.getConfiguration().iceServers||[]).flatMap(s=>typeof s.urls==='string'?[s.urls]:s.urls||[]);
+        return {state:pc.connectionState,iceState:pc.iceConnectionState,gatherState:pc.iceGatheringState,iceUrls:urls.map(value=>{
+          const m=/^(turns?):([^:]+):([0-9]+)(?:[?].*)?$/.exec(value);
+          return {parsed:!!m,hostMatches:m?.[2]===host,tls:m?.[1]==='turns',port:m&&['443','5349','3478'].includes(m[3])?Number(m[3]):null};
+        })};
+      });
+      const message=typeof error?.message==='string'?error.message:'';
+      return {connected:false,reason:Number.isInteger(error?.reason)&&error.reason>=0&&error.reason<=20?error.reason:null,signalFailure:/signal|websocket/i.test(message),peerFailure:/peer|ice/i.test(message),timeout:/timeout|timed out/i.test(message),peers};
+    }
+  };
   q.publish=async()=>{
     const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;const ctx=canvas.getContext('2d');let frame=0;
     const paint=()=>{ctx.fillStyle=`hsl(${frame++%360} 80% 40%)`;ctx.fillRect(0,0,640,360);ctx.fillStyle='white';ctx.font='32px sans-serif';ctx.fillText(String(frame),20,60);};
@@ -135,7 +149,7 @@ async function media(c,signal,cleanup,progress) {
       if(!auth.ok)throw Error();const query=new URLSearchParams({role:'guest',studioId,room,name,nameIntent:'join'});
       const r=await fetch('/api/token?'+query,{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error();const v=await r.json();if(!v.token||!v.identity?.startsWith('guest-')||v.connectionRoutes?.relay?.configured!==true||v.connectionRoutes.relay.transport!=='tls443')throw Error();return v.token;
     },{studioId:c.studioId,room:c.room,invite:c.invite,name:'External synthetic '+(i+1)});
-    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
+    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);const connection=await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});if(!connection.connected)console.error('external connection facts='+JSON.stringify(connection));check(connection.connected);progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
   }
   progress("browser-receive");
   for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0));
