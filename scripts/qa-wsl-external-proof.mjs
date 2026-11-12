@@ -107,32 +107,39 @@ export function verifyMedia(before,after,serviceIp) {
   }
   return {relayTls443Verified:true,decodedVideoVerified:true,...deltas};
 }
-async function media(c,signal,cleanup) {
+async function media(c,signal,cleanup,progress) {
+  progress("browser-dependencies");
   const req=createRequire(path.join(process.cwd(),'package.json'));
   const {chromium}=req('playwright'),sdkPath=req.resolve('livekit-client'),sdk=await fs.readFile(sdkPath,'utf8');
   const sdkVersion=JSON.parse(await fs.readFile(path.resolve(path.dirname(sdkPath),'../package.json'),'utf8')).version;
   check(sdkVersion==='2.22.3');
+  progress("browser-trust");
   const home=os.homedir(),nss=path.join(home,'.pki/nssdb'),nickname='castlink-external-'+randomBytes(12).toString('hex');
   await fs.mkdir(nss,{recursive:true,mode:0o700});check((await fs.lstat(nss)).isDirectory()&&!(await fs.lstat(nss)).isSymbolicLink());
   try{await fs.lstat(path.join(nss,'cert9.db'));}catch(e){if(e.code!=='ENOENT')throw e;command('certutil',['-N','--empty-password','-d','sql:'+nss]);}
   const caFile=path.join(process.env.RUNNER_TEMP,nickname+'.crt');await fs.writeFile(caFile,c.caPem,{mode:0o600,flag:'wx'});cleanup.push(()=>fs.unlink(caFile));
   cleanup.push(()=>command('certutil',['-D','-n',nickname,'-d','sql:'+nss]));command('certutil',['-A','-n',nickname,'-t','C,,','-d','sql:'+nss,'-i',caFile]);
   check(!signal.aborted);
+  progress("browser-launch");
   const browser=await chromium.launch({headless:true,timeout:20000,args:['--autoplay-policy=no-user-gesture-required']});
   cleanup.push(()=>browser.close());check(!signal.aborted);const onAbort=()=>{browser.close().catch(()=>{});};signal.addEventListener('abort',onAbort,{once:true});
   cleanup.push(()=>signal.removeEventListener('abort',onAbort));
   const pages=[];
   for(let i=0;i<2;i++){
     check(!signal.aborted);const ctx=await browser.newContext({ignoreHTTPSErrors:false});await ctx.addInitScript(observePCs);const page=await ctx.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(15000);pages.push(page);cleanup.push(()=>page.evaluate(()=>window.__qa?.stop()));
+    progress("browser-page-"+i);
     await page.goto(c.origin,{waitUntil:'domcontentloaded'});
+    progress("browser-auth-token-"+i);
     const token=await page.evaluate(async({studioId,room,invite,name})=>{
       const auth=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'guest',studioId,room,invite}),signal:AbortSignal.timeout(10000)});
       if(!auth.ok)throw Error();const query=new URLSearchParams({role:'guest',studioId,room,name,nameIntent:'join'});
       const r=await fetch('/api/token?'+query,{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error();const v=await r.json();if(!v.token||!v.identity?.startsWith('guest-')||v.connectionRoutes?.relay?.configured!==true||v.connectionRoutes.relay.transport!=='tls443')throw Error();return v.token;
     },{studioId:c.studioId,room:c.room,invite:c.invite,name:'External synthetic '+(i+1)});
-    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});await page.evaluate(()=>window.__qa.publish());
+    await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
   }
+  progress("browser-receive");
   for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0));
+  progress("browser-stats");
   const before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
   await new Promise((resolve,reject)=>{const t=setTimeout(resolve,3000);signal.addEventListener('abort',()=>{clearTimeout(t);reject(Error());},{once:true});});
   const after=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
@@ -149,7 +156,7 @@ export async function main() {
     stage='mapping';cleanup.push(()=>command('sudo',['-n','iptables','-w','5','-t','nat','-D',...rule]));command('sudo',['-n','iptables','-w','5','-t','nat','-A',...rule]);
     stage='https';const receipt={schemaVersion:1,mode:c.mode,...await version(c,signal)};
     stage='turn-tls';Object.assign(receipt,await stun(c,signal));
-    if(c.mode==='media'){stage='browser-media';Object.assign(receipt,await media(c,signal,cleanup));}
+    if(c.mode==='media'){stage='browser-media';Object.assign(receipt,await media(c,signal,cleanup,value=>{stage=value;}));}
     stage='receipt';check(!signal.aborted);receipt.completedAt=new Date().toISOString();await fs.writeFile(path.join(process.env.RUNNER_TEMP,'castlink-wsl-external-proof.json'),JSON.stringify(receipt,null,2)+'\n',{mode:0o600,flag:'wx'});
   } catch { failure=true;console.error('external proof failed; stage='+stage+'; code=unverified'); }
   finally {for(const action of cleanup.reverse()){try{await action();}catch{failure=true;console.error('external proof cleanup failed; code=unverified');}}}
