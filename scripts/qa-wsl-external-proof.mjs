@@ -170,7 +170,7 @@ async function media(c,signal,cleanup,progress) {
     await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);const connection=await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});if(!connection.connected)console.error('external connection facts='+JSON.stringify({...connection,networkFacts}));check(connection.connected);progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
   }
   progress("browser-receive");
-  for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0));
+  for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0&&v.getVideoPlaybackQuality().totalVideoFrames>0));
   progress("browser-stats");
   progress("browser-stats-before");
   const before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
