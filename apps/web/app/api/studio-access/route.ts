@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
   if (action === "create-invite") {
     if (!(await isSuperAdmin(request))) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403, headers });
     const { invite, expiresAt } = await newStudioOwnerInvite(studioId);
-    let targetOrigin = request.nextUrl.origin;
+    // The checked browser Origin survives reverse proxies whose internal Next URL is loopback.
+    let targetOrigin = new URL(request.headers.get("origin")!).origin;
     try {
       const route = await resolveStudioRoute(studioId);
       if (route.ok) targetOrigin = route.endpoint;
