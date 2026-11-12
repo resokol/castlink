@@ -159,7 +159,19 @@ function Save-CastlinkInstallation([string]$Root, $State) {
     $path = Join-Path $Root 'installation.json'
     $temporary = Join-Path $Root 'installation.json.new'
     [IO.File]::WriteAllText($temporary, ($State | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
-    if (Test-Path -LiteralPath $path) { [IO.File]::Replace($temporary, $path, [NullString]::Value) } else { [IO.File]::Move($temporary, $path) }
+    if (Test-Path -LiteralPath $path) {
+        $replaceClock = [Diagnostics.Stopwatch]::StartNew()
+        while ($true) {
+            try { [IO.File]::Replace($temporary, $path, [NullString]::Value); break }
+            catch {
+                $cause = $_.Exception
+                while ($cause.InnerException) { $cause = $cause.InnerException }
+                # Readers outside the writer lease can briefly deny deletion of the old file.
+                if ($cause -isnot [IO.IOException] -or ($cause.HResult -band 0x7fffffff) -notin @(0x70020,0x70021) -or $replaceClock.ElapsedMilliseconds -ge 2000) { throw }
+                Start-Sleep -Milliseconds 50
+            }
+        }
+    } else { [IO.File]::Move($temporary, $path) }
 }
 
 function Get-CastlinkInstallation([string]$Root, [string]$Tag, [string]$Repo, [string]$RootfsHash) {
