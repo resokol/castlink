@@ -172,9 +172,14 @@ async function media(c,signal,cleanup,progress) {
   progress("browser-receive");
   for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0));
   progress("browser-stats");
+  progress("browser-stats-before");
   const before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
   await new Promise((resolve,reject)=>{const t=setTimeout(resolve,3000);signal.addEventListener('abort',()=>{clearTimeout(t);reject(Error());},{once:true});});
+  progress("browser-stats-after");
   const after=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
+  progress("browser-stats-verify");
+  function safeSample(sample){return {playing:sample.playing,media:sample.media.map(s=>({direction:s.direction,bytes:s.bytes,packets:s.packets,frames:s.frames})),pairs:sample.pairs.map(p=>{const m=/^(turns?):([^:]+):([0-9]+)(?:[?](.*))?$/.exec(p.url);return {selected:p.selected,relay:p.relay,tls:p.tls,urlPresent:!!p.url,urlParsed:!!m,urlTls:m?.[1]==='turns',hostMatches:m?.[2]===c.serviceIp,port443:m?.[3]==='443',transportTcp:m?.[4]==='transport=tcp'};})};}
+  try{for(let i=0;i<before.length;i++)verifyMedia(before[i],after[i],c.serviceIp);}catch{console.error('external media facts='+JSON.stringify(before.map((b,i)=>({before:safeSample(b),after:safeSample(after[i]),idsContinuous:b.media.every(s=>after[i].media.some(t=>t.id===s.id&&t.direction===s.direction))}))));throw Error('unverified');}
   return {syntheticCameraOnly:true,chromiumVersion:browser.version(),livekitClientVersion:sdkVersion,playwrightVersion:req('playwright/package.json').version,clients:before.map((b,i)=>verifyMedia(b,after[i],c.serviceIp))};
 }
 export async function main() {
