@@ -185,6 +185,19 @@ class RuntimeTest(unittest.TestCase):
         self.assertLess(unit.index('ExecStartPre='), unit.index('ExecStart='))
         self.assertIn('ExecStop=/usr/sbin/nft delete table inet castlink_private', unit)
 
+    def test_mirrored_loopback_exception_keeps_interface_address_and_port_guards(self):
+        import re
+        rules = (ROOT / 'infrastructure/server-wsl/castlink-private-ports.nft').read_text()
+        accepts = [line.strip() for line in rules.splitlines() if line.strip().endswith('accept')]
+        self.assertEqual(len(accepts), 1)
+        self.assertRegex(accepts[0], r'^iifname "loopback0" ip saddr 127\.0\.0\.1 ip daddr 127\.0\.0\.1 tcp dport \{ [0-9, ]+ \} accept$')
+        drop = next(line.strip() for line in rules.splitlines() if line.strip().endswith('drop'))
+        self.assertTrue(drop.startswith('iifname != "lo" tcp dport '))
+        portset = lambda line: {int(port) for port in re.search(r'\{([^}]+)\}', line).group(1).split(',')}
+        self.assertEqual(portset(accepts[0]), {3000, 5432, 5348, 5349, 7880, 8443})
+        self.assertEqual(portset(accepts[0]), portset(drop))
+        self.assertLess(rules.index(accepts[0]), rules.index(drop))
+
     def test_foreign_firewall_table_is_refused_without_network_or_firewall_changes(self):
         from unittest.mock import patch
         foreign = json.dumps({'nftables': [{'table': {'family': 'inet', 'name': 'castlink_private'}}]})

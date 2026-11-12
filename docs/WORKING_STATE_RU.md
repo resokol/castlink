@@ -76,24 +76,39 @@ Docker после compaction повторно открыт: все11 container/i
 контейнеров (включая stopped), чужие/unattributed ресурсы и все данные/тома. Не
 накапливать новый image tag на каждый commit без завершённой scoped cleanup.
 
-Настоящий rc.4 Install импортировал свежий QA guest и записал phase=imported,
-но остановился до init/пароля: WinPS5.1 Start-Process добавляет ASCII space в конец
-CommandLine WSL. PID21352 продолжает sleep; actual held timestamp, CIM timestamp,
-exe и arguments совпадают, единственное отличие — trailing32. Старый predicate
-отказывает; однострочный TrimEnd([char]32) принимает этот же owned process.
-Behavioral suite на настоящем WinPS5.1 дал RED→GREEN. При повторном Install
-найден отдельный Set-Acl SeSecurityPrivilege отказ. Actual новый ACL fixture дал
-RED, замена provider Set-Acl на DirectoryInfo.SetAccessControl дала GREEN, в том
-числе дважды заданные owner/current-user+SYSTEM private DACL и original QA root
-Protect+Save.8 Node package checks PASS.
-Готовый rc.4 не менялся. Для следующего локального init запускается явно
-неопубликованная диагностическая копия Windows installer с этими двумя
-исправлениями; rootfs/source/manifest остаются61ce65a2. Docker не пересобирается.
-Текущий console PID24496 действительно дошёл до hidden Room creation password;
-пароль вводит только пользователь локально. Не читать console после создания
-owner access, не писать пароль/ссылку в stdout. Init/HTTPS ещё не подтверждены.
-Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не подтверждены;
-публичного WSL release нет.
+Диагностическая Windows/WSL установка завершилась exit0: phase=ready,
+autoStartAtLogon=true. Пользователь сам ввёл скрытый пароль и отдельно подтвердил
+CA/автозапуск; CA присутствует в CurrentUser Root. Все8 служб active, runtime
+ready=true/https-db-livekit-verified. Настоящий isolated PPTX worker вернул200/PDF,
+9724bytes. Данные/пароль не сбрасывались; Docker выключен, новых images не создавали.
+
+Проверены platform fixes: WinPS trailingASCIIspace keepalive и provider Set-Acl
+исправлены вfa396558 (actual Windows RED→GREEN). Теперь выявлены и проверены
+ещё два: mirrored WSL ведёт localhost черезloopback0, поэтому старыйprivate-port
+nftdrop блокировал PG/LK; узкоеaccept толькоloopback0+src/dst127.0.0.1+/32+6TCP
+ports передoriginaldrop дало actualRED→GREEN→rollbackRED, финальныйcounter16.
+PG/LKconnectPASS, нелокальныйsource→127.0.0.1 остаётсяblocked; это не доказательство
+внешнегоLAN. Первая logon registration создала ровно нужнуюtask/stagedbytes, но
+Windows сериализовала principal/trigger как accountname. КанонизацияSID принимает
+только ту же учётную запись. Actual WinPS suite RED→GREEN,21runtime tests PASS,
+Sol high review обоихdiff без замечаний. Diagnostic completion сохраняла прежние
+pinned/stagedbytes+taskhash и использовала новыйAssert/SIDhelper; неизменённыйrc.4
+release installer целиком не объявлять проверенным. Полноценный пакет с fixes
+нужно собрать позже, после integration; обязательная cleanup после export.
+
+Текущий blocker — доступ Windows к собственномуLAN IP:127.0.0.1:443 доступен,
+configuredLAN:443 timeout. Microsoft documented experimental.hostAddressLoopback
+поумолчаниюfalse; текущий .wslconfig содержит толькоmirrored. Подготовленexact
+append сbackup и scopedstop/terminate только QA guest после проверки другихworkloads.
+Auto-review отклонил запуск: прежняяавторизация не покрывает общуюнастройкуWSL и
+остановкуrunningserver. Ничего не применено; отправлен отдельный явный запрос,
+ожидание не является approval. Пароль/CA/автозапуск повторно не спрашивать.
+
+Chrome RemoteDebuggingAllowed policy запрещает CDP; policy не менять и не обходить.
+Native Windows HTTPS request пока timeout до HTTP/auth, ownerinvite не использован.
+После разрешения/проверкиhostloopback нужны реальные metrics/events и обычноеGUI,
+keepalive90s после закрытияcontrollers безWSL-вызовов, stop/start byte preservation.
+Публичного WSL release нет; old QA registrations/state/VHD и текущийready QA сохранены.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.

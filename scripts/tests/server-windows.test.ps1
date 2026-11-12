@@ -174,6 +174,19 @@ try {
   Assert ($script:FakeTask.Principal.UserId -eq 'S-1-5-21-1234') 'Task principal differs from current user'
   Register-CastlinkLogonTask $root $state $installer 6>$null
   Assert ($script:TaskRegistrations -eq 1) 'Rerun replaced the matching owned task'
+  $nameSpec = $taskSpec.PSObject.Copy()
+  $nameSpec.userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $accountName = ([Security.Principal.SecurityIdentifier]::new($nameSpec.userSid)).Translate([Security.Principal.NTAccount]).Value
+  $script:FakeTask.Principal.UserId = $accountName
+  $script:FakeTask.Triggers[0].UserId = $accountName
+  Assert-CastlinkLogonTask $script:FakeTask $nameSpec
+  $script:FakeTask.Principal.UserId = 'S-1-5-18'
+  Assert-Throws { Assert-CastlinkLogonTask $script:FakeTask $nameSpec } 'conflicting'
+  $script:FakeTask.Principal.UserId = $accountName
+  $script:FakeTask.Triggers[0].UserId = 'S-1-5-18'
+  Assert-Throws { Assert-CastlinkLogonTask $script:FakeTask $nameSpec } 'conflicting'
+  $script:FakeTask.Principal.UserId = $taskSpec.userSid
+  $script:FakeTask.Triggers[0].UserId = $taskSpec.userSid
   $script:FakeTask.Triggers[0].CimClass.CimClassName = 'MSFT_TaskTimeTrigger'
   Assert-Throws { Register-CastlinkLogonTask $root $state $installer } 'conflicting'
   Remove-Item Function:Get-ScheduledTask,Function:New-ScheduledTaskAction,Function:New-ScheduledTaskTrigger,Function:New-ScheduledTaskPrincipal,Function:New-ScheduledTaskSettingsSet,Function:Register-ScheduledTask

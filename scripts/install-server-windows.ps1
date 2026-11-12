@@ -245,9 +245,16 @@ function Get-CastlinkLogonTaskSpec([string]$Root, $State, [string]$SourcePath) {
     }
 }
 
+function Test-CastlinkAccountSid([string]$Identity, [string]$ExpectedSid) {
+    try {
+        $sid = if ($Identity -match '^S-\d-') { [Security.Principal.SecurityIdentifier]::new($Identity) } else { ([Security.Principal.NTAccount]::new($Identity)).Translate([Security.Principal.SecurityIdentifier]) }
+        return $sid.Value -ceq $ExpectedSid
+    } catch { return $false }
+}
+
 function Assert-CastlinkLogonTask($Task, $Spec) {
     if (-not $Task) { return }
-    if ($Task.TaskName -cne $Spec.taskName -or $Task.TaskPath -cne $Spec.taskPath -or $Task.Description -cne $Spec.description -or $Task.Principal.UserId -cne $Spec.userSid -or [string]$Task.Principal.LogonType -notin @('Interactive','InteractiveToken') -or [string]$Task.Principal.RunLevel -notin @('Limited','LUA') -or @($Task.Actions).Count -ne 1 -or $Task.Actions[0].Execute -ine $Spec.execute -or $Task.Actions[0].Arguments -cne $Spec.arguments -or @($Task.Triggers).Count -ne 1 -or $Task.Triggers[0].UserId -cne $Spec.userSid -or $Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskLogonTrigger' -or -not $Task.Triggers[0].Enabled -or -not $Task.Settings.Enabled -or [string]$Task.Settings.ExecutionTimeLimit -cne 'PT0S' -or [string]$Task.Settings.MultipleInstances -cne 'IgnoreNew') { throw 'A conflicting scheduled task already exists. It was preserved; no task or script was changed.' }
+    if ($Task.TaskName -cne $Spec.taskName -or $Task.TaskPath -cne $Spec.taskPath -or $Task.Description -cne $Spec.description -or -not (Test-CastlinkAccountSid $Task.Principal.UserId $Spec.userSid) -or [string]$Task.Principal.LogonType -notin @('Interactive','InteractiveToken') -or [string]$Task.Principal.RunLevel -notin @('Limited','LUA') -or @($Task.Actions).Count -ne 1 -or $Task.Actions[0].Execute -ine $Spec.execute -or $Task.Actions[0].Arguments -cne $Spec.arguments -or @($Task.Triggers).Count -ne 1 -or -not (Test-CastlinkAccountSid $Task.Triggers[0].UserId $Spec.userSid) -or $Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskLogonTrigger' -or -not $Task.Triggers[0].Enabled -or -not $Task.Settings.Enabled -or [string]$Task.Settings.ExecutionTimeLimit -cne 'PT0S' -or [string]$Task.Settings.MultipleInstances -cne 'IgnoreNew') { throw 'A conflicting scheduled task already exists. It was preserved; no task or script was changed.' }
 }
 
 function Register-CastlinkLogonTask([string]$Root, $State, [string]$SourcePath) {

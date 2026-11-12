@@ -4,6 +4,47 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Actual init, mirrored localhost и Windows logon task12.11
+
+Пользователь завершил hidden password prompt. PG/LK/converter/Caddy/TURN поднялись,
+ноbootstrap упал до схемы: imports/scripts hashes/input/env корректны, Unix PG
+работает, TCP127.0.0.1:5432/7880 timeout. Actual route127.0.0.1 идёт черезloopback0,
+а исходныйnftdrop разрешал толькоlo. Временное исключительно owned правило с
+interface+IPv4loopbacksrc/dst+PGport дало connectfalse→true→false после удаления.
+Финальноеисключение ограниченоточными127.0.0.1 src/dst и шестью прежнимиTCPports;
+originaldrop/отказприforeign table сохранены. Счётчик16packets/872bytes доказывает
+actualingress. PG/LKlocalhostPASS; source=LAN→localhost7880 blocked. Defaultsource
+к собственномуLAN destination из guest проходитчерез старыйlo path и не является
+внешнимLAN proof. Затем actualbootstrap/schema/seed и web стартовали успешно.
+Runtime status: все8servicesactive, ready=true, https-db-livekit-verified.
+
+Isolated real converter принял generated single-slide PPTX1596bytes черезUnixsocket,
+вернулHTTP200/application/pdf9724bytes, signature%PDF и SHA256
+8a7a04c7501980aa948235cdb09ca9f02a066ac996720379e5a13c7eca22e8bf.
+
+Пользователь подтвердил CA и logon. Первый taskregister создалexacttask/stagedscript,
+но ownvalidation отвергла normalizedNTAccount names вместоSID. Всеостальныеполя,
+actions/settings/hash совпали; names обоихполей переводятсявтотжеSID. Новыйhelper
+канонизирует rawSID/NTAccount и сравниваетprincipal/trigger поотдельности. Actual
+Windows fixture REDстарый→GREENновый; SYSTEM/foreigntrigger отказсохранён.
+Controlled completion использовала прежнийpinneddiagnostic/stagedscript+taskhash,
+переопределяя тольконовуюAssert/helper; уже явныеuserCA/logony применены только
+кэтимдвумexactprompts. FullInvoke exit0, receipt07:48:39.8723290Z, phase=ready,
+autoStartAtLogon=true. CertCurrentUserRoot подтверждён. Это неопубликованный
+диагностический server с Windowsfixes и исправленнымownednftasset, не unchangedrc.4.
+Solhigh read-only review SID/nft без замечаний; staticguard regression PASS;
+полныйruntime21/21PASS сrealNode/OpenSSL внеcloudsandbox, nativeWinPSsuitePASS.
+
+ChromeCDP QA остановлена policy RemoteDebuggingAllowed, policy не менялась.
+Native Windows HTTPSclient доHTTP timeout: host127.0.0.1:443connectPASS, hostassigned
+LAN:443timeout. .wslconfig только[wsl2]networkingMode=mirrored. Microsoft
+[documentedhostAddressLoopback](https://learn.microsoft.com/en-us/windows/wsl/wsl-config#experimental-settings)
+поумолчаниюfalse; preparedappend+backup+ownedgueststop/terminate пока НЕвыполнены:
+auto-review отклонил изменениеобщейнастройки/остановкуrunningserver безточной
+авторизации. Отправленотдельныйзапрос; неповторятьпокаответнеполучен. Исходный
+пакет/пароль/данные сохранены. Windowsmetrics/browser/keepalive/stop-start proof
+ещё не подтверждены; normalGUIalternative не должна обходитьChrome/TLSpolicy.
+
 ## Контроль после согласованного исправления и очистка сборщика12.11
 
 Новая Windows LastBootUtc2026-11-12T06:25:08.5000000Z позже согласованного Apply;
