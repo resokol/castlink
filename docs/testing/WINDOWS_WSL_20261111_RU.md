@@ -4,6 +4,60 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Контроль после согласованного исправления и очистка сборщика12.11
+
+Новая Windows LastBootUtc2026-11-12T06:25:08.5000000Z позже согласованного Apply;
+Registry64 DWORD32 сохранён. При остановленном Docker Desktop actual QA guest
+показывает NIC, default route, существующий /mnt/wsl/resolv.conf и успешное DNS
+archive.ubuntu.com. Наблюдавшийся сетевой blocker устранён. VPN/adapter/HNS
+на этом этапе не менялись; повторная запись registry не выполнялась.
+
+Пользователь отдельно поручил очистить накопленные старые Docker images/cache.
+Сохранена inventory92images/66.27GB,11stopped/createdcontainers,13volumes и
+773cache records/78.07GB; shared bytes пересекаются. Автоматический review отклонил
+первоначальный слишком широкий prefix-only план; он не выполнялся. Безопасная
+очистка уже удалила11 точных WSL manufacturer images commits78327495,0ce26451,
+8e302887,6fb7d583,61ce65a2. Готовые пакеты и доказательства сохранены вне Docker.
+Дальнейший исторический список подтверждён producer ownership/source labels и
+существующими Git commits, исключает все container image IDs и current stable.
+Cache удаляется по отдельным проверенным IDs; тома и контейнеры сохраняются.
+Итог:59 images удалены, осталось33/21.75GB; cache773→263records,
+78.07→20.15GB. Все11 контейнеров сохранены,13 томов не удалялись. Проверенный
+cache-ID набор применён одним regex-фильтром (comma-separated id= не является OR).
+После scoped TRIM и проверки0runningcontainers Docker Desktop штатно остановлен.
+Точный data VHD открыт эксклюзивно перед native offline DiskPart compact; только
+select vdisk/compact vdisk/exit, без attach/format/delete/clean. Admin child exit0,
+receipt06:51:53.5689687Z:132404740096→48391782400bytes. D: free space вырос на
+84012957696bytes, то есть84.0GB/78.24GiB действительно возвращены хосту.
+После повторного запуска Docker engine06:53:18.980Z получен PASS:33 images,
+все11 прежних container/image refs,13 volumes и8 foreign image IDs совпадают с
+исходной inventory; stable1.0.2 и текущие stable/audio images доступны. Доказательства
+очистки сохранены в приватном QA-каталоге; готовый пакет не менялся.
+Fresh rc.4 Install завершился exit1/06:54:24.3600266Z после import и guest identity,
+перед init/паролем: owned keepalive не подтверждён. Actual native process жив;
+полный StartTime ticks и CIM microseconds совпадают с receipt, executable совпадает.
+CommandLine отличается от ожидаемой только завершающим ASCII32, добавленным
+Start-Process в WinPS5.1. Старый predicate=false; TrimEnd([char]32) на аргументах
+даёт true для того же процесса. Проверки PID/time/exe и прочих bytes сохраняются;
+extra arguments по-прежнему отвергаются. Actual Windows behavioral fixtures:
+новый тест RED на старой копии, GREEN на однострочном исправлении;8 Node package
+checks PASS. Готовые package bytes не менялись. Для продолжения init используется
+отдельная явно диагностическая unpublished Windows script copy с этим fix и
+прежними pinned rootfs/manifest; это не доказательство неизменённого rc.4 installer.
+Следующий resume остановился до init на provider Set-Acl: SeSecurityPrivilege
+не доступна обычному пользователю. Scoped probe exact owned root подтвердил:
+Protect=fail на line302, Save=pass. Новый actual Windows ACL fixture воспроизвёл
+RED в отдельном временном каталоге. Замена только Set-Acl на DirectoryInfo
+SetAccessControl с тем же новым DirectorySecurity дала GREEN: два вызова подряд,
+owner=current SID, protected inheritance и ровно два Allow FullControl/current+SYSTEM.
+Scoped original QA root Protect+Save также PASS. Это убирает ненужную provider
+работу с Audit, без расширения DACL/привилегий или изменения родительских папок.
+Full behavioral suite и8 Node package checks PASS; diagnostic Windows copy содержит
+только эти две замены. Rootfs/source/manifest и исходный пакет не менялись.
+Console диагностического resume дошёл до настоящего hidden getpass Room creation
+password(8–256); дальше нужен локальный ввод пользователя, root его не получает.
+Полный Install/HTTPS пока не подтверждён.
+
 ## После полной Windows перезагрузки: IPv6 configuration conflict
 
 Пользователь выполнил restart; новая LastBootUpTime подтверждена. Guest и system

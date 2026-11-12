@@ -185,7 +185,7 @@ function Get-CastlinkKeepaliveProcess($State) {
         $commandMatches = $false
         if ($evidence -and $evidence.CommandLine) {
             foreach ($prefix in @($quotedPrefix,$unquotedPrefix)) {
-                if ($evidence.CommandLine.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -and $evidence.CommandLine.Substring($prefix.Length) -ceq $arguments) { $commandMatches = $true }
+                if ($evidence.CommandLine.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -and $evidence.CommandLine.Substring($prefix.Length).TrimEnd([char]32) -ceq $arguments) { $commandMatches = $true }
             }
         }
         # CIM represents creation timestamps at microsecond precision; compare that
@@ -299,7 +299,7 @@ function Protect-CastlinkInstallationDirectory([string]$Root) {
         $rule = [Security.AccessControl.FileSystemAccessRule]::new($principal, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
         [void]$acl.AddAccessRule($rule)
     }
-    Set-Acl -LiteralPath $Root -AclObject $acl
+    ([IO.DirectoryInfo]::new($Root)).SetAccessControl($acl)
 }
 
 function Write-CastlinkPrivateFile([string]$Path, [string]$Content) {

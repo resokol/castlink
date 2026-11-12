@@ -11,6 +11,15 @@ function Assert-Throws([scriptblock]$Block, [string]$Pattern) {
 $testDir = Join-Path ([IO.Path]::GetTempPath()) ('castlink-windows-test-' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDir)
 try {
+  $aclRoot = Join-Path $testDir 'private-installation'
+  [void][IO.Directory]::CreateDirectory($aclRoot)
+  Protect-CastlinkInstallationDirectory $aclRoot
+  Protect-CastlinkInstallationDirectory $aclRoot
+  $privateAcl = ([IO.DirectoryInfo]::new($aclRoot)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+  $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  Assert ($privateAcl.AreAccessRulesProtected -and $privateAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $currentSid) 'Installation directory owner/protection was not retained'
+  $privateRules = @($privateAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+  Assert ($privateRules.Count -eq 2 -and @($privateRules | Where-Object { $_.IdentityReference.Value -notin @($currentSid,'S-1-5-18') -or $_.IsInherited -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne 'FullControl' }).Count -eq 0) 'Installation directory permissions are not private'
   Assert-Throws { Assert-CastlinkAddress 'https://example.com' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress 'host;touch /tmp/x' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress '-option' } 'hostname|IPv4'
@@ -107,6 +116,12 @@ try {
   $receipt = [pscustomobject]@{processId=321;startTimeUtcTicks=$script:FakeProcess.StartTime.ToUniversalTime().Ticks.ToString()}
   $state | Add-Member NoteProperty keepalive $receipt -Force
   Assert ([bool](Get-CastlinkKeepaliveProcess $state)) 'Owned keepalive identity was rejected'
+  $nativeCommand = $script:FakeEvidence.CommandLine
+  $script:FakeEvidence.CommandLine = $nativeCommand+' '
+  Assert ([bool](Get-CastlinkKeepaliveProcess $state)) 'Windows PowerShell trailing command-line space rejected the owned keepalive'
+  $script:FakeEvidence.CommandLine = $nativeCommand+' --distribution Ubuntu '
+  Assert (-not (Get-CastlinkKeepaliveProcess $state)) 'Extra native command-line arguments were accepted'
+  $script:FakeEvidence.CommandLine = $nativeCommand
   $script:FakeEvidence.CommandLine = '"C:\Windows\System32\wsl.exe" --distribution Ubuntu --user root --exec /bin/sleep infinity'
   Assert (-not (Get-CastlinkKeepaliveProcess $state)) 'Foreign WSL process was adopted'
   Assert-Throws { Stop-CastlinkKeepalive $root $state } 'identity|owned'

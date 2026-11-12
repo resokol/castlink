@@ -48,31 +48,52 @@ PASS; Windows fixtures и genuine canonical mode probe PASS.
 RED PermissionError на старом правиле и GREEN readable/EROFS/другие mounts скрыты
 на новом (с приватным synthetic resolver, не доказательство внешнего DNS).
 
-Остаётся отдельный Windows/WSL GNS blocker: direct guest и --system видят только
-lo с DNS-tunnel address, /mnt/wsl/resolv.conf отсутствует. Shared mirrored setting
-и два named firewall rules уже применены; CA/пароль/init ещё не выполнялись.
-После свежей проверки двух известных registrations и нуля running workloads
-вручную остановлена пустая VM один раз; это не автоматическое действие installer.
-Сеть не восстановилась. VPN/адаптеры/HNS и общие firewall policy не менялись.
-Новый пакет прошёл mandatory rootfs/PAM/dbus/source audit; actual inventory всех190
-source версий совпал с проверенными архивами. PAM guard сверяет реальный module,
-не предполагаемый config path. Existing named firewall rules приняты actual helper
-в NonInteractive без нового prompt. Сборщик закрыт после проверки нуля контейнеров;
-последующий network probe по-прежнему видит только lo. QA-дистрибутив остановлен.
-После пользовательской полной перезагрузки сеть осталась только lo. Найден
-конкретный unsupported host setting: DisabledComponents=0xFFFFFFFF глобально
-отключает IPv6. Microsoft связывает такое отключение со сбоем WSL; WSL3.0.1
-ошибочно сравнивает значение строго с0xFF, поэтому0xFFFFFFFF обходит fallback.
-Пользователь отдельно согласовал DWORD0xFFFFFFFF→0x20 после объяснения IPv6/VPN
-риска. Elevated Apply завершён exit0; receipt и независимый Registry64 readback
-подтверждают DWORD32. JSON/.reg backup исходного4294967295 сохранены;6 adapter
-bindings остались Enabled. Менялся только согласованный DWORD. Windows restart
-не запускался. Теперь нужен пользовательский полный restart, LastBootUpTime должен
-быть позже Apply2026-11-12T06:16:23.5088677Z, затем контроль NIC/DNS и fresh Install.
-Не повторять Apply и не считать причинность доказанной до контрольного запуска.
-Пакет61ce65a2 остаётся проверенным и не требует пересборки. Старые QA state/VHD
-сохранены, rc.4 ещё не импортирован. Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не
-подтверждены; публичного WSL release нет.
+Сетевой блокер Windows/WSL устранён: после отдельно согласованного DWORD
+DisabledComponents0xFFFFFFFF→0x20 и полной пользовательской перезагрузки
+LastBootUtc2026-11-12T06:25:08.5000000Z позже Apply06:16:23.5088677Z;
+независимый readback остаётся32. Actual guest probe видит обычные NIC, default
+route, /mnt/wsl/resolv.conf и разрешает archive.ubuntu.com. Этот контроль прошёл
+при выключенном Docker Desktop. Повторять registry Apply или пересобирать rc.4
+не требуется; старые QA state/VHD сохранены.
+
+По прямому поручению пользователя завершена очистка накопленных Docker-сборок:
+исходная inventory92images/66.27GB и773cache records/78.07GB (shared bytes нельзя
+складывать). Удалены11 точных manufacturer images пяти подтверждённых WSL commits;
+готовые package/source archives и audit receipts сохранены вне Docker. Очистка
+остальных старых сборок использует producer ownership labels, проверенные Git
+source IDs и защиту всех running/stopped container refs. Тома/данные не удаляются;
+общий system prune и force image removal запрещены. Удалены59 images:
+осталось33/21.75GB. Scoped cache сократился до263records/20.15GB;
+все11 containers сохранены,13volumes не изменялись. После TRIM Docker остановлен;
+штатный offline DiskPart compact только data VHD завершился exit0. Размер
+132404740096→48391782400 bytes, Windows D: получил84012957696 bytes (84.0GB).
+Docker после compaction повторно открыт: все11 container/image refs,13volumes,
+8foreign image IDs, stable1.0.2 и текущий audio candidate сохранены; receipt PASS.
+
+**Постоянное правило сборщика:** после успешного экспорта и проверки артефактов
+удалять собственные временные Docker images и относящийся к сборке cache в этом же
+рабочем сеансе, затем измерять остаток. Сохранять текущий stable, изображения всех
+контейнеров (включая stopped), чужие/unattributed ресурсы и все данные/тома. Не
+накапливать новый image tag на каждый commit без завершённой scoped cleanup.
+
+Настоящий rc.4 Install импортировал свежий QA guest и записал phase=imported,
+но остановился до init/пароля: WinPS5.1 Start-Process добавляет ASCII space в конец
+CommandLine WSL. PID21352 продолжает sleep; actual held timestamp, CIM timestamp,
+exe и arguments совпадают, единственное отличие — trailing32. Старый predicate
+отказывает; однострочный TrimEnd([char]32) принимает этот же owned process.
+Behavioral suite на настоящем WinPS5.1 дал RED→GREEN. При повторном Install
+найден отдельный Set-Acl SeSecurityPrivilege отказ. Actual новый ACL fixture дал
+RED, замена provider Set-Acl на DirectoryInfo.SetAccessControl дала GREEN, в том
+числе дважды заданные owner/current-user+SYSTEM private DACL и original QA root
+Protect+Save.8 Node package checks PASS.
+Готовый rc.4 не менялся. Для следующего локального init запускается явно
+неопубликованная диагностическая копия Windows installer с этими двумя
+исправлениями; rootfs/source/manifest остаются61ce65a2. Docker не пересобирается.
+Текущий console PID24496 действительно дошёл до hidden Room creation password;
+пароль вводит только пользователь локально. Не читать console после создания
+owner access, не писать пароль/ссылку в stdout. Init/HTTPS ещё не подтверждены.
+Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не подтверждены;
+публичного WSL release нет.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.
