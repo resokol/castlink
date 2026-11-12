@@ -96,19 +96,37 @@ pinned/stagedbytes+taskhash и использовала новыйAssert/SIDhelp
 release installer целиком не объявлять проверенным. Полноценный пакет с fixes
 нужно собрать позже, после integration; обязательная cleanup после export.
 
-Текущий blocker — доступ Windows к собственномуLAN IP:127.0.0.1:443 доступен,
-configuredLAN:443 timeout. Microsoft documented experimental.hostAddressLoopback
-поумолчаниюfalse; текущий .wslconfig содержит толькоmirrored. Подготовленexact
-append сbackup и scopedstop/terminate только QA guest после проверки другихworkloads.
-Auto-review отклонил запуск: прежняяавторизация не покрывает общуюнастройкуWSL и
-остановкуrunningserver. Ничего не применено; отправлен отдельный явный запрос,
-ожидание не является approval. Пароль/CA/автозапуск повторно не спрашивать.
+Пользователь отдельно разрешил общий `hostAddressLoopback=true` и перезапуск
+только CastLink. Настройка добавлена с резервной копией; другие WSL-дистрибутивы
+не работали и не останавливались. После штатного Stop и terminate своего guest
+общая VM завершилась сама за63.3s; глобальный shutdown не использовался. Существующая
+проверенная logon task запустила сервер: новый keeper, phase=ready, task=Running.
+Windows LAN:443 изменился с timeout на connectPASS. Все8 fingerprints конфигурации,
+identity, секрета и пароля совпали после холодного stop/start.
 
-Chrome RemoteDebuggingAllowed policy запрещает CDP; policy не менять и не обходить.
-Native Windows HTTPS request пока timeout до HTTP/auth, ownerinvite не использован.
-После разрешения/проверкиhostloopback нужны реальные metrics/events и обычноеGUI,
-keepalive90s после закрытияcontrollers безWSL-вызовов, stop/start byte preservation.
-Публичного WSL release нет; old QA registrations/state/VHD и текущийready QA сохранены.
+Настоящий HTTPS API на Windows (system CA roots, HTTP/1.1 ALPN, без bypass):
+metrics/events guest403, owner200, повтор invite401; scope=wsl, retention86400000,
+storage=ok, samplerRunning=true, history52points. В WinPS5 HttpWebRequest нет нужного
+ALPN для IP+TURN multiplex; curlSchannel требует CRL для privateCA. Поэтому proof
+использует Node24 --use-system-ca с явным HTTP ALPN, не отключение TLS/revocation.
+После закрытия своего controller сервер95.138s отвечал200 (8samples) без WSL-вызовов,
+keeper PID/time не менялись. Обычное окно Chrome (без DevTools/CDP) приняло private
+invite и показало5 настоящих графиков/журнал; проверены1366×900 и390×844. Скриншоты
+только собственного окна и receipts хранятся в приватном QA-каталоге. Chrome policy
+RemoteDebuggingAllowed сохранена. Пароль и owner URL никогда не выводились.
+
+Source installer теперь проверяет оба shared settings до записи, требует явного
+согласия, сохраняет байты/BOM и отказывает при конфликтах/работающих дистрибутивах.
+После записи останавливает Install до активации WSL и повторной команды. Start
+не запрашивает ввод и не меняет отсутствующие shared settings. Actual WinPS suite
+PASS; manifest объявляет hostAddressLoopback, инструкции RU/EN/zh-CN синхронизированы.
+Реализация helper/fixtures — Sol high; ревью и native Windows proof — Codex root.
+
+Далее — новый пакет из чистого текущего source с этими исправлениями, сборка на
+GitHub Actions вместо новых Docker images на ПК. Работающий QA сохраняется. Это
+непубликуемый кандидат; исходныйrc.4 архив не менялся. Внешний media/TURN и настоящий
+новый logon после Windows reboot ещё отдельно не подтверждены. PR20 draft,
+main/публичные immutable releases не менялись.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.

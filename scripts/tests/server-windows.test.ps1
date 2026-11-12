@@ -1,3 +1,4 @@
+param([switch]$NetworkingOnly)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $installer = Join-Path $PSScriptRoot '../install-server-windows.ps1'
@@ -8,9 +9,107 @@ function Assert-Throws([scriptblock]$Block, [string]$Pattern) {
   try { & $Block } catch { Assert ($_.Exception.Message -match $Pattern) "Unexpected error: $($_.Exception.Message)"; return }
   throw "Expected rejection matching $Pattern"
 }
+function Test-CastlinkWslNetworkSettings([string]$Directory) {
+  $path = Join-Path $Directory 'host-loopback.wslconfig'
+  $utf8 = [Text.UTF8Encoding]::new($false)
+  $comment = '# ' + [char]0x0416 + ' ' + [char]0x7528 + [char]0x6237
+  $same = { param($Bytes) Assert ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -ceq [Convert]::ToBase64String($Bytes)) 'Network configuration bytes changed unexpectedly' }
+  Set-CastlinkHostAddressLoopback $path @() $true
+  Assert ([IO.File]::ReadAllText($path) -ceq "[experimental]`r`nhostAddressLoopback=true`r`n") 'Missing experimental section was not created'
+  $saved = [IO.File]::ReadAllBytes($path)
+  Set-CastlinkHostAddressLoopback $path @('Ubuntu') $false
+  & $same $saved
+  $saved = $utf8.GetBytes("[experimental] ; comment`r`nhostAddressLoopback = TrUe # keep`r`notherKey=value`r`n")
+  [IO.File]::WriteAllBytes($path, $saved)
+  Set-CastlinkHostAddressLoopback $path @('Ubuntu') $false
+  & $same $saved
+  $original = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored`n[experimental] # retain`nautoMemoryReclaim=gradual`n[custom]`nvalue=unchanged")
+  [IO.File]::WriteAllBytes($path, $original)
+  Set-CastlinkHostAddressLoopback $path @() $true
+  $expected = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored`n[experimental] # retain`nautoMemoryReclaim=gradual`nhostAddressLoopback=true`n[custom]`nvalue=unchanged")
+  & $same $expected
+  $original = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored")
+  [IO.File]::WriteAllBytes($path, $original)
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $false } 'shared|hostAddressLoopback'
+  & $same $original
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @('Ubuntu') $true } 'running|restart'
+  & $same $original
+  Set-CastlinkHostAddressLoopback $path @() $true
+  $expected = [byte[]]($original + $utf8.GetBytes("`n[experimental]`nhostAddressLoopback=true`n"))
+  & $same $expected
+  foreach ($invalid in @(
+    "[experimental]`nhostAddressLoopback=false`n",
+    "[experimental]`nhostAddressLoopback=true`nhostAddressLoopback=true`n",
+    "[experimental]`nhostAddressLoopback=true`n[experimental]`nother=1`n",
+    "[experimental]`nhostAddressLoopback=`n",
+    "[experimental]`nhostAddressLoopback=1`n",
+    "[experimental]`nhostAddressLoopback=true extra`n",
+    "[experimental]`nhostAddressLoopback:true`n",
+    "[experimental]`nhostAddressLoopback true`n",
+    "[experimental`nhostAddressLoopback=true`n",
+    "[experimental] invalid`nhostAddressLoopback=true`n",
+    "[ experimental ]`nhostAddressLoopback=true`n"
+  )) {
+    $bytes = $utf8.GetBytes($invalid)
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $true } 'conflicting|ambiguous|malformed'
+    & $same $bytes
+  }
+  $invalidUtf8 = [byte[]](255,91,101,120,112,101,114,105,109,101,110,116,97,108,93)
+  [IO.File]::WriteAllBytes($path, $invalidUtf8)
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $true } 'UTF-8'
+  & $same $invalidUtf8
+  Remove-Item -LiteralPath $path
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $false } 'shared|hostAddressLoopback'
+  Assert (-not (Test-Path -LiteralPath $path)) 'Declined setting created a file'
+
+  $script:NetworkPromptCalls = 0; $script:NetworkAnswer = 'n'
+  $script:NetworkRunningDistros = @(); $script:NetworkStartDuringConsent = $false
+  function Read-Host { $script:NetworkPromptCalls++; if ($script:NetworkStartDuringConsent) { $script:NetworkRunningDistros = @('Ubuntu') }; return $script:NetworkAnswer }
+  function Get-CastlinkDistros { param([switch]$Running) return $script:NetworkRunningDistros }
+  try {
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $false } 'required|shared|hostAddressLoopback'
+    Assert (-not (Test-Path -LiteralPath $path) -and $script:NetworkPromptCalls -eq 0) 'Noninteractive networking prompted or created a file'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'consent|not changed|declined'
+    Assert (-not (Test-Path -LiteralPath $path) -and $script:NetworkPromptCalls -eq 1) 'Declined networking changed the file or skipped consent'
+    $script:NetworkAnswer = 'y'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'settings saved.*Restart Windows'
+    $created = [IO.File]::ReadAllText($path)
+    Assert ($created -match '(?s)\[wsl2\].*networkingMode=mirrored.*\[experimental\].*hostAddressLoopback=true') 'A new config did not receive both settings'
+    Assert ($script:NetworkPromptCalls -eq 2) 'New shared settings were not covered by one explicit consent'
+    foreach ($malformed in @("[wsl2]`nnetworkingMode=`n", "[wsl2]`nnetworkingMode=mirrored extra`n")) {
+      $invalid = $utf8.GetBytes($malformed)
+      [IO.File]::WriteAllBytes($path, $invalid)
+      Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'malformed'
+      & $same $invalid
+    }
+    $bytes = $utf8.GetBytes("[experimental]`nhostAddressLoopback=false`n")
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'conflicting'
+    & $same $bytes
+    Assert ($script:NetworkPromptCalls -eq 2) 'Conflicting setting prompted before validation'
+    $bytes = $utf8.GetBytes("[wsl2]`nnetworkingMode=mirrored`n")
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @('Ubuntu') $true } 'running|restart'
+    & $same $bytes
+    Assert ($script:NetworkPromptCalls -eq 2) 'Running distribution prompted for a global change'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'settings saved.*Restart Windows'
+    Assert ($script:NetworkPromptCalls -eq 3) 'Host IPv4 access did not request consent'
+    $saved = [IO.File]::ReadAllBytes($path)
+    Initialize-CastlinkWslNetworking $path @('Ubuntu') $false
+    & $same $saved
+    Assert ($script:NetworkPromptCalls -eq 3) 'Correct shared settings prompted while a distribution was running'
+    [IO.File]::WriteAllBytes($path, $bytes)
+    $script:NetworkStartDuringConsent = $true
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'running|restart'
+    & $same $bytes
+  } finally { Remove-Item Function:Read-Host,Function:Get-CastlinkDistros }
+}
 $testDir = Join-Path ([IO.Path]::GetTempPath()) ('castlink-windows-test-' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDir)
 try {
+  Test-CastlinkWslNetworkSettings $testDir
+  if ($NetworkingOnly) { Write-Host 'PASS: shared WSL networking behavioral fixtures (real config files; no WSL operations)'; return }
   $aclRoot = Join-Path $testDir 'private-installation'
   [void][IO.Directory]::CreateDirectory($aclRoot)
   Protect-CastlinkInstallationDirectory $aclRoot

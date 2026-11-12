@@ -4,6 +4,42 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Разрешённый host loopback и проверенный Windows доступ
+
+После явного «Разрешаю» выполнен подготовленный scoped script. В .wslconfig
+побайтно сохранены прежние строки, добавлен только `[experimental]
+hostAddressLoopback=true`; исходная копия сохранена. Apply09:15:16.7316573Z;
+Stop сохранил данные, завершён только собственный guest. VM завершилась естественно
+за63.3s (09:16:23.1972858Z), без global shutdown. Проверенная существующая task
+запущена09:17:11.2018796Z; taskRunning и новый owned keeper подтверждены. Сетевой
+Windows probe: localhost443PASS и assignedLAN443PASS, ранее LAN timeout. Все8
+проверенных state/config fingerprints совпали после stop/start.
+
+Normal Windows HTTPS proof использует Node24 system CA store и HTTP/1.1 ALPN:
+metrics/events403 гостю,200 владельцу, replay401; scopewsl, retention86400000,
+52historypoints, storageok/samplerRunning, web/LiveKit/roomStoreok. Старый WinPS5
+HttpWebRequest не посылает HTTP ALPN для IP-адреса и попадает в TURN fallback;
+Windows curl Schannel отвергает privateCA без CRL. Эти клиенты не обходились
+отключением TLS/CRL; применён обычный system-root client с HTTP ALPN как в Chrome.
+
+После закрытия последнего собственного controller95.138s проверялся только
+Windows process identity и HTTPS; WSL commands не выполнялись. Все8 запросов200,
+keeper не менялся. Screenshot/UIAutomation только собственного обычного Chrome
+app window (no DevTools, no TLS bypass) подтвердили реальную панель:5графиков,
+WSL scope, сервисы, ресурсы и журнал. Проверены1366×900 и390×844; прочие окна не
+снимались. Owner bootstrap HTML/профиль приватны, bearer не выводился и не передан
+аргументом запуска Chrome. User CurrentUser CA и logon choice сохранены.
+
+Установщик получил отдельный host-loopback helper и combined preflight/consent.
+Существующие true/mirrored настройки принимаются без записи даже при running;
+false/duplicate/malformed/неверныйUTF8 и running-with-missing дают отказ без записи.
+После любого global write требуется активация VM/rerun до import/start. Полный
+actual WinPS5.1 behavioral suite PASS, включая прежние ACL/SID проверки;
+Nodepackage8PASS. Source implementation Solhigh; native proof/review Codex root.
+Готовится новый candidate artifact с соответствующими source pins; diagnostic
+server и прежнийrc.4 не выдаются за неизменённый новый package. Внешний forcedTURN
+и новый настоящий Windows logon после restart здесь ещё не проверялись.
+
 ## Actual init, mirrored localhost и Windows logon task12.11
 
 Пользователь завершил hidden password prompt. PG/LK/converter/Caddy/TURN поднялись,

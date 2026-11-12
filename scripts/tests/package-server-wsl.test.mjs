@@ -50,6 +50,7 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   const m=await assembleWslPackage(f);
   assert.equal(m.channel,'server-wsl');assert.equal(m.releaseTag,'server-wsl-v'+version+'-'+commit.slice(0,12));
   assert.equal(m.sourceCommit,commit);assert.equal(m.architecture,'amd64');
+  assert.equal(m.requirements.hostAddressLoopback,true);
   const rootfsBytes=await fs.readFile(f.rootfs);
   assert.equal(m.rootfs.sha256,hash(rootfsBytes));assert.equal(m.rootfs.size,rootfsBytes.length);
   assert.deepEqual(await fs.readFile(path.join(f.output,m.rootfs.file)),rootfsBytes);

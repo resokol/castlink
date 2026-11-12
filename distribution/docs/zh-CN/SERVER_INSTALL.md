@@ -37,7 +37,10 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 安装器询问地址和密码，验证 rootfs SHA256，仅创建其专属发行版。
 首次启用 WSL 可能需要管理员同意及重启；重启后再次运行相同命令，不自动重启。
-现有发行版、冲突端口和设置保持不变。Mirrored networking 是 WSL 共享设置，修改需要同意。
+现有发行版、冲突端口和设置保持不变。需要共享 WSL 设置 `networkingMode=mirrored`
+及 `[experimental] hostAddressLoopback=true`，后者允许本机通过分配给 Windows 的 IPv4
+地址访问服务器。安装器仅在明确同意后添加缺失设置，不覆盖已有的 `false`。
+随后重启 Windows，或等待 WSL 虚拟机完全停止，再次运行相同命令。
 不执行全局 `wsl --shutdown`。若导入后在写入身份标记前中断，会保留发行版供人工检查，
 不会自动接管或删除。
 

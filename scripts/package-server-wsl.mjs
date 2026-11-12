@@ -128,7 +128,7 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
   sources:{file:sourcesName,sha256:await hashFile(sources),size:(await fs.stat(sources)).size},
   upstreamSources:{file:'CastLink-ThirdParty-Sources.tar.gz',sha256:await hashFile(upstreamSources),size:(await fs.stat(upstreamSources)).size},
   inventory:{file:'packages.tsv',sha256:await hashFile(inventory)},
-  requirements:{windowsBuild:22621,wsl:2,networkingMode:'mirrored'},
+  requirements:{windowsBuild:22621,wsl:2,networkingMode:'mirrored',hostAddressLoopback:true},
   verification:{windowsInstall:'not-run',externalMedia:'not-run',publication:'not-published'}};
  const bytes=Buffer.from(JSON.stringify(manifest,null,2)+'\n');
  const pins={CASTLINK_WSL_RELEASE_TAG:manifest.releaseTag,CASTLINK_WSL_ROOTFS_SHA256:manifest.rootfs.sha256,CASTLINK_WSL_MANIFEST_SHA256:createHash('sha256').update(bytes).digest('hex'),CASTLINK_WSL_REPOSITORY:repository};
