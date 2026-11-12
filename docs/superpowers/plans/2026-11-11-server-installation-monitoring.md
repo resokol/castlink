@@ -66,8 +66,8 @@ scripts/build-server-wsl.mjs, scripts/tests/package-server-wsl.test.mjs,
 - [x] Write/run failing packaging tests for exact manifest, script pins and missing sources.
 - [x] Implement rootfs/export pipeline without Docker runtime or installation data, legal
   notices and mandatory exact source archives; build and boot actual runtime image.
-- [ ] Run the full corresponding-source release package build from a clean new commit.
-  No public release was published.
+- [x] Run the full corresponding-source release package build from clean `0ce26451`.
+  WSL1.0.2-rc.2 package audit/hashes pass; no public WSL release was published.
 - [x] Verify generated installer bytes and checksums; attempt actual image/runtime build.
 - [x] Update RU/EN/zh-CN instructions and working state with actual evidence.
 

@@ -411,9 +411,15 @@ def start(state):
         except ValueError:
             if time.monotonic() >= deadline: raise ValueError('Server readiness failed; inspect journalctl -u castlink-web -u castlink-bootstrap -u castlink-caddy -u castlink-turn-tls') from None
             time.sleep(2)
-    state['completed'] = True
-    state['readiness'] = 'https-db-livekit-verified'
-    write_private(STATE / 'state.json', state)
+    # Bootstrap runs in a service process and advances the persisted state.
+    current = load_state()
+    if any(current[key] != state[key] for key in ('installationId', 'nodeId', 'release', 'address', 'origin', 'mediaIp', 'turnHost', 'publicHttps', 'roomCreationPasswordHash')):
+        raise ValueError('Installation identity or settings changed during start; readiness was not saved')
+    if current['databasePhase'] != 'seed' or current.get('postgresRoleCreated') is not True:
+        raise ValueError('Database bootstrap is incomplete; readiness was not saved')
+    current['completed'] = True
+    current['readiness'] = 'https-db-livekit-verified'
+    write_private(STATE / 'state.json', current)
 
 
 def stop_services():

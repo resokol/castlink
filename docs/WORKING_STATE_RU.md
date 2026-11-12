@@ -1,4 +1,4 @@
-# Текущее состояние — сервер и суточный мониторинг, 11.11.2026
+# Текущее состояние — Windows WSL и суточный мониторинг, 12.11.2026
 
 ## Серверный выпуск 1.0.2
 
@@ -26,11 +26,148 @@ Publisher сначала загружает draft, сверяет GitHub asset s
 проверки. Публикация пакета сама не обновляет установленный сервер.
 
 Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
-Windows без Docker/WSL2 остаётся отдельным кандидатом: rootfs собрался, но этап
-получения соответствующих Ubuntu sources остановился на `apt=2.8.3`, которого
-нет в текущих source indexes. Полный WSL-пакет не опубликован; установки на
-Windows, mirrored networking, firewall, CA и внешний HTTPS/TURN ещё не проверены.
-Нужен исправленный воспроизводимый source build и настоящее Windows испытание.
+Windows без Docker (WSL2): кандидат1.0.2-rc.6 из `9f87ea20` прошёл полный первый
+Install на Windows11, HTTPS/API/PPTX и запуск настроенной logon task.
+Исправления находятся в [PR #20](https://github.com/resokol/castlink/pull/20).
+Ранее полныйrc.4 был собран из `61ce65a2`. Старые apt/pcre2 обновляются
+из тех же APT indexes; реальная offline проверка всех190 source версий дала
+RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
+SHA256 восьми файлов и запуск Windows installer -Help проверены. CI58 прошёл для
+первого closure-fix `0ce26451`; CI63 для `61ce65a2` также прошёл.
+Первый реальный Install rc.2 остановился до сети/import: WinPS5.1 получает WSL
+--version с NUL и ошибочно отклонял установленный3.0.1.0. Однострочное исправление
+и новая fixture прошли actual Windows RED→GREEN; genuine Initialize теперь проходит.
+Пользователь прошёл mirrored/firewall prompts. QA-дистрибутив импортирован, но
+rc.3 остановился до guest marker/init: в Docker-derived Ubuntu отсутствуют
+libpam-systemd/dbus-user-session. Их точная диагностическая установка только в
+новый failed QA guest и повторный boot дали root session active, bus socket и
+нулевой stderr. Artifact rc.3 не менялся; новый rc.4 уже построен и проверен.
+Также исправлен путь wslinfo на реальный /usr/bin/wslinfo. Node8 и runtime20
+PASS; Windows fixtures и genuine canonical mode probe PASS.
+
+Службам возвращён только read-only DNS resolver через tmpfs /mnt; Windows mounts
+скрыты, converter сохраняет полную изоляцию. Настоящий systemd sandbox test дал
+RED PermissionError на старом правиле и GREEN readable/EROFS/другие mounts скрыты
+на новом (с приватным synthetic resolver, не доказательство внешнего DNS).
+
+Сетевой блокер Windows/WSL устранён: после отдельно согласованного DWORD
+DisabledComponents0xFFFFFFFF→0x20 и полной пользовательской перезагрузки
+LastBootUtc2026-11-12T06:25:08.5000000Z позже Apply06:16:23.5088677Z;
+независимый readback остаётся32. Actual guest probe видит обычные NIC, default
+route, /mnt/wsl/resolv.conf и разрешает archive.ubuntu.com. Этот контроль прошёл
+при выключенном Docker Desktop. Повторять registry Apply или пересобирать rc.4
+не требуется; старые QA state/VHD сохранены.
+
+По прямому поручению пользователя завершена очистка накопленных Docker-сборок:
+исходная inventory92images/66.27GB и773cache records/78.07GB (shared bytes нельзя
+складывать). Удалены11 точных manufacturer images пяти подтверждённых WSL commits;
+готовые package/source archives и audit receipts сохранены вне Docker. Очистка
+остальных старых сборок использует producer ownership labels, проверенные Git
+source IDs и защиту всех running/stopped container refs. Тома/данные не удаляются;
+общий system prune и force image removal запрещены. Удалены59 images:
+осталось33/21.75GB. Scoped cache сократился до263records/20.15GB;
+все11 containers сохранены,13volumes не изменялись. После TRIM Docker остановлен;
+штатный offline DiskPart compact только data VHD завершился exit0. Размер
+132404740096→48391782400 bytes, Windows D: получил84012957696 bytes (84.0GB).
+Docker после compaction повторно открыт: все11 container/image refs,13volumes,
+8foreign image IDs, stable1.0.2 и текущий audio candidate сохранены; receipt PASS.
+
+**Постоянное правило сборщика:** после успешного экспорта и проверки артефактов
+удалять собственные временные Docker images и относящийся к сборке cache в этом же
+рабочем сеансе, затем измерять остаток. Сохранять текущий stable, изображения всех
+контейнеров (включая stopped), чужие/unattributed ресурсы и все данные/тома. Не
+накапливать новый image tag на каждый commit без завершённой scoped cleanup.
+
+Диагностическая Windows/WSL установка завершилась exit0: phase=ready,
+autoStartAtLogon=true. Пользователь сам ввёл скрытый пароль и отдельно подтвердил
+CA/автозапуск; CA присутствует в CurrentUser Root. Все8 служб active, runtime
+ready=true/https-db-livekit-verified. Настоящий isolated PPTX worker вернул200/PDF,
+9724bytes. Данные/пароль не сбрасывались; Docker выключен, новых images не создавали.
+
+Проверены platform fixes: WinPS trailingASCIIspace keepalive и provider Set-Acl
+исправлены вfa396558 (actual Windows RED→GREEN). Теперь выявлены и проверены
+ещё два: mirrored WSL ведёт localhost черезloopback0, поэтому старыйprivate-port
+nftdrop блокировал PG/LK; узкоеaccept толькоloopback0+src/dst127.0.0.1+/32+6TCP
+ports передoriginaldrop дало actualRED→GREEN→rollbackRED, финальныйcounter16.
+PG/LKconnectPASS, нелокальныйsource→127.0.0.1 остаётсяblocked; это не доказательство
+внешнегоLAN. Первая logon registration создала ровно нужнуюtask/stagedbytes, но
+Windows сериализовала principal/trigger как accountname. КанонизацияSID принимает
+только ту же учётную запись. Actual WinPS suite RED→GREEN,21runtime tests PASS,
+Sol high review обоихdiff без замечаний. Diagnostic completion сохраняла прежние
+pinned/stagedbytes+taskhash и использовала новыйAssert/SIDhelper; неизменённыйrc.4
+release installer целиком не объявлять проверенным. Полноценный пакет с fixes
+нужно собрать позже, после integration; обязательная cleanup после export.
+
+Пользователь отдельно разрешил общий `hostAddressLoopback=true` и перезапуск
+только CastLink. Настройка добавлена с резервной копией; другие WSL-дистрибутивы
+не работали и не останавливались. После штатного Stop и terminate своего guest
+общая VM завершилась сама за63.3s; глобальный shutdown не использовался. Существующая
+проверенная logon task запустила сервер: новый keeper, phase=ready, task=Running.
+Windows LAN:443 изменился с timeout на connectPASS. Все8 fingerprints конфигурации,
+identity, секрета и пароля совпали после холодного stop/start.
+
+Настоящий HTTPS API на Windows (system CA roots, HTTP/1.1 ALPN, без bypass):
+metrics/events guest403, owner200, повтор invite401; scope=wsl, retention86400000,
+storage=ok, samplerRunning=true, history52points. В WinPS5 HttpWebRequest нет нужного
+ALPN для IP+TURN multiplex; curlSchannel требует CRL для privateCA. Поэтому proof
+использует Node24 --use-system-ca с явным HTTP ALPN, не отключение TLS/revocation.
+После закрытия своего controller сервер95.138s отвечал200 (8samples) без WSL-вызовов,
+keeper PID/time не менялись. Обычное окно Chrome (без DevTools/CDP) приняло private
+invite и показало5 настоящих графиков/журнал; проверены1366×900 и390×844. Скриншоты
+только собственного окна и receipts хранятся в приватном QA-каталоге. Chrome policy
+RemoteDebuggingAllowed сохранена. Пароль и owner URL никогда не выводились.
+
+Source installer теперь проверяет оба shared settings до записи, требует явного
+согласия, сохраняет байты/BOM и отказывает при конфликтах/работающих дистрибутивах.
+После записи останавливает Install до активации WSL и повторной команды. Start
+не запрашивает ввод и не меняет отсутствующие shared settings. Actual WinPS suite
+PASS; manifest объявляет hostAddressLoopback, инструкции RU/EN/zh-CN синхронизированы.
+Реализация helper/fixtures — Sol high; ревью и native Windows proof — Codex root.
+
+Далее — новый пакет из чистого текущего source с этими исправлениями, сборка на
+GitHub Actions вместо новых Docker images на ПК. Первый factory43193869966
+для0741e62b прошёл Windows/tests и построил rootfs с190 source versions, но сборка
+упаковки упала на старом upstream404. Workflow теперь скачивает опубликованный
+архив1.0.2 по закреплённым1448015378bytes/SHA256e755…1f25c; импортирует только
+текущие manifest paths после отдельной проверки size/SHA каждого файла. Старые
+fetch/runtime checks сохранены. Python13 и Node8 PASS. Factory43196993237
+для506b36e9/rc.5 прошёл; на Windows проверены8 SHA256, весь source/runtime audit
+и побайтно идентичная повторная упаковка из чистого checkout.
+
+Первый полный Install неизменённогоrc.5 в новом временном guest дошёл до8active
+служб/ready и экспорта CA, но owner-access отказал. Причина: parent start сохраняет
+свою старую копию state после systemd bootstrap и затирает databasePhase=seed
+значениемnew. Actual state: completed=true/databasePhase=new; guard owner-access
+сохраняется. Исправление перечитывает validated state, проверяет прежнюю identity
+и completed bootstrap, меняет только completed/readiness. Regression воспроизводит
+реальный disk bootstrap new→migrations→seed: RED→GREEN; runtime23/23 PASS,
+package8/8 PASS. Исправление runtime и regression — Sol high; review/Windows/factory — Codex root.
+Пробный guest штатно остановлен, прежний настроенный сервер восстановлен exit0;
+все8 fingerprints прежних данных совпали. Originalrc.4/rc.5 archives не менялись,
+новых Docker images на ПК нет.
+
+Factory43205312805 успешно собралrc.6 из9f87ea20; CI verify этого source также
+SUCCESS. На ПК подтверждены8 SHA256, полный source/runtime audit и byte-identical
+reconstruction. Прямую большую загрузку оборвала сеть; authenticated HTTP206
+докачка111частей завершилась совпадением полного GitHub ZIP digest и CRC.
+Неизменённые generated installer/rootfs установлены с нуля: exit0/phaseReady,
+8active служб, hidden QA password действительно совпал, owner metrics/events200,
+guest403/replay401, retention24h/storageok/samplerRunning. Настоящий PPTX→PDF200
+и TURN TLS443 STUN binding прошли без TLS bypass. Временный CA в Windows не добавлен.
+Настроенная задача проверена по SID/action/hash, её actual Start дал новый keeper
+и ready. Первый Status в harness поспешил до освобождения operation.lock;
+исправлено только ожидание в приватной проверке, пакет не менялся. После закрытия
+installer95s/8HTTPS200 samples прошли без WSL calls с тем же PID/starttime.
+Все8 конфигурационных fingerprints нового guest сохранены после Stop/Start.
+
+Временная task удалена, пробный guest остановлен; прежний настроенный сервер,
+его task и обычное окно Chrome восстановлены. Его8 fingerprints также совпали,
+HTTPS проверен через Windows system roots. Части/ZIP загрузки удалены после audit:
+дополнительно освобождены7.388GB; готовые9assets и receipts сохранены. Docker OFF.
+Реализация runtime/докачки — Sol high; review и native Windows QA — Codex root.
+Внешний forced relay media и настоящий logon после нового Windows reboot не
+проверены; текущая конфигурация LAN. Публичный WSL release/main не менялись.
+[Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.
 Подробные проверки суточной истории:

@@ -13,8 +13,16 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbi
     systemd systemd-sysv dbus ca-certificates curl openssl python3 \
     postgresql-16 haproxy nftables iproute2 procps libstdc++6 \
     libreoffice-impress fonts-dejavu-core fonts-liberation \
+ # Refresh packages left in the pinned base: superseded binary versions can
+ # disappear from source indexes even while still installed in that base.
+ && apt-get upgrade -y --no-install-recommends \
  && pg_dropcluster --stop 16 main \
  && systemctl mask postgresql.service postgresql@16-main.service haproxy.service \
+ && rm -f /usr/sbin/policy-rc.d
+# WSL opens a PAM-backed systemd user session before executing the first command.
+# Keep this small layer separate so existing OS/dependency build caches remain valid.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
+ && apt-get install -y --no-install-recommends libpam-systemd dbus-user-session \
  && rm -f /usr/sbin/policy-rc.d
 COPY --from=web /usr/local/bin/node /usr/local/bin/node
 COPY --from=web /usr/local/LICENSE /opt/castlink/third_party/node/LICENSE

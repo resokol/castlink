@@ -43,7 +43,12 @@ Setup asks for address/password, verifies the rootfs SHA256 and creates only its
 own distribution. First-time WSL enablement may need administrator consent and a
 reboot; rerun the same command afterwards. No automatic reboot occurs. Conflicting
 ports, settings and foreign distributions are preserved. Mirrored networking is a
-shared WSL setting and changes require consent. No global `wsl --shutdown` runs.
+shared WSL setting. `networkingMode=mirrored` and `[experimental]
+hostAddressLoopback=true` are required; the latter lets this PC access its server
+through its assigned IPv4 address. Only missing settings are added after explicit
+consent. Then restart Windows or wait for the WSL VM to stop completely and rerun
+the same command. The installer never runs global `wsl --shutdown` or overwrites
+an existing `false` value.
 An interrupted import before its identity marker is saved requires manual review;
 the distribution is retained rather than adopted or deleted automatically.
 

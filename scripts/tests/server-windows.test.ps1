@@ -1,3 +1,4 @@
+param([switch]$NetworkingOnly)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $installer = Join-Path $PSScriptRoot '../install-server-windows.ps1'
@@ -8,9 +9,116 @@ function Assert-Throws([scriptblock]$Block, [string]$Pattern) {
   try { & $Block } catch { Assert ($_.Exception.Message -match $Pattern) "Unexpected error: $($_.Exception.Message)"; return }
   throw "Expected rejection matching $Pattern"
 }
+function Test-CastlinkWslNetworkSettings([string]$Directory) {
+  $path = Join-Path $Directory 'host-loopback.wslconfig'
+  $utf8 = [Text.UTF8Encoding]::new($false)
+  $comment = '# ' + [char]0x0416 + ' ' + [char]0x7528 + [char]0x6237
+  $same = { param($Bytes) Assert ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -ceq [Convert]::ToBase64String($Bytes)) 'Network configuration bytes changed unexpectedly' }
+  Set-CastlinkHostAddressLoopback $path @() $true
+  Assert ([IO.File]::ReadAllText($path) -ceq "[experimental]`r`nhostAddressLoopback=true`r`n") 'Missing experimental section was not created'
+  $saved = [IO.File]::ReadAllBytes($path)
+  Set-CastlinkHostAddressLoopback $path @('Ubuntu') $false
+  & $same $saved
+  $saved = $utf8.GetBytes("[experimental] ; comment`r`nhostAddressLoopback = TrUe # keep`r`notherKey=value`r`n")
+  [IO.File]::WriteAllBytes($path, $saved)
+  Set-CastlinkHostAddressLoopback $path @('Ubuntu') $false
+  & $same $saved
+  $original = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored`n[experimental] # retain`nautoMemoryReclaim=gradual`n[custom]`nvalue=unchanged")
+  [IO.File]::WriteAllBytes($path, $original)
+  Set-CastlinkHostAddressLoopback $path @() $true
+  $expected = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored`n[experimental] # retain`nautoMemoryReclaim=gradual`nhostAddressLoopback=true`n[custom]`nvalue=unchanged")
+  & $same $expected
+  $original = [byte[]](239,187,191) + $utf8.GetBytes("$comment`n[wsl2]`nnetworkingMode=mirrored")
+  [IO.File]::WriteAllBytes($path, $original)
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $false } 'shared|hostAddressLoopback'
+  & $same $original
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @('Ubuntu') $true } 'running|restart'
+  & $same $original
+  Set-CastlinkHostAddressLoopback $path @() $true
+  $expected = [byte[]]($original + $utf8.GetBytes("`n[experimental]`nhostAddressLoopback=true`n"))
+  & $same $expected
+  foreach ($invalid in @(
+    "[experimental]`nhostAddressLoopback=false`n",
+    "[experimental]`nhostAddressLoopback=true`nhostAddressLoopback=true`n",
+    "[experimental]`nhostAddressLoopback=true`n[experimental]`nother=1`n",
+    "[experimental]`nhostAddressLoopback=`n",
+    "[experimental]`nhostAddressLoopback=1`n",
+    "[experimental]`nhostAddressLoopback=true extra`n",
+    "[experimental]`nhostAddressLoopback:true`n",
+    "[experimental]`nhostAddressLoopback true`n",
+    "[experimental`nhostAddressLoopback=true`n",
+    "[experimental] invalid`nhostAddressLoopback=true`n",
+    "[ experimental ]`nhostAddressLoopback=true`n"
+  )) {
+    $bytes = $utf8.GetBytes($invalid)
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $true } 'conflicting|ambiguous|malformed'
+    & $same $bytes
+  }
+  $invalidUtf8 = [byte[]](255,91,101,120,112,101,114,105,109,101,110,116,97,108,93)
+  [IO.File]::WriteAllBytes($path, $invalidUtf8)
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $true } 'UTF-8'
+  & $same $invalidUtf8
+  Remove-Item -LiteralPath $path
+  Assert-Throws { Set-CastlinkHostAddressLoopback $path @() $false } 'shared|hostAddressLoopback'
+  Assert (-not (Test-Path -LiteralPath $path)) 'Declined setting created a file'
+
+  $script:NetworkPromptCalls = 0; $script:NetworkAnswer = 'n'
+  $script:NetworkRunningDistros = @(); $script:NetworkStartDuringConsent = $false
+  function Read-Host { $script:NetworkPromptCalls++; if ($script:NetworkStartDuringConsent) { $script:NetworkRunningDistros = @('Ubuntu') }; return $script:NetworkAnswer }
+  function Get-CastlinkDistros { param([switch]$Running) return $script:NetworkRunningDistros }
+  try {
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $false } 'required|shared|hostAddressLoopback'
+    Assert (-not (Test-Path -LiteralPath $path) -and $script:NetworkPromptCalls -eq 0) 'Noninteractive networking prompted or created a file'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'consent|not changed|declined'
+    Assert (-not (Test-Path -LiteralPath $path) -and $script:NetworkPromptCalls -eq 1) 'Declined networking changed the file or skipped consent'
+    $script:NetworkAnswer = 'y'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'settings saved.*Restart Windows'
+    $created = [IO.File]::ReadAllText($path)
+    Assert ($created -match '(?s)\[wsl2\].*networkingMode=mirrored.*\[experimental\].*hostAddressLoopback=true') 'A new config did not receive both settings'
+    Assert ($script:NetworkPromptCalls -eq 2) 'New shared settings were not covered by one explicit consent'
+    foreach ($malformed in @("[wsl2]`nnetworkingMode=`n", "[wsl2]`nnetworkingMode=mirrored extra`n")) {
+      $invalid = $utf8.GetBytes($malformed)
+      [IO.File]::WriteAllBytes($path, $invalid)
+      Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'malformed'
+      & $same $invalid
+    }
+    $bytes = $utf8.GetBytes("[experimental]`nhostAddressLoopback=false`n")
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'conflicting'
+    & $same $bytes
+    Assert ($script:NetworkPromptCalls -eq 2) 'Conflicting setting prompted before validation'
+    $bytes = $utf8.GetBytes("[wsl2]`nnetworkingMode=mirrored`n")
+    [IO.File]::WriteAllBytes($path, $bytes)
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @('Ubuntu') $true } 'running|restart'
+    & $same $bytes
+    Assert ($script:NetworkPromptCalls -eq 2) 'Running distribution prompted for a global change'
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'settings saved.*Restart Windows'
+    Assert ($script:NetworkPromptCalls -eq 3) 'Host IPv4 access did not request consent'
+    $saved = [IO.File]::ReadAllBytes($path)
+    Initialize-CastlinkWslNetworking $path @('Ubuntu') $false
+    & $same $saved
+    Assert ($script:NetworkPromptCalls -eq 3) 'Correct shared settings prompted while a distribution was running'
+    [IO.File]::WriteAllBytes($path, $bytes)
+    $script:NetworkStartDuringConsent = $true
+    Assert-Throws { Initialize-CastlinkWslNetworking $path @() $true } 'running|restart'
+    & $same $bytes
+  } finally { Remove-Item Function:Read-Host,Function:Get-CastlinkDistros }
+}
 $testDir = Join-Path ([IO.Path]::GetTempPath()) ('castlink-windows-test-' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDir)
 try {
+  Test-CastlinkWslNetworkSettings $testDir
+  if ($NetworkingOnly) { Write-Host 'PASS: shared WSL networking behavioral fixtures (real config files; no WSL operations)'; return }
+  $aclRoot = Join-Path $testDir 'private-installation'
+  [void][IO.Directory]::CreateDirectory($aclRoot)
+  Protect-CastlinkInstallationDirectory $aclRoot
+  Protect-CastlinkInstallationDirectory $aclRoot
+  $privateAcl = ([IO.DirectoryInfo]::new($aclRoot)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+  $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  Assert ($privateAcl.AreAccessRulesProtected -and $privateAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $currentSid) 'Installation directory owner/protection was not retained'
+  $privateRules = @($privateAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+  Assert ($privateRules.Count -eq 2 -and @($privateRules | Where-Object { $_.IdentityReference.Value -notin @($currentSid,'S-1-5-18') -or $_.IsInherited -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne 'FullControl' }).Count -eq 0) 'Installation directory permissions are not private'
   Assert-Throws { Assert-CastlinkAddress 'https://example.com' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress 'host;touch /tmp/x' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress '-option' } 'hostname|IPv4'
@@ -23,7 +131,7 @@ try {
   Assert-Throws { Assert-CastlinkMirroredRuntime ([pscustomobject]@{distroName='CastLink-Server-fixture'}) } 'mirrored'
   $script:GuestResponse = 'mirrored'
   Assert-CastlinkMirroredRuntime ([pscustomobject]@{distroName='CastLink-Server-fixture'})
-  Assert (($script:CapturedWslArguments -join '|') -eq '--distribution|CastLink-Server-fixture|--user|root|--exec|/usr/lib/wsl/wslinfo|--networking-mode') 'Runtime networking queried wrong distro'
+  Assert (($script:CapturedWslArguments -join '|') -eq '--distribution|CastLink-Server-fixture|--user|root|--exec|/usr/bin/wslinfo|--networking-mode') 'Runtime networking queried wrong distro or WSL-provided tool'
   $script:GuestResponse = 'foreign'
   Assert-Throws { Assert-CastlinkGuestIdentity ([pscustomobject]@{distroName='CastLink-Server-fixture';installationId=('a'*32)}) } 'ownership'
   $script:GuestResponse = ('a'*32)
@@ -73,6 +181,28 @@ try {
   Assert ($again.installationId -eq $state.installationId) 'Rerun replaced identity'
   Assert-Throws { Get-CastlinkInstallation $root 'server-wsl-v1.1.0' 'resokol/castlink-releases' ('a'*64) } 'different|release'
   $script:WslExe = 'C:\Windows\System32\wsl.exe'
+  $actualWslExecutable = $script:WslExe
+  function Test-CastlinkWslNative {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq '--version') { return $script:TestWslVersion }
+  }
+  try {
+    $script:WslExe = 'Test-CastlinkWslNative'
+    $script:TestWslVersion = 'WSL version: 3.0.1.0'
+    Initialize-CastlinkWsl
+    # Actual Windows PowerShell 5.1 decodes WSL's UTF-16 output with embedded NULs.
+    $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes('WSL version: 3.0.1.0'))
+    Initialize-CastlinkWsl
+    $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes('WSL version: 2.4.13'))
+    Initialize-CastlinkWsl
+    foreach ($unsupported in @('WSL version: 2.4.12', 'no version available')) {
+      $script:TestWslVersion = [Text.Encoding]::UTF8.GetString([Text.Encoding]::Unicode.GetBytes($unsupported))
+      Assert-Throws { Initialize-CastlinkWsl } 'Update WSL'
+    }
+  } finally {
+    $script:WslExe = $actualWslExecutable
+    Remove-Item Function:Test-CastlinkWslNative
+  }
   $originalKeepaliveHandle = (Get-Command Get-CastlinkKeepaliveHandle).ScriptBlock
   $originalKeepaliveEvidence = (Get-Command Get-CastlinkProcessEvidence).ScriptBlock
   $script:FakeProcess = [pscustomobject]@{Id=321;StartTime=[DateTime]'2026-11-11T12:00:00Z';HasExited=$false;Handle=42;Killed=$false}
@@ -85,6 +215,12 @@ try {
   $receipt = [pscustomobject]@{processId=321;startTimeUtcTicks=$script:FakeProcess.StartTime.ToUniversalTime().Ticks.ToString()}
   $state | Add-Member NoteProperty keepalive $receipt -Force
   Assert ([bool](Get-CastlinkKeepaliveProcess $state)) 'Owned keepalive identity was rejected'
+  $nativeCommand = $script:FakeEvidence.CommandLine
+  $script:FakeEvidence.CommandLine = $nativeCommand+' '
+  Assert ([bool](Get-CastlinkKeepaliveProcess $state)) 'Windows PowerShell trailing command-line space rejected the owned keepalive'
+  $script:FakeEvidence.CommandLine = $nativeCommand+' --distribution Ubuntu '
+  Assert (-not (Get-CastlinkKeepaliveProcess $state)) 'Extra native command-line arguments were accepted'
+  $script:FakeEvidence.CommandLine = $nativeCommand
   $script:FakeEvidence.CommandLine = '"C:\Windows\System32\wsl.exe" --distribution Ubuntu --user root --exec /bin/sleep infinity'
   Assert (-not (Get-CastlinkKeepaliveProcess $state)) 'Foreign WSL process was adopted'
   Assert-Throws { Stop-CastlinkKeepalive $root $state } 'identity|owned'
@@ -137,6 +273,19 @@ try {
   Assert ($script:FakeTask.Principal.UserId -eq 'S-1-5-21-1234') 'Task principal differs from current user'
   Register-CastlinkLogonTask $root $state $installer 6>$null
   Assert ($script:TaskRegistrations -eq 1) 'Rerun replaced the matching owned task'
+  $nameSpec = $taskSpec.PSObject.Copy()
+  $nameSpec.userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $accountName = ([Security.Principal.SecurityIdentifier]::new($nameSpec.userSid)).Translate([Security.Principal.NTAccount]).Value
+  $script:FakeTask.Principal.UserId = $accountName
+  $script:FakeTask.Triggers[0].UserId = $accountName
+  Assert-CastlinkLogonTask $script:FakeTask $nameSpec
+  $script:FakeTask.Principal.UserId = 'S-1-5-18'
+  Assert-Throws { Assert-CastlinkLogonTask $script:FakeTask $nameSpec } 'conflicting'
+  $script:FakeTask.Principal.UserId = $accountName
+  $script:FakeTask.Triggers[0].UserId = 'S-1-5-18'
+  Assert-Throws { Assert-CastlinkLogonTask $script:FakeTask $nameSpec } 'conflicting'
+  $script:FakeTask.Principal.UserId = $taskSpec.userSid
+  $script:FakeTask.Triggers[0].UserId = $taskSpec.userSid
   $script:FakeTask.Triggers[0].CimClass.CimClassName = 'MSFT_TaskTimeTrigger'
   Assert-Throws { Register-CastlinkLogonTask $root $state $installer } 'conflicting'
   Remove-Item Function:Get-ScheduledTask,Function:New-ScheduledTaskAction,Function:New-ScheduledTaskTrigger,Function:New-ScheduledTaskPrincipal,Function:New-ScheduledTaskSettingsSet,Function:Register-ScheduledTask

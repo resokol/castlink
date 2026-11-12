@@ -4,6 +4,9 @@ create table inet castlink_private
 table inet castlink_private {
  chain input {
   type filter hook input priority -10; policy accept;
+  # Mirrored WSL sends localhost TCP through loopback0 instead of lo.
+  # Keep both addresses local; other loopback0 traffic still reaches the drop.
+  iifname "loopback0" ip saddr 127.0.0.1 ip daddr 127.0.0.1 tcp dport { 3000, 5432, 5348, 5349, 7880, 8443 } accept
   iifname != "lo" tcp dport { 3000, 5432, 5348, 5349, 7880, 8443 } drop
  }
 }

@@ -33,8 +33,13 @@ async function main(){
  await run(['build','--platform','linux/amd64','-f','Dockerfile.web',...secret,'--build-arg','CASTLINK_SOURCE_COMMIT='+commit,'--build-arg','STUDIOLINK_RELEASE='+version+'-'+commit.slice(0,12),'--build-arg','CASTLINK_PRODUCT_VERSION='+version,'--build-arg','CASTLINK_PRODUCT_BUILD_NUMBER='+version+'-'+commit.slice(0,12),'-t',web,'.']);
  const base=['build','--platform','linux/amd64','-f','infrastructure/server-wsl/Dockerfile',...secret,'--build-arg','WEB_IMAGE='+web,'--build-arg','CASTLINK_SOURCE_COMMIT='+commit,'--build-arg','CASTLINK_VERSION='+version];
  await run([...base,'--target','rootfs','-t',rootfs,'.']);
+ // Check the actual installed versions against the same retained APT indexes
+ // before exporting a large artifact or downloading corresponding sources.
+ execFileSync(process.env.CASTLINK_PYTHON||'python3',['scripts/tests/server-wsl-source-closure.test.py','--image',rootfs],{stdio:'inherit'});
  const upstreamOutput=path.join(output,'upstream');
- execFileSync(process.env.CASTLINK_PYTHON||'python3',['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',upstreamOutput],{stdio:'inherit'});
+ const upstreamArgs=['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',upstreamOutput];
+ if(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE)upstreamArgs.push('--reuse-archive',path.resolve(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE));
+ execFileSync(process.env.CASTLINK_PYTHON||'python3',upstreamArgs,{stdio:'inherit'});
  const container=await run(['create',rootfs],{capture:true});
  try{
   // Include exact upstream copyright/NOTICE texts alongside the compiled binaries.

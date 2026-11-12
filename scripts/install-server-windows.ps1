@@ -40,7 +40,8 @@ function Read-CastlinkWslConfig([string]$Path) {
     if (($bytes.Length -ge 2 -and (($bytes[0] -eq 255 -and $bytes[1] -eq 254) -or ($bytes[0] -eq 254 -and $bytes[1] -eq 255))) -or $bytes -contains 0) {
         throw 'Please save .wslconfig as UTF-8 before configuring mirrored networking.'
     }
-    return [Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF)
+    try { return ([Text.UTF8Encoding]::new($false, $true)).GetString($bytes).TrimStart([char]0xFEFF) }
+    catch { throw 'Please save .wslconfig as valid UTF-8 before configuring WSL networking.' }
 }
 
 function Set-CastlinkMirroredNetworking([string]$Path, [string[]]$RunningDistros, [bool]$Consent) {
@@ -53,7 +54,10 @@ function Set-CastlinkMirroredNetworking([string]$Path, [string[]]$RunningDistros
             if ($section -eq 'wsl2' -and $insertion -lt 0) { $insertion = $lineMatch.Index }
             $section = $Matches[1].ToLowerInvariant()
             if ($section -eq 'wsl2') { $wslCount++ }
-        } elseif ($section -eq 'wsl2' -and $line -match '^networkingMode\s*=\s*([^#;\s]+)\s*(?:[#;].*)?$') { $settings += $Matches[1].ToLowerInvariant() }
+        } elseif ($section -eq 'wsl2' -and $line -match '^networkingMode\b') {
+            if ($line -notmatch '^networkingMode\s*=\s*([^#;\s]+)\s*(?:[#;].*)?$') { throw 'Malformed networkingMode setting; .wslconfig was not changed.' }
+            $settings += $Matches[1].ToLowerInvariant()
+        }
     }
     if ($wslCount -gt 1 -or $settings.Count -gt 1) { throw 'Ambiguous or conflicting .wslconfig sections; configure networkingMode=mirrored manually.' }
     if ($settings.Count -eq 1) {
@@ -78,6 +82,77 @@ function Set-CastlinkMirroredNetworking([string]$Path, [string[]]$RunningDistros
         try { $stream.Write($bytes, 0, $offset); $extra = [Text.Encoding]::UTF8.GetBytes($addition); $stream.Write($extra, 0, $extra.Length); $stream.Write($bytes, $offset, $bytes.Length-$offset); $result = $stream.ToArray() } finally { $stream.Dispose() }
     }
     [IO.File]::WriteAllBytes($Path, $result)
+}
+
+function Set-CastlinkHostAddressLoopback([string]$Path, [string[]]$RunningDistros, [bool]$Consent) {
+    $content = Read-CastlinkWslConfig $Path
+    $section = ''; $sectionCount = 0; $settings = @(); $insertion = -1
+    foreach ($lineMatch in [regex]::Matches($content, '(?m)^.*(?:\r?\n|$)')) {
+        $line = $lineMatch.Value.Trim()
+        if ($line -match '^\[([^\]]+)\]\s*(?:[#;].*)?$') {
+            $name = $Matches[1].ToLowerInvariant()
+            if ($name.Trim() -eq 'experimental' -and $name -ne 'experimental') { throw 'Malformed experimental section in .wslconfig; it was not changed.' }
+            if ($section -eq 'experimental' -and $insertion -lt 0) { $insertion = $lineMatch.Index }
+            $section = $name
+            if ($section -eq 'experimental') { $sectionCount++ }
+        } elseif ($line.StartsWith('[')) {
+            throw 'Malformed section in .wslconfig; it was not changed.'
+        } elseif ($section -eq 'experimental' -and $line -match '^hostAddressLoopback\b') {
+            if ($line -notmatch '^hostAddressLoopback\s*=\s*(true|false)\s*(?:[#;].*)?$') { throw 'Malformed hostAddressLoopback setting; .wslconfig was not changed.' }
+            $settings += $Matches[1].ToLowerInvariant()
+        }
+    }
+    if ($sectionCount -gt 1 -or $settings.Count -gt 1) { throw 'Ambiguous experimental sections or duplicate hostAddressLoopback settings; .wslconfig was not changed.' }
+    if ($settings.Count -eq 1) {
+        if ($settings[0] -ne 'true') { throw 'Existing conflicting hostAddressLoopback=false; review your other WSL distributions and configure it manually.' }
+        return
+    }
+    if ($RunningDistros.Count -gt 0) { throw 'WSL distributions are running. Close them and restart Windows before changing hostAddressLoopback; the installer will not stop other distributions.' }
+    if (-not $Consent) { throw 'Host IPv4 access is a shared WSL setting. Review and set [experimental] hostAddressLoopback=true in .wslconfig, then rerun.' }
+    $newline = "`r`n"
+    if ($content.Contains("`n") -and -not $content.Contains("`r`n")) { $newline = "`n" }
+    # Preserve the original bytes; insert only the new ASCII setting/section.
+    $bytes = if (Test-Path -LiteralPath $Path) { [IO.File]::ReadAllBytes($Path) } else { [byte[]]@() }
+    if ($sectionCount -eq 0) {
+        $addition = $(if ($content.Length -gt 0 -and -not $content.EndsWith("`n")) { $newline } else { '' }) + '[experimental]' + $newline + 'hostAddressLoopback=true' + $newline
+        $result = [byte[]]($bytes + [Text.Encoding]::UTF8.GetBytes($addition))
+    } else {
+        if ($insertion -lt 0) { $insertion = $content.Length }
+        $offset = [Text.Encoding]::UTF8.GetByteCount($content.Substring(0, $insertion))
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) { $offset += 3 }
+        $addition = $(if ($insertion -gt 0 -and $content[$insertion-1] -ne "`n") { $newline } else { '' }) + 'hostAddressLoopback=true' + $newline
+        $stream = New-Object IO.MemoryStream
+        try { $stream.Write($bytes, 0, $offset); $extra = [Text.Encoding]::UTF8.GetBytes($addition); $stream.Write($extra, 0, $extra.Length); $stream.Write($bytes, $offset, $bytes.Length-$offset); $result = $stream.ToArray() } finally { $stream.Dispose() }
+    }
+    [IO.File]::WriteAllBytes($Path, $result)
+}
+
+function Initialize-CastlinkWslNetworking([string]$Path, [string[]]$RunningDistros, [bool]$AllowPrompt) {
+    $consented = $false
+    while ($true) {
+        # Check both settings before either writer can change the shared file.
+        $missing = $false
+        try { Set-CastlinkMirroredNetworking $Path $RunningDistros $false } catch {
+            if ($_.Exception.Message -notlike 'Mirrored networking is a shared*') { throw }
+            $missing = $true
+        }
+        try { Set-CastlinkHostAddressLoopback $Path $RunningDistros $false } catch {
+            if ($_.Exception.Message -notlike 'Host IPv4 access is a shared*') { throw }
+            $missing = $true
+        }
+        if (-not $missing) { return }
+        if ($consented) {
+            Set-CastlinkMirroredNetworking $Path $RunningDistros $true
+            Set-CastlinkHostAddressLoopback $Path $RunningDistros $true
+            throw 'Shared WSL settings saved. Restart Windows, or wait until the shared WSL VM has fully stopped, then rerun this command before importing or starting CastLink.'
+        }
+        if (-not $AllowPrompt) { throw 'Required shared WSL networking settings are missing. Run Install interactively or review networkingMode=mirrored and [experimental] hostAddressLoopback=true manually; .wslconfig was not changed.' }
+        Write-Host 'CastLink requires mirrored networking and Windows host IPv4 access between Windows and WSL. These shared .wslconfig settings apply to all your WSL 2 distributions.'
+        if ((Read-Host 'Add missing networkingMode=mirrored and hostAddressLoopback=true settings? [y/N]') -notmatch '^(y|yes)$') { throw 'Shared WSL networking consent declined; .wslconfig was not changed.' }
+        # A distribution may have started while the consent prompt was open.
+        $RunningDistros = @(Get-CastlinkDistros -Running)
+        $consented = $true
+    }
 }
 
 function Save-CastlinkInstallation([string]$Root, $State) {
@@ -147,7 +222,7 @@ function Assert-CastlinkGuestIdentity($State) {
 }
 
 function Assert-CastlinkMirroredRuntime($State) {
-    $mode = @(Invoke-CastlinkWsl @('--distribution',$State.distroName,'--user','root','--exec','/usr/lib/wsl/wslinfo','--networking-mode')) -join ''
+    $mode = @(Invoke-CastlinkWsl @('--distribution',$State.distroName,'--user','root','--exec','/usr/bin/wslinfo','--networking-mode')) -join ''
     if ($mode.Trim() -cne 'mirrored') { throw 'WSL is not currently using mirrored networking. Restart Windows, then rerun this command. Other distributions were not stopped.' }
 }
 
@@ -185,7 +260,7 @@ function Get-CastlinkKeepaliveProcess($State) {
         $commandMatches = $false
         if ($evidence -and $evidence.CommandLine) {
             foreach ($prefix in @($quotedPrefix,$unquotedPrefix)) {
-                if ($evidence.CommandLine.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -and $evidence.CommandLine.Substring($prefix.Length) -ceq $arguments) { $commandMatches = $true }
+                if ($evidence.CommandLine.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -and $evidence.CommandLine.Substring($prefix.Length).TrimEnd([char]32) -ceq $arguments) { $commandMatches = $true }
             }
         }
         # CIM represents creation timestamps at microsecond precision; compare that
@@ -245,9 +320,16 @@ function Get-CastlinkLogonTaskSpec([string]$Root, $State, [string]$SourcePath) {
     }
 }
 
+function Test-CastlinkAccountSid([string]$Identity, [string]$ExpectedSid) {
+    try {
+        $sid = if ($Identity -match '^S-\d-') { [Security.Principal.SecurityIdentifier]::new($Identity) } else { ([Security.Principal.NTAccount]::new($Identity)).Translate([Security.Principal.SecurityIdentifier]) }
+        return $sid.Value -ceq $ExpectedSid
+    } catch { return $false }
+}
+
 function Assert-CastlinkLogonTask($Task, $Spec) {
     if (-not $Task) { return }
-    if ($Task.TaskName -cne $Spec.taskName -or $Task.TaskPath -cne $Spec.taskPath -or $Task.Description -cne $Spec.description -or $Task.Principal.UserId -cne $Spec.userSid -or [string]$Task.Principal.LogonType -notin @('Interactive','InteractiveToken') -or [string]$Task.Principal.RunLevel -notin @('Limited','LUA') -or @($Task.Actions).Count -ne 1 -or $Task.Actions[0].Execute -ine $Spec.execute -or $Task.Actions[0].Arguments -cne $Spec.arguments -or @($Task.Triggers).Count -ne 1 -or $Task.Triggers[0].UserId -cne $Spec.userSid -or $Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskLogonTrigger' -or -not $Task.Triggers[0].Enabled -or -not $Task.Settings.Enabled -or [string]$Task.Settings.ExecutionTimeLimit -cne 'PT0S' -or [string]$Task.Settings.MultipleInstances -cne 'IgnoreNew') { throw 'A conflicting scheduled task already exists. It was preserved; no task or script was changed.' }
+    if ($Task.TaskName -cne $Spec.taskName -or $Task.TaskPath -cne $Spec.taskPath -or $Task.Description -cne $Spec.description -or -not (Test-CastlinkAccountSid $Task.Principal.UserId $Spec.userSid) -or [string]$Task.Principal.LogonType -notin @('Interactive','InteractiveToken') -or [string]$Task.Principal.RunLevel -notin @('Limited','LUA') -or @($Task.Actions).Count -ne 1 -or $Task.Actions[0].Execute -ine $Spec.execute -or $Task.Actions[0].Arguments -cne $Spec.arguments -or @($Task.Triggers).Count -ne 1 -or -not (Test-CastlinkAccountSid $Task.Triggers[0].UserId $Spec.userSid) -or $Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskLogonTrigger' -or -not $Task.Triggers[0].Enabled -or -not $Task.Settings.Enabled -or [string]$Task.Settings.ExecutionTimeLimit -cne 'PT0S' -or [string]$Task.Settings.MultipleInstances -cne 'IgnoreNew') { throw 'A conflicting scheduled task already exists. It was preserved; no task or script was changed.' }
 }
 
 function Register-CastlinkLogonTask([string]$Root, $State, [string]$SourcePath) {
@@ -299,7 +381,7 @@ function Protect-CastlinkInstallationDirectory([string]$Root) {
         $rule = [Security.AccessControl.FileSystemAccessRule]::new($principal, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
         [void]$acl.AddAccessRule($rule)
     }
-    Set-Acl -LiteralPath $Root -AclObject $acl
+    ([IO.DirectoryInfo]::new($Root)).SetAccessControl($acl)
 }
 
 function Write-CastlinkPrivateFile([string]$Path, [string]$Content) {
@@ -380,7 +462,7 @@ function Initialize-CastlinkWsl {
         if ($process.ExitCode -notin @(0,3010)) { throw "WSL prerequisite installation failed (exit $($process.ExitCode)). Enable CPU virtualization in firmware if needed." }
         throw 'WSL prerequisites were requested. Restart Windows, then rerun this same command. The installer never restarts Windows automatically.'
     }
-    $versionText = @(Invoke-CastlinkWsl @('--version')) -join ' '
+    $versionText = (@(Invoke-CastlinkWsl @('--version')) -join ' ') -replace '\x00', ''
     $versionMatch = [regex]::Match($versionText,'\d+\.\d+\.\d+(?:\.\d+)?')
     if (-not $versionMatch.Success -or [version]$versionMatch.Value -lt [version]'2.4.13') { throw 'Update WSL first: wsl --update. WSL 2.4.13 or newer is required for mirrored networking and its firewall.' }
 }
@@ -428,7 +510,7 @@ try {
 
 function Invoke-CastlinkWindowsInstaller {
     if ($Help) {
-        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking. Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Updates are not implemented. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
+        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Updates are not implemented. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
         return
     }
     if ($NonInteractive -and $Action -notin @('Start','Stop','Status')) { throw 'NonInteractive is supported only for Start, Stop and Status.' }
@@ -463,7 +545,7 @@ function Invoke-CastlinkWindowsInstaller {
             Assert-CastlinkGuestIdentity $state
             if ($Action -eq 'OwnerAccess') { Export-CastlinkOwnerAccess $InstallRoot $state; return }
             if ($Action -eq 'Start') {
-                Set-CastlinkMirroredNetworking (Join-Path $env:USERPROFILE '.wslconfig') @(Get-CastlinkDistros -Running) $false
+                Initialize-CastlinkWslNetworking (Join-Path $env:USERPROFILE '.wslconfig') @(Get-CastlinkDistros -Running) $false
                 Initialize-CastlinkFirewall $InstallRoot
             }
             if ($Action -eq 'Start') {
@@ -484,12 +566,7 @@ function Invoke-CastlinkWindowsInstaller {
         if ($MediaIp) { Assert-CastlinkAddress $MediaIp; $parsed = $null; if (-not [Net.IPAddress]::TryParse($MediaIp,[ref]$parsed) -or $parsed.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'MediaIp must be an IPv4 address.' } }
         if ($TurnHost) { Assert-CastlinkAddress $TurnHost }
         $configPath = Join-Path $env:USERPROFILE '.wslconfig'
-        try { Set-CastlinkMirroredNetworking $configPath @(Get-CastlinkDistros -Running) $false } catch {
-            if ($_.Exception.Message -notlike 'Mirrored networking is a shared*') { throw }
-            Write-Host 'Mirrored networking changes a shared WSL setting. Existing settings and other distributions are preserved.'
-            $consent = (Read-Host 'Add networkingMode=mirrored to .wslconfig? [y/N]') -match '^(y|yes)$'
-            Set-CastlinkMirroredNetworking $configPath @(Get-CastlinkDistros -Running) $consent
-        }
+        Initialize-CastlinkWslNetworking $configPath @(Get-CastlinkDistros -Running) $true
         Initialize-CastlinkFirewall $InstallRoot
         if ($distros -ccontains $state.distroName) { Assert-CastlinkGuestIdentity $state } else {
             if ($state.phase -ne 'created') { throw 'Previously imported distribution is missing. Data recovery requires review; it will not be recreated automatically.' }

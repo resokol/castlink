@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1961**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1964**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15374,7 +15374,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 78 файлов
+## docs · 80 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -15644,7 +15644,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — сервер и суточный мониторинг, 11.11.2026
+Текущее состояние — Windows WSL и суточный мониторинг, 12.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -15790,6 +15790,12 @@ Server observability24h implementation plan
 
 Server Pair Recovery Implementation Plan
 
+### docs/superpowers/plans/2026-11-11-wsl-source-closure.md
+
+[`docs/superpowers/plans/2026-11-11-wsl-source-closure.md`](../superpowers/plans/2026-11-11-wsl-source-closure.md)
+
+Windows WSL release: resume plan
+
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 
 [`docs/superpowers/specs/2026-11-02-studio-runtime-design.md`](../superpowers/specs/2026-11-02-studio-runtime-design.md)
@@ -15831,6 +15837,12 @@ Server pairing recovery on another computer
 [`docs/testing/OBSERVABILITY_24H_20261111_RU.md`](../testing/OBSERVABILITY_24H_20261111_RU.md)
 
 Проверка истории и журнала за 24 часа — 11.11.2026
+
+### docs/testing/WINDOWS_WSL_20261111_RU.md
+
+[`docs/testing/WINDOWS_WSL_20261111_RU.md`](../testing/WINDOWS_WSL_20261111_RU.md)
+
+Windows/WSL: сборка и испытание 11–12.11.2026
 
 ### docs/zh-CN/REMOTE_PC_CONTROL.md
 
@@ -16482,7 +16494,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 260 файлов
+## scripts · 261 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -16526,7 +16538,7 @@ Remote input, main-only protocol v1
 
 Используют: [`scripts/tests/server-wsl-build.test.mjs`](../../scripts/tests/server-wsl-build.test.mjs).
 
-Переменные окружения (только имена): `CASTLINK_PYTHON`, `CODEX_PROXY_CERT`.
+Переменные окружения (только имена): `CASTLINK_PYTHON`, `CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE`, `CODEX_PROXY_CERT`.
 
 ### scripts/build-simple-easy-setup-host.ps1
 
@@ -18046,6 +18058,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-runtime.test.py
 
 [`scripts/tests/server-wsl-runtime.test.py`](../../scripts/tests/server-wsl-runtime.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-source-closure.test.py
+
+[`scripts/tests/server-wsl-source-closure.test.py`](../../scripts/tests/server-wsl-source-closure.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

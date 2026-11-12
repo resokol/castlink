@@ -18,7 +18,7 @@ async function fixture(){
   "'@CASTLINK_WSL_MANIFEST_SHA256@'", "'@CASTLINK_WSL_REPOSITORY@'"
  ].join('\n'));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.writeFile(path.join(root,name),'fixture legal notice');
- for(const name of ['usr/lib/systemd/systemd','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','opt/castlink/app/apps/web/server.js']){
+ for(const name of ['usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','opt/castlink/app/apps/web/server.js']){
   await fs.mkdir(path.dirname(path.join(tree,name)),{recursive:true});await fs.writeFile(path.join(tree,name),'fixture executable');
  }
  await fs.mkdir(path.join(tree,'etc'),{recursive:true});
@@ -50,6 +50,7 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   const m=await assembleWslPackage(f);
   assert.equal(m.channel,'server-wsl');assert.equal(m.releaseTag,'server-wsl-v'+version+'-'+commit.slice(0,12));
   assert.equal(m.sourceCommit,commit);assert.equal(m.architecture,'amd64');
+  assert.equal(m.requirements.hostAddressLoopback,true);
   const rootfsBytes=await fs.readFile(f.rootfs);
   assert.equal(m.rootfs.sha256,hash(rootfsBytes));assert.equal(m.rootfs.size,rootfsBytes.length);
   assert.deepEqual(await fs.readFile(path.join(f.output,m.rootfs.file)),rootfsBytes);
@@ -103,6 +104,15 @@ test('refuses runtime with Docker, prepared installation secrets or missing syst
   await fs.rm(path.join(f.tree,'usr/lib/systemd/systemd'));f.pack();
   await assert.rejects(assembleWslPackage(f),/systemd|runtime/i);
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
+test('refuses a WSL rootfs missing systemd user-session prerequisites',async()=>{
+ for(const missing of ['usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket']){
+  const f=await fixture();try{
+   await fs.rm(path.join(f.tree,missing));f.pack();
+   await assert.rejects(assembleWslPackage(f),/runtime|systemd|session/i);
+   await assert.rejects(fs.stat(f.output),{code:'ENOENT'});
+  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+ }
 });
 test('refuses unknown template tokens, invalid metadata and existing destination',async()=>{
  const f=await fixture();try{
