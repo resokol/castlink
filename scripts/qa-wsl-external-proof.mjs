@@ -162,11 +162,17 @@ async function media(c,signal,cleanup,progress) {
     progress("browser-page-"+i);
     await page.goto(c.origin,{waitUntil:'domcontentloaded'});
     progress("browser-auth-token-"+i);
-    const token=await page.evaluate(async({studioId,room,invite,name})=>{
-      const auth=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'guest',studioId,room,invite}),signal:AbortSignal.timeout(10000)});
-      if(!auth.ok)throw Error();const query=new URLSearchParams({role:'guest',studioId,room,name,nameIntent:'join'});
-      const r=await fetch('/api/token?'+query,{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error();const v=await r.json();if(!v.token||!v.identity?.startsWith('guest-')||v.connectionRoutes?.relay?.configured!==true||v.connectionRoutes.relay.transport!=='tls443')throw Error();return v.token;
+    const authorization=await page.evaluate(async({studioId,room,invite,name})=>{
+      const facts={authStatus:null,tokenStatus:null,tokenPresent:false,guestIdentity:false,relayConfigured:false,relayTls443:false,timeout:false,fetchTypeError:false};
+      try{
+        const auth=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'guest',studioId,room,invite}),signal:AbortSignal.timeout(10000)});
+        facts.authStatus=auth.status;if(!auth.ok)return {ok:false,facts};const query=new URLSearchParams({role:'guest',studioId,room,name,nameIntent:'join'});
+        const r=await fetch('/api/token?'+query,{signal:AbortSignal.timeout(10000)});facts.tokenStatus=r.status;if(!r.ok)return {ok:false,facts};const v=await r.json();
+        facts.tokenPresent=!!v.token;facts.guestIdentity=!!v.identity?.startsWith('guest-');facts.relayConfigured=v.connectionRoutes?.relay?.configured===true;facts.relayTls443=v.connectionRoutes?.relay?.transport==='tls443';
+        if(!facts.tokenPresent||!facts.guestIdentity||!facts.relayConfigured||!facts.relayTls443)return {ok:false,facts};return {ok:true,token:v.token,facts};
+      }catch(error){facts.timeout=['TimeoutError','AbortError'].includes(error?.name);facts.fetchTypeError=error?.name==='TypeError';return {ok:false,facts};}
     },{studioId:c.studioId,room:c.room,invite:c.invite,name:'External synthetic '+(i+1)});
+    console.error('external auth facts='+JSON.stringify(authorization.facts));check(authorization.ok);const token=authorization.token;
     await page.addScriptTag({content:sdk});await page.evaluate(setupBrowser);progress('browser-connect-'+i);const connection=await page.evaluate(({origin,token})=>window.__qa.connect(origin,token),{origin:c.origin,token});if(!connection.connected)console.error('external connection facts='+JSON.stringify({...connection,networkFacts}));check(connection.connected);progress('browser-publish-'+i);await page.evaluate(()=>window.__qa.publish());
   }
   progress("browser-receive");
