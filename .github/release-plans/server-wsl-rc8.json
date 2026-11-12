@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "repository": "resokol/castlink",
+  "sourceCommit": "d9a0c6465b512562766fcb42726a59dcdf3fb5c2",
+  "version": "1.0.2-rc.8",
+  "tag": "server-wsl-v1.0.2-rc.8-d9a0c6465b51",
+  "factoryRun": "43256796399",
+  "artifact": {
+    "id": 13962324070,
+    "name": "castlink-server-wsl-candidate-d9a0c6465b512562766fcb42726a59dcdf3fb5c2",
+    "size": 3694143259,
+    "digest": "sha256:b41f7adc080afd629558df7510cf3aea9f806adb0a43d2fe1e7277fb54cc18d9"
+  },
+  "assets": [
+    {
+      "name": "CastLink-Server-WSL-amd64.tar.gz",
+      "size": 477421333,
+      "sha256": "1c219f9435c9528e33afba6da5b167d9c7198b99f214f4eb70c1620a6abb0776"
+    },
+    {
+      "name": "CastLink-Server-WSL-Sources.tar.gz",
+      "size": 1845670189,
+      "sha256": "b13fded8d1ded8de3d91819d671c75430ea5f018218f61fe55da292d5618635b"
+    },
+    {
+      "name": "CastLink-ThirdParty-Sources.tar.gz",
+      "size": 1373372497,
+      "sha256": "eebb427a9797a4145c59a97774edf5b864715d01a93d0d408b827f5f7256befb"
+    },
+    {
+      "name": "packages.tsv",
+      "size": 4891,
+      "sha256": "d602d020286cf7a6009acd678a3eae8de4109f146f9d2f74773d1a475c1e3d6e"
+    },
+    {
+      "name": "manifest.json",
+      "size": 1176,
+      "sha256": "48c928a7416abfaad1e4a0629b48964ed932ca00da19c3c5b84c048e8e668e8f"
+    },
+    {
+      "name": "install-server-windows.ps1",
+      "size": 48749,
+      "sha256": "32fcf18b599f42b0fad9d50afd0c27dc2bd3c086ddf993ad7b69e0acebf6b013"
+    },
+    {
+      "name": "LICENSE",
+      "size": 1064,
+      "sha256": "e1cdd5be5f19e20ef01d2963a7d5a659e889aa07ed2b0206f1a1096f085522e9"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES",
+      "size": 3529,
+      "sha256": "58b72a1e1d2f1c95bd73535c314d017588da5120e3e1284e5579141bd960ed6e"
+    },
+    {
+      "name": "SHA256SUMS",
+      "size": 713,
+      "sha256": "1f718dcacf8b1724eba617dd5ef1cb147195891c322cdc59192b8c13e4708738"
+    }
+  ]
+}

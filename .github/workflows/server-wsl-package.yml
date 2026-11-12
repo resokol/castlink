@@ -1,7 +1,13 @@
-name: WSL external validation (temporary QA branch)
+name: WSL external validation and draft preparation (temporary QA branch)
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: External proof or draft-only artifact upload
+        type: choice
+        options: [external, draft]
+        default: external
+        required: true
       version:
         description: Name of the temporary protected QA payload secret
         required: true
@@ -12,6 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   external:
+    if: inputs.operation != 'draft'
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -45,4 +52,45 @@ jobs:
           name: castlink-wsl-external-proof-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/castlink-wsl-external-proof.json
           if-no-files-found: ignore
+          retention-days: 7
+  draft-only:
+    if: inputs.operation == 'draft'
+    concurrency:
+      group: castlink-draft-server-wsl-v1.0.2-rc.8-d9a0c6465b51
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download only the finished reviewed factory artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: resokol/castlink
+          run-id: 43256796399
+          name: castlink-server-wsl-candidate-d9a0c6465b512562766fcb42726a59dcdf3fb5c2
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/wsl-assets
+      - name: Verify and reconcile draft-only release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          node scripts/qa-wsl-draft-publisher.mjs
+          .github/release-plans/server-wsl-rc8.json
+          "$RUNNER_TEMP/wsl-assets"
+          .github/release-notes/server-wsl-rc8.md
+          "$RUNNER_TEMP/wsl-draft-proof.json"
+      - name: Preserve small draft receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: castlink-wsl-draft-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/wsl-draft-proof.json
+          if-no-files-found: error
           retention-days: 7

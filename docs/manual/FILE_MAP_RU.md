@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1965**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1968**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -120,7 +120,7 @@ Design System: CastLink preview
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 12 файлов
+## .github · 14 файлов
 
 ### .github/ISSUE_TEMPLATE/bug_report.md
 
@@ -133,6 +133,18 @@ Design System: CastLink preview
 [`.github/pull_request_template.md`](../../.github/pull_request_template.md)
 
 Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+
+### .github/release-notes/server-wsl-rc8.md
+
+[`.github/release-notes/server-wsl-rc8.md`](../../.github/release-notes/server-wsl-rc8.md)
+
+CastLink Server WSL 1.0.2-rc.8
+
+### .github/release-plans/server-wsl-rc8.json
+
+[`.github/release-plans/server-wsl-rc8.json`](../../.github/release-plans/server-wsl-rc8.json)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
 ### .github/workflows/build-cli.yml
 
@@ -184,7 +196,7 @@ GitHub Actions: Reserve outbound test branch. Выполняется runner-ом
 
 [`.github/workflows/server-wsl-package.yml`](../../.github/workflows/server-wsl-package.yml)
 
-GitHub Actions: WSL external validation (temporary QA branch). Выполняется runner-ом, а не в браузере.
+GitHub Actions: WSL external validation and draft preparation (temporary QA branch). Выполняется runner-ом, а не в браузере.
 
 Переменные окружения (только имена): `CASTLINK_WSL_EXTERNAL_QA`, `GITHUB_OUTPUT`.
 
@@ -16496,7 +16508,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 262 файлов
+## scripts · 263 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17036,6 +17048,18 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
+
+### scripts/qa-wsl-draft-publisher.mjs
+
+[`scripts/qa-wsl-draft-publisher.mjs`](../../scripts/qa-wsl-draft-publisher.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `NAMES`, `validatePlan`, `validateManifest`, `validateSums`, `verifyFiles`, `validateRelease`, `validateAsset`, `main`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs`, `node:fs/promises`, `node:path`, `node:url`.
+
+Переменные окружения (только имена): `GITHUB_ACTIONS`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN`.
 
 ### scripts/qa-wsl-external-proof.mjs
 
