@@ -173,7 +173,15 @@ async function media(c,signal,cleanup,progress) {
   for(const page of pages)await page.waitForFunction(()=>window.__qa.videos.some(v=>v.videoWidth>0&&v.videoHeight>0&&v.getVideoPlaybackQuality().totalVideoFrames>0));
   progress("browser-stats");
   progress("browser-stats-before");
-  const before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
+  let before;
+  const baselineDeadline=Date.now()+15000,expectedRelay='turns:'+c.serviceIp+':443?transport=tcp';
+  while(true){
+    before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
+    const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)));
+    if(ready)break;
+    check(Date.now()<baselineDeadline&&!signal.aborted);
+    await new Promise(resolve=>setTimeout(resolve,200));
+  }
   await new Promise((resolve,reject)=>{const t=setTimeout(resolve,3000);signal.addEventListener('abort',()=>{clearTimeout(t);reject(Error());},{once:true});});
   progress("browser-stats-after");
   const after=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
