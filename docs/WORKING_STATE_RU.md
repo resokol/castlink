@@ -128,9 +128,22 @@ GitHub Actions вместо новых Docker images на ПК. Первый fac
 упаковки упала на старом upstream404. Workflow теперь скачивает опубликованный
 архив1.0.2 по закреплённым1448015378bytes/SHA256e755…1f25c; импортирует только
 текущие manifest paths после отдельной проверки size/SHA каждого файла. Старые
-fetch/runtime checks сохранены. Python13 и Node8 PASS; следующий factory должен
-подтвердить полный набор1004inputs. Работающий QA сохраняется. Это
-непубликуемый кандидат; исходныйrc.4 архив не менялся. Внешний media/TURN и настоящий
+fetch/runtime checks сохранены. Python13 и Node8 PASS. Factory43196993237
+для506b36e9/rc.5 прошёл; на Windows проверены8 SHA256, весь source/runtime audit
+и побайтно идентичная повторная упаковка из чистого checkout.
+
+Первый полный Install неизменённогоrc.5 в новом временном guest дошёл до8active
+служб/ready и экспорта CA, но owner-access отказал. Причина: parent start сохраняет
+свою старую копию state после systemd bootstrap и затирает databasePhase=seed
+значениемnew. Actual state: completed=true/databasePhase=new; guard owner-access
+сохраняется. Исправление перечитывает validated state, проверяет прежнюю identity
+и completed bootstrap, меняет только completed/readiness. Regression воспроизводит
+реальный disk bootstrap new→migrations→seed: RED→GREEN; runtime23/23 PASS,
+package8/8 PASS. Исправление runtime и regression — Sol high; review/Windows/factory — Codex root.
+Пробный guest штатно остановлен, прежний настроенный сервер восстановлен exit0;
+все8 fingerprints прежних данных совпали. Originalrc.4/rc.5 archives не менялись,
+новых Docker images на ПК нет. Требуется новый пакет и повторный fresh Install.
+Внешний media/TURN и настоящий
 новый logon после Windows reboot ещё отдельно не подтверждены. PR20 draft,
 main/публичные immutable releases не менялись.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).

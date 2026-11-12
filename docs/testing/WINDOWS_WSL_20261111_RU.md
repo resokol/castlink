@@ -4,6 +4,41 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Неизменённый rc.5: аудит пакета и отказ первого Install
+
+Factory [43196993237](https://github.com/resokol/castlink/actions/runs/43196993237)
+завершился успешно для506b36e9d9c253dd3ab2954132d68c9dfd059dbb, version1.0.2-rc.5.
+GitHub artifact13934436857:3694135928bytes,
+digest`a2dc2dbc0950f3b96b0e4b4651efcbab5a6db71caaddff66820c63991c2be0f1`.
+На Windows подтверждены8 SHA256, полный runtime/190OS source versions/upstream
+audit и byte-identical reconstruction всех assets из чистого LF checkout.
+Rootfs477413757bytes/SHA256`17a2abda8818c666556e8e26ad775dc136dd47817b8fe94efeba4e04c58436e2`;
+manifest SHA256`0fe221518687d590054d0849c3d298691aa39eed0c16ea73f80a75e931d56c37`.
+
+Original generated installer запущен в новой собственной консоли/новом guest,
+без overrides и предварительного init. Случайный одноразовый QA password вводился
+только в native console input, скрыто; пользовательский пароль не читался/менялся.
+Временный CA не добавлялся в Windows trust. Install дошёл до actual ready и
+экспорта CA, но owner-access отказал: сохранён completed=true/databasePhase=new.
+systemd bootstrap продвинул состояние, затем parent start записал stale snapshot.
+Exit1/phaseimported сохранены как отказ; пакет не объявляется рабочим и не публикуется.
+
+Пробный guest остановлен штатным pinned Stop exit0. Старый пользовательский QA
+восстановлен его original Start exit0; все8 state/config fingerprints неизменны.
+Окно собственного normal Chrome открыто с прежним профилем. Docker Desktop
+выключен, новые images/cache на ПК не создавались. Далее — regression и новый
+immutable пакет, затем fresh Install/API/PPTX/task/Stop/Start proof.
+
+Runtime fix перечитывает state через прежний validator после bootstrap/health,
+сверяет installation/node/release/network/creation hash, требуетseed+rolecreated
+и пишет только completed/readiness в актуальный dict. Owner-access guard неизменён.
+Regression выполняет настоящий Python database_bootstrap с disk writes через
+подменённые process boundaries: прежний код теряетseed (RED), новый сохраняетseed,
+roleflag, дополнительные metadata и secrets bytes (GREEN). Changed/invalid/incomplete
+state отвергается без перезаписи. Полный runtime23/23 PASS, включая actual Node/
+OpenSSL/TLS без skips; package8/8 PASS. Реализация Sol high, review Codex root.
+Повреждённый rc.5 state автоматически не «исправляется»: следующий тест — pristine.
+
 ## Перенос сборки на GitHub и восстановление проверенных inputs
 
 Factory43193869966 из0741e62b прошёл Windows parser/behavior, package/monitoring

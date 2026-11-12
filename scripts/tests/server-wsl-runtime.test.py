@@ -104,10 +104,69 @@ class RuntimeTest(unittest.TestCase):
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp) / 'state'; state = self.fresh(folder)
+            state.update(databasePhase='seed', postgresRoleCreated=True)
+            runtime.write_private(folder / 'state.json', state)
             with patch.object(runtime, 'STATE', folder), patch.object(runtime, 'run') as invoke, patch.object(runtime, 'setup_web'), patch.object(runtime, 'health'):
                 runtime.start(state)
             self.assertEqual(invoke.call_args_list[0].args[0], ['/usr/bin/systemctl', 'enable', 'castlink-server.target'])
             self.assertEqual(invoke.call_args_list[1].args[0], ['/usr/bin/systemctl', 'start', 'castlink-server.target'])
+
+    def test_start_preserves_bootstrap_advancement_written_after_initial_load(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / 'state'; state = self.fresh(folder)
+            secret_bytes = (folder / 'secrets.json').read_bytes()
+            phases = []
+            def node(script, data=None):
+                if script.name != 'setup-database-v1.mjs': return ''
+                body = json.loads(data); phases.append(body['phase'])
+                return json.dumps({**body, 'contract': 'castlink-database-v1',
+                    'migrations': {'roomVersions': [1,2,3,4,5,6], 'controlVersions': [1,2,3,4,5], 'schema': True, 'hashes': True},
+                    'seed': {'installations': 1, 'accounts': 1, 'organizations': 1, 'memberships': 1, 'nodes': 1, 'studios': 1, 'rooms': 0} if body['phase'] == 'seed' else None})
+            def run(command, **options):
+                if command == ['/usr/bin/systemctl', 'start', 'castlink-server.target']:
+                    runtime.database_bootstrap()
+                    latest = runtime.load_state(); latest['bootstrapReceipt'] = 'preserve-after-load'
+                    runtime.write_private(folder / 'state.json', latest)
+                if command[0].endswith('/psql') and options.get('data', '').startswith('SELECT count(*)'): return '0\n0\n'
+                return ''
+            def health(_state):
+                current = runtime.load_state()
+                self.assertEqual(current['databasePhase'], 'seed')
+                self.assertTrue(current['postgresRoleCreated'])
+            with patch.object(runtime, 'STATE', folder), patch.object(runtime, 'run', side_effect=run), patch.object(runtime, 'node', side_effect=node), patch.object(runtime, 'setup_web'), patch.object(runtime, 'health', side_effect=health):
+                runtime.start(state)
+            saved = runtime.load_state(folder)
+            self.assertEqual(phases, ['migrations', 'seed'])
+            self.assertEqual(saved['databasePhase'], 'seed')
+            self.assertTrue(saved['postgresRoleCreated'])
+            self.assertTrue(saved['completed'])
+            self.assertEqual(saved['readiness'], 'https-db-livekit-verified')
+            self.assertEqual(saved['bootstrapReceipt'], 'preserve-after-load')
+            self.assertEqual((folder / 'secrets.json').read_bytes(), secret_bytes)
+
+    def test_start_refuses_changed_or_invalid_current_state_without_overwriting_it(self):
+        from unittest.mock import patch
+        for change in ['installation', 'release', 'network', 'invalid', 'incomplete']:
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp) / 'state'; state = self.fresh(folder)
+                state.update(databasePhase='seed', postgresRoleCreated=True)
+                runtime.write_private(folder / 'state.json', state)
+                written = []
+                def health(_state):
+                    current = runtime.load_state()
+                    if change == 'installation':
+                        current['installationId'] = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+                        current['nodeId'] = 'srv-' + current['installationId'].replace('-', '')
+                    elif change == 'release': current['release'] = {**RELEASE, 'commit': 'b' * 40, 'buildId': RELEASE['version'] + '-' + 'b' * 12}
+                    elif change == 'network': current['mediaIp'] = '192.168.1.99'
+                    elif change == 'incomplete': current['databasePhase'] = 'migrations'
+                    else: current['owner'] = 'foreign'
+                    runtime.write_private(folder / 'state.json', current)
+                    written.append((folder / 'state.json').read_bytes())
+                with patch.object(runtime, 'STATE', folder), patch.object(runtime, 'run'), patch.object(runtime, 'setup_web'), patch.object(runtime, 'health', side_effect=health):
+                    with self.assertRaises(ValueError): runtime.start(state)
+                self.assertEqual((folder / 'state.json').read_bytes(), written[0])
 
     def test_status_distinguishes_intentional_stop_from_degraded_running(self):
         from unittest.mock import patch
