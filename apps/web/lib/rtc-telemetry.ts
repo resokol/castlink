@@ -5,9 +5,9 @@ import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { readTrackStats } from "./media-stats";
 import { telemetryContext } from "./telemetry-context";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Room, RoomEvent, Track, type LocalAudioTrack } from "livekit-client";
 import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample, StudioMediaDiagnostic } from "./telemetry-types";
-import { audioReceiveDiagnostic, sanitizeAudioPlayback, type AudioCounters } from "./audio-diagnostics";
+import { audioReceiveDiagnostic, sanitizeAudioPlayback, sanitizeAudioTrack, type AudioCounters } from "./audio-diagnostics";
 
 type Counter = { at: number; bytes: number; packets: number | null; lost: number | null };
 const numberOrNull = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -112,6 +112,14 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         const transport = stats.find((s) => s.type === "transport" && s.selectedCandidatePairId);
         const pair = (transport && report.get(transport.selectedCandidatePairId)) || stats.find((s) => s.type === "candidate-pair" && s.state === "succeeded" && (s.nominated || s.selected));
         const candidate = pair ? report.get(pair.localCandidateId) : undefined;
+        let mediaTrack: MediaStreamTrack | undefined, capture: MediaTrackSettings | undefined;
+        if (publication.kind === Track.Kind.Audio) {
+          try { mediaTrack = track.mediaStreamTrack; } catch { /* Keep RTP stats if capture became unavailable. */ }
+          if (direction === "out") {
+            // The exposed track may be processor output; only source settings describe capture DSP.
+            try { capture = (track as LocalAudioTrack).getSourceTrackSettings(); } catch { /* Unsupported settings stay unknown. */ }
+          }
+        }
         for (const stat of stats) {
           if (stat.type !== (direction === "in" ? "inbound-rtp" : "outbound-rtp") || stat.isRemote) continue;
           const id = `${direction}:${stat.id}`;
@@ -137,6 +145,12 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
             previousAudio.set(counterKey, diagnostic.counters);
             audio = diagnostic.diagnostic;
           }
+          const mediaSource = direction === "out" && stat.mediaSourceId ? report.get(stat.mediaSourceId) : undefined;
+          const audioTrack = publication.kind === Track.Kind.Audio ? sanitizeAudioTrack({
+            publicationMuted: publication.isMuted, trackMuted: track.isMuted,
+            mediaTrackEnabled: mediaTrack?.enabled, mediaTrackMuted: mediaTrack?.muted, mediaTrackReadyState: mediaTrack?.readyState,
+            capture, sourceAudioLevel: mediaSource?.type === "media-source" && mediaSource.kind === "audio" ? mediaSource.audioLevel : null,
+          }, direction === "out") : undefined;
           streams.push({ id, participant: participant.identity, name: participant.name || participant.identity,
             direction, kind: publication.kind === Track.Kind.Video ? "video" : "audio", source: publication.source,
             codec: report.get(stat.codecId)?.mimeType ?? null, ...delta, lostPackets: lost,
@@ -146,6 +160,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
             bytes: next.bytes, freezes: numberOrNull(stat.freezeCount), protocol: candidate?.protocol ?? null,
             candidateType: candidate?.candidateType ?? null, qualityLimitation: stat.qualityLimitationReason ?? null,
             ...(audio ? { audio } : {}),
+            ...(audioTrack ? { audioTrack } : {}),
           });
         }
       }

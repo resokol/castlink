@@ -44,20 +44,45 @@ const get = (query='', token='valid-token') => {
 };
 
 (async()=>{
-  const first = diagnostics.audioReceiveDiagnostic({timestamp:1000,totalSamplesReceived:1000,concealedSamples:100,concealmentEvents:2,jitterBufferDelay:2,jitterBufferEmittedCount:100});
+  const first = diagnostics.audioReceiveDiagnostic({timestamp:1000,totalSamplesReceived:1000,concealedSamples:100,concealmentEvents:2,jitterBufferDelay:2,jitterBufferEmittedCount:100,
+    silentConcealedSamples:60,insertedSamplesForDeceleration:20,removedSamplesForAcceleration:10});
   assert.equal(first.diagnostic.receivedSamplesDelta,null,'first sample has unknown deltas');
-  const next = diagnostics.audioReceiveDiagnostic({timestamp:3000,totalSamplesReceived:11000,concealedSamples:1100,concealmentEvents:4,jitterBufferDelay:3,jitterBufferEmittedCount:200,audioLevel:0},first.counters).diagnostic;
+  assert.equal(first.diagnostic.silentConcealedSamples,60);
+  assert.equal(first.diagnostic.silentConcealedSamplesDelta,null,'first silent conceal interval is unknown');
+  const next = diagnostics.audioReceiveDiagnostic({timestamp:3000,totalSamplesReceived:11000,concealedSamples:1100,concealmentEvents:4,jitterBufferDelay:3,jitterBufferEmittedCount:200,audioLevel:0,
+    silentConcealedSamples:660,insertedSamplesForDeceleration:50,removedSamplesForAcceleration:10},first.counters).diagnostic;
   assert.equal(next.receivedSamplesDelta,10000); assert.equal(next.concealedSamplesDelta,1000);
   assert.equal(next.concealedPct,10,'received total already includes concealed samples');
   assert.equal(next.concealmentEventsDelta,2); assert.equal(next.jitterBufferDelayMs,10,'delay is interval delay/emitted, in ms');
   assert.equal(next.intervalMs,2000); assert.equal(next.audioLevel,0,'real silence remains zero');
+  assert.equal(next.silentConcealedSamplesDelta,600,'silent replacement differs from all concealed samples');
+  assert.equal(next.insertedSamplesForDecelerationDelta,30);
+  assert.equal(next.removedSamplesForAccelerationDelta,0,'supported zero stays zero');
   const reset = diagnostics.audioReceiveDiagnostic({timestamp:4000,totalSamplesReceived:10,concealedSamples:1},first.counters).diagnostic;
   assert.equal(reset.receivedSamplesDelta,null);assert.equal(reset.concealedPct,null);
+  assert.equal(reset.silentConcealedSamples,null,'unsupported browser fields remain unknown');
+  assert.equal(reset.silentConcealedSamplesDelta,null);
+  const correctionReset=diagnostics.audioReceiveDiagnostic({timestamp:4000,silentConcealedSamples:1,insertedSamplesForDeceleration:1,removedSamplesForAcceleration:1},first.counters).diagnostic;
+  assert.equal(correctionReset.silentConcealedSamplesDelta,null,'reset does not become a negative interval');
+  assert.equal(correctionReset.insertedSamplesForDecelerationDelta,null);
+  assert.equal(correctionReset.removedSamplesForAccelerationDelta,null);
   assert.equal(diagnostics.audioReceiveDiagnostic({timestamp:5000},first.counters).diagnostic.receivedSamplesDelta,null,'unsupported fields stay unknown');
   assert.equal(diagnostics.audioReceiveDiagnostic({timestamp:1000,totalSamplesReceived:2000},first.counters).diagnostic.receivedSamplesDelta,null,'repeated RTC timestamps do not imply progress');
   const clean = diagnostics.sanitizeAudioPlayback({enabled:true,paused:false,currentTime:0,errorCode:NaN,lastRecoveryReason:'https://secret/token',token:'secret'});
   assert.equal(clean.currentTime,0); assert.equal(clean.lastRecoveryReason,null); assert.equal(clean.token,undefined);
   assert.equal(diagnostics.sanitizeAudioReceive({concealedPct:500,audioLevel:50,receivedSamples:-1}).concealedPct,100);
+  const invalidTrack=diagnostics.sanitizeAudioTrack({publicationMuted:'false',trackMuted:0,mediaTrackEnabled:false,mediaTrackMuted:true,mediaTrackReadyState:'secret-url',sourceAudioLevel:9,
+    capture:{sampleRate:Infinity,channelCount:-1,noiseSuppression:'false',echoCancellation:false,autoGainControl:true,voiceIsolation:null,label:'secret'},deviceId:'secret'},true);
+  assert.equal(invalidTrack.publicationMuted,null);assert.equal(invalidTrack.trackMuted,null);
+  assert.equal(invalidTrack.mediaTrackReadyState,null);assert.equal(invalidTrack.mediaTrackEnabled,false);
+  assert.equal(invalidTrack.sourceAudioLevel,1,'energy bounded to native audioLevel range');
+  assert.equal(invalidTrack.capture.sampleRate,null);assert.equal(invalidTrack.capture.channelCount,null);
+  assert.equal(invalidTrack.capture.noiseSuppression,null);assert.equal(invalidTrack.capture.echoCancellation,false);
+  assert.equal(invalidTrack.capture.label,undefined);assert.equal(invalidTrack.deviceId,undefined);
+  const unsupported=diagnostics.sanitizeAudioReceive({silentConcealedSamples:-1,silentConcealedSamplesDelta:NaN,
+    insertedSamplesForDeceleration:0,removedSamplesForAccelerationDelta:Infinity});
+  assert.equal(unsupported.silentConcealedSamples,null);assert.equal(unsupported.silentConcealedSamplesDelta,null);
+  assert.equal(unsupported.insertedSamplesForDeceleration,0);assert.equal(unsupported.removedSamplesForAccelerationDelta,null);
   await store.saveSample(sample('other-session','guest'));
   for(let i=0;i<5;i++) await store.saveSample(sample('selected-session','output',i));
   await store.saveSample({...sample('foreign-session'),room:'media-tenant-two'});
@@ -101,12 +126,39 @@ const get = (query='', token='valid-token') => {
   const detailed=await (await get('session=selected-session&limit=2')).json();
   assert.equal(detailed.samples.length,2);assert.ok(detailed.nextCursor);
   const raw={...sample('ingest-session'),identity:claims.sub,audioPlayback:{enabled:true,lastRecoveryReason:'secret-url',secret:'secret'},at:12345,
-    streams:[{id:'received-audio',kind:'audio',direction:'in',audio:{receivedSamplesDelta:5,secret:'secret'}}]};
+    streams:[{id:'received-audio',kind:'audio',direction:'in',audio:{receivedSamplesDelta:5,silentConcealedSamples:5,silentConcealedSamplesDelta:2,
+      insertedSamplesForDeceleration:9,insertedSamplesForDecelerationDelta:4,removedSamplesForAcceleration:7,removedSamplesForAccelerationDelta:0,secret:'secret'},
+      audioTrack:{publicationMuted:true,trackMuted:false,mediaTrackEnabled:false,mediaTrackMuted:true,mediaTrackReadyState:'live',sourceAudioLevel:0,
+        capture:{sampleRate:48000,channelCount:2,noiseSuppression:false,echoCancellation:true,autoGainControl:false,voiceIsolation:false,deviceId:'secret'},label:'secret'}},
+      {id:'sent-audio',kind:'audio',direction:'out',audioTrack:{publicationMuted:false,trackMuted:false,mediaTrackEnabled:true,mediaTrackMuted:false,mediaTrackReadyState:'live',sourceAudioLevel:0.4,
+        capture:{sampleRate:48000,channelCount:2,noiseSuppression:true,echoCancellation:false,autoGainControl:false,voiceIsolation:null,deviceId:'secret'},token:'secret'}}]};
   const post=await loaded.exports.POST({headers:new Headers({authorization:'Bearer valid-token'}),text:async()=>JSON.stringify(raw)});
   assert.equal(post.status,204);
   const stored=(await store.readAudioHistory('media-tenant-one',15,{session:'ingest-session'})).samples[0];
   assert.equal(stored.clientAt,12345);assert.ok(stored.at>at,'server sample timestamp is authoritative');
   assert.equal(stored.audioPlayback.secret,undefined);assert.equal(stored.audioPlayback.lastRecoveryReason,null);assert.equal(stored.streams[0].audio.secret,undefined);
+  assert.equal(stored.streams[0].audio.silentConcealedSamplesDelta,2);
+  assert.equal(stored.streams[0].audio.insertedSamplesForDecelerationDelta,4);
+  assert.equal(stored.streams[0].audio.removedSamplesForAccelerationDelta,0);
+  assert.equal(stored.streams[0].audioTrack.publicationMuted,true);
+  assert.equal(stored.streams[0].audioTrack.mediaTrackEnabled,false,'disabled receiver state survives ingestion');
+  assert.equal(stored.streams[0].audioTrack.capture,undefined,'remote track cannot claim local capture settings');
+  assert.equal(stored.streams[0].audioTrack.sourceAudioLevel,null,'remote source energy is unknown');
+  assert.equal(stored.streams[1].audioTrack.capture.noiseSuppression,true);
+  assert.equal(stored.streams[1].audioTrack.capture.deviceId,undefined);
+  assert.equal(stored.streams[1].audioTrack.token,undefined);
+  const enriched=audioHistoryCsv([stored]).split('\r\n').map(row=>row.split(';'));
+  assert.equal(enriched[0][32],'"Muted элемента воспроизведения"','old element mute column keeps its position and explicit meaning');
+  const column=title=>enriched[0].indexOf('"'+title+'"');
+  assert.equal(enriched[1][column('Publication muted')],'"1"');
+  assert.equal(enriched[1][column('MediaStreamTrack enabled')],'"0"');
+  assert.equal(enriched[1][column('Silent concealed samples за интервал')],'"2"');
+  assert.equal(enriched[2][column('Capture noiseSuppression')],'"1"');
+  assert.equal(enriched[2][column('Capture sampleRate Гц')],'"48000"');
+  assert.equal(enriched[2][column('Media-source audioLevel')],'"0.4"');
+  assert.equal(enriched.some(row=>row.length!==enriched[0].length),false,'new columns stay aligned for both directions');
+  const legacy=audioHistoryCsv([{...sample('old'),streams:[{id:'old',kind:'audio',direction:'in'}]}]).split('\r\n')[1].split(';');
+  assert.ok(legacy.slice(40).every(value=>value==='""'),'legacy diagnostics append unknowns, not invented zeros');
   console.log('PASS: audio interval deltas/resets, concealment denominator, jitter buffer units, unsupported records, scoped byte-cursor pagination, exact UTC CSV, reset preserves history, summaries, node relay, API tenant/room/role/recreated-scope isolation, sanitized ingestion');
 })().finally(()=>{fs.rmSync(directory,{recursive:true,force:true});if(original)Module._extensions['.ts']=original;else delete Module._extensions['.ts'];})
   .catch(error=>{console.error(error);process.exitCode=1;});

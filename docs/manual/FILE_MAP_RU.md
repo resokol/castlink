@@ -6886,7 +6886,7 @@ Startup-валидация persistent storage и room backend.
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `AudioCounters`, `audioReceiveDiagnostic`, `emptyAudioSummary`, `addAudioSummary`, `sanitizeAudioPlayback`, `sanitizeAudioReceive`.
+Экспортируемые символы: `AudioCounters`, `audioReceiveDiagnostic`, `emptyAudioSummary`, `addAudioSummary`, `sanitizeAudioPlayback`, `sanitizeAudioReceive`, `sanitizeAudioTrack`.
 
 Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
@@ -9462,7 +9462,7 @@ JSONL-хранилище измерений, retention/size limits, фильтр
 
 Типы RTC samples/history/streams и правила суммирования/средних.
 
-Экспортируемые символы: `StreamStat`, `AudioReceiveDiagnostic`, `AudioPlaybackDiagnostic`, `AudioHistorySummary`, `AudioHistoryResponse`, `TelemetryRole`, `RuntimeEventKind`, `StudioSourceTrackDiagnostic`, `StudioMediaDiagnostic`, `RuntimeDiagnostic`, `RuntimeHistoryResponse`, `TelemetrySample`, `MetricPoint`, `ConnectionHistory`, `HistoryResponse`, `sumRates`, `mean`.
+Экспортируемые символы: `StreamStat`, `AudioTrackDiagnostic`, `AudioReceiveDiagnostic`, `AudioPlaybackDiagnostic`, `AudioHistorySummary`, `AudioHistoryResponse`, `TelemetryRole`, `RuntimeEventKind`, `StudioSourceTrackDiagnostic`, `StudioMediaDiagnostic`, `RuntimeDiagnostic`, `RuntimeHistoryResponse`, `TelemetrySample`, `MetricPoint`, `ConnectionHistory`, `HistoryResponse`, `sumRates`, `mean`.
 
 Используют: [`apps/web/app/api/stats/route.ts`](../../apps/web/app/api/stats/route.ts), [`apps/web/app/super-admin/page.tsx`](../../apps/web/app/super-admin/page.tsx), [`apps/web/components/StatisticsDashboard.tsx`](../../apps/web/components/StatisticsDashboard.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/browser-runtime-diagnostics.ts`](../../apps/web/lib/browser-runtime-diagnostics.ts), [`apps/web/lib/connection-history.ts`](../../apps/web/lib/connection-history.ts), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/node-history.ts`](../../apps/web/lib/node-history.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/output-track-bindings.ts`](../../apps/web/lib/output-track-bindings.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/runtime-diagnostics.ts`](../../apps/web/lib/runtime-diagnostics.ts), [`apps/web/lib/stats-csv.ts`](../../apps/web/lib/stats-csv.ts), [`apps/web/lib/stats-report.ts`](../../apps/web/lib/stats-report.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts).
 
@@ -13162,7 +13162,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs)
 
-Проверка/тестовый инструмент. PASS: audio-first 1000ms collection budget, hung-track playback diagnostics, pruned track counters, interval sampling, no post-stop writes
+Проверка/тестовый инструмент. PASS: audio-first bounded collection, mute/track metadata, original local capture settings, linked source energy, pruned counters, interval sampling, no post-stop writes
 
 Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/browser-runtime-diagnostics.ts`](../../apps/web/lib/browser-runtime-diagnostics.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts), [`apps/web/tests/load-typescript.cjs`](../../apps/web/tests/load-typescript.cjs).
 
