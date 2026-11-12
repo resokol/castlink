@@ -123,7 +123,13 @@ PASS; manifest объявляет hostAddressLoopback, инструкции RU/E
 Реализация helper/fixtures — Sol high; ревью и native Windows proof — Codex root.
 
 Далее — новый пакет из чистого текущего source с этими исправлениями, сборка на
-GitHub Actions вместо новых Docker images на ПК. Работающий QA сохраняется. Это
+GitHub Actions вместо новых Docker images на ПК. Первый factory43193869966
+для0741e62b прошёл Windows/tests и построил rootfs с190 source versions, но сборка
+упаковки упала на старом upstream404. Workflow теперь скачивает опубликованный
+архив1.0.2 по закреплённым1448015378bytes/SHA256e755…1f25c; импортирует только
+текущие manifest paths после отдельной проверки size/SHA каждого файла. Старые
+fetch/runtime checks сохранены. Python13 и Node8 PASS; следующий factory должен
+подтвердить полный набор1004inputs. Работающий QA сохраняется. Это
 непубликуемый кандидат; исходныйrc.4 архив не менялся. Внешний media/TURN и настоящий
 новый logon после Windows reboot ещё отдельно не подтверждены. PR20 draft,
 main/публичные immutable releases не менялись.

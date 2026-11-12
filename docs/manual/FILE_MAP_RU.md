@@ -16538,7 +16538,7 @@ Remote input, main-only protocol v1
 
 Используют: [`scripts/tests/server-wsl-build.test.mjs`](../../scripts/tests/server-wsl-build.test.mjs).
 
-Переменные окружения (только имена): `CASTLINK_PYTHON`, `CODEX_PROXY_CERT`.
+Переменные окружения (только имена): `CASTLINK_PYTHON`, `CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE`, `CODEX_PROXY_CERT`.
 
 ### scripts/build-simple-easy-setup-host.ps1
 

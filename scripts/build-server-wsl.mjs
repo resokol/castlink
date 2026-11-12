@@ -37,7 +37,9 @@ async function main(){
  // before exporting a large artifact or downloading corresponding sources.
  execFileSync(process.env.CASTLINK_PYTHON||'python3',['scripts/tests/server-wsl-source-closure.test.py','--image',rootfs],{stdio:'inherit'});
  const upstreamOutput=path.join(output,'upstream');
- execFileSync(process.env.CASTLINK_PYTHON||'python3',['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',upstreamOutput],{stdio:'inherit'});
+ const upstreamArgs=['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',upstreamOutput];
+ if(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE)upstreamArgs.push('--reuse-archive',path.resolve(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE));
+ execFileSync(process.env.CASTLINK_PYTHON||'python3',upstreamArgs,{stdio:'inherit'});
  const container=await run(['create',rootfs],{capture:true});
  try{
   // Include exact upstream copyright/NOTICE texts alongside the compiled binaries.

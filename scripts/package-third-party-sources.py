@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tarfile
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -77,6 +78,49 @@ def valid_file(file, item):
         for block in iter(lambda: stream.read(1024 * 1024), b''):
             h.update(block)
     return h.hexdigest() == item['sha256']
+
+
+def seed_cache_from_archive(manifest, cache, source_archive):
+    """Stream only current pinned inputs into the trusted cache; never extract paths."""
+    selected = {item['path']: item for item in validate(manifest)}
+    cache = pathlib.Path(cache)
+    seen = set()
+    with tarfile.open(source_archive, 'r|gz') as archive:
+        for member in archive:
+            if member.name not in selected:
+                continue
+            if member.name in seen:
+                raise ValueError('Selected source archive member is duplicate: ' + member.name)
+            seen.add(member.name)
+            item = selected[member.name]
+            if not member.isfile():
+                raise ValueError('Selected source archive member must be regular: ' + member.name)
+            if member.size != item['size']:
+                raise ValueError('Source archive size mismatch: ' + member.name)
+            target = cache / item['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = None
+            try:
+                digest = hashlib.sha256()
+                size = 0
+                with archive.extractfile(member) as stream, tempfile.NamedTemporaryFile(
+                        mode='wb', dir=target.parent, prefix='.castlink-source-', suffix='.partial', delete=False) as out:
+                    temporary = pathlib.Path(out.name)
+                    for block in iter(lambda: stream.read(1024 * 1024), b''):
+                        size += len(block)
+                        if size > item['size']:
+                            raise ValueError('Source archive size exceeds manifest: ' + member.name)
+                        digest.update(block)
+                        out.write(block)
+                if size != item['size'] or digest.hexdigest() != item['sha256']:
+                    raise ValueError('Source archive checksum/size mismatch: ' + member.name)
+                temporary.replace(target)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+    missing = sorted(selected.keys() - seen)
+    if missing:
+        raise ValueError('Missing current manifest sources from reuse archive: ' + ', '.join(missing))
 
 
 def fetch(item, cache):
@@ -189,6 +233,7 @@ if __name__ == '__main__':
     parser.add_argument('--asset-name', choices=ASSETS, default=ASSET)
     parser.add_argument('--runtime-inventory')
     parser.add_argument('--baseline-manifest')
+    parser.add_argument('--reuse-archive', help='Seed the cache from an archive containing every current manifest path with exact size and SHA256')
     parser.add_argument('--cache', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
@@ -199,4 +244,6 @@ if __name__ == '__main__':
         if args.baseline_manifest:
             with open(args.baseline_manifest, encoding='utf-8') as stream: manifests.append(json.load(stream))
         validate_runtime_sources(manifests, pathlib.Path(args.runtime_inventory).read_text(encoding='utf-8'))
+    if args.reuse_archive:
+        seed_cache_from_archive(manifest, args.cache, args.reuse_archive)
     build(manifest, args.cache, args.output, asset_name=args.asset_name)

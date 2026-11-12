@@ -42,6 +42,7 @@ jobs:
           python3 scripts/tests/server-wsl-export.test.py
           python3 scripts/tests/server-bootstrap.test.py
           python3 scripts/tests/linux-owner-access.test.py
+          python3 -B scripts/tests/third-party-sources.test.py
       - name: Monitoring checks
         run: |
           node apps/web/tests/server-monitor.cjs
@@ -58,9 +59,20 @@ jobs:
           node apps/web/tests/server-event-journal.cjs
           node apps/web/tests/server-event-journal-ui.cjs
           node apps/web/tests/server-events-api.cjs
+      - name: Download and verify pinned reusable upstream sources
+        run: |
+          set -euo pipefail
+          CASTLINK_REUSE_ARCHIVE="$RUNNER_TEMP/castlink-upstream-sources-1.0.2.tar.gz"
+          curl --fail --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 20 --max-time 1800 --retry 3 --max-filesize 1448015378 \
+            --output "$CASTLINK_REUSE_ARCHIVE" \
+            'https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-ThirdParty-Sources.tar.gz'
+          test "$(stat -c %s "$CASTLINK_REUSE_ARCHIVE")" -eq 1448015378
+          printf '%s  %s\n' 'e755e7abeb183f144ed7486ffb9dcf04fc076bf17910d54e6ecdedc609d1f25c' "$CASTLINK_REUSE_ARCHIVE" | sha256sum --check --strict
       - name: Build candidate rootfs and exact corresponding-source package
         env:
           CASTLINK_BUILD_VERSION: ${{ inputs.version }}
+          CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE: ${{ runner.temp }}/castlink-upstream-sources-1.0.2.tar.gz
         run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
       - uses: actions/upload-artifact@v4
         with:

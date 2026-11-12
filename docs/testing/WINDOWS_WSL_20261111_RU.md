@@ -4,6 +4,26 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## Перенос сборки на GitHub и восстановление проверенных inputs
+
+Factory43193869966 из0741e62b прошёл Windows parser/behavior, package/monitoring
+checks и построил новый rootfs:190installed source versions, missingFromSourceIndexes
+пуст. Упаковка прерванаHTTP404 в package-third-party-sources.py; артефакта/публикации
+нет. Docker на ПК пользователя не запускался, данные работающего QA не менялись.
+
+Через GitHub API подтверждён опубликованный nondraft asset Linux1.0.2:
+CastLink-ThirdParty-Sources.tar.gz1448015378bytes, SHA256
+`e755e7abeb183f144ed7486ffb9dcf04fc076bf17910d54e6ecdedc609d1f25c`.
+Workflow фиксирует URL/tag/size/hash и проверяет их до сборки. Опциональный
+--reuse-archive потоково извлекает только точные пути текущего source manifest,
+проверяет regular type/size/SHA и отказывает при duplicate/missing. Остальные
+entries не извлекаются. Существующий fetch затем повторно проверяет cache;
+runtime/source closure не ослаблена. Source-cache импорт не является общей
+транзакцией: при позднем отказе ранее проверенные файлы могут остаться в cache,
+но CLI завершается до упаковки. Unit RED→GREEN:13Python PASS и8Node PASS.
+Root review diff пройден; полный фактический импорт1004inputs проверит следующий
+factory. Реализация Solhigh; review/unitverification Codex root.
+
 ## Разрешённый host loopback и проверенный Windows доступ
 
 После явного «Разрешаю» выполнен подготовленный scoped script. В .wslconfig
