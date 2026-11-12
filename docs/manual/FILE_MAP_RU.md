@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1964**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1965**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -184,7 +184,9 @@ GitHub Actions: Reserve outbound test branch. Выполняется runner-ом
 
 [`.github/workflows/server-wsl-package.yml`](../../.github/workflows/server-wsl-package.yml)
 
-GitHub Actions: Docker-free WSL server candidate package. Выполняется runner-ом, а не в браузере.
+GitHub Actions: WSL external validation (temporary QA branch). Выполняется runner-ом, а не в браузере.
+
+Переменные окружения (только имена): `CASTLINK_WSL_EXTERNAL_QA`, `GITHUB_OUTPUT`.
 
 ### .github/workflows/windows-desktop-client.yml
 
@@ -16494,7 +16496,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 261 файлов
+## scripts · 262 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17034,6 +17036,18 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
+
+### scripts/qa-wsl-external-proof.mjs
+
+[`scripts/qa-wsl-external-proof.mjs`](../../scripts/qa-wsl-external-proof.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `validate`, `verifyMedia`, `main`.
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:https`, `node:module`, `node:net`, `node:os`, `node:path`, `node:tls`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_WSL_EXTERNAL_QA`, `GITHUB_ACTIONS`, `RUNNER_TEMP`.
 
 ### scripts/release-track.cjs
 

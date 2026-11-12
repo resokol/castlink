@@ -1,86 +1,48 @@
-name: Docker-free WSL server candidate package
+name: WSL external validation (temporary QA branch)
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Candidate version (build only; no release publication)
+        description: Name of the temporary protected QA payload secret
         required: true
-        default: 1.0.2-rc.1
 permissions:
   contents: read
 concurrency:
-  group: server-wsl-package
+  group: wsl-external-validation
   cancel-in-progress: false
 jobs:
-  windows-parser:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Windows PowerShell parser and behavioral boundaries
-        shell: powershell
-        run: |
-          $tokens=$null; $errors=$null
-          [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/scripts/install-server-windows.ps1",[ref]$tokens,[ref]$errors)
-          if ($errors.Count) { $errors | Format-List; throw 'PowerShell parser failed' }
-          & scripts/tests/server-windows.test.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      # This job proves parser/fixtures, not a supported Windows11 WSL install.
-  package:
-    needs: windows-parser
+  external:
     runs-on: ubuntu-24.04
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install pinned dependencies
-        run: npx --yes pnpm@9.15.0 install --frozen-lockfile
-      - name: Installer and package checks
-        run: |
-          node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs
-          python3 scripts/tests/server-wsl-runtime.test.py
-          python3 scripts/tests/server-wsl-export.test.py
-          python3 scripts/tests/server-bootstrap.test.py
-          python3 scripts/tests/linux-owner-access.test.py
-          python3 -B scripts/tests/third-party-sources.test.py
-      - name: Monitoring checks
-        run: |
-          node apps/web/tests/server-monitor.cjs
-          node apps/web/tests/server-monitor-api.cjs
-          node apps/web/tests/server-monitor-collection.cjs
-          node apps/web/tests/server-monitor-ui.cjs
-          node apps/web/tests/server-monitor-aggregation.cjs
-          node apps/web/tests/server-monitor-read-only.cjs
-          node apps/web/tests/server-observability-store.cjs
-          node apps/web/tests/server-observability-worker.cjs
-          node apps/web/tests/server-observability-instrumentation.cjs
-          node apps/web/tests/server-observability-events.cjs
-          node apps/web/tests/server-observability-node-errors.cjs
-          node apps/web/tests/server-event-journal.cjs
-          node apps/web/tests/server-event-journal-ui.cjs
-          node apps/web/tests/server-events-api.cjs
-      - name: Download and verify pinned reusable upstream sources
-        run: |
-          set -euo pipefail
-          CASTLINK_REUSE_ARCHIVE="$RUNNER_TEMP/castlink-upstream-sources-1.0.2.tar.gz"
-          curl --fail --location --proto '=https' --proto-redir '=https' \
-            --connect-timeout 20 --max-time 1800 --retry 3 --max-filesize 1448015378 \
-            --output "$CASTLINK_REUSE_ARCHIVE" \
-            'https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-ThirdParty-Sources.tar.gz'
-          test "$(stat -c %s "$CASTLINK_REUSE_ARCHIVE")" -eq 1448015378
-          printf '%s  %s\n' 'e755e7abeb183f144ed7486ffb9dcf04fc076bf17910d54e6ecdedc609d1f25c' "$CASTLINK_REUSE_ARCHIVE" | sha256sum --check --strict
-      - name: Build candidate rootfs and exact corresponding-source package
+      - name: Prepare isolated QA tool
+        id: plan
         env:
-          CASTLINK_BUILD_VERSION: ${{ inputs.version }}
-          CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE: ${{ runner.temp }}/castlink-upstream-sources-1.0.2.tar.gz
-        run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: castlink-server-wsl-candidate-${{ github.sha }}
-          path: ${{ runner.temp }}/server-wsl/package/*
-          if-no-files-found: error
-          retention-days: 7
-      - name: Required release gates
+          CASTLINK_WSL_EXTERNAL_QA: ${{ secrets[inputs.version] }}
         run: |
-          echo 'Candidate build only: no public release was created.'
-          echo 'Before release: actual Windows11 WSL install/reboot/start/stop, CA/firewall, external HTTPS and forced TCP443 relay.'
+          mkdir -p "$RUNNER_TEMP/castlink-wsl-external"
+          cp scripts/qa-wsl-external-proof.mjs "$RUNNER_TEMP/castlink-wsl-external/probe.mjs"
+          node -e 'try{const fs=require("fs");const p=JSON.parse(process.env.CASTLINK_WSL_EXTERNAL_QA);if(!["connectivity","media"].includes(p.mode))process.exit(1);fs.appendFileSync(process.env.GITHUB_OUTPUT,"mode="+p.mode+"\n")}catch{console.error("QA plan unavailable");process.exit(1)}'
+      - name: Install pinned browser QA dependencies
+        if: steps.plan.outputs.mode == 'media'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/castlink-wsl-external" --no-save --ignore-scripts --package-lock=false playwright@1.58.2 livekit-client@2.22.3
+          sudo apt-get update
+          sudo apt-get install -y libnss3-tools
+          "$RUNNER_TEMP/castlink-wsl-external/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify external HTTPS and TURN
+        working-directory: ${{ runner.temp }}/castlink-wsl-external
+        env:
+          CASTLINK_WSL_EXTERNAL_QA: ${{ secrets[inputs.version] }}
+        run: node probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: castlink-wsl-external-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/castlink-wsl-external-proof.json
+          if-no-files-found: ignore
+          retention-days: 7
