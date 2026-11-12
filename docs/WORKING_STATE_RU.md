@@ -26,8 +26,10 @@ Publisher сначала загружает draft, сверяет GitHub asset s
 проверки. Публикация пакета сама не обновляет установленный сервер.
 
 Локальный Windows-сервер обычного Server Setup использует Docker Desktop.
-Windows без Docker/WSL2: полный кандидат1.0.2-rc.4 собран из чистого `61ce65a2`
-в [PR #20](https://github.com/resokol/castlink/pull/20). Старые apt/pcre2 обновляются
+Windows без Docker (WSL2): кандидат1.0.2-rc.6 из `9f87ea20` прошёл полный первый
+Install на Windows11, HTTPS/API/PPTX и запуск настроенной logon task.
+Исправления находятся в [PR #20](https://github.com/resokol/castlink/pull/20).
+Ранее полныйrc.4 был собран из `61ce65a2`. Старые apt/pcre2 обновляются
 из тех же APT indexes; реальная offline проверка всех190 source версий дала
 RED на старом образе и GREEN на новом. Все corresponding sources, package audit,
 SHA256 восьми файлов и запуск Windows installer -Help проверены. CI58 прошёл для
@@ -142,10 +144,29 @@ fetch/runtime checks сохранены. Python13 и Node8 PASS. Factory43196993
 package8/8 PASS. Исправление runtime и regression — Sol high; review/Windows/factory — Codex root.
 Пробный guest штатно остановлен, прежний настроенный сервер восстановлен exit0;
 все8 fingerprints прежних данных совпали. Originalrc.4/rc.5 archives не менялись,
-новых Docker images на ПК нет. Требуется новый пакет и повторный fresh Install.
-Внешний media/TURN и настоящий
-новый logon после Windows reboot ещё отдельно не подтверждены. PR20 draft,
-main/публичные immutable releases не менялись.
+новых Docker images на ПК нет.
+
+Factory43205312805 успешно собралrc.6 из9f87ea20; CI verify этого source также
+SUCCESS. На ПК подтверждены8 SHA256, полный source/runtime audit и byte-identical
+reconstruction. Прямую большую загрузку оборвала сеть; authenticated HTTP206
+докачка111частей завершилась совпадением полного GitHub ZIP digest и CRC.
+Неизменённые generated installer/rootfs установлены с нуля: exit0/phaseReady,
+8active служб, hidden QA password действительно совпал, owner metrics/events200,
+guest403/replay401, retention24h/storageok/samplerRunning. Настоящий PPTX→PDF200
+и TURN TLS443 STUN binding прошли без TLS bypass. Временный CA в Windows не добавлен.
+Настроенная задача проверена по SID/action/hash, её actual Start дал новый keeper
+и ready. Первый Status в harness поспешил до освобождения operation.lock;
+исправлено только ожидание в приватной проверке, пакет не менялся. После закрытия
+installer95s/8HTTPS200 samples прошли без WSL calls с тем же PID/starttime.
+Все8 конфигурационных fingerprints нового guest сохранены после Stop/Start.
+
+Временная task удалена, пробный guest остановлен; прежний настроенный сервер,
+его task и обычное окно Chrome восстановлены. Его8 fingerprints также совпали,
+HTTPS проверен через Windows system roots. Части/ZIP загрузки удалены после audit:
+дополнительно освобождены7.388GB; готовые9assets и receipts сохранены. Docker OFF.
+Реализация runtime/докачки — Sol high; review и native Windows QA — Codex root.
+Внешний forced relay media и настоящий logon после нового Windows reboot не
+проверены; текущая конфигурация LAN. Публичный WSL release/main не менялись.
 [Размеры, хеши и порядок испытания](testing/WINDOWS_WSL_20261111_RU.md).
 
 Реализация/публикация — Codex root и GPT-6.1 Sol high; независимое ревью — Sol high.

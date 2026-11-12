@@ -4,6 +4,66 @@
 [спецификации](../superpowers/specs/2026-11-11-server-installation-monitoring.md).
 Linux и Docker Server Setup 1.0.2 уже опубликованы и этим этапом не заменяются.
 
+## rc.6: полный первый Install и native Windows proof
+
+Factory [43205312805](https://github.com/resokol/castlink/actions/runs/43205312805)
+и CI verify прошли для source`9f87ea2096fab2e52a4cde440a5aeb247c516271`.
+Кандидат1.0.2-rc.6, tag`server-wsl-v1.0.2-rc.6-9f87ea2096fa` не опубликован.
+GitHub artifact13938937313:3694131058bytes,
+SHA256`3a1b198d3f885a2f9b3e9d1960fcb9018589e934bba9916b808697f6ad90dacd`.
+После network abort прямой загрузки authenticated gh HTTP206 докачал111частей
+по32MiB с4workers, проверкой каждого диапазона/размера и общего ZIP digest.
+ZIP CRC и точные9 flat regular members проверены. Windows audit подтвердил
+8SHA256, все190OS source versions/upstream inputs и byte-identical reconstruction.
+
+| Файл | Размер, байт | SHA256 |
+| --- | ---: | --- |
+| CastLink-Server-WSL-amd64.tar.gz | 477415687 | `bf676e8e2a189069361620cbaef00a0e6dac5029dce3556192d796e9b631ef51` |
+| CastLink-Server-WSL-Sources.tar.gz | 1845670403 | `81f7a99173014df4f023ed52fb0d9b47f84e8169895e664056644269f0fc5fc4` |
+| CastLink-ThirdParty-Sources.tar.gz | 1373371842 | `c45ca1a7384e126919e7ff484c33013c088755f1ded3cdf35c9c20e7b54dd5c7` |
+| manifest.json | 1176 | `d849d67b2b5f1692185211d830b2125a56a6ceb04cb1a6c0049b560f3cc7a941` |
+| install-server-windows.ps1 | 48147 | `49924e90ae29b0a81df98ebbbf383adb6022ad9f12bee5144ecf9a00d8910ebe` |
+
+Original generated installer запущен в новой настоящей консоли и новом guest,
+без patch/overrides и предварительного init. Synthetic QA password введён скрыто
+через input только собственной консоли; actual hash match подтверждён локально,
+без вывода значения/хеша. Пользовательский пароль не читался и не менялся.
+Первый Install завершился exit0/phaseReady, все8services active и runtime ready.
+Временный public CA экспортирован, добавление в Windows trust отклонено.
+
+Native Windows HTTPS с этим public CA и обычной chain/IP проверкой:
+guest metrics/events403, owner200, replay401; scopewsl, retention86400000,
+storageok/samplerRunning, history1point и journal1event, web/LiveKit/roomStoreok.
+Это проверка политики хранения, не утверждение о прошедших24часах работы.
+PPTX1596bytes обработан настоящим isolated worker:200/application-pdf,
+9724bytes с PDF signature. Native Windows TLS443 без HTTP ALPN получил STUN
+binding success40bytes с проверенным сертификатом. Это локальный Windows↔WSL
+путь и binding response; authenticated relay media/интернет этим не доказаны.
+
+Original installer зарегистрировал logon task; actual principal/trigger SID,
+action/settings и staged/source SHA совпали. Первое выполнение harness вызвало
+Status слишком рано и получило ожидаемый отказ operation.lock. Пакет не менялся;
+проверка дополнена ожиданием освобождения lease, повторена на том же owned guest
+через исходные Start/Stop/Register functions. Actual configured task Start дал
+ready/новый keeper/taskRunning; console установщика закрыта. Все8 конфигурационных
+fingerprints совпали.95s без WSL calls:8HTTPS200 samples, тот же keeperPID/starttime.
+Полный первый Install и продолжение task proof имеют отдельные receipts;
+первоначальный отказ harness сохранён как отказ проверки, не скрыт.
+
+После proof временная task удалена после повторной проверки binding/hash;
+пробный guest остановлен/terminated, его данные сохранены для audit. Прежний
+пользовательский сервер/task восстановлены,8его fingerprints совпали, normal
+Chrome с прежним отдельным QA-профилем открыт. HTTPS старой установки подтверждён
+через Windows system roots. Source/rootfs/manifest/assets ни разу не patchили.
+Только после полного audit удалены собственные range parts и ZIP: фактически
+освобождено7388332032bytes на D:. Готовые9assets/clean source/receipts сохранены.
+Docker Desktop выключен; новых Docker images/cache на ПК не создавалось.
+
+Реализация runtime и helper докачки — GPT-6.1 Sol high; source review, полный
+artifact audit и native Windows proof — Codex root. Не проверены настоящий вход
+после новой Windows reboot и внешний forced TURN relay. Текущая конфигурация LAN;
+в managed cloud VPN не настроен. main/публичный WSL release не менялись.
+
 ## Неизменённый rc.5: аудит пакета и отказ первого Install
 
 Factory [43196993237](https://github.com/resokol/castlink/actions/runs/43196993237)
