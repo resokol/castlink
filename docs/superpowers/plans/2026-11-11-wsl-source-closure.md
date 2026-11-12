@@ -92,3 +92,9 @@ as incompatible; version3.0.1 fallback wrongly tests ==0xFF. Prepared one-DWORD
 Separate explicit approval pending because IPv6 is reenabled and may bypass an
 IPv4-only VPN. Do not apply before response. CI63 for artifact61ce65a2 is success;
 no rebuild needed. Controlled post-change Windows restart/retest remains required.
+
+Explicit user approval received: elevated Apply exit0, original4294967295→32,
+receipt06:16:23.5088677Z and independent Registry64/DWord readback32. Original
+JSON/.reg preserved, all6 IPv6 bindings remain enabled. No VPN/adapter/HNS edits,
+no automatic restart. Pending user's full Windows restart after the Apply time,
+then actual NIC/DNS and existing61ce65a2 fresh Install. Do not reapply/rebuild.

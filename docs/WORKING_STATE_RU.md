@@ -63,11 +63,13 @@ source версий совпал с проверенными архивами. P
 конкретный unsupported host setting: DisabledComponents=0xFFFFFFFF глобально
 отключает IPv6. Microsoft связывает такое отключение со сбоем WSL; WSL3.0.1
 ошибочно сравнивает значение строго с0xFF, поэтому0xFFFFFFFF обходит fallback.
-Предложен единственный DWORD0x20 (prefer IPv4, IPv6 разрешён). Preview сохранён
-с JSON/.reg backup, readback по-прежнему0xFFFFFFFF; Apply не запускался. Требуется
-отдельное согласие пользователя из-за общей сети Windows и возможного IPv6 вне
-IPv4-only VPN, затем Windows restart и контроль NIC/DNS. Existing bindings/VPN
-не менялись. Не считать причинность доказанной до контрольного запуска.
+Пользователь отдельно согласовал DWORD0xFFFFFFFF→0x20 после объяснения IPv6/VPN
+риска. Elevated Apply завершён exit0; receipt и независимый Registry64 readback
+подтверждают DWORD32. JSON/.reg backup исходного4294967295 сохранены;6 adapter
+bindings остались Enabled. Менялся только согласованный DWORD. Windows restart
+не запускался. Теперь нужен пользовательский полный restart, LastBootUpTime должен
+быть позже Apply2026-11-12T06:16:23.5088677Z, затем контроль NIC/DNS и fresh Install.
+Не повторять Apply и не считать причинность доказанной до контрольного запуска.
 Пакет61ce65a2 остаётся проверенным и не требует пересборки. Старые QA state/VHD
 сохранены, rc.4 ещё не импортирован. Полный Windows Install, CA, keepalive, HTTPS и внешний TURN ещё не
 подтверждены; публичного WSL release нет.

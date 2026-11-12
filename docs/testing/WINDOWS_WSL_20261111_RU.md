@@ -31,8 +31,18 @@ default IPv6 preference, а0xFFFFFFFF указан как неверное disab
 Подготовлен узкий script с Preview/Apply/Restore, строго один64-bit-view DWORD,
 проверка исходного kind/value и current32 перед rollback. Preview выполнен обычным
 пользователем: сохранены исходные JSON/.reg, registryChanged=false; independent
-readback остаётся4294967295. Apply не запускался; Windows restart не назначался.
+readback оставался4294967295. На этапе Preview Apply не запускался.
 Пакет61ce65a2 не менялся, его полный GitHub CI63 теперь success.
+
+После отдельного согласия пользователя выполнен только согласованный Apply через
+обычный RunAs/UAC: exit0, receipt before4294967295/after32,
+timeUtc2026-11-12T06:16:23.5088677Z. Независимый Registry64 readback подтверждает
+kind DWord/value32; backupOriginalValue4294967295 и .reg на месте. Все6 наблюдаемых
+adapter bindings по-прежнему Enabled; VPN profiles/adapter/HNS operations не выполнялись.
+LastBootUtc2026-11-11T21:30:43.1344760Z предшествует Apply: действие ещё требует
+полной перезагрузки Windows. Автоматическая перезагрузка не запускалась. Следующий
+контроль: новая LastBootUpTime после Apply, затем actual WSL NIC/DNS и fresh rc.4
+Install. Не повторять уже успешную registry write и не пересобирать готовый пакет.
 
 ## Проверенный пакет 1.0.2-rc.4
 
