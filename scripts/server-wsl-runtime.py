@@ -158,7 +158,7 @@ def init_state(folder, host, media_ip, release, creation_hash, turn_host=None, p
     return state
 
 
-def configs(state, credentials):
+def configs(state, credentials, local_ipv4s):
     c, s = credentials, state
     env = {'NODE_ENV': 'production', 'NEXT_TELEMETRY_DISABLED': '1', 'NEXT_BUILD_DIR': '.next', 'HOSTNAME': '127.0.0.1', 'PORT': '3000',
       'CASTLINK_DEPLOYMENT_MODEL': 'self-hosted', 'CASTLINK_STORAGE_BACKEND': 'json',
@@ -177,6 +177,8 @@ def configs(state, credentials):
        'keys': {c['livekitKey']: c['livekitSecret']}, 'turn': {'enabled': True, 'domain': s['turnHost'], 'udp_port': 3478,
        'tls_port': 5349, 'external_tls': True, 'proxy_protocol': True, 'proxy_protocol_trusted_cidrs': ['127.0.0.1/32'],
        'relay_range_start': 30000, 'relay_range_end': 30031, 'allow_restricted_peer_cidrs': [s['mediaIp'] + '/32']}}
+    # Bind the UDP mux to the permitted local peer; do not exclude NAT-only advertised addresses.
+    if s['mediaIp'] in local_ipv4s: livekit['rtc']['ips'] = {'includes': [s['mediaIp'] + '/32']}
     global_lines = ['{', ' admin off', ' auto_https disable_redirects', ' skip_install_trust', ' https_port 8443', ' default_sni ' + s['address'],
         ' servers :8443 {', '  protocols h1 h2', '  listener_wrappers {', '   proxy_protocol {', '    timeout 2s', '    allow 127.0.0.1/32',
         '    fallback_policy require', '   }', '   tls', '  }', ' }', '}']
@@ -215,9 +217,26 @@ def owned_dir(path, user, mode=0o700):
     os.chmod(path, mode)
 
 
+def local_ipv4_addresses():
+    try:
+        interfaces = json.loads(run(['/usr/sbin/ip', '-j', '-4', 'address', 'show'], timeout=5))
+        if not isinstance(interfaces, list): raise ValueError()
+        addresses = set()
+        for interface in interfaces:
+            if not isinstance(interface, dict) or not isinstance(interface.get('addr_info', []), list): raise ValueError()
+            for item in interface.get('addr_info', []):
+                if not isinstance(item, dict) or item.get('family') != 'inet' or not isinstance(item.get('local'), str): raise ValueError()
+                addresses.add(str(ipaddress.IPv4Address(item['local'])))
+        if not addresses: raise ValueError()
+        return addresses
+    except (OSError, ValueError):
+        raise ValueError('Local IPv4 inventory is unavailable or invalid; runtime configuration was not changed') from None
+
+
 def materialize(state):
+    local_ipv4s = local_ipv4_addresses()
     CONFIG.mkdir(mode=0o755, parents=True, exist_ok=True)
-    values = configs(state, json.loads((STATE / 'secrets.json').read_text()))
+    values = configs(state, json.loads((STATE / 'secrets.json').read_text()), local_ipv4s)
     owners = {'web.env': 'root', 'livekit.json': 'castlink-livekit', 'Caddyfile': 'castlink-caddy'}
     for name, value in values.items():
         target = CONFIG / name

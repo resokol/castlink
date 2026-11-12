@@ -41,7 +41,7 @@ class RuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp) / 'state'
             state = self.fresh(folder, 'studio.example.org', '203.0.113.2', turn_host='relay.example.org')
-            config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()))
+            config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()), {'127.0.0.1', '192.168.1.23'})
             env, livekit, caddy = config['web.env'], json.loads(config['livekit.json']), config['Caddyfile']
             self.assertIn('HOSTNAME=127.0.0.1', env)
             self.assertIn('@127.0.0.1:5432/castlink', env)
@@ -58,12 +58,84 @@ class RuntimeTest(unittest.TestCase):
             self.assertEqual(livekit['turn']['domain'], 'relay.example.org')
             self.assertIn('disable_tlsalpn_challenge', caddy)
 
+    def test_assigned_media_ip_filters_udp_mux_without_broadening_turn(self):
+        for media in ['192.168.1.23', '127.0.0.1']:
+            with self.subTest(media=media), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp) / 'state'; state = self.fresh(folder, media, media)
+                before = {f.name: f.read_bytes() for f in folder.iterdir()}
+                config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()), {media, '10.8.0.2'})
+                livekit = json.loads(config['livekit.json'])
+                self.assertEqual(livekit['rtc'].get('ips'), {'includes': [media + '/32']})
+                self.assertEqual(livekit['rtc']['node_ip'], media)
+                self.assertEqual(livekit['rtc']['udp_port'], 7882)
+                self.assertEqual(livekit['rtc']['enable_loopback_candidate'], media == '127.0.0.1')
+                self.assertEqual(livekit['turn']['allow_restricted_peer_cidrs'], [media + '/32'])
+                self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+
+    def test_nonlocal_public_nat_address_does_not_filter_out_local_sockets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / 'state'
+            state = self.fresh(folder, 'meet.example.org', '203.0.113.2', turn_host='turn.example.org')
+            config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()), {'127.0.0.1', '192.168.1.23'})
+            livekit = json.loads(config['livekit.json'])
+            self.assertEqual(livekit['rtc'], {'tcp_port': 7881, 'udp_port': 7882, 'use_external_ip': False,
+                'node_ip': '203.0.113.2', 'enable_loopback_candidate': False})
+            self.assertEqual(livekit['turn']['allow_restricted_peer_cidrs'], ['203.0.113.2/32'])
+
+    def test_local_ipv4_inventory_parses_interfaces_and_deduplicates(self):
+        from unittest.mock import patch
+        inventory = [{'addr_info': [{'family': 'inet', 'local': '127.0.0.1'}]},
+                     {'addr_info': [{'family': 'inet', 'local': '192.168.1.23'}, {'family': 'inet', 'local': '192.168.1.23'}]},
+                     {'addr_info': [{'family': 'inet', 'local': '10.8.0.2'}]}]
+        with patch.object(runtime, 'run', return_value=json.dumps(inventory)) as invoke:
+            self.assertEqual(runtime.local_ipv4_addresses(), {'127.0.0.1', '192.168.1.23', '10.8.0.2'})
+        invoke.assert_called_once_with(['/usr/sbin/ip', '-j', '-4', 'address', 'show'], timeout=5)
+
+    def test_unavailable_or_malformed_interface_inventory_prevents_all_config_writes(self):
+        from unittest.mock import patch
+        bad = ['not-json', '{}', '[]', '[{}]', '[{"addr_info":"wrong"}]',
+               '[{"addr_info":[{"family":"inet","local":"not-an-ip"}]}]',
+               '[{"addr_info":[{"family":"inet","local":123}]}]',
+               ValueError('private command failure'), OSError('private command failure')]
+        for observed in bad:
+            with self.subTest(inventory=type(observed).__name__), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp) / 'state'; state = self.fresh(folder)
+                before = {f.name: f.read_bytes() for f in folder.iterdir()}
+                config = Path(temp) / 'config'
+                outcome = {'side_effect': observed} if isinstance(observed, Exception) else {'return_value': observed}
+                with patch.object(runtime, 'STATE', folder), patch.object(runtime, 'CONFIG', config), patch.object(runtime, 'run', **outcome), patch.object(runtime, 'write_private') as write:
+                    with self.assertRaises(ValueError) as failure: runtime.materialize(state)
+                    self.assertNotIn('private command failure', str(failure.exception))
+                    write.assert_not_called()
+                self.assertFalse(config.exists())
+                self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+
+    def test_materialize_uses_one_inventory_and_preserves_existing_config(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import os
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / 'state'; state = self.fresh(folder)
+            before = {f.name: f.read_bytes() for f in folder.iterdir()}
+            config = Path(temp) / 'config'
+            inventory = json.dumps([{'addr_info': [{'family': 'inet', 'local': state['mediaIp']}, {'family': 'inet', 'local': '10.8.0.2'}]}])
+            def command(args, **kw): return inventory if args[0] == '/usr/sbin/ip' else ''
+            with patch.object(runtime, 'STATE', folder), patch.object(runtime, 'CONFIG', config), patch.object(runtime, 'run', side_effect=command) as invoke, patch.object(runtime, 'owned_dir'), patch.object(runtime.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())), patch.object(runtime.os, 'chown'):
+                runtime.materialize(state)
+                self.assertEqual(sum(call.args[0][0] == '/usr/sbin/ip' for call in invoke.call_args_list), 1)
+                self.assertEqual(json.loads((config / 'livekit.json').read_text())['rtc']['ips'], {'includes': [state['mediaIp'] + '/32']})
+                (config / 'livekit.json').write_text('operator-owned configuration')
+                files = {f.name: f.read_bytes() for f in config.iterdir()}
+                with self.assertRaisesRegex(ValueError, 'Existing runtime configuration differs'): runtime.materialize(state)
+                self.assertEqual(files, {f.name: f.read_bytes() for f in config.iterdir()})
+            self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+
     def test_local_tls_and_address_input(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp) / 'state'
             state = self.fresh(folder)
             self.assertFalse(state['publicHttps'])
-            config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()))
+            config = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()), {'127.0.0.1', '192.168.1.23'})
             self.assertIn('tls internal', config['Caddyfile'])
             self.assertEqual(state['origin'], 'https://192.168.1.23')
             for bad in ['http://evil', 'host\nfoo', '0.0.0.0', 'evil:443', '127.0.0.1/path', '-bad.example']:
