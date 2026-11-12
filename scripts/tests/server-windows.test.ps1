@@ -1,13 +1,72 @@
-param([switch]$NetworkingOnly)
+param([switch]$NetworkingOnly, [switch]$StateSharingOnly, [string]$InstallerPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$installer = Join-Path $PSScriptRoot '../install-server-windows.ps1'
+$installer = if ($InstallerPath) { [IO.Path]::GetFullPath($InstallerPath) } else { Join-Path $PSScriptRoot '../install-server-windows.ps1' }
 if (-not (Test-Path $installer)) { throw 'Installer missing: expected Windows WSL installer implementation' }
 . $installer
 function Assert($Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 function Assert-Throws([scriptblock]$Block, [string]$Pattern) {
   try { & $Block } catch { Assert ($_.Exception.Message -match $Pattern) "Unexpected error: $($_.Exception.Message)"; return }
   throw "Expected rejection matching $Pattern"
+}
+function Test-CastlinkStateSharing([string]$Directory) {
+  if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+    Write-Host 'SKIP: Windows File.Replace sharing semantics require an actual Windows runtime'
+    return
+  }
+  if (-not ('CastLinkStateSharingReader' -as [type])) { Add-Type @'
+using System;
+using System.IO;
+using System.Threading;
+public sealed class CastLinkStateSharingReader : IDisposable {
+  readonly ManualResetEventSlim acquired = new ManualResetEventSlim(false);
+  readonly ManualResetEventSlim release = new ManualResetEventSlim(false);
+  readonly Thread thread;
+  Exception failure;
+  public CastLinkStateSharingReader(string file, int milliseconds) {
+    thread = new Thread(() => {
+      try { using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read)) { acquired.Set(); release.Wait(milliseconds); } }
+      catch (Exception error) { failure = error; acquired.Set(); }
+    });
+    thread.IsBackground = true; thread.Start();
+    if (!acquired.Wait(5000) || failure != null) throw new Exception("Synthetic sharing reader did not acquire");
+  }
+  public void Dispose() { release.Set(); if (!thread.Join(5000)) throw new Exception("Synthetic sharing reader did not release"); acquired.Dispose(); release.Dispose(); }
+}
+'@ }
+  $folder = Join-Path $Directory 'state-sharing'
+  [void][IO.Directory]::CreateDirectory($folder)
+  $path = Join-Path $folder 'installation.json'
+  $before = [pscustomobject]@{schemaVersion=1;sentinel='synthetic-before'}
+  $after = [pscustomobject]@{schemaVersion=1;sentinel='synthetic-after'}
+  Save-CastlinkInstallation $folder $before
+  $reader = [CastLinkStateSharingReader]::new($path, 300)
+  try { Save-CastlinkInstallation $folder $after } finally { $reader.Dispose() }
+  Assert (([IO.File]::ReadAllText($path) | ConvertFrom-Json).sentinel -ceq 'synthetic-after') 'Save failed to recover after a transient sharing reader'
+  Assert (-not (Test-Path -LiteralPath ($path + '.new'))) 'Successful atomic replacement left its prepared temporary file'
+
+  Save-CastlinkInstallation $folder $before
+  $bytes = [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+  $reader = [CastLinkStateSharingReader]::new($path, 5000)
+  $clock = [Diagnostics.Stopwatch]::StartNew(); $rejected = $false
+  try { Save-CastlinkInstallation $folder $after } catch {
+    $cause = $_.Exception; while ($cause.InnerException) { $cause = $cause.InnerException }
+    Assert ($cause -is [IO.IOException] -and ($cause.HResult -band 65535) -in @(32,33)) 'Persistent sharing failure changed its original error type/code'
+    $rejected = $true
+  } finally { $clock.Stop(); $reader.Dispose() }
+  Assert ($rejected -and $clock.ElapsedMilliseconds -ge 1500 -and $clock.ElapsedMilliseconds -lt 4500) 'Persistent sharing did not fail within its bounded retry window'
+  Assert ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -ceq $bytes) 'Persistent sharing failure changed original state bytes'
+
+  [IO.File]::SetAttributes($path, [IO.FileAttributes]::ReadOnly)
+  $clock.Restart(); $rejected = $false
+  try { Save-CastlinkInstallation $folder $after } catch {
+    $cause = $_.Exception; while ($cause.InnerException) { $cause = $cause.InnerException }
+    Assert (($cause.HResult -band 65535) -notin @(32,33)) 'Expected a nonsharing readonly-destination failure'
+    $rejected = $true
+  } finally { $clock.Stop(); [IO.File]::SetAttributes($path, [IO.FileAttributes]::Normal) }
+  Assert ($rejected -and $clock.ElapsedMilliseconds -lt 1500) 'Nonsharing failure was retried or swallowed'
+  Assert ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -ceq $bytes) 'Nonsharing failure changed original state bytes'
+  Write-Host 'PASS: actual Windows transient sharing recovery, bounded atomic failure and immediate nonsharing rejection'
 }
 function Test-CastlinkWslNetworkSettings([string]$Directory) {
   $path = Join-Path $Directory 'host-loopback.wslconfig'
@@ -108,8 +167,10 @@ function Test-CastlinkWslNetworkSettings([string]$Directory) {
 $testDir = Join-Path ([IO.Path]::GetTempPath()) ('castlink-windows-test-' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDir)
 try {
+  if ($StateSharingOnly) { Test-CastlinkStateSharing $testDir; return }
   Test-CastlinkWslNetworkSettings $testDir
   if ($NetworkingOnly) { Write-Host 'PASS: shared WSL networking behavioral fixtures (real config files; no WSL operations)'; return }
+  Test-CastlinkStateSharing $testDir
   $aclRoot = Join-Path $testDir 'private-installation'
   [void][IO.Directory]::CreateDirectory($aclRoot)
   Protect-CastlinkInstallationDirectory $aclRoot
