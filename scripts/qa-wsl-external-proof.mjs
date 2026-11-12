@@ -71,7 +71,8 @@ const observePCs = () => {
         const stats=[...(await pc.getStats()).values()];
         peers.push({state:pc.connectionState,iceState:pc.iceConnectionState,gatherState:pc.iceGatheringState,
           localCandidates:stats.filter(s=>s.type==='local-candidate').map(s=>({type:s.candidateType,protocol:s.protocol,relayProtocol:s.relayProtocol||null})),
-          pairs:stats.filter(s=>s.type==='candidate-pair').map(s=>({state:s.state,nominated:s.nominated===true,bytesSent:s.bytesSent||0,bytesReceived:s.bytesReceived||0})),
+          remoteCandidates:stats.filter(s=>s.type==='remote-candidate').map(s=>({type:s.candidateType,protocol:s.protocol,addressMatchesConfigured:s.address===location.hostname,port:s.port===7882?7882:s.port===7881?7881:null})),
+          pairs:stats.filter(s=>s.type==='candidate-pair').map(s=>({state:s.state,nominated:s.nominated===true,bytesSent:s.bytesSent||0,bytesReceived:s.bytesReceived||0,requestsSent:s.requestsSent||0,responsesReceived:s.responsesReceived||0,requestsReceived:s.requestsReceived||0,responsesSent:s.responsesSent||0})),
           dtls:stats.filter(s=>s.type==='transport').map(s=>s.dtlsState||null)});
       }catch{}
     }
