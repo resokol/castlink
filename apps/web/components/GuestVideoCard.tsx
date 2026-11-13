@@ -10,6 +10,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
+import { formatPacketLoss } from "@/lib/guest-network-stats";
 import { GuestMiniStats, type GuestMiniStatsData } from "./GuestMiniStats";
 
 export type GuestVideoCardData = GuestMiniStatsData & {
@@ -19,8 +20,8 @@ export type GuestVideoCardData = GuestMiniStatsData & {
   bitrateKbps: number;
   roomSendBitrateKbps?: number | null;
   packetLoss: number;
-  jitterMs: number;
-  rttMs: number;
+  jitterMs: number | null;
+  rttMs: number | null;
   stability: "Хорошая" | "Средняя" | "Плохая";
   camera: boolean;
   microphone: boolean;
@@ -81,6 +82,10 @@ export function GuestVideoCard({
   onMonitoringChange: (patch: Partial<MonitorPreference>) => void;
 }) {
   const { t, locale } = useI18n();
+  const lossText = (value: typeof guest.currentLoss) => {
+    const formatted = formatPacketLoss(value, locale);
+    return formatted == null ? "—" : t("{loss} пак.", { loss: formatted });
+  };
   const menuId = useId(), popup = useRef<HTMLDivElement>(null), menuTrigger = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const positionMenu = (trigger: HTMLButtonElement) => {
@@ -155,9 +160,11 @@ export function GuestVideoCard({
         <div className="guest-card-details guest-card-connection">
           <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
           <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
-          <div><b>{t("Сеть")}</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(guest.stability)}</span></div>
-          <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} {t("мс")}</span></div>
-          <div><b>{t("Потери / Аудио")}</b><span>{guest.packetLoss} {t("пак. /")} {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
+          <div><b>{t("Сеть")}</b><span className={`net net-${!guest.networkMeasured ? "unknown" : guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(guest.networkMeasured ? guest.stability : "Нет данных")}</span></div>
+          <div><b>RTT / Jitter</b><span>{guest.networkMeasured ? guest.rttMs ?? "—" : "—"} / {guest.networkMeasured ? guest.jitterMs ?? "—" : "—"} {t("мс")}</span></div>
+          <div><b>{t("Потери за 10 секунд")}</b><span>{lossText(guest.networkMeasured ? guest.currentLoss : null)}</span></div>
+          <div><b>{t("За сессию участника")}</b><span>{lossText(guest.totalLoss)}</span></div>
+          <div><b>{t("Аудио")}</b><span>{guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
         </div>
         <details className={`guest-diagnostics ${styles.hardwareDetails}`} open={compact || undefined}><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details">
           <div><b>{t("Камера")}</b><span>{guest.cameraDevice === "Неизвестная камера" ? t("Неизвестная камера") : guest.cameraDevice || "—"}</span></div>

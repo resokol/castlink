@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const { RoomEvent, Track } = require('livekit-client');
 const { load } = require('./load-typescript.cjs');
 const { bindStudioRoomLifecycle } = load('../lib/studio-room-lifecycle.ts');
+const { createGuestNetworkStatsState, sampleGuestNetworkStats } = load('../lib/guest-network-stats.ts');
 const { readGuestReceiveBitrate } = load('../lib/guest-receive-bitrate.ts');
 
 // Run the actual connection effect, including its event/interval/RAF wiring.
@@ -34,7 +35,7 @@ function harness() {
   const frames = new Map(), intervals = new Map();
   let clock = 1000;
   const context = {
-    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate,
+    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate, createGuestNetworkStatsState, sampleGuestNetworkStats,
     Date: class extends Date { static now() { return clock; } },
     studioId: 'studio', roomName: 'room', transferSnapshot: undefined,
     acquireStudioClientId: async () => ({ clientId: 'client', release() {} }),
@@ -54,7 +55,7 @@ function harness() {
   };
   for (const name of ['setSessionToken', 'setOnAir', 'setReturnActive', 'setPreviewReady', 'setOnAirStatus', 'setStudioClientId', 'setStudioRole', 'setStudioEpoch', 'setRemoteDesired', 'setStudioPrimaryOnline', 'setCanClaimStudio', 'setStatus']) context[name] = () => {};
   vm.runInNewContext(code, context);
-  return { room, participant, microphone, context, frames, intervals,
+  return { room, participant, microphone, camera, context, frames, intervals,
     guests: () => guests, renders: () => guestRenders,
     stats: value => { report = value; },
     time: value => { clock = value; },
@@ -109,7 +110,7 @@ function harness() {
   await h.context.refreshRef.current();
   assert.equal(h.renders(), before, 'cached statistics do not replace unchanged rows');
 
-  const video = (bytesReceived, timestamp) => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', frameWidth: 1280, frameHeight: 720, bytesReceived, timestamp, packetsLost: 0, jitter: 0.002 }]]);
+  const video = (bytesReceived, timestamp) => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', frameWidth: 1280, frameHeight: 720, bytesReceived, timestamp, packetsReceived: bytesReceived / 1000, packetsLost: 0, jitter: 0.002 }]]);
   h.stats(video(1_000_000, 1000)); await h.context.refreshRef.current();
   h.time(5000); h.stats(video(2_000_000, 3000)); await h.context.refreshRef.current();
   assert.equal(h.guests()[0].receiveVideoKbps, 4000);
@@ -120,6 +121,38 @@ function harness() {
   assert.equal(h.renders(), before, 'equal fresh bitrate samples do not rerender the Studio roster');
   assert.equal(h.guests()[0].statsSampledAtRef, freshness, 'freshness owner remains stable');
   assert.equal(freshness.current, 7000, 'local expiry sees the fresh sample without a parent update');
+
+  // Real sampler must distinguish historical totals from current observations.
+  const lossyVideo = (at, received, lost) => new Map([['v', { id: 'v', ssrc: 1, type: 'inbound-rtp', kind: 'video', timestamp: at, bytesReceived: received * 1000, packetsReceived: received, packetsLost: lost, jitter: .002 }]]);
+  h.participant.sid = 'PA_loss_history';
+  h.time(9000); h.stats(lossyVideo(9000, 9_997_000, 3000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].networkMeasured, false, 'first sample is baseline, not current health');
+  assert.equal(h.guests()[0].totalLoss.packets, 3000);
+  h.time(11000); h.stats(lossyVideo(11000, 10_007_000, 3000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].stability, 'Хорошая', 'old loss cannot poison current status');
+  assert.equal(h.guests()[0].currentLoss.packets, 0);
+  const oldTotalPercent = h.guests()[0].totalLoss.percent;
+  h.time(13000); h.stats(lossyVideo(13000, 10_017_000, 3000)); await h.context.refreshRef.current();
+  assert.ok(h.guests()[0].totalLoss.percent < oldTotalPercent, 'denominator-only changes reach the UI');
+  await h.context.refreshRef.current(); // The first cached report clears the old bitrate.
+  before = h.renders();
+  await h.context.refreshRef.current();
+  assert.equal(h.renders(), before, 'equal current/history objects preserve optimized guest row identity');
+  h.time(15000); h.stats(lossyVideo(15000, 10_026_000, 4000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].stability, 'Средняя', '1000 losses / 30000 recent packets is medium');
+  for (const at of [17000, 19000, 21000, 23000, 25000]) {
+    h.time(at); h.stats(lossyVideo(at, 10_026_000 + (at - 15000) * 5, 4000)); await h.context.refreshRef.current();
+  }
+  assert.equal(h.guests()[0].stability, 'Хорошая', 'current status recovers after ten seconds');
+  assert.equal(h.guests()[0].totalLoss.packets, 4000, 'history stays visible after recovery');
+  h.camera.track = { getRTCStatsReport: async () => lossyVideo(27000, 10_086_000, 4000) };
+  h.time(27000); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].currentLoss, null, 'wrapper replacement resets current samples');
+  assert.equal(h.guests()[0].totalLoss.packets, 4000, 'wrapper replacement preserves history without recounting RTP counters');
+  h.participant.sid = 'PA_new_session';
+  h.camera.track = { getRTCStatsReport: async () => lossyVideo(29000, 100, 1) };
+  h.time(29000); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].totalLoss.packets, 1, 'participant SID changes reset historical loss');
 
   h.context.guestCameraOutboundRef.current[h.participant.identity] = { sid: h.participant.sid, bitrateKbps: 1234 };
   await h.context.refreshRef.current();
@@ -178,6 +211,21 @@ function harness() {
     assert.equal(audio.guests()[0].stability, 'Хорошая', 'audio processing does not change the video network grade');
     audio.stop();
   }
+
+  const rejoined = harness();
+  await flush();
+  let finishCamera;
+  rejoined.camera.track.getRTCStatsReport = () => new Promise(resolve => { finishCamera = resolve; });
+  const oldCameraSample = rejoined.context.refreshRef.current();
+  await flush();
+  rejoined.participant.sid = 'PA_rejoin_during_report';
+  finishCamera(new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', timestamp: 1000, packetsReceived: 1000, packetsLost: 3000 }]]));
+  await oldCameraSample;
+  assert.notEqual(rejoined.guests()[0].participantSid, rejoined.participant.sid, 'old in-flight report cannot be attached to a new participant session');
+  rejoined.camera.track.getRTCStatsReport = async () => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', timestamp: 3000, packetsReceived: 100, packetsLost: 1 }]]);
+  await rejoined.context.refreshRef.current();
+  assert.equal(rejoined.guests()[0].totalLoss.packets, 1, 'new participant session uses only its own counters');
+  rejoined.stop();
 
   // GuestAudioMeter owns PCM observations and state independently of the Studio.
   let state = [], cursor = 0, effect, observer;
