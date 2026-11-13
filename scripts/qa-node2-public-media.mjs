@@ -34,7 +34,7 @@ const setupBrowser = () => {
   const LK=window.LivekitClient;
   window.__qa={room:new LK.Room({adaptiveStream:false,dynacast:false}),videos:[],tracks:[]};
   const q=window.__qa;
-  q.room.on(LK.RoomEvent.TrackSubscribed,track=>{if(track.kind!=='video')return;const video=track.attach();video.muted=true;video.autoplay=true;video.playsInline=true;document.body.append(video);video.play().catch(()=>{});q.videos.push(video);});
+  q.room.on(LK.RoomEvent.TrackSubscribed,track=>{if(track.kind==='audio'){const audio=track.attach();audio.muted=true;audio.autoplay=true;document.body.append(audio);audio.play().catch(()=>{});return;}if(track.kind!=='video')return;const video=track.attach();video.muted=true;video.autoplay=true;video.playsInline=true;document.body.append(video);video.play().catch(()=>{});q.videos.push(video);});
   q.connect=async(origin,token,turnHost)=>{
     try{await q.room.connect(origin.replace(/^https:/,'wss:'),token,{autoSubscribe:true,rtcConfig:{iceTransportPolicy:'relay'}});return {connected:true};}
     catch(error){
@@ -55,22 +55,23 @@ const setupBrowser = () => {
     const paint=()=>{ctx.fillStyle=`hsl(${frame++%360} 80% 40%)`;ctx.fillRect(0,0,640,360);ctx.fillStyle='white';ctx.font='32px sans-serif';ctx.fillText(String(frame),20,60);};
     paint();q.timer=setInterval(paint,67);q.stream=canvas.captureStream(15);const track=new LK.LocalVideoTrack(q.stream.getVideoTracks()[0],undefined,true);q.tracks.push(track);
     await q.room.localParticipant.publishTrack(track,{source:LK.Track.Source.Camera,videoCodec:'vp8',simulcast:false});
+    q.audioContext=new AudioContext();await q.audioContext.resume();q.tone=q.audioContext.createOscillator();q.tone.frequency.value=440;q.gain=q.audioContext.createGain();q.gain.gain.value=0.1;q.audioDestination=q.audioContext.createMediaStreamDestination();q.tone.connect(q.gain);q.gain.connect(q.audioDestination);q.tone.start();const audioTrack=new LK.LocalAudioTrack(q.audioDestination.stream.getAudioTracks()[0],undefined,true);q.tracks.push(audioTrack);await q.room.localParticipant.publishTrack(audioTrack,{source:LK.Track.Source.Microphone,dtx:false});
   };
   q.sample=async()=>{
     const media=[],pairs=[];
     for(const pc of window.__qaPCs){
-      const report=await pc.getStats(),rtp=[...report.values()].filter(s=>['inbound-rtp','outbound-rtp'].includes(s.type)&&!s.isRemote&&(s.kind||s.mediaType)==='video');
+      const report=await pc.getStats(),rtp=[...report.values()].filter(s=>['inbound-rtp','outbound-rtp'].includes(s.type)&&!s.isRemote&&['video','audio'].includes(s.kind||s.mediaType));
       const flowing=rtp.filter(s=>(s.bytesReceived||s.bytesSent||0)>0);
       if(!flowing.length)continue;
       for(const s of flowing){
-        media.push({id:s.id,direction:s.type,bytes:s.bytesReceived??s.bytesSent??0,packets:s.packetsReceived??s.packetsSent??0,frames:s.framesDecoded??s.framesEncoded??0});
+        media.push({id:s.id,kind:s.kind||s.mediaType,direction:s.type,bytes:s.bytesReceived??s.bytesSent??0,packets:s.packetsReceived??s.packetsSent??0,frames:s.framesDecoded??s.framesEncoded??0,samples:s.totalSamplesReceived||0,energy:s.totalAudioEnergy||0});
         const transport=report.get(s.transportId),pair=report.get(transport?.selectedCandidatePairId),local=report.get(pair?.localCandidateId);
         pairs.push({selected:!!pair&&pair.state==='succeeded',relay:local?.candidateType==='relay',tls:local?.relayProtocol==='tls',url:local?.url||''});
       }
     }
     return {media,pairs,playing:q.videos.some(v=>v.videoWidth>0&&v.videoHeight>0&&v.getVideoPlaybackQuality().totalVideoFrames>0)};
   };
-  q.stop=async()=>{clearInterval(q.timer);await q.room.disconnect();q.tracks.forEach(t=>t.stop());q.stream?.getTracks().forEach(t=>t.stop());};
+  q.stop=async()=>{clearInterval(q.timer);await q.room.disconnect();q.tracks.forEach(t=>t.stop());q.stream?.getTracks().forEach(t=>t.stop());q.tone?.stop();await q.audioContext?.close();};
 };
 export function verifyMedia(before,after,turnHost) {
   check(before?.playing && after?.playing && before.media.length && after.media.length);
@@ -78,11 +79,11 @@ export function verifyMedia(before,after,turnHost) {
   for(const sample of [before,after])check(sample.pairs.length>0&&sample.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expected));
   const deltas={};
   for(const direction of ['inbound-rtp','outbound-rtp']) {
-    const b=before.media.filter(s=>s.direction===direction);
+    const b=before.media.filter(s=>s.direction===direction&&s.kind==='video');
     const changes=b.map(s=>{const a=after.media.find(a=>a.id===s.id&&a.direction===direction);return a?{bytes:a.bytes-s.bytes,packets:a.packets-s.packets,frames:a.frames-s.frames}:null;}).filter(d=>d&&d.bytes>0&&d.packets>0&&d.frames>0);
     check(changes.length>0);deltas[direction==='inbound-rtp'?'received':'sent']=changes[0];
   }
-  return {relayTls443Verified:true,decodedVideoVerified:true,...deltas};
+  const audio={};for(const direction of ['inbound-rtp','outbound-rtp']){const b=before.media.filter(s=>s.direction===direction&&s.kind==='audio');const changes=b.map(s=>{const a=after.media.find(a=>a.id===s.id&&a.kind==='audio'&&a.direction===direction);return a?{bytes:a.bytes-s.bytes,packets:a.packets-s.packets,samples:a.samples-s.samples,energy:a.energy-s.energy}:null;}).filter(d=>d&&d.bytes>0&&d.packets>0&&(direction==='outbound-rtp'||(d.samples>0&&d.energy>0)));check(changes.length>0);audio[direction==='inbound-rtp'?'received':'sent']=changes[0];} return {relayTls443Verified:true,decodedVideoVerified:true,decodedAudioVerified:true,audio,...deltas};
 }
 async function media(c,signal,cleanup,progress) {
   progress("browser-dependencies");
@@ -125,7 +126,7 @@ async function media(c,signal,cleanup,progress) {
   const baselineDeadline=Date.now()+15000,expectedRelay='turns:'+c.turnHost+':443?transport=tcp';
   while(true){
     before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
-    const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)));
+    const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.kind==='video'&&m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)&&s.media.some(m=>m.kind==='audio'&&m.direction===d&&m.bytes>0&&m.packets>0&&(d==='outbound-rtp'||(m.samples>0&&m.energy>0)))));
     if(ready)break;
     check(Date.now()<baselineDeadline&&!signal.aborted);
     await new Promise(resolve=>setTimeout(resolve,200));
@@ -136,7 +137,7 @@ async function media(c,signal,cleanup,progress) {
   progress("browser-stats-verify");
   function safeSample(sample){return {playing:sample.playing,media:sample.media.map(s=>({direction:s.direction,bytes:s.bytes,packets:s.packets,frames:s.frames})),pairs:sample.pairs.map(p=>{const m=/^(turns?):([^:]+):([0-9]+)(?:[?](.*))?$/.exec(p.url);return {selected:p.selected,relay:p.relay,tls:p.tls,urlPresent:!!p.url,urlParsed:!!m,urlTls:m?.[1]==='turns',hostMatches:m?.[2]===c.turnHost,port443:m?.[3]==='443',transportTcp:m?.[4]==='transport=tcp'};})};}
   try{for(let i=0;i<before.length;i++)verifyMedia(before[i],after[i],c.turnHost);}catch{console.error('external media facts='+JSON.stringify(before.map((b,i)=>({before:safeSample(b),after:safeSample(after[i]),idsContinuous:b.media.every(s=>after[i].media.some(t=>t.id===s.id&&t.direction===s.direction))}))));throw Error('unverified');}
-  return {syntheticCameraOnly:true,chromiumVersion:browser.version(),livekitClientVersion:sdkVersion,playwrightVersion:req('playwright/package.json').version,clients:before.map((b,i)=>verifyMedia(b,after[i],c.turnHost))};
+  return {syntheticCameraOnly:true,syntheticAudioToneOnly:true,chromiumVersion:browser.version(),livekitClientVersion:sdkVersion,playwrightVersion:req('playwright/package.json').version,clients:before.map((b,i)=>verifyMedia(b,after[i],c.turnHost))};
 }
 export async function main(){let stage='validation',failed=false;const cleanup=[],signal=AbortSignal.timeout(120000);try{check(process.platform==='linux'&&process.env.GITHUB_ACTIONS==='true'&&Number(process.versions.node.split('.')[0])===22&&process.env.RUNNER_TEMP);const raw=process.env.CASTLINK_WSL_EXTERNAL_QA;check(typeof raw==='string'&&raw.length<16384);const c=validate(JSON.parse(raw));delete process.env.CASTLINK_WSL_EXTERNAL_QA;stage='https';const proof={schemaVersion:1,mode:'media',...await version(c,signal)};stage='turn-tls';Object.assign(proof,await stun(c,signal));Object.assign(proof,await media(c,signal,cleanup,s=>{stage=s}));check(!signal.aborted);proof.completedAt=new Date().toISOString();await fs.writeFile(path.join(process.env.RUNNER_TEMP,'castlink-wsl-external-proof.json'),JSON.stringify(proof,null,2)+'\n',{flag:'wx',mode:0o600})}catch{failed=true;console.error('Public node2 proof failed; stage='+stage)}finally{for(const f of cleanup.reverse())try{await f()}catch{failed=true;console.error('Public node2 cleanup failed')}}if(failed)process.exitCode=1;else console.log('Public node2 HTTPS, TURN and decoded media verified')}
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href)await main();
