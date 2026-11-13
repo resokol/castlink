@@ -13,6 +13,28 @@ const { chromium } = require(process.env.CASTLINK_QA_PLAYWRIGHT || '/opt/codex/r
 const { build } = require(process.env.CASTLINK_QA_ESBUILD || '/workspace/scratch/castlink-preview-tools/node_modules/esbuild');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-network-help-proof-'));
 let server, browser;
+async function checkStatsLayout(page) {
+  const layouts = await page.locator('.studio-caster-card dl:has([data-network-help-toggle])').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().width > 0).map(element => {
+    const [video, audio, network] = [...element.children].map(row => ({ box: row.getBoundingClientRect(), label: row.querySelector('dt').getBoundingClientRect(), value: row.querySelector('dd').getBoundingClientRect() }));
+    return {
+      paired: Math.abs(video.box.top - audio.box.top) < 1 && Math.abs(video.box.width - audio.box.width) < 1,
+      aligned: Math.abs(video.label.top - audio.label.top) < 1 && Math.abs(video.value.top - audio.value.top) < 1,
+      networkBelow: network.box.top >= Math.max(video.box.bottom, audio.box.bottom),
+      networkGap: network.value.left - network.label.right,
+      fits: element.scrollWidth <= element.clientWidth + 1,
+      divider: getComputedStyle(element.children[1]).borderInlineStartWidth,
+    };
+  }));
+  assert.ok(layouts.length, 'actual guest statistics are visible');
+  for (const layout of layouts) {
+    assert.ok(layout.paired && layout.aligned, 'video and audio keep equal aligned columns in the first row');
+    assert.ok(layout.networkBelow, 'network keeps its own second row');
+    assert.ok(layout.networkGap >= 5 && layout.networkGap <= 8, 'network label and grade stay grouped');
+    assert.ok(layout.fits, 'statistics fit the card');
+    assert.equal(layout.divider, '1px', 'a restrained divider separates the two bitrate columns');
+  }
+  return layouts;
+}
 async function main() {
   await build({ entryPoints: [path.join(__dirname, 'fixtures/guest-mini-stats-refresh.tsx')], outfile: path.join(out, 'bundle.js'), bundle: true, platform: 'browser', format: 'iife', target: 'es2022', jsx: 'automatic', alias: { '@': web }, nodePaths: [path.join(web, 'node_modules')], loader: { '.css': 'local-css' }, define: { 'process.env': JSON.stringify({ NODE_ENV: 'production', NEXT_PUBLIC_BUILD_ID: 'preview-eaa94d193230', NEXT_PUBLIC_APP_VERSION: '1.0.1-preview', NEXT_PUBLIC_PRODUCT_VERSION: '1.0.1', NEXT_PUBLIC_BUILD_NUMBER: 'preview' }) } });
   let documentRequests = 0, versionRequests = 0;
@@ -64,19 +86,32 @@ async function main() {
       await page.waitForFunction(()=>document.querySelectorAll('video').length===6&&[...document.querySelectorAll('video')].every(v=>v.videoWidth>0));
       await page.evaluate(({theme,locale})=>{document.documentElement.dataset.theme=theme;window.qaSetLocale(locale);document.body.setAttribute('data-freeze-stats','');},{theme,locale});
       await page.waitForTimeout(80);
+      const statsLayouts = await checkStatsLayout(page);
       const toggles=page.locator('[data-network-help-toggle]');
       assert.equal(await toggles.count(),5,'all five guests have help triggers');
       const controls=await toggles.evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect(),a=e.querySelector('svg').getBoundingClientRect(),t=e.querySelector('span').getBoundingClientRect();return{height:r.height,arrowWidth:a.width,arrowHeight:a.height,arrowAfterText:a.x>=t.right,grade:e.parentElement.dataset.quality};}));
       for(const control of controls){assert.equal(control.height,24,'24px pointer target');assert.equal(control.arrowWidth,10,'10px chevron');assert.equal(control.arrowHeight,10);assert.equal(control.arrowAfterText,true,'chevron on right of grade');}
       assert.equal(controls.at(-1).grade,'unknown','unknown guest also has chevron');
       const geometry=await page.evaluate(()=>({width:innerWidth,height:innerHeight,pageWidth:document.documentElement.scrollWidth,pageHeight:document.documentElement.scrollHeight,cards:[...document.querySelectorAll('.studio-caster-card')].map(e=>{const r=e.getBoundingClientRect(),s=e.querySelector('dl').getBoundingClientRect();return{height:r.height,bottom:r.bottom,statsBottom:s.bottom,statsHeight:s.height};})}));
-      if(width>=1280){assert.ok(geometry.pageWidth<=width+1,'desktop no horizontal overflow');assert.ok(geometry.pageHeight<=height+1,'desktop console fits height');assert.ok(geometry.cards.every(c=>c.statsBottom<=height),'all five closed-card stats visible');}
+      const name=`${width}x${height}-${theme}-${locale}`;
+      await page.screenshot({path:path.join(out,`${name}-closed.png`),fullPage:width<1280});
+      if(width>=1280){
+        assert.ok(geometry.pageWidth<=width+1,'desktop no horizontal overflow');
+        assert.ok(geometry.pageHeight<=height+1,'desktop console fits height');
+        const reachable = await page.locator('.source-browser').evaluate(element => {
+          const last = element.querySelector('.studio-caster-card:last-child dl');
+          element.scrollTop = element.scrollHeight;
+          const bounds = element.getBoundingClientRect(), stats = last.getBoundingClientRect();
+          const fits = stats.top >= bounds.top && stats.bottom <= bounds.bottom + 1;
+          element.scrollTop = 0;
+          return fits;
+        });
+        assert.ok(reachable, 'short consoles keep the last statistics reachable inside the source scroll panel');
+      }
       const baseline=await page.addStyleTag({content:'[data-network-help-toggle]{height:auto!important;min-height:0!important;margin:0!important}[data-network-help-toggle] svg{display:none!important}'});
       const legacyHeights=await page.locator('.studio-caster-card').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().height));
       await baseline.evaluate(e=>e.remove());
       const heightDeltas=geometry.cards.map((c,i)=>c.height-legacyHeights[i]);
-      const name=`${width}x${height}-${theme}-${locale}`;
-      await page.screenshot({path:path.join(out,`${name}-closed.png`),fullPage:width<1280});
       // All grade variants, including No Data, must open their own native surface.
       for(const index of [0,1,2,4]) {
         const toggle=toggles.nth(index);
@@ -112,8 +147,36 @@ async function main() {
         assert.ok(await page.evaluate(()=>window.qaHelpPopup.matches(':popover-open')&&document.activeElement===window.qaHelpFocus&&JSON.stringify(window.qaRefresh.unmounts)===window.qaHelpUnmounts&&window.qaHelpMedia.every(o=>o.video.isConnected&&o.video.srcObject===o.stream&&o.tracks.every((t,i)=>o.stream.getTracks()[i]===t&&t.readyState==='live'))),'changes and expiry retain popup/focus/video owners');
         await page.keyboard.press('Escape');
       }
-      cases.push({name,controls,geometry,heightDeltas});await page.close();
+      cases.push({name,controls,geometry,heightDeltas,statsLayouts});await page.close();
     }
+  }
+  const expandedCases = [];
+  if (!process.env.CASTLINK_NETWORK_AUDIO_ONLY) for (const width of [360, 1440]) for (const theme of ['dark', 'light']) for (const locale of ['ru', 'en', 'zh-CN']) {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`http://127.0.0.1:${server.address().port}/?view=studio&count=1`);
+    await page.waitForFunction(() => typeof window.qaSetStudioActive === 'function');
+    await page.evaluate(({ theme, locale }) => { document.documentElement.dataset.theme = theme; window.qaSetLocale(locale); window.qaSetStudioActive(false); document.body.setAttribute('data-freeze-stats', ''); }, { theme, locale });
+    const statsLayouts = await checkStatsLayout(page);
+    const name = `expanded-${width}-${theme}-${locale}`;
+    await page.screenshot({ path: path.join(out, `${name}.png`), fullPage: true });
+    expandedCases.push({ name, statsLayouts });
+    await page.close();
+  }
+  const cardCaptures = [];
+  if (!process.env.CASTLINK_NETWORK_AUDIO_ONLY) for (const theme of ['dark', 'light']) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(`http://127.0.0.1:${server.address().port}/?view=studio&count=1`);
+    await page.waitForFunction(() => document.querySelector('video')?.videoWidth > 0);
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.body.setAttribute('data-freeze-stats', ''); }, theme);
+    await checkStatsLayout(page);
+    const card = page.locator('.studio-caster-card').first();
+    const box = await card.boundingBox();
+    assert.ok(Math.abs(box.width - 340) < 1, 'single-source overview exercises the 340px card');
+    const screenshot = path.join(out, `card-340-${theme}.png`);
+    await card.screenshot({ path: screenshot });
+    cardCaptures.push({ width: box.width, theme, screenshot });
+    await page.close();
   }
   const audioCases = [];
   for (const width of [320, 360, 1280, 1440]) for (const theme of ['dark', 'light']) {
@@ -124,6 +187,13 @@ async function main() {
     await page.goto(`http://127.0.0.1:${server.address().port}/?view=studio&count=5`);
     await page.waitForFunction(() => document.querySelectorAll('video').length === 6 && [...document.querySelectorAll('video')].every(v => v.videoWidth > 0));
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; window.qaSetLocale('ru'); }, theme);
+    await checkStatsLayout(page);
+    if (width === 320) {
+      const card = page.locator('.studio-caster-card').first(), box = await card.boundingBox();
+      const screenshot = path.join(out, `card-narrow-${theme}.png`);
+      await card.screenshot({ path: screenshot });
+      cardCaptures.push({ width: box.width, theme, screenshot });
+    }
     const settingsTrigger = page.locator('.guest-card-heading button[popovertarget]').first();
     await settingsTrigger.click();
     const menu = page.locator('.studio-caster-card > [popover]:not([data-network-help]):popover-open');
@@ -176,8 +246,8 @@ async function main() {
     await page.close();
   }
   assert.deepEqual(errors,[]);
-  const evidence={result:'PASS',note:'Actual Console A JSX/CSS and actual audio controls; synthetic local media, sample metrics and HTTP acknowledgements, no production room',cases,audioCases,errors,screenshots:out};
+  const evidence={result:'PASS',note:'Actual Console A JSX/CSS and actual audio controls; synthetic local media, sample metrics and HTTP acknowledgements, no production room',cases,expandedCases,cardCaptures,audioCases,errors,screenshots:out};
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(evidence,null,2));
-  console.log(JSON.stringify({result:'PASS',cases:cases.length,audioCases:audioCases.length,heightDeltas:cases.map(c=>({name:c.name,deltas:c.heightDeltas})),errors,evidencePath:path.join(out,'results.json'),screenshots:out}));
+  console.log(JSON.stringify({result:'PASS',cases:cases.length,expandedCases:expandedCases.length,audioCases:audioCases.length,heightDeltas:cases.map(c=>({name:c.name,deltas:c.heightDeltas})),errors,evidencePath:path.join(out,'results.json'),screenshots:out}));
 }
 main().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await browser?.close();server?.close();});
