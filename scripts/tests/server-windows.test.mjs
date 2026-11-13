@@ -9,7 +9,7 @@ const available = spawnSync(runtime, ['-NoLogo', '-NoProfile', '-Command', '$PSV
 const fixture = fileURLToPath(new URL('./server-windows.test.ps1', import.meta.url));
 const installer = fileURLToPath(new URL('../install-server-windows.ps1', import.meta.url));
 
-test('Windows installer PowerShell behavioral fixtures', { skip: available.error?.code === 'ENOENT' ? 'PowerShell unavailable; set CASTLINK_TEST_PWSH to run' : false }, () => {
+test('Windows installer PowerShell behavioral fixtures', { skip: process.platform !== 'win32' ? 'Windows behavior requires the actual Windows job' : available.error?.code === 'ENOENT' ? 'PowerShell unavailable; set CASTLINK_TEST_PWSH to run' : false }, () => {
   assert.equal(available.status, 0, available.stderr);
   const result = spawnSync(runtime, ['-NoLogo', '-NoProfile', '-File', fixture], { encoding: 'utf8', timeout: 60_000 });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);

@@ -22,7 +22,7 @@ test('native monitor security boundary has no browser, Node or TLS bypass', () =
   assert.match(source, /ZipArchive/);
 });
 
-test('native monitor PowerShell behavioral fixtures', { skip: available.error?.code === 'ENOENT' ? 'PowerShell unavailable; actual WinPS5.1 fixture required' : false }, () => {
+test('native monitor PowerShell behavioral fixtures', { skip: process.platform !== 'win32' ? 'ACL and DPAPI require the actual Windows job' : available.error?.code === 'ENOENT' ? 'PowerShell unavailable; actual WinPS5.1 fixture required' : false }, () => {
   assert.equal(available.status, 0, available.stderr);
   const result = spawnSync(runtime, ['-NoLogo', '-NoProfile', '-File', fixture, '-BridgePath', bridge], { encoding: 'utf8', timeout: 60_000 });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
