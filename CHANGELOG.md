@@ -1,5 +1,11 @@
 # Changelog
 
+## Web — выравнивание карточек / Card alignment / 卡片对齐
+
+- RU: видео и аудио остаются в двух ровных колонках, сеть — отдельной строкой с оценкой рядом с подписью. Выравнивание сохраняется на узких карточках; опубликованные установочные пакеты 1.0.3 остаются неизменными.
+- EN: video and audio keep two aligned columns; network stays on a separate row with its grade next to the label. Narrow cards retain the layout; published 1.0.3 installer assets remain unchanged.
+- 简体中文：视频与音频保持两列对齐，网络单独一行，等级紧邻标签。窄卡片保留此布局；已发布的 1.0.3 安装包保持不变。
+
 ## 1.0.3 — обработка микрофона
 
 - Шумоподавление и эхоподавление по умолчанию выключены. Ранее сохранённый явный выбор сохраняется.
