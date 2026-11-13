@@ -80,6 +80,15 @@ jobs:
         run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
       - uses: actions/upload-artifact@v4
         with:
+          name: castlink-server-wsl-install-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/server-wsl/package/*
+            !${{ runner.temp }}/server-wsl/package/CastLink-Server-WSL-Sources.tar.gz
+            !${{ runner.temp }}/server-wsl/package/CastLink-ThirdParty-Sources.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
           name: castlink-server-wsl-candidate-${{ github.sha }}
           path: ${{ runner.temp }}/server-wsl/package/*
           if-no-files-found: error
