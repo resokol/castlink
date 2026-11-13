@@ -5,7 +5,7 @@ on:
       operation:
         description: External proof or draft-only artifact upload
         type: choice
-        options: [external, draft, public-http]
+        options: [external, draft, public-http, public-media]
         default: external
         required: true
       version:
@@ -29,10 +29,15 @@ jobs:
       - name: Prepare isolated QA tool
         id: plan
         env:
+          CASTLINK_QA_OPERATION: ${{ inputs.operation }}
           CASTLINK_WSL_EXTERNAL_QA: ${{ secrets[inputs.version] }}
         run: |
           mkdir -p "$RUNNER_TEMP/castlink-wsl-external"
-          cp scripts/qa-wsl-external-proof.mjs "$RUNNER_TEMP/castlink-wsl-external/probe.mjs"
+          if [ "$CASTLINK_QA_OPERATION" = public-media ]; then
+            cp scripts/qa-node2-public-media.mjs "$RUNNER_TEMP/castlink-wsl-external/probe.mjs"
+          else
+            cp scripts/qa-wsl-external-proof.mjs "$RUNNER_TEMP/castlink-wsl-external/probe.mjs"
+          fi
           node -e 'try{const fs=require("fs");const p=JSON.parse(process.env.CASTLINK_WSL_EXTERNAL_QA);if(!["connectivity","media"].includes(p.mode))process.exit(1);fs.appendFileSync(process.env.GITHUB_OUTPUT,"mode="+p.mode+"\n")}catch{console.error("QA plan unavailable");process.exit(1)}'
       - name: Install pinned browser QA dependencies
         if: steps.plan.outputs.mode == 'media'
