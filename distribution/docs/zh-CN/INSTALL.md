@@ -2,7 +2,7 @@
 
 [Русский](../../INSTALL.md) · [English](../en/INSTALL.md) · [简体中文](INSTALL.md)
 
-服务器 **1.0.2** 提供[Linux 单命令安装、24 小时指标历史与事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍为独立且未经验证的候选版；Windows Client 保持 **1.0.0**。
+服务器 **1.0.2** 提供[Linux 单命令安装、24 小时指标历史与事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍为独立且未经验证的候选版；Windows Client 保持 **1.0.1**。
 
 CastLink 唯一的公开仓库是 [resokol/castlink](https://github.com/resokol/castlink)，包含采用 MIT许可的自有源代码、发行版和说明。下载归档及 `SHA256SUMS` 无需单独授予访问权限。旧名称 `resokol/castlink-releases` 会重定向到此仓库，以兼容旧链接和安装程序，并不是独立镜像。统一的 `releases/latest` 不能代表三个产品的当前版本。
 

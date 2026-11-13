@@ -7,13 +7,13 @@ Linux-загрузчик и серверные графики с историе�
 ## Linux Ubuntu
 
 Поддерживаются Ubuntu22.04/24.04 amd64. В Linux-выпуск добавлен самостоятельный
-`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.3 (не общий `releases/latest`) и выполните:
+`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.4 (не общий `releases/latest`) и выполните:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/install-server.sh | sudo bash -s -- --install-runtime --lang ru
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-Скрипт из **linux-v1.0.3-1a26de9f6f59** запросит адрес и отдельный пароль создания комнат, сохранит
+Скрипт из **linux-v1.0.4-079fd0f9d4b1** запросит адрес и отдельный пароль создания комнат, сохранит
 пакет/настройки в `/opt/castlink-server`, загрузит включённые образы и запустит
 существующий Linux installer. `--install-runtime` разрешает установку зависимостей
 и запуск Docker; без этого флага требуется готовый Docker/Compose. Домен, DNS и

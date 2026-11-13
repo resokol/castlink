@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.3</strong></p>
+<p align="center"><strong>CastLink 1.0.4</strong></p>
 <p align="center"><strong>Remote guests. Separate sources. Your broadcast.</strong></p>
 <p align="center">Join in a browser · OBS and vMix · Self-hosted</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
@@ -28,9 +28,11 @@ CastLink is a self-hosted studio for bringing remote guests, presentations, and 
 
 ## Download and install
 
+**1.0.4:** network quality guide in caster cards; Windows Client updated to 1.0.1. [1.0.4](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
+
 **1.0.3:** one noise/echo switch, off by default; the primary studio can change it in the caster card. [1.0.3](distribution/docs/en/RELEASE_NOTES_1_0_3.md).
 
-Windows Server Setup and Linux are **1.0.3**; Windows Client is **1.0.0**.
+Windows Server Setup and Linux are **1.0.4**; Windows Client is **1.0.1**.
 
 Version 1.0.2 adds [one-command Linux installation and 24-hour server monitoring](distribution/docs/en/SERVER_INSTALL.md): chart history and an event journal survive restarts. The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate candidate without verified installation and external media-call tests.
 

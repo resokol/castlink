@@ -2,7 +2,7 @@
 
 # CastLink：安装与使用
 
-Windows Server Setup 及独立 Linux 当前版本为 **1.0.3**；Windows Client 为 **1.0.0**。[更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
+Windows Server Setup 及独立 Linux 当前版本为 **1.0.4**；Windows Client 为 **1.0.1**。[更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
 
 1.0.2 新增[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。Windows 本地 Server Setup 仍使用 Docker Desktop；无 Docker 的 Windows/WSL2 为独立且未经验证的候选版。
 
@@ -112,9 +112,9 @@ Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`
 
 | 安装包 | 用途 |
 | --- | --- |
-| [CastLink-Client-1.0.0-93d9b93e17da-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) | 演播室与参与者的 Windows 应用；连接现有服务器，无需 Docker |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
+| [CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) | 演播室与参与者的 Windows 应用；连接现有服务器，无需 Docker |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) | 图形向导 `EasySetup.exe` 和命令行版本 `EasySetup-Console.cmd`；可在本地或 VPS 上安装 |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/SHA256SUMS) | 无需 Windows 向导的独立 Linux Ubuntu 服务器软件包。通过 SSH 部署时，Windows 向导使用其自身 Server Setup 版本中的 Linux 依赖包。 |
 
 [所有发布版本及其说明](https://github.com/resokol/castlink/releases)。请从同一版本获取文件和校验和。向导会自动校验下载的安装包。要手动校验 Windows ZIP，请在 PowerShell 中运行：
 

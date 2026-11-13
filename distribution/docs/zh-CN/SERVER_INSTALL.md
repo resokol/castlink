@@ -7,13 +7,13 @@ Linux 加载脚本、24 小时服务器图表历史与事件日志包含在 **1.
 ## Ubuntu Linux
 
 支持 Ubuntu22.04/24.04 amd64。Linux 版本提供独立 `install-server.sh`，固定版本及
-压缩包 SHA256。使用以下 1.0.3 的准确下载地址，不使用全局 `releases/latest`：
+压缩包 SHA256。使用以下 1.0.4 的准确下载地址，不使用全局 `releases/latest`：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-**linux-v1.0.3-1a26de9f6f59** 安装器询问服务器地址及创建房间密码，
+**linux-v1.0.4-079fd0f9d4b1** 安装器询问服务器地址及创建房间密码，
 将软件包和配置保存在 `/opt/castlink-server`，载入附带镜像并运行现有 Linux 安装流程。
 `--install-runtime` 允许安装依赖及启动 Docker；不加此参数则需要可用的 Docker/Compose。
 DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模式](LINUX_MANUAL.md)。
