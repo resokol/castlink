@@ -15292,11 +15292,11 @@ CastLink 1.0.0
 
 CastLink Server 1.0.2
 
-### distribution/RELEASE_NOTES_1_0_3.md
+### distribution/RELEASE_NOTES_1_0_4.md
 
-[`distribution/RELEASE_NOTES_1_0_3.md`](../../distribution/RELEASE_NOTES_1_0_3.md)
+[`distribution/RELEASE_NOTES_1_0_4.md`](../../distribution/RELEASE_NOTES_1_0_4.md)
 
-CastLink Server и Linux 1.0.3 · Windows Client 1.0.1
+CastLink Server и Linux 1.0.4 · Windows Client 1.0.1
 
 ### distribution/RELEASE_NOTES_RC9.md
 
@@ -15370,11 +15370,11 @@ CastLink 1.0.0
 
 CastLink Server 1.0.2
 
-### distribution/docs/en/RELEASE_NOTES_1_0_3.md
+### distribution/docs/en/RELEASE_NOTES_1_0_4.md
 
-[`distribution/docs/en/RELEASE_NOTES_1_0_3.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_3.md)
+[`distribution/docs/en/RELEASE_NOTES_1_0_4.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_4.md)
 
-CastLink Server and Linux 1.0.3 · Windows Client 1.0.1
+CastLink Server and Linux 1.0.4 · Windows Client 1.0.1
 
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
@@ -15448,11 +15448,11 @@ CastLink 1.0.0
 
 CastLink Server 1.0.2
 
-### distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md
 
-[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md)
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md)
 
-CastLink Server 与 Linux 1.0.3 · Windows Client 1.0.1
+CastLink Server 与 Linux 1.0.4 · Windows Client 1.0.1
 
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 

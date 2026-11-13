@@ -1,6 +1,6 @@
-[Русский](../../RELEASE_NOTES_1_0_3.md) · [English](RELEASE_NOTES_1_0_3.md) · [简体中文](../zh-CN/RELEASE_NOTES_1_0_3.md)
+[Русский](../../RELEASE_NOTES_1_0_4.md) · [English](RELEASE_NOTES_1_0_4.md) · [简体中文](../zh-CN/RELEASE_NOTES_1_0_4.md)
 
-# CastLink Server and Linux 1.0.3 · Windows Client 1.0.1
+# CastLink Server and Linux 1.0.4 · Windows Client 1.0.1
 
 Guest cards now show measured incoming camera and microphone bitrates and the
 network grade. A small arrow beside the grade opens a compact guide with the
@@ -17,7 +17,7 @@ The same server release includes the shared noise and echo suppression switch in
 
 ## Updating
 
-- Update the existing Server Setup or Linux installation to 1.0.3 off air,
+- Update the existing Server Setup or Linux installation to 1.0.4 off air,
   retaining its data and configuration. Then manually reload studio/guest pages.
 - Install Windows Client 1.0.1 through its update check or manually. The client
   displays its selected server's interface, so that server also needs the update.

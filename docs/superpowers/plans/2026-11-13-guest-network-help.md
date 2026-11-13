@@ -15,7 +15,7 @@
 - Preserve Console A, mounted media, current grading thresholds and explicit/manual update behavior.
 - Keep RU/EN/zh-CN copy, honest unknown/stale values and identical-sample render skipping.
 - Integrate current main7fa930f and its later fixes; do not publish hosted operational records.
-- Client1.0.1; web/Server Setup/Linux/Source1.0.3. Freeze one verified main SHA.
+- Client1.0.1; web/Server Setup/Linux/Source1.0.4. Freeze one verified main SHA.
 - Preserve published artifacts/drafts, user data/configuration and neighboring services.
 
 ## Review focus
@@ -44,9 +44,9 @@ Files: `package.json`, `distribution/release-tracks.json`, `CHANGELOG.md`, trans
 
 Interfaces: one verified main SHA supplies the official product/version metadata and all build inputs; published asset URLs are filled only after release verification.
 
-- [x] Set Client1.0.1 and server/source1.0.3; record concrete notes in all three languages.
+- [x] Set Client1.0.1 and server/source1.0.4; record concrete notes in all three languages.
 - [x] Run stable web CI, relevant desktop/packaging/release tests and browser proofs.
-- [ ] Reconcile concurrent microphone processing PR#24 and verify the combined source before freezing or publishing.
+- [x] Reconcile concurrent microphone processing PR#24 and verify the combined source before freezing or publishing.
 - [ ] Commit, open the focused PR, verify checks/review and merge without overwriting newer main work.
 - [ ] Freeze the actual merged main SHA, preserving the prior deployed source and rollback.
 
@@ -65,3 +65,5 @@ Interfaces: official producers consume the frozen SHA; their manifests/checksums
 ## Concurrent audio integration
 
 The microphone noise/echo toggle is maintained in PR#24. A trial merge found only translations, changelog, release metadata and generated file-map conflicts. Preserve both feature sets, both CI registrations and Client1.0.1; regenerate the combined catalog. Do not publish competing server builds under one version or deploy over an unintegrated audio update.
+
+Ruling: the parallel microphone update owns server version1.0.3 and its publication. This branch reserves server/source1.0.4 and Client1.0.1, depends on the final merged audio source, and must publish after that update completes. This prevents conflicting artifacts and concurrent hosted web replacement.

@@ -22,7 +22,7 @@ and the skip of identical guest-state updates.
 Integrate onto current main, retaining its later fixes. Supported stable products
 are Windows Client, Server Setup and Linux. Client renders its selected server's
 web interface; server packages embed web. Refresh all requested packages, with
-Client1.0.1 and web/server/source1.0.3, from one verified main source. Do not
+Client1.0.1 and web/server/source1.0.4, from one verified main source. Do not
 promote experimental WSL drafts or introduce unsupported Mac artifacts. Publish
 verified drafts, preserve previous assets, and update download links afterwards.
 Existing server installations update only through their existing explicit action.

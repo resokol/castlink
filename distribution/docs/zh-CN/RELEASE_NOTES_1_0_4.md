@@ -1,6 +1,6 @@
-[Русский](../../RELEASE_NOTES_1_0_3.md) · [English](../en/RELEASE_NOTES_1_0_3.md) · [简体中文](RELEASE_NOTES_1_0_3.md)
+[Русский](../../RELEASE_NOTES_1_0_4.md) · [English](../en/RELEASE_NOTES_1_0_4.md) · [简体中文](RELEASE_NOTES_1_0_4.md)
 
-# CastLink Server 与 Linux 1.0.3 · Windows Client 1.0.1
+# CastLink Server 与 Linux 1.0.4 · Windows Client 1.0.1
 
 参与者卡片现在显示摄像头和麦克风的实测接收码率及网络等级。等级旁的小箭头
 可打开精简说明，列出“良好”“一般”“较差”的阈值及当前测量值。无数据时也可
@@ -13,7 +13,7 @@
 
 ## 更新
 
-- 请在停播时将原有 Server Setup 或 Linux 安装更新至 1.0.3，保留数据和配置，
+- 请在停播时将原有 Server Setup 或 Linux 安装更新至 1.0.4，保留数据和配置，
   然后手动刷新演播室及参与者页面。
 - 通过客户端检查更新或手动安装 Windows Client 1.0.1。客户端显示所选服务器的
   界面，因此该服务器也需要更新；客户端不内置独立的网页演播室副本。
