@@ -5,7 +5,7 @@ on:
       operation:
         description: External proof or draft-only artifact upload
         type: choice
-        options: [external, draft]
+        options: [external, draft, public-http]
         default: external
         required: true
       version:
@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   external:
-    if: inputs.operation != 'draft'
+    if: inputs.operation != 'draft' && inputs.operation != 'public-http'
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
@@ -92,5 +92,25 @@ jobs:
         with:
           name: castlink-wsl-draft-proof-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/wsl-draft-proof.json
+          if-no-files-found: error
+          retention-days: 7
+  public-route:
+    if: inputs.operation == 'public-http'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Observe public DNS, HTTP challenge route and verified HTTPS
+        run: node scripts/qa-node2-public.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: node2-public-route-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/node2-public-route-proof.json
           if-no-files-found: error
           retention-days: 7
