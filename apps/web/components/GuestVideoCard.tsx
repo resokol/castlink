@@ -10,8 +10,9 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
+import { GuestMiniStats, type GuestMiniStatsData } from "./GuestMiniStats";
 
-export type GuestVideoCardData = {
+export type GuestVideoCardData = GuestMiniStatsData & {
   identity: string;
   name: string;
   resolution: string;
@@ -108,6 +109,7 @@ export function GuestVideoCard({
       aria-label={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} title={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} data-copied={copied || undefined}>
       <StudioConsoleIcon kind={copied ? "check" : "copy"} width={16} height={16}/><span className={styles.copyStatus} role="status">{copied ? t("Скопировано") : ""}</span>
     </button>}</div>
+    <GuestMiniStats guest={guest} />
     <div className={styles.feedback}>{feedback}</div>
     <div ref={popup} id={menuId} className={styles.advancedSurface} popover={compact ? "auto" : undefined} role={compact ? "dialog" : undefined} aria-labelledby={compact ? `${menuId}-title` : undefined} onToggle={event => {
       if (event.target !== event.currentTarget) return;

@@ -1,0 +1,27 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, file);
+let readGuestReceiveBitrate;
+try { ({ readGuestReceiveBitrate } = require('../lib/guest-receive-bitrate.ts')); } catch (error) { if (error.code !== 'MODULE_NOT_FOUND') throw error; }
+assert.equal(typeof readGuestReceiveBitrate, 'function', 'guest receive bitrate sampler is available');
+const state = new WeakMap();
+const track = {}, replacement = {};
+const report = (bytes, timestamp, kind = 'audio', id = 'a') => new Map([[id, { id, type: 'inbound-rtp', kind, bytesReceived: bytes, timestamp }]]);
+const sample = (value, owner = track, kind = 'audio') => readGuestReceiveBitrate(state, owner, value, kind);
+assert.equal(sample(report(1000, 1000)), null, 'first sample is missing, not zero');
+assert.equal(sample(report(33000, 3000)), 128, 'audio uses bytes and its RTP timestamp');
+assert.equal(sample(report(33000, 3000)), null, 'cached timestamp is not a fresh zero');
+assert.equal(sample(report(1, 2000)), null, 'older report is ignored');
+assert.equal(sample(report(65000, 5000)), 128, 'older report did not move baseline');
+assert.equal(sample(report(100, 7000)), null, 'counter reset establishes a new baseline');
+assert.equal(sample(report(100, 9000)), 0, 'unchanged bytes with advancing timestamp is real zero');
+assert.equal(sample(report(1000000, 11000), replacement), null, 'track replacement never inherits old counters');
+assert.equal(sample(report(1000, 11000, 'audio', 'new')), null, 'new SSRC never spikes');
+assert.equal(sample(undefined), null, 'missing report does not invent traffic');
+assert.equal(sample(report(Infinity, 13000)), null, 'invalid counters are not data');
+assert.equal(sample(report(1000, 15000, 'video')), null, 'other media kind is ignored');
+const video = {};
+assert.equal(sample(report(1000000, 1000, 'video', 'v'), video, 'video'), null);
+assert.equal(sample(report(2000000, 3000, 'video', 'v'), video, 'video'), 4000, 'camera and microphone counters are independent');
+console.log('PASS guest receive bitrate: real audio/video deltas, missing/cached/invalid/out-of-order/reset/SSRC/track replacement guards');
