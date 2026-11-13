@@ -34,7 +34,7 @@ const setupBrowser = () => {
   const LK=window.LivekitClient;
   window.__qa={room:new LK.Room({adaptiveStream:false,dynacast:false}),videos:[],tracks:[]};
   const q=window.__qa;
-  q.room.on(LK.RoomEvent.TrackSubscribed,track=>{if(track.kind==='audio'){const audio=track.attach();audio.muted=true;audio.autoplay=true;document.body.append(audio);audio.play().catch(()=>{});return;}if(track.kind!=='video')return;const video=track.attach();video.muted=true;video.autoplay=true;video.playsInline=true;document.body.append(video);video.play().catch(()=>{});q.videos.push(video);});
+  q.receivers=[];q.room.on(LK.RoomEvent.TrackSubscribed,async track=>{if(track.kind==='audio'){q.receiverContext??=new AudioContext();await q.receiverContext.resume();const source=q.receiverContext.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));const analyser=q.receiverContext.createAnalyser();analyser.fftSize=2048;const silent=q.receiverContext.createGain();silent.gain.value=0;source.connect(analyser);analyser.connect(silent);silent.connect(q.receiverContext.destination);q.receivers.push(analyser);const audio=track.attach();audio.muted=true;audio.autoplay=true;document.body.append(audio);audio.play().catch(()=>{});return;}if(track.kind!=='video')return;const video=track.attach();video.muted=true;video.autoplay=true;video.playsInline=true;document.body.append(video);video.play().catch(()=>{});q.videos.push(video);});
   q.connect=async(origin,token,turnHost)=>{
     try{await q.room.connect(origin.replace(/^https:/,'wss:'),token,{autoSubscribe:true,rtcConfig:{iceTransportPolicy:'relay'}});return {connected:true};}
     catch(error){
@@ -69,9 +69,9 @@ const setupBrowser = () => {
         pairs.push({selected:!!pair&&pair.state==='succeeded',relay:local?.candidateType==='relay',tls:local?.relayProtocol==='tls',url:local?.url||''});
       }
     }
-    return {media,pairs,playing:q.videos.some(v=>v.videoWidth>0&&v.videoHeight>0&&v.getVideoPlaybackQuality().totalVideoFrames>0)};
+    const receivedAudioRms=Math.max(0,...q.receivers.map(a=>{const v=new Float32Array(a.fftSize);a.getFloatTimeDomainData(v);return Math.sqrt(v.reduce((n,x)=>n+x*x,0)/v.length)}));return {media,pairs,receivedAudioRms,playing:q.videos.some(v=>v.videoWidth>0&&v.videoHeight>0&&v.getVideoPlaybackQuality().totalVideoFrames>0)};
   };
-  q.stop=async()=>{clearInterval(q.timer);await q.room.disconnect();q.tracks.forEach(t=>t.stop());q.stream?.getTracks().forEach(t=>t.stop());q.tone?.stop();await q.audioContext?.close();};
+  q.stop=async()=>{clearInterval(q.timer);await q.room.disconnect();q.tracks.forEach(t=>t.stop());q.stream?.getTracks().forEach(t=>t.stop());q.tone?.stop();await q.audioContext?.close();await q.receiverContext?.close();};
 };
 export function verifyMedia(before,after,turnHost) {
   check(before?.playing && after?.playing && before.media.length && after.media.length);
@@ -83,7 +83,7 @@ export function verifyMedia(before,after,turnHost) {
     const changes=b.map(s=>{const a=after.media.find(a=>a.id===s.id&&a.direction===direction);return a?{bytes:a.bytes-s.bytes,packets:a.packets-s.packets,frames:a.frames-s.frames}:null;}).filter(d=>d&&d.bytes>0&&d.packets>0&&d.frames>0);
     check(changes.length>0);deltas[direction==='inbound-rtp'?'received':'sent']=changes[0];
   }
-  const audio={};for(const direction of ['inbound-rtp','outbound-rtp']){const b=before.media.filter(s=>s.direction===direction&&s.kind==='audio');const changes=b.map(s=>{const a=after.media.find(a=>a.id===s.id&&a.kind==='audio'&&a.direction===direction);return a?{bytes:a.bytes-s.bytes,packets:a.packets-s.packets,samples:a.samples-s.samples,energy:a.energy-s.energy}:null;}).filter(d=>d&&d.bytes>0&&d.packets>0&&(direction==='outbound-rtp'||(d.samples>0&&d.energy>0)));check(changes.length>0);audio[direction==='inbound-rtp'?'received':'sent']=changes[0];} return {relayTls443Verified:true,decodedVideoVerified:true,decodedAudioVerified:true,audio,...deltas};
+  const audio={};for(const direction of ['inbound-rtp','outbound-rtp']){const b=before.media.filter(s=>s.direction===direction&&s.kind==='audio');const changes=b.map(s=>{const a=after.media.find(a=>a.id===s.id&&a.kind==='audio'&&a.direction===direction);return a?{bytes:a.bytes-s.bytes,packets:a.packets-s.packets,samples:a.samples-s.samples,energy:a.energy-s.energy}:null;}).filter(d=>d&&d.bytes>0&&d.packets>0&&(direction==='outbound-rtp'||d.samples>0));check(changes.length>0);audio[direction==='inbound-rtp'?'received':'sent']=changes[0];} check(before.receivedAudioRms>0.01&&after.receivedAudioRms>0.01);return {relayTls443Verified:true,decodedVideoVerified:true,decodedAudioVerified:true,receivedAudioRms:{before:before.receivedAudioRms,after:after.receivedAudioRms},audio,...deltas};
 }
 async function media(c,signal,cleanup,progress) {
   progress("browser-dependencies");
@@ -126,9 +126,9 @@ async function media(c,signal,cleanup,progress) {
   const baselineDeadline=Date.now()+15000,expectedRelay='turns:'+c.turnHost+':443?transport=tcp';
   while(true){
     before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
-    const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.kind==='video'&&m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)&&s.media.some(m=>m.kind==='audio'&&m.direction===d&&m.bytes>0&&m.packets>0&&(d==='outbound-rtp'||(m.samples>0&&m.energy>0)))));
-    if(ready)break;
-    if(Date.now()>=baselineDeadline)console.error('external baseline facts='+JSON.stringify(before.map(s=>({playing:s.playing,media:s.media.map(m=>({kind:m.kind,direction:m.direction,bytes:m.bytes,packets:m.packets,frames:m.frames,samples:m.samples,energy:m.energy})),pairs:s.pairs.map(p=>({selected:p.selected,relay:p.relay,tls:p.tls,expectedUrl:p.url===expectedRelay}))}))));check(Date.now()<baselineDeadline&&!signal.aborted);
+    const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.kind==='video'&&m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)&&s.media.some(m=>m.kind==='audio'&&m.direction===d&&m.bytes>0&&m.packets>0&&(d==='outbound-rtp'||m.samples>0))));
+    if(ready&&before.every(s=>s.receivedAudioRms>0.01))break;
+    if(Date.now()>=baselineDeadline)console.error('external baseline facts='+JSON.stringify(before.map(s=>({playing:s.playing,receivedAudioRms:s.receivedAudioRms,media:s.media.map(m=>({kind:m.kind,direction:m.direction,bytes:m.bytes,packets:m.packets,frames:m.frames,samples:m.samples,energy:m.energy})),pairs:s.pairs.map(p=>({selected:p.selected,relay:p.relay,tls:p.tls,expectedUrl:p.url===expectedRelay}))}))));check(Date.now()<baselineDeadline&&!signal.aborted);
     await new Promise(resolve=>setTimeout(resolve,200));
   }
   await new Promise((resolve,reject)=>{const t=setTimeout(resolve,3000);signal.addEventListener('abort',()=>{clearTimeout(t);reject(Error());},{once:true});});
