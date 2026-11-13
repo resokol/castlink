@@ -2,6 +2,7 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const tests = [
+  "guest-audio-switch.cjs",
   "guest-noise-control.cjs",
   "client-errors.cjs",
   "client-errors-routing.cjs",
@@ -88,6 +89,7 @@ const tests = [
 
   "desktop-stop-panel.cjs",
   "guest-camera-capture.cjs",
+  "guest-receive-bitrate.cjs",
   "guest-camera-effects.cjs",
   "guest-camera-blur-ui.cjs",
   "guest-camera-segmentation.cjs",

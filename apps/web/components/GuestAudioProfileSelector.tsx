@@ -1,16 +1,21 @@
 "use client";
+import { useId } from "react";
 import { useI18n } from "@/components/I18nProvider";
 import { guestAudioProfile, type GuestAudioProfile } from "@/lib/guest-audio";
+import styles from "./GuestAudioProfileSelector.module.css";
 
 export function GuestAudioProfileSelector({ value, onChange, disabled = false, busy = false }: { value?: GuestAudioProfile; onChange: (profile: GuestAudioProfile) => void; disabled?: boolean; busy?: boolean }) {
-  const { t, locale } = useI18n();
-  const profile = guestAudioProfile(value);
-  return <div>
-    <label>{t("Режим микрофона")} <select aria-label={t("Режим микрофона")} value={profile} disabled={disabled || busy} onChange={event => onChange(guestAudioProfile(event.target.value))}>
-      <option value="speech">{t("Обычная речь")}</option>
-      <option value="raw">{t("Оригинальный звук")}</option>
-    </select></label>
-    {profile === "raw" && <p className="muted">{t("Без шумоподавления и автоматического усиления. Используйте наушники, чтобы избежать эха.")}</p>}
-    {busy && <small role="status">{t("Переключение микрофона…")}</small>}
+  const { t } = useI18n();
+  const id = useId();
+  const enabled = guestAudioProfile(value) === "speech";
+  return <div className={styles.root} aria-busy={busy}>
+    <label className={styles.control}>
+      <span className={styles.copy}>
+        <span id={`${id}-label`} className={styles.title}>{t("Шумоподавление и эхо")}</span>
+        <span id={`${id}-hint`} className={styles.hint}>{enabled ? t("Включено — подавляет фоновый шум и эхо.") : t("Выключено — оригинальный звук. Используйте наушники.")}</span>
+      </span>
+      <input className={styles.switch} type="checkbox" role="switch" aria-labelledby={`${id}-label`} aria-describedby={`${id}-hint`} checked={enabled} disabled={disabled || busy} onChange={event => onChange(event.target.checked ? "speech" : "raw")} />
+    </label>
+    {busy && <small className={styles.hint} role="status">{t("Переключение микрофона…")}</small>}
   </div>;
 }

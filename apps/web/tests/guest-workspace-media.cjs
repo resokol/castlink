@@ -95,6 +95,7 @@ const mocked={
 const params=new URLSearchParams();
 const originalLoad=Module._load;
 Module._load=function(name,...rest){
+  if(name.endsWith('.module.css'))return {};
   if(name==='react')return react;
   if(name==='react/jsx-runtime')return{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
   if(name==='livekit-client')return sdk;
