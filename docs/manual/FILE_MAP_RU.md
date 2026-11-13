@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1972**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1975**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15228,7 +15228,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 39 файлов
+## distribution · 42 файлов
 
 ### distribution/INSTALL.md
 
@@ -15271,6 +15271,12 @@ CastLink 1.0.0
 [`distribution/RELEASE_NOTES_1_0_2.md`](../../distribution/RELEASE_NOTES_1_0_2.md)
 
 CastLink Server 1.0.2
+
+### distribution/RELEASE_NOTES_1_0_3.md
+
+[`distribution/RELEASE_NOTES_1_0_3.md`](../../distribution/RELEASE_NOTES_1_0_3.md)
+
+Обработка микрофона — 1.0.3
 
 ### distribution/RELEASE_NOTES_RC9.md
 
@@ -15344,6 +15350,12 @@ CastLink 1.0.0
 
 CastLink Server 1.0.2
 
+### distribution/docs/en/RELEASE_NOTES_1_0_3.md
+
+[`distribution/docs/en/RELEASE_NOTES_1_0_3.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_3.md)
+
+Microphone processing — 1.0.3
+
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/en/RELEASE_NOTES_RC9.md`](../../distribution/docs/en/RELEASE_NOTES_RC9.md)
@@ -15415,6 +15427,12 @@ CastLink 1.0.0
 [`distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md)
 
 CastLink Server 1.0.2
+
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md)
+
+麦克风处理 — 1.0.3
 
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 
