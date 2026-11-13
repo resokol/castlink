@@ -68,6 +68,7 @@ import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media
 import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
+import { readGuestReceiveBitrate, type GuestReceiveCounters } from "@/lib/guest-receive-bitrate";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteVideoTrack, type RemoteTrackPublication } from "livekit-client";
@@ -78,6 +79,10 @@ type GuestStat = {
   name: string;
   resolution: string;
   bitrateKbps: number;
+  receiveVideoKbps: number | null;
+  receiveAudioKbps: number | null;
+  statsSampledAtRef: { current: number };
+  networkMeasured: boolean;
   roomSendBitrateKbps?: number | null;
   packetLoss: number;
   jitterMs: number;
@@ -540,6 +545,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     setGuests([]);
     guestCameraOutboundRef.current = {};
     const previous = new Map<string, { bytes: number; ts: number }>();
+    const guestReceiveCounters: GuestReceiveCounters = new WeakMap();
+    const guestStatsTimes = new WeakMap<object, { current: number }>();
 
     let refreshBusy = false;
     const refresh = async () => {
@@ -580,11 +587,21 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         let packetLoss = 0;
         let jitterMs = 0;
         let rttMs = 0;
+        let receiveVideoKbps: number | null = null;
+        let receiveAudioKbps: number | null = null;
+        let networkMeasured = false;
 
         if (cameraPub?.track) {
-          const report = await readTrackStats(cameraPub.track, "getRTCStatsReport").catch(() => undefined);
+          const cameraTrack = cameraPub.track;
+          const report = await readTrackStats(cameraTrack, "getRTCStatsReport").catch(() => undefined);
+          const cameraCurrent = cameraPub.track === cameraTrack && !cameraPub.isMuted && participant.getTrackPublication(Track.Source.Camera) === cameraPub;
+          if (cameraCurrent) receiveVideoKbps = readGuestReceiveBitrate(guestReceiveCounters, cameraTrack, report, "video");
+          else guestReceiveCounters.delete(cameraTrack);
           report?.forEach((stat: any) => {
             if (stat.type === "inbound-rtp" && stat.kind === "video") {
+              if (cameraCurrent && receiveVideoKbps !== null && room.state === "connected" && Number.isFinite(stat.timestamp) && stat.timestamp > 0 &&
+                  Number.isFinite(stat.bytesReceived) && stat.bytesReceived >= 0 && Number.isFinite(stat.packetsLost) &&
+                  Number.isFinite(stat.jitter) && stat.jitter >= 0) networkMeasured = true;
               if (stat.frameWidth && stat.frameHeight) resolution = `${stat.frameWidth}×${stat.frameHeight}`;
               const prev = previous.get(participant.identity);
               if (prev && stat.timestamp > prev.ts) {
@@ -600,9 +617,24 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           });
         }
 
+        if (micPub?.track) {
+          const micTrack = micPub.track;
+          if (!micPub.isMuted) {
+            const report = await readTrackStats(micTrack, "getRTCStatsReport").catch(() => undefined);
+            if (micPub.track === micTrack && !micPub.isMuted && participant.getTrackPublication(Track.Source.Microphone) === micPub) {
+              receiveAudioKbps = readGuestReceiveBitrate(guestReceiveCounters, micTrack, report, "audio");
+            } else guestReceiveCounters.delete(micTrack);
+          } else guestReceiveCounters.delete(micTrack);
+        }
+
         const stability: GuestStat["stability"] =
           packetLoss > 10 || jitterMs > 60 || rttMs > 300 ? "Плохая" :
           packetLoss > 2 || jitterMs > 30 || rttMs > 150 ? "Средняя" : "Хорошая";
+
+        // Refresh expiry without replacing an otherwise unchanged guest row.
+        const statsSampledAtRef = guestStatsTimes.get(participant) || { current: 0 };
+        guestStatsTimes.set(participant, statsSampledAtRef);
+        if (receiveVideoKbps !== null || receiveAudioKbps !== null) statsSampledAtRef.current = Date.now();
 
         rows.push({
           identity: participant.identity,
@@ -610,6 +642,10 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           name: participant.name || participant.identity.replace(/^guest-/, ""),
           resolution,
           bitrateKbps,
+          receiveVideoKbps,
+          receiveAudioKbps,
+          statsSampledAtRef,
+          networkMeasured,
           roomSendBitrateKbps: freshGuestCameraOutboundBitrate(guestCameraOutboundRef.current[participant.identity]?.sid === participant.sid ? guestCameraOutboundRef.current[participant.identity] : undefined),
           packetLoss,
           jitterMs,
