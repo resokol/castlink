@@ -43,6 +43,7 @@ async function main() {
   await page.waitForFunction(() => document.querySelectorAll('video').length === 6 && [...document.querySelectorAll('video')].every(v => v.videoWidth > 0));
   await page.locator('.guest-card-heading button[popovertarget]').first().click();
   const menu = page.locator('[data-console-compact] > [popover]:popover-open');
+  await menu.locator('details.guest-card-statistics').evaluate(details => { details.open = true; });
   await menu.getByRole('button', { name: 'Закрыть', exact: true }).focus();
   await page.evaluate(() => {
     window.qaProof = {
@@ -66,6 +67,7 @@ async function main() {
         guest: [...document.querySelectorAll('dl[aria-label="Статистика соединения"]')].map(e => e.innerText),
         guestFields: [...document.querySelector('dl[aria-label="Статистика соединения"]').querySelectorAll('dd')].map(e => e.innerText),
         program: document.querySelector('.studio-console-stats').innerText,
+        details: [...document.querySelectorAll('.guest-card-connection')].map(e => [...e.querySelectorAll(':scope > div > span')].map(value => value.textContent)),
         videos: p.videos.length,
         stableMedia: p.document === document && p.videos.every(o => o.video.isConnected && o.video.srcObject === o.stream && o.stream.getTracks().length === o.tracks.length && o.tracks.every((t, i) => o.stream.getTracks()[i] === t && t.readyState === 'live') && o.ended === 0),
         stableCards: p.cards.every((node, i) => node === document.querySelectorAll('.studio-caster-card')[i]),
@@ -109,12 +111,19 @@ async function main() {
   const stale = await inspect('expired');
   assert.ok(stale.guest.every(text => text.includes('Нет данных') && !text.includes('кбит/с')), 'all guest measurements expire');
   assert.equal(stale.renders, identical.renders, 'expiry is local to statistics children');
+  for (const fields of stale.details) {
+    assert.equal(fields[2], 'Нет данных', 'expanded network status expires locally with the mini status');
+    assert.equal(fields[3], '— / — мс', 'expanded RTT and jitter expire');
+    assert.equal(fields[4], '—', 'expanded current loss expires');
+    assert.match(fields[5], /0,03% \/ 3[\u00a0 ]000 пак/, 'expanded session history remains visible');
+  }
   await page.evaluate(() => document.body.removeAttribute('data-freeze-stats'));
   await page.clock.runFor(4200);
   const recovered = await inspect('recovered');
   assert.match(recovered.guest[0], /кбит\/с/);
   assert.equal(recovered.renders, identical.renders, 'ref-only recovery needs no parent update');
   assert.equal(recovered.guest[0], identical.guest[0], 'same bitrate values recover through current ref only');
+  assert.deepEqual(recovered.details, identical.details, 'expanded measurements also recover through the same freshness refs without a parent update');
   await page.evaluate(() => document.body.removeAttribute('data-identical-stats'));
   // Cross the actual AppUpdateNotice 60-second poll while data keeps changing.
   await page.clock.runFor(40000);

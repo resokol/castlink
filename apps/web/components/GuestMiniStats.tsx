@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { formatPacketLoss, type PacketLoss } from "@/lib/guest-network-stats";
 import { useI18n } from "./I18nProvider";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
@@ -25,24 +25,46 @@ export type GuestMiniStatsData = {
   microphone: boolean;
 };
 
+// One card-local clock updates only statistics consumers, preserving media owners.
+const GuestStatsTime = createContext<number | null>(null);
+function useGuestStatsTime() {
+  const shared = useContext(GuestStatsTime);
+  const [now, setNow] = useState(Date.now);
+  const hasSharedClock = shared !== null;
+  useEffect(() => {
+    if (hasSharedClock) return;
+    const timer = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(timer);
+  }, [hasSharedClock]);
+  return shared ?? now;
+}
+export function GuestStatsClock({ children }: { children: ReactNode }) {
+  const now = useGuestStatsTime();
+  return <GuestStatsTime.Provider value={now}>{children}</GuestStatsTime.Provider>;
+}
+export function useGuestStatsFreshness(guest: GuestMiniStatsData) {
+  const now = useGuestStatsTime();
+  const sampledAt = guest.statsSampledAtRef?.current ?? guest.statsSampledAt;
+  const networkSampledAt = guest.networkSampledAtRef?.current ?? sampledAt;
+  return {
+    fresh: sampledAt != null && sampledAt > 0 && now - sampledAt < 8000,
+    measured: networkSampledAt != null && networkSampledAt > 0 && now - networkSampledAt <= 6000 && !!guest.networkMeasured,
+  };
+}
+
 export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
   const { t, locale } = useI18n();
-  const [now, setNow] = useState(Date.now);
+  const { fresh, measured } = useGuestStatsFreshness(guest);
   const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null), popup = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const positionHelp = () => { if (popup.current && trigger.current) positionStudioConsolePopover(popup.current, trigger.current); };
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 2000); return () => clearInterval(timer); }, []);
   useEffect(() => {
     if (!helpOpen) return;
     window.addEventListener("resize", positionHelp);
     window.addEventListener("scroll", positionHelp, true);
     return () => { window.removeEventListener("resize", positionHelp); window.removeEventListener("scroll", positionHelp, true); };
   }, [helpOpen]);
-  const sampledAt = guest.statsSampledAtRef?.current ?? guest.statsSampledAt;
-  const fresh = sampledAt != null && sampledAt > 0 && now - sampledAt < 8000;
-  const networkSampledAt = guest.networkSampledAtRef?.current ?? sampledAt;
-  const measured = networkSampledAt != null && networkSampledAt > 0 && now - networkSampledAt <= 6000 && guest.networkMeasured;
   const quality = !measured ? "unknown" : guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad";
   const bitrate = (value: number | null | undefined, enabled: boolean) => fresh && enabled && value != null && Number.isFinite(value) && value >= 0
     ? `${value.toLocaleString(locale)} ${t("кбит/с")}` : "—";
