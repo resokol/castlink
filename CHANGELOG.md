@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4 server/web · 1.0.1 client — 2026-11-13 — статистика гостей / Guest statistics / 参与者统计
+
+- RU: мини-статистика под карточкой гостя показывает измеренные битрейты приёма видео и микрофона и оценку сети. Маленькая стрелка открывает памятку с текущими числами и порогами; «Нет данных» тоже раскрывается. Обновления сохраняют видео и меню, одинаковые замеры не обновляют весь список. Обновите сервер и затем страницы вне эфира; Client 1.0.1 отображает интерфейс выбранного обновлённого сервера. [Примечания](distribution/RELEASE_NOTES_1_0_4.md).
+- EN: guest cards show measured incoming camera/microphone bitrates and the network grade. A small arrow opens the current values and threshold guide, including No data. Updates preserve media and menus; identical samples preserve roster state. Update the server and reload pages off air; Client 1.0.1 displays its selected updated server's UI. [Release notes](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
+- 简体中文：参与者卡片显示摄像头和麦克风的实测接收码率及网络等级，小箭头可查看当前值和阈值，无数据时也可展开。更新保留视频和菜单，相同测量不更新整个列表。请在停播时更新服务器并刷新页面；Client 1.0.1 显示所选已更新服务器的界面。[发行说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md)。
+
 ## Web — выравнивание карточек / Card alignment / 卡片对齐
 
 - RU: видео и аудио остаются в двух ровных колонках, сеть — отдельной строкой с оценкой рядом с подписью. Выравнивание сохраняется на узких карточках; опубликованные установочные пакеты 1.0.3 остаются неизменными.

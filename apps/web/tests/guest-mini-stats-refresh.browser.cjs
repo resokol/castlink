@@ -9,8 +9,8 @@ const { createRequire } = require('node:module');
 const web = path.resolve(__dirname, '..');
 const repo = path.resolve(web, '../..');
 const req = createRequire(path.join(web, 'package.json'));
-const { chromium } = require(process.env.CASTLINK_QA_PLAYWRIGHT || '/opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const { build } = require(process.env.CASTLINK_QA_ESBUILD || '/tmp/castlink-preview-tools/node_modules/esbuild');
+const { chromium } = require(process.env.CASTLINK_QA_PLAYWRIGHT || 'playwright');
+const { build } = require(process.env.CASTLINK_QA_ESBUILD || 'esbuild');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-refresh-proof-'));
 let server, browser;
 async function main() {
@@ -32,7 +32,7 @@ async function main() {
     response.end('<!doctype html><html lang="ru" data-theme="dark" data-design-preview="on"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/livekit.css"><link rel="stylesheet" href="/globals.css"><link rel="stylesheet" href="/graphite.css"><link rel="stylesheet" href="/new/live-theme.css"><link rel="stylesheet" href="/bundle.css"><div id="root"></div><script src="/bundle.js"></script></html>');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  browser = await chromium.launch({ executablePath: '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required'] });
+  browser = await chromium.launch({ executablePath: process.env.CASTLINK_QA_CHROMIUM_BINARY || '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];
   let navigations = 0;
@@ -88,7 +88,8 @@ async function main() {
   }
   let previous = await inspect('initial');
   for (let step = 1; step <= 5; step++) {
-    await page.clock.runFor(2100);
+    // A three-tick jump can return the cyclic grade to its starting value.
+    await page.clock.runFor(1100);
     const next = await inspect(`change-${step}`);
     assert.ok(next.ticks > previous.ticks, 'fixture actually supplied new data');
     assert.ok(next.renders > previous.renders, 'parent React rerender is exercised');

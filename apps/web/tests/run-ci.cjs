@@ -90,6 +90,7 @@ const tests = [
   "desktop-stop-panel.cjs",
   "guest-camera-capture.cjs",
   "guest-receive-bitrate.cjs",
+  "network-quality-help.cjs",
   "guest-camera-effects.cjs",
   "guest-camera-blur-ui.cjs",
   "guest-camera-segmentation.cjs",
