@@ -4,9 +4,9 @@ export type GuestAudioProfile = "speech" | "raw";
 type AudioChoices = { audioDeviceId?: string; audioProfile?: GuestAudioProfile };
 type ProcessingOptions = Pick<AudioCaptureOptions, "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation">;
 
-/** New microphones suppress speaker echo; an explicit original-sound choice is retained. */
+/** Processing is opt-in; retain an explicit saved speech profile. */
 export function guestAudioProfile(value?: unknown): GuestAudioProfile {
-  return value === "raw" ? "raw" : "speech";
+  return value === "speech" ? "speech" : "raw";
 }
 
 export function guestAudioProcessingOptions(choices: AudioChoices): ProcessingOptions {

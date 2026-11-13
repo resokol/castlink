@@ -2,6 +2,9 @@ import type {
  Translator } from "@/lib/i18n";
 
 export const workspacesMessages: Record<string, readonly [string, string]> = {
+  "Шумоподавление и эхо": ["Noise & echo suppression", "降噪与回声消除"],
+  "Включено — подавляет фоновый шум и эхо.": ["On — reduces background noise and echo.", "已开启 — 抑制背景噪音和回声。"],
+  "Выключено — оригинальный звук. Используйте наушники.": ["Off — original sound. Use headphones.", "已关闭 — 原始声音。请使用耳机。"],
   "Устройства": ["Devices", "设备"],
   "Устройства студии": ["Studio devices", "演播室设备"],
   "Пригласить": ["Invite", "邀请"],

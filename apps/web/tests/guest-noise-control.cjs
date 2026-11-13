@@ -1,12 +1,7 @@
-require('./i18n-fixture.cjs');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const ts = require('typescript');
-require.extensions['.tsx'] = (module, file) => module._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
-}).outputText, file);
-const { GuestNoiseSuppressionControl } = require('../components/GuestNoiseSuppressionControl.tsx');
-const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+const { load } = require('./load-typescript.cjs');
+const { GuestNoiseSuppressionControl } = load('../components/GuestNoiseSuppressionControl.tsx', {react:{useId:()=> 'noise-test'},'@/components/I18nProvider':require('./i18n-fixture.cjs')});
+const nodes = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(typeof node.type === 'function' ? node.type(node.props) : node.props?.children)];
 const changes = [];
 const props = { profile: 'raw', state: 'off', confirmed: true, disabled: false, busy: false, onChange: value => changes.push(value) };
 let tree = GuestNoiseSuppressionControl(props);
@@ -32,9 +27,9 @@ for (const patch of [{ disabled: true }, { busy: true }]) {
 }
 tree = GuestNoiseSuppressionControl({ ...props, asButton: true });
 toggle = nodes(tree).find(node => node.props?.role === 'switch');
-assert.equal(toggle.type, 'button'); assert.equal(toggle.props['aria-checked'], false);
-toggle.props.onClick(); assert.equal(changes.at(-1), 'speech');
+assert.equal(toggle.type, 'input'); assert.equal(toggle.props.checked, false);
+toggle.props.onChange({target:{checked:true}}); assert.equal(changes.at(-1), 'speech');
 tree = GuestNoiseSuppressionControl({ ...props, asButton: true, profile: 'speech', state: 'pending' });
-assert.equal(nodes(tree).find(node => node.props?.role === 'switch').props['aria-checked'], true);
+assert.equal(nodes(tree).find(node => node.props?.role === 'switch').props.checked, true);
 assert.ok(nodes(tree).some(node => node.props?.role === 'status' && node.props.children === 'Обработка применится при включении микрофона.'));
 console.log('PASS: caster can select speech/raw, actual/pending/unconfirmed processing and busy/disabled states');
