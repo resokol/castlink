@@ -5,11 +5,11 @@
 </p>
 
 <h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.3</strong></p>
+<p align="center"><strong>CastLink 1.0.4</strong></p>
 <p align="center"><strong>Удалённые кастеры. Отдельные источники. Ваш эфир.</strong></p>
 <p align="center">Подключение через браузер · OBS и vMix · Свой сервер</p>
 <p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
+  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
 </p>
 <p align="center">
   <a href="https://castlink.ru">Сайт</a> &nbsp; / &nbsp;
@@ -27,9 +27,11 @@ CastLink — студия для удалённого подключения к�
 
 ## Скачать и установить
 
+**1.0.4:** памятка о качестве сети в карточке кастера; Windows Client обновлён до 1.0.1. [1.0.4](distribution/RELEASE_NOTES_1_0_4.md).
+
 **1.0.3:** единый тумблер шумоподавления и эха, по умолчанию выключен; основная студия может переключать его в карточке кастера. [1.0.3](distribution/RELEASE_NOTES_1_0_3.md).
 
-Windows Server Setup и Linux — **1.0.3**; Windows Client — **1.0.0**.
+Windows Server Setup и Linux — **1.0.4**; Windows Client — **1.0.1**.
 
 В 1.0.2 доступны [Linux одной командой и серверный мониторинг за 24 часа](distribution/SERVER_INSTALL.md): история графиков и журнал событий сохраняются после перезапуска. Локальный Windows-сервер в обычном Server Setup использует Docker Desktop. Вариант Windows/WSL2 без Docker остаётся отдельным кандидатом без подтверждённых испытаний установки и внешнего медиазвонка.
 

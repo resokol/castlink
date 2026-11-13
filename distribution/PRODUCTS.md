@@ -4,31 +4,33 @@
 
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| Windows Client | Приложение Windows: студия и кастер | [1.0.0](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) |
-| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.3](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.3-1a26de9f6f59/SHA256SUMS) |
-| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.3](https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/SHA256SUMS) |
+| Windows Client | Приложение Windows: студия и кастер | [1.0.1](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
+| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.4](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.4](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
 
 **[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
 Перед запуском проверьте SHA256SUMS выбранного выпуска. EXE не подписаны. Client проверяет обновление перед установкой и отдельно запрашивает согласие; ручная установка нужна, если старый клиент не находит выпуск. Серверные службы обновляются после вашего действия и могут прервать эфир. Данные резервируйте самостоятельно; три направления выпускаются независимо.
 
-Server Setup build: `1.0.3-1a26de9f6f59` · source: `1a26de9f6f59cc95e84708e6e259bc0503daae38`
+Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Linux build: `1.0.3-1a26de9f6f59` · source: `1a26de9f6f59cc95e84708e6e259bc0503daae38`
+Linux build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Client build: `1.0.0-93d9b93e17da` · source: `93d9b93e17daced23b3eb4207c8464d6091bea0c`
+Client build: `1.0.1-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+
+**1.0.4:** памятка о качестве сети в карточке кастера; Windows Client обновлён до 1.0.1. [1.0.4](RELEASE_NOTES_1_0_4.md).
 
 **1.0.3:** единый тумблер шумоподавления и эха, по умолчанию выключен; основная студия может переключать его в карточке кастера. [1.0.3](RELEASE_NOTES_1_0_3.md).
 
-**Сервер 1.0.2:** история показателей и журнал событий за 24 часа в Super Admin; данные сохраняются после перезапуска. Linux также включает [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.3-1a26de9f6f59/install-server.sh) для установки одной командой. [Инструкции](SERVER_INSTALL.md) · [Примечания к 1.0.2](RELEASE_NOTES_1_0_2.md).
+**Сервер 1.0.2:** история показателей и журнал событий за 24 часа в Super Admin; данные сохраняются после перезапуска. Linux также включает [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh) для установки одной командой. [Инструкции](SERVER_INSTALL.md) · [Примечания к 1.0.2](RELEASE_NOTES_1_0_2.md).
 
 Локальный Windows-сервер в обычном Server Setup требует Docker Desktop с Linux-контейнерами. Windows/WSL2 без Docker — отдельный кандидат; установка и внешний медиазвонок ещё не подтверждены, стабильный WSL-пакет в этой таблице не предлагается.
 
-**Обновление серверов до 1.0.3:** обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. Восстановление связи требует 1.0.1 или новее на обоих серверах. Windows Client остаётся на 1.0.0; используйте его встроенную проверку обновлений. Если старый клиент не находит выпуск, один раз скачайте установщик 1.0.0 вручную по ссылке выше и проверьте SHA256SUMS. [Восстановление связи](README.md#server-pair-recovery) · [История изменений](../CHANGELOG.md).
+**Обновление серверов до 1.0.4:** обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. Восстановление связи требует 1.0.1 или новее на обоих серверах. Windows Client остаётся на 1.0.1; используйте его встроенную проверку обновлений. Если старый клиент не находит выпуск, один раз скачайте установщик 1.0.1 вручную по ссылке выше и проверьте SHA256SUMS. [Восстановление связи](README.md#server-pair-recovery) · [История изменений](../CHANGELOG.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.0-93d9b93e17da) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.3-1a26de9f6f59) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.3-1a26de9f6f59)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.1-079fd0f9d4b1) · [Server Setup release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.4-079fd0f9d4b1)
 
-Исходники сервера 1.0.3: [выпуск](https://github.com/resokol/castlink/releases/tag/source-v1.0.3-1a26de9f6f59) · [точный коммит](https://github.com/resokol/castlink/tree/1a26de9f6f59cc95e84708e6e259bc0503daae38) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.3-1a26de9f6f59/CastLink-Source-1.0.3.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.3-1a26de9f6f59/CastLink-Source-1.0.3.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.3-1a26de9f6f59/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.3-1a26de9f6f59/SHA256SUMS). Исходники под MIT; архив исходников не является установщиком. Текущая разработка: [ветка main](https://github.com/resokol/castlink/tree/main).
+Исходники сервера 1.0.4: [выпуск](https://github.com/resokol/castlink/releases/tag/source-v1.0.4-079fd0f9d4b1) · [точный коммит](https://github.com/resokol/castlink/tree/079fd0f9d4b18215274ff401ba584435e263994f) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/SHA256SUMS). Исходники под MIT; архив исходников не является установщиком. Текущая разработка: [ветка main](https://github.com/resokol/castlink/tree/main).
 
 ## Инструкции и опубликованные архивы
 
