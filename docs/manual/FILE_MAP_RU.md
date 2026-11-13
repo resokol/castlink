@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **1968**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **1969**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -16508,7 +16508,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 263 файлов
+## scripts · 264 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17048,6 +17048,16 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
+
+### scripts/qa-node2-public.mjs
+
+[`scripts/qa-node2-public.mjs`](../../scripts/qa-node2-public.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:dns/promises`, `node:fs/promises`, `node:http`, `node:https`, `node:path`.
+
+Переменные окружения (только имена): `GITHUB_ACTIONS`, `RUNNER_TEMP`.
 
 ### scripts/qa-wsl-draft-publisher.mjs
 
