@@ -29,6 +29,9 @@ async function fixture(){
  const pack=()=>execFileSync('tar',['-czf',rootfs,'-C',tree,'.']);pack();
  const sources=path.join(dir,'sources.tar.gz');
  await fs.writeFile(sources,'corresponding source archive fixture');
+ const panelInventory={schemaVersion:1,host:'CastLinkServer.exe',binding:'server-native-binding.json',buildFiles:['server-native-panel-host.cs','build-server-native-panel-host.ps1'],files:['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico']};
+ await fs.writeFile(path.join(root,'scripts/server-native-panel-files.json'),JSON.stringify(panelInventory));
+ for(const name of [...panelInventory.files,...panelInventory.buildFiles])await fs.writeFile(path.join(root,'scripts',name),'panel fixture '+name);
  const inventory=path.join(dir,'packages.tsv');await fs.writeFile(inventory,'base-files\t13ubuntu10.3\n');
  await fs.writeFile(path.join(tree,'opt/castlink/packages.tsv'),await fs.readFile(inventory));pack();
  const sourceDir=path.join(dir,'source-archive');await fs.mkdir(sourceDir);
@@ -51,6 +54,9 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   assert.equal(m.channel,'server-wsl');assert.equal(m.releaseTag,'server-wsl-v'+version+'-'+commit.slice(0,12));
   assert.equal(m.sourceCommit,commit);assert.equal(m.architecture,'amd64');
   assert.equal(m.requirements.hostAddressLoopback,true);
+  assert.equal(m.nativePanel.host,'CastLinkServer.exe');
+  assert.equal(m.nativePanel.files.length,9);
+  for(const entry of m.nativePanel.files){const original=await fs.readFile(path.join(f.root,'scripts',entry.file));assert.equal(entry.sha256,hash(original));assert.equal(entry.size,original.length);assert.deepEqual(await fs.readFile(path.join(f.output,entry.file)),original);}
   const rootfsBytes=await fs.readFile(f.rootfs);
   assert.equal(m.rootfs.sha256,hash(rootfsBytes));assert.equal(m.rootfs.size,rootfsBytes.length);
   assert.deepEqual(await fs.readFile(path.join(f.output,m.rootfs.file)),rootfsBytes);
@@ -124,4 +130,16 @@ test('refuses unknown template tokens, invalid metadata and existing destination
   await assert.rejects(assembleWslPackage(f),/exist|destination/i);
   assert.equal(await fs.readFile(path.join(f.output,'keep.txt'),'utf8'),'original');
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
+
+test('native panel inventory rejects traversal, duplicate or missing helpers before output',async()=>{
+ for(const change of ['traversal','duplicate','missing']){const f=await fixture();try{
+  const manifestPath=path.join(f.root,'scripts/server-native-panel-files.json'),m=JSON.parse(await fs.readFile(manifestPath,'utf8'));
+  if(change==='traversal')m.files[0]='../LICENSE';
+  else if(change==='duplicate')m.files.push(m.files[0]);
+  else await fs.rm(path.join(f.root,'scripts',m.files[0]));
+  await fs.writeFile(manifestPath,JSON.stringify(m));
+  await assert.rejects(assembleWslPackage(f),/panel|helper|inventory|ENOENT/i);
+  await assert.rejects(fs.stat(f.output),{code:'ENOENT'});
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}}
 });
