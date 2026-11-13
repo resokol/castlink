@@ -128,7 +128,7 @@ async function media(c,signal,cleanup,progress) {
     before=await Promise.all(pages.map(p=>p.evaluate(()=>window.__qa.sample())));
     const ready=before.every(s=>s.playing&&s.pairs.length>0&&s.pairs.every(p=>p.selected&&p.relay&&p.tls&&p.url===expectedRelay)&&['inbound-rtp','outbound-rtp'].every(d=>s.media.some(m=>m.kind==='video'&&m.direction===d&&m.bytes>0&&m.packets>0&&m.frames>0)&&s.media.some(m=>m.kind==='audio'&&m.direction===d&&m.bytes>0&&m.packets>0&&(d==='outbound-rtp'||(m.samples>0&&m.energy>0)))));
     if(ready)break;
-    check(Date.now()<baselineDeadline&&!signal.aborted);
+    if(Date.now()>=baselineDeadline)console.error('external baseline facts='+JSON.stringify(before.map(s=>({playing:s.playing,media:s.media.map(m=>({kind:m.kind,direction:m.direction,bytes:m.bytes,packets:m.packets,frames:m.frames,samples:m.samples,energy:m.energy})),pairs:s.pairs.map(p=>({selected:p.selected,relay:p.relay,tls:p.tls,expectedUrl:p.url===expectedRelay}))}))));check(Date.now()<baselineDeadline&&!signal.aborted);
     await new Promise(resolve=>setTimeout(resolve,200));
   }
   await new Promise((resolve,reject)=>{const t=setTimeout(resolve,3000);signal.addEventListener('abort',()=>{clearTimeout(t);reject(Error());},{once:true});});
