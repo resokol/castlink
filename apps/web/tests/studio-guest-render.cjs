@@ -141,6 +141,44 @@ function harness() {
   assert.equal(h.frames.size, 0);
   assert.equal(h.intervals.size, 0);
 
+  // Noise/echo switching can republish a microphone while its old stats are pending.
+  // Exercise the real Studio sampler with both a replacement and a reused SDK track.
+  for (const reuseTrack of [false, true]) {
+    const audio = harness();
+    await flush();
+    const audioReport = (bytesReceived, timestamp) => new Map([['a', { id: 'a', type: 'inbound-rtp', kind: 'audio', bytesReceived, timestamp }]]);
+    let currentAudio = audioReport(1000, 1000);
+    const oldTrack = audio.microphone.track;
+    oldTrack.getRTCStatsReport = async () => currentAudio;
+    await audio.context.refreshRef.current();
+    currentAudio = audioReport(33000, 3000);
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, 128);
+
+    let finishOldReport;
+    oldTrack.getRTCStatsReport = () => new Promise(resolve => { finishOldReport = resolve; });
+    const pendingRefresh = audio.context.refreshRef.current();
+    await flush();
+    assert.equal(typeof finishOldReport, 'function', 'old microphone report is genuinely pending');
+    const currentTrack = reuseTrack ? oldTrack : { mediaStreamTrack: { readyState: 'live' } };
+    currentAudio = audioReport(500000, 5000);
+    currentTrack.getRTCStatsReport = async () => currentAudio;
+    const nextPublication = { isMuted: false, track: currentTrack };
+    const getPublication = audio.participant.getTrackPublication;
+    audio.participant.getTrackPublication = source => source === Track.Source.Microphone ? nextPublication : getPublication(source);
+    finishOldReport(audioReport(9000000000, 5000));
+    await pendingRefresh;
+    assert.equal(audio.guests()[0].receiveAudioKbps, null, 'superseded publication report cannot leak into the new microphone bitrate');
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, null, 'republished microphone establishes a fresh baseline');
+    assert.equal(audio.guests()[0].microphoneTrack, currentTrack, 'meter owns the current microphone after processing switch');
+    currentAudio = audioReport(532000, 7000);
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, 128, 'normal audio bitrate recovers without a spike after processing switch');
+    assert.equal(audio.guests()[0].stability, 'Хорошая', 'audio processing does not change the video network grade');
+    audio.stop();
+  }
+
   // GuestAudioMeter owns PCM observations and state independently of the Studio.
   let state = [], cursor = 0, effect, observer;
   const { GuestAudioMeter } = load('../components/GuestAudioMeter.tsx', {

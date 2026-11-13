@@ -16,12 +16,32 @@ let server, browser;
 async function main() {
   await build({ entryPoints: [path.join(__dirname, 'fixtures/guest-mini-stats-refresh.tsx')], outfile: path.join(out, 'bundle.js'), bundle: true, platform: 'browser', format: 'iife', target: 'es2022', jsx: 'automatic', alias: { '@': web }, nodePaths: [path.join(web, 'node_modules')], loader: { '.css': 'local-css' }, define: { 'process.env': JSON.stringify({ NODE_ENV: 'production', NEXT_PUBLIC_BUILD_ID: 'preview-eaa94d193230', NEXT_PUBLIC_APP_VERSION: '1.0.1-preview', NEXT_PUBLIC_PRODUCT_VERSION: '1.0.1', NEXT_PUBLIC_BUILD_NUMBER: 'preview' }) } });
   let documentRequests = 0, versionRequests = 0;
+  const audioProfiles = new Map(), audioResults = new Map(), audioCommands = [];
+  let failAudioCommand = false;
   server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://preview.local');
     if (url.pathname === '/api/version') {
       versionRequests++;
       response.setHeader('content-type', 'application/json');
       response.end(JSON.stringify({ version: 'preview-eaa94d193230', buildId: 'preview-eaa94d193230' })); return;
+    }
+    if (url.pathname === '/api/guest-media-control') {
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'POST') {
+        let body = ''; request.on('data', chunk => { body += chunk; });
+        request.on('end', () => {
+          const command = JSON.parse(body); audioCommands.push(command);
+          if (failAudioCommand) { response.statusCode = 409; response.end(JSON.stringify({ error: 'Тест: гость отключён' })); return; }
+          const id = `audio-${audioCommands.length}`;
+          audioProfiles.set(command.identity, command.patch.audioProfile);
+          audioResults.set(command.identity, { id, ok: true });
+          response.end(JSON.stringify({ command: { id, expiresAt: Date.now() + 60_000, patch: command.patch } }));
+        });
+      } else {
+        const identity = url.searchParams.get('identity'), audioProfile = audioProfiles.get(identity) || 'raw';
+        response.end(JSON.stringify({ participantSid: `PA-${identity}`, state: { audioProfile, noiseSuppressionState: audioProfile === 'speech' ? 'on' : 'off', connectionRoute: 'auto', micGain: 100, listenGain: 100, videoCodec: 'vp8', supportedVideoCodecs: ['vp8'] }, result: audioResults.get(identity) }));
+      }
+      return;
     }
     if (url.pathname.startsWith('/api/')) { response.setHeader('content-type', 'application/json'); response.end('{}'); return; }
     const file = url.pathname === '/bundle.js' ? path.join(out, 'bundle.js') : url.pathname === '/bundle.css' ? path.join(out, 'bundle.css') : url.pathname === '/livekit.css' ? req.resolve('@livekit/components-styles') : url.pathname === '/globals.css' ? path.join(web, 'app/globals.css') : url.pathname === '/graphite.css' ? path.join(web, 'app/graphite-workspace.css') : url.pathname.startsWith('/new/') ? path.resolve(repo, 'design-preview', '.' + url.pathname) : url.pathname === '/icon.svg' ? path.join(web, 'app/icon.svg') : null;
@@ -35,7 +55,7 @@ async function main() {
   browser = await chromium.launch({ executablePath: '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required'] });
 
   const errors = [], cases = [];
-  for (const [width,height,theme] of [[1440,900,'dark'],[1440,900,'light'],[1280,540,'dark'],[360,873,'dark']]) {
+  for (const [width,height,theme] of (process.env.CASTLINK_NETWORK_AUDIO_ONLY ? [] : [[1440,900,'dark'],[1440,900,'light'],[1280,540,'dark'],[360,873,'dark']])) {
     for (const locale of ['ru','en','zh-CN']) {
       const page = await browser.newPage({viewport:{width,height}});
       page.on('pageerror', error=>errors.push(error.message));
@@ -95,9 +115,69 @@ async function main() {
       cases.push({name,controls,geometry,heightDeltas});await page.close();
     }
   }
+  const audioCases = [];
+  for (const width of [320, 360, 1280, 1440]) for (const theme of ['dark', 'light']) {
+    audioProfiles.clear(); audioResults.clear(); failAudioCommand = false;
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    page.on('pageerror', error => errors.push(error.message));
+    await page.clock.install();
+    await page.goto(`http://127.0.0.1:${server.address().port}/?view=studio&count=5`);
+    await page.waitForFunction(() => document.querySelectorAll('video').length === 6 && [...document.querySelectorAll('video')].every(v => v.videoWidth > 0));
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; window.qaSetLocale('ru'); }, theme);
+    const settingsTrigger = page.locator('.guest-card-heading button[popovertarget]').first();
+    await settingsTrigger.click();
+    const menu = page.locator('.studio-caster-card > [popover]:not([data-network-help]):popover-open');
+    await menu.locator('.guest-card-settings > summary').click();
+    const audioSwitch = menu.getByRole('switch');
+    await page.waitForFunction(() => { const input = document.querySelector('.studio-caster-card > [popover]:not([data-network-help]):popover-open [role="switch"]'); return input && !input.disabled; });
+    await audioSwitch.scrollIntoViewIfNeeded();
+    const size = await audioSwitch.evaluate(e => { const r = e.getBoundingClientRect(), label = e.closest('label').getBoundingClientRect(); return { width: r.width, height: r.height, right: r.right, labelRight: label.right }; });
+    assert.equal(size.width, 44, 'combined card menu switch width44'); assert.equal(size.height, 26, 'combined card menu switch height26');
+    assert.ok(size.right <= size.labelRight + 1, 'switch remains beside its copy');
+    assert.equal(await audioSwitch.isChecked(), false, 'combined default is raw/off');
+    await page.evaluate(() => { window.qaCombined = { videos: [...document.querySelectorAll('video')].map(video => ({ video, stream: video.srcObject, tracks: video.srcObject.getTracks() })), unmounts: JSON.stringify(window.qaRefresh.unmounts), menu: document.querySelector('.studio-caster-card > [popover]:not([data-network-help]):popover-open') }; });
+    const unchanged = () => page.evaluate(() => window.qaCombined.videos.every(o => o.video.isConnected && o.video.srcObject === o.stream && o.tracks.every((t, i) => o.stream.getTracks()[i] === t && t.readyState === 'live')) && JSON.stringify(window.qaRefresh.unmounts) === window.qaCombined.unmounts);
+    await Promise.all([page.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/api/guest-media-control')), audioSwitch.click()]);
+    assert.deepEqual(audioCommands.at(-1).patch, { audioProfile: 'speech' });
+    assert.equal(audioCommands.at(-1).participantSid, 'PA-guest-0');
+    await page.clock.runFor(2100);
+    await page.waitForFunction(() => { const input = document.querySelector('.studio-caster-card > [popover]:not([data-network-help]):popover-open [role="switch"]'); return input.checked && !input.disabled; });
+    await audioSwitch.focus();
+    const statsBefore = await page.locator('[data-network-help-toggle]').first().innerText();
+    const bitrateBefore = await page.locator('.studio-caster-card').first().locator('dl dd').first().innerText();
+    await page.clock.runFor(1100);
+    assert.notEqual(await page.locator('.studio-caster-card').first().locator('dl dd').first().innerText(), bitrateBefore, 'measured values really change while audio menu stays open');
+    assert.ok(await menu.evaluate(e => e.matches(':popover-open')), 'metric updates retain actual audio menu');
+    assert.equal(await audioSwitch.evaluate(e => document.activeElement === e), true, 'metric updates retain audio-switch focus');
+    assert.ok(await unchanged(), 'audio command and stats retain media owners');
+    await page.screenshot({ path: path.join(out, `combined-audio-${width}-${theme}.png`) });
+    await Promise.all([page.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/api/guest-media-control')), audioSwitch.click()]);
+    assert.deepEqual(audioCommands.at(-1).patch, { audioProfile: 'raw' });
+    await page.clock.runFor(2100);
+    await page.waitForFunction(() => { const input = document.querySelector('.studio-caster-card > [popover]:not([data-network-help]):popover-open [role="switch"]'); return !input.checked && !input.disabled; });
+    failAudioCommand = true;
+    await Promise.all([page.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/api/guest-media-control')), audioSwitch.click()]);
+    await menu.getByRole('alert').waitFor();
+    assert.equal(await audioSwitch.isChecked(), false, 'failed audio command retains confirmed off value');
+    failAudioCommand = false;
+    // Native auto surfaces replace each other without stealing media ownership.
+    const networkTrigger = page.locator('[data-network-help-toggle]').first();
+    await networkTrigger.click();
+    await page.waitForFunction(() => { const p = document.querySelector('[data-network-help]:popover-open'); return p && p.contains(document.activeElement); });
+    assert.equal(await page.locator('.studio-caster-card > [popover]:not([data-network-help]):popover-open').count(), 0, 'network help closes audio menu');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.activeElement === document.querySelector('[data-network-help-toggle]'));
+    await networkTrigger.click();
+    await settingsTrigger.click();
+    await page.waitForFunction(() => { const p = document.querySelector('.studio-caster-card > [popover]:not([data-network-help]):popover-open'); return p && p.contains(document.activeElement); });
+    assert.equal(await page.locator('[data-network-help]:popover-open').count(), 0, 'audio menu closes network help');
+    assert.ok(await unchanged(), 'switching auto popovers retains every video track');
+    audioCases.push({ width, theme, switch: size, ackAndError: true, autoPopoverSwitching: true, retainedVideos: 6, statsBefore });
+    await page.close();
+  }
   assert.deepEqual(errors,[]);
-  const evidence={result:'PASS',note:'Actual Console A JSX/CSS; synthetic local media and sample values, no production room',cases,errors,screenshots:out};
+  const evidence={result:'PASS',note:'Actual Console A JSX/CSS and actual audio controls; synthetic local media, sample metrics and HTTP acknowledgements, no production room',cases,audioCases,errors,screenshots:out};
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(evidence,null,2));
-  console.log(JSON.stringify({result:'PASS',cases:cases.length,heightDeltas:cases.map(c=>({name:c.name,deltas:c.heightDeltas})),errors,evidencePath:path.join(out,'results.json'),screenshots:out}));
+  console.log(JSON.stringify({result:'PASS',cases:cases.length,audioCases:audioCases.length,heightDeltas:cases.map(c=>({name:c.name,deltas:c.heightDeltas})),errors,evidencePath:path.join(out,'results.json'),screenshots:out}));
 }
 main().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await browser?.close();server?.close();});

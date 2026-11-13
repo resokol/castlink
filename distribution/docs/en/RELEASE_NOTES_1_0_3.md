@@ -13,6 +13,8 @@ does not measure internet bandwidth. Missing or stale samples show dashes.
 Metric updates do not reload the page, and identical samples preserve the guest
 list state.
 
+The same server release includes the shared noise and echo suppression switch in caster microphone settings and studio controls. New microphones start with processing off; an explicit saved choice is retained. Studio changes receive the applied result without manual caster approval. Switching preserves mute, camera and private talkback.
+
 ## Updating
 
 - Update the existing Server Setup or Linux installation to 1.0.3 off air,
