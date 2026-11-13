@@ -313,6 +313,102 @@ function Stop-CastlinkKeepalive([string]$Root, $State) {
     Save-CastlinkInstallation $Root $State
 }
 
+function Stage-CastlinkPinnedInstaller([string]$Root, [string]$SourcePath) {
+    $target = Join-Path $Root 'install-server-windows.ps1'
+    $hash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (Test-Path -LiteralPath $target) {
+        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $hash) { throw 'A different staged installer already exists. It was preserved.' }
+    } else {
+        $bytes = [IO.File]::ReadAllBytes($SourcePath)
+        $stream = [IO.FileStream]::new($target,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+    }
+    return $target
+}
+
+function Build-CastlinkNativePanelHost([string]$Directory, [string]$Output) {
+    # The compiler helper requires .NET Framework's csc.exe even when the installer
+    # was invoked from PowerShell 7. Pass paths as native argv, never command text.
+    $powershell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $helper = Join-Path $Directory 'build-server-native-panel-host.ps1'
+    & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $helper -Output $Output
+    if ($LASTEXITCODE -ne 0) { throw 'Native panel compiler child failed.' }
+    if (-not (Test-Path -LiteralPath $Output -PathType Leaf)) { throw 'Native panel compiler did not produce its Windows host.' }
+}
+
+function Assert-CastlinkNativePanelReceipt([string]$Root, $State) {
+    if (-not $State.PSObject.Properties['nativePanel'] -or -not $State.nativePanel) { throw 'This installation has no staged native panel.' }
+    $panel = $State.nativePanel
+    $directory = Join-Path $Root 'native-panel'
+    if ($panel.schemaVersion -ne 1 -or $panel.hostPath -cne (Join-Path $directory 'CastLinkServer.exe') -or $panel.bindingPath -cne (Join-Path $directory 'server-native-binding.json') -or $panel.manifestSha256 -cne $script:PackagedManifestSha256) { throw 'Native panel installation identity differs; no panel or task was changed.' }
+    foreach ($entry in @(@($panel.hostPath,$panel.hostSha256), @($panel.bindingPath,$panel.bindingSha256))) {
+        if ($entry[1] -notmatch '^[a-f0-9]{64}$' -or -not (Test-Path -LiteralPath $entry[0] -PathType Leaf) -or (Get-FileHash -LiteralPath $entry[0] -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry[1]) { throw 'Native panel checksum verification failed.' }
+    }
+    return $panel
+}
+
+function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Directory, [string]$SourcePath, [bool]$AllowDownload) {
+    $manifestPath = Join-Path $Directory 'manifest.json'
+    $url = 'https://github.com/'+$script:PackagedRepository+'/releases/download/'+$script:PackagedReleaseTag+'/'
+    if ($AllowDownload) {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        [void][IO.Directory]::CreateDirectory($Directory)
+        if (-not (Test-Path -LiteralPath $manifestPath)) { Receive-CastlinkAsset ($url+'manifest.json') $manifestPath 1048576 }
+    }
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or (Get-Item -LiteralPath $manifestPath).Length -gt 1048576 -or (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $script:PackagedManifestSha256) { throw 'Pinned native panel manifest checksum verification failed.' }
+    $manifest = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
+    if ($manifest.schemaVersion -ne 1 -or $manifest.channel -cne 'server-wsl' -or $manifest.releaseTag -cne $State.releaseTag -or $manifest.releaseTag -cne $script:PackagedReleaseTag -or $manifest.repository -cne $script:PackagedRepository -or $manifest.rootfs.sha256 -cne $State.rootfsSha256) { throw 'Native panel manifest does not belong to this installed release.' }
+    # Old manifests continue to use the original console controller and logon task.
+    if (-not $manifest.PSObject.Properties['nativePanel']) { return $null }
+    $bundle = $manifest.nativePanel
+    $names = @('server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1')
+    if ($bundle.schemaVersion -ne 1 -or $bundle.host -cne 'CastLinkServer.exe' -or $bundle.binding -cne 'server-native-binding.json' -or @($bundle.files).Count -ne $names.Count) { throw 'Native panel helper inventory is invalid.' }
+    $seen = @{}
+    foreach ($entry in $bundle.files) {
+        if ($entry.file -cnotin $names -or $seen.ContainsKey($entry.file) -or $entry.sha256 -notmatch '^[a-f0-9]{64}$' -or $entry.size -le 0 -or $entry.size -gt 4194304) { throw 'Native panel helper inventory is invalid.' }
+        $seen[$entry.file] = $true
+        $source = Join-Path $Directory $entry.file
+        $valid = (Test-Path -LiteralPath $source -PathType Leaf) -and (Get-Item -LiteralPath $source).Length -eq $entry.size -and (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $entry.sha256
+        if (-not $valid -and $AllowDownload) { Receive-CastlinkAsset ($url+$entry.file) $source $entry.size }
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-Item -LiteralPath $source).Length -ne $entry.size -or (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'Native panel helper checksum verification failed.' }
+    }
+    $panelRoot = Join-Path $Root 'native-panel'
+    if (Test-Path -LiteralPath $panelRoot) {
+        if ((Get-Item -LiteralPath $panelRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Native panel directory cannot use a link.' }
+        foreach ($existing in Get-ChildItem -LiteralPath $panelRoot -Force) {
+            if ($existing.Name -cnotin ($names+@($bundle.host,$bundle.binding)) -or $existing.PSIsContainer -or ($existing.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Native panel directory contains unknown files; they were preserved.' }
+        }
+    } else { [void][IO.Directory]::CreateDirectory($panelRoot) }
+    foreach ($entry in $bundle.files) {
+        $target = Join-Path $panelRoot $entry.file
+        if (Test-Path -LiteralPath $target) {
+            if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'A different staged panel helper exists; it was preserved.' }
+        } else { [IO.File]::Copy((Join-Path $Directory $entry.file),$target,$false) }
+    }
+    $stagedInstaller = Stage-CastlinkPinnedInstaller $Root $SourcePath
+    $installerHash = (Get-FileHash -LiteralPath $stagedInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
+    $hostPath = Join-Path $panelRoot $bundle.host
+    $bindingPath = Join-Path $panelRoot $bundle.binding
+    if ($State.PSObject.Properties['nativePanel'] -and $State.nativePanel) {
+        return Assert-CastlinkNativePanelReceipt $Root $State
+    }
+    if ((Test-Path -LiteralPath $hostPath) -or (Test-Path -LiteralPath $bindingPath)) { throw 'An unrecorded panel host or binding exists; it was preserved.' }
+    if ($Status.buildId -cne ($State.releaseTag -creplace '^server-wsl-v','') -or $Status.ready -ne $true) { throw 'Native panel requires a verified matching ready server.' }
+    Build-CastlinkNativePanelHost $panelRoot $hostPath
+    $binding = [ordered]@{installationId=$State.installationId;installRoot=$Root;origin=$Status.origin;expectedBuildId=$Status.buildId;sourceScriptPath=$stagedInstaller;expectedInstallerSha256=$installerHash}
+    Write-CastlinkPrivateFile $bindingPath ($binding | ConvertTo-Json)
+    $panel = [pscustomobject]@{schemaVersion=1;hostPath=$hostPath;bindingPath=$bindingPath;hostSha256=(Get-FileHash -LiteralPath $hostPath -Algorithm SHA256).Hash.ToLowerInvariant();bindingSha256=(Get-FileHash -LiteralPath $bindingPath -Algorithm SHA256).Hash.ToLowerInvariant();manifestSha256=$script:PackagedManifestSha256}
+    $State | Add-Member NoteProperty nativePanel $panel -Force
+    Save-CastlinkInstallation $Root $State
+    return $panel
+}
+
+function Open-CastlinkNativePanel([string]$Root, $State) {
+    $panel = Assert-CastlinkNativePanelReceipt $Root $State
+    $process = Start-Process -FilePath $panel.hostPath -ArgumentList ('--binding "'+$panel.bindingPath+'"') -PassThru
+    try { if ($process.WaitForExit(1500) -and $process.ExitCode -ne 0) { throw 'The native panel exited without opening. Server services remain running.' } } finally { $process.Dispose() }
+}
+
 function Get-CastlinkCurrentUserSid {
     return [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 }
@@ -320,7 +416,10 @@ function Get-CastlinkCurrentUserSid {
 function Get-CastlinkLogonTaskSpec([string]$Root, $State, [string]$SourcePath) {
     $staged = Join-Path $Root 'install-server-windows.ps1'
     $hash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    return [pscustomobject]@{
+    $mode = if ($State.PSObject.Properties['logonTaskMode']) { [string]$State.logonTaskMode } elseif ($State.PSObject.Properties['autoStartAtLogon'] -and $State.autoStartAtLogon) { 'installer' } elseif ($State.PSObject.Properties['nativePanel'] -and $State.nativePanel) { 'native-panel' } else { 'installer' }
+    if ($mode -cnotin @('installer','native-panel')) { throw 'Unknown recorded logon task mode.' }
+    $spec = [pscustomobject]@{
+        mode=$mode
         taskName=('CastLink-Server-'+$State.installationId+'-Start')
         taskPath='\'
         userSid=(Get-CastlinkCurrentUserSid)
@@ -330,6 +429,13 @@ function Get-CastlinkLogonTaskSpec([string]$Root, $State, [string]$SourcePath) {
         sha256=$hash
         description=('CastLink owned installation '+$State.installationId+'; script SHA256 '+$hash)
     }
+    if ($mode -ceq 'native-panel') {
+        $panel = Assert-CastlinkNativePanelReceipt $Root $State
+        $spec.execute = $panel.hostPath
+        $spec.arguments = '--binding "'+$panel.bindingPath+'" --startup'
+        $spec.description += '; panel SHA256 '+$panel.hostSha256
+    }
+    return $spec
 }
 
 function Test-CastlinkAccountSid([string]$Identity, [string]$ExpectedSid) {
@@ -348,12 +454,7 @@ function Register-CastlinkLogonTask([string]$Root, $State, [string]$SourcePath) 
     $spec = Get-CastlinkLogonTaskSpec $Root $State $SourcePath
     $existing = Get-ScheduledTask -TaskName $spec.taskName -TaskPath $spec.taskPath -ErrorAction SilentlyContinue
     Assert-CastlinkLogonTask $existing $spec
-    if ((Test-Path -LiteralPath $spec.stagedPath) -and (Get-FileHash -LiteralPath $spec.stagedPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $spec.sha256) { throw 'A different staged installer already exists. It was preserved.' }
-    if (-not (Test-Path -LiteralPath $spec.stagedPath)) {
-        $bytes = [IO.File]::ReadAllBytes($SourcePath)
-        $stream = [IO.FileStream]::new($spec.stagedPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-        try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-    }
+    $null = Stage-CastlinkPinnedInstaller $Root $SourcePath
     if (-not $existing) {
         $taskAction = New-ScheduledTaskAction -Execute $spec.execute -Argument $spec.arguments
         $trigger = New-ScheduledTaskTrigger -AtLogOn -User $spec.userSid
@@ -362,6 +463,7 @@ function Register-CastlinkLogonTask([string]$Root, $State, [string]$SourcePath) 
         Register-ScheduledTask -TaskName $spec.taskName -TaskPath $spec.taskPath -Description $spec.description -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
         Assert-CastlinkLogonTask (Get-ScheduledTask -TaskName $spec.taskName -TaskPath $spec.taskPath) $spec
     }
+    $State | Add-Member NoteProperty logonTaskMode $spec.mode -Force
     $State | Add-Member NoteProperty autoStartAtLogon $true -Force
     Save-CastlinkInstallation $Root $State
     Write-Host 'CastLink will start for your Windows user at sign-in. The task uses only this owned installation and stores no password.'
@@ -522,7 +624,7 @@ try {
 
 function Invoke-CastlinkWindowsInstaller {
     if ($Help) {
-        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Updates are not implemented. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
+        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Updates are not implemented. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
         return
     }
     if ($NonInteractive -and $Action -notin @('Start','Stop','Status')) { throw 'NonInteractive is supported only for Start, Stop and Status.' }
@@ -580,6 +682,7 @@ function Invoke-CastlinkWindowsInstaller {
         $configPath = Join-Path $env:USERPROFILE '.wslconfig'
         Initialize-CastlinkWslNetworking $configPath @(Get-CastlinkDistros -Running) $true
         Initialize-CastlinkFirewall $InstallRoot
+        $cache = if ($PackageDirectory) { [IO.Path]::GetFullPath($PackageDirectory) } else { Join-Path $InstallRoot 'release' }
         if ($distros -ccontains $state.distroName) { Assert-CastlinkGuestIdentity $state } else {
             if ($state.phase -ne 'created') { throw 'Previously imported distribution is missing. Data recovery requires review; it will not be recreated automatically.' }
             $cache = Join-Path $InstallRoot 'release'
@@ -615,7 +718,10 @@ function Invoke-CastlinkWindowsInstaller {
         Export-CastlinkCertificate $InstallRoot $state $status
         if ($state.phase -ne 'ready') { Export-CastlinkOwnerAccess $InstallRoot $state }
         Assert-CastlinkKeepaliveAlive $state
-        if (-not $state.PSObject.Properties['autoStartAtLogon']) {
+        $panelReady = $null; $panelFailure = $null
+        try { $panelReady = Prepare-CastlinkNativePanel $InstallRoot $state $status $cache $script:InstallerSourcePath (-not [bool]$PackageDirectory) }
+        catch { $panelFailure = $_.Exception.Message }
+        if (-not $panelFailure -and -not $state.PSObject.Properties['autoStartAtLogon']) {
             if ((Read-Host 'Start this CastLink server automatically when you sign in to Windows? [y/N]') -match '^(y|yes)$') {
                 Register-CastlinkLogonTask $InstallRoot $state $script:InstallerSourcePath
             } else { $state | Add-Member NoteProperty autoStartAtLogon $false -Force }
@@ -624,6 +730,11 @@ function Invoke-CastlinkWindowsInstaller {
         $state.phase = 'ready'; Save-CastlinkInstallation $InstallRoot $state
         Write-Host ('CastLink is running in '+$state.distroName+'. Open https://'+$Address+'/ after DNS and router forwarding are configured. Internet access and remote WebRTC still require an external client check.')
     } finally { $lock.Dispose() }
+    if ($panelFailure) { throw ('Server services are verified running, but native panel setup failed: '+$panelFailure) }
+    if ($panelReady -and -not $NonInteractive) {
+        Write-Host ('Native Start/Stop and statistics panel: '+$panelReady.hostPath)
+        Open-CastlinkNativePanel $InstallRoot $state
+    }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {

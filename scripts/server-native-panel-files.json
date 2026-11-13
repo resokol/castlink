@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "description": "Stage these source helpers together; compile CastLinkServer.exe with build-server-native-panel-host.ps1. Supply server-native-binding.json for the exact installed original installer. No installer, task or existing data is replaced.",
+  "host": "CastLinkServer.exe",
+  "binding": "server-native-binding.json",
+  "buildFiles": ["server-native-panel-host.cs", "build-server-native-panel-host.ps1"],
+  "files": [
+    "server-native-control.ps1",
+    "server-native-monitor.ps1",
+    "simple-easy-setup-control.ps1",
+    "simple-easy-setup-language.ps1",
+    "simple-easy-setup-network.ps1",
+    "simple-easy-setup-control.ico"
+  ]
+}

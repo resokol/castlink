@@ -187,7 +187,9 @@ def configs(state, credentials, local_ipv4s):
         lines += ['http://' + host + ' {', ' redir https://' + s['address'] + '{uri} permanent', '}', 'https://' + host + ' {']
         if not s['publicHttps']: lines += [' tls internal']
         else:
-            lines += [' tls {', '  issuer acme {', '   disable_tlsalpn_challenge']
+            # Public DNS names can validate through the shared TCP443 listener.
+            challenge = 'disable_tlsalpn_challenge' if re.fullmatch(r'[0-9.]+', host) else 'disable_http_challenge'
+            lines += [' tls {', '  issuer acme {', '   ' + challenge]
             if re.fullmatch(r'[0-9.]+', host): lines += ['   dir https://acme-v02.api.letsencrypt.org/directory', '   profile shortlived']
             lines += ['  }', ' }']
         if host == s['address']:
@@ -366,6 +368,10 @@ frontend public_tls
   tcp-request inspect-delay 5s
   tcp-request content accept if { req.ssl_hello_type 1 }
 '''
+    names = list(dict.fromkeys([state['address'], host]))
+    if state['publicHttps'] and any(not re.fullmatch(r'[0-9.]+', name) for name in names):
+        # Certificate challenges must reach Caddy before TURN has its first PEM.
+        config += '  use_backend web_tls if { req.ssl_alpn -i acme-tls/1 } { req.ssl_sni -i ' + ' '.join(names) + ' }\n'
     if host != state['address']: config += '  use_backend turn_entry if { req.ssl_sni -i ' + host + ' }\n'
     config += '''  use_backend turn_entry if { req.ssl_hello_type 1 } !{ req.ssl_sni -m found } !{ req.ssl_alpn -m found }
   default_backend web_tls
