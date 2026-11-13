@@ -25,12 +25,14 @@ try{
   $callback=$closing.Arguments[0].Find({param($node) $node -is [Management.Automation.Language.ScriptBlockExpressionAst]},$true)
   $window=[pscustomobject]@{hidden=$false};$window|Add-Member ScriptMethod Hide {$this.hidden=$true}
   $job=[pscustomobject]@{canClose=$false;closing=$false;phaseStarted=[DateTime]::UtcNow;status=$null;pipeline=$null}
+  $recoveryCode=[pscustomobject]@{clearCalls=0};$recoveryCode|Add-Member ScriptMethod Clear {$this.clearCalls++}
   $event=[pscustomobject]@{Cancel=$false};$script:stopRequests=0
   $uiHelpers=[pscustomobject]@{};$uiHelpers|Add-Member ScriptMethod UpdateTransition {}
   $start=[pscustomobject]@{IsEnabled=$true};$refresh=[pscustomobject]@{IsEnabled=$true};$hide=[pscustomobject]@{IsEnabled=$true}
   $begin={param($Mode) if($Mode -ceq 'stop'){$script:stopRequests++}}
   & ([scriptblock]::Create($callback.ScriptBlock.Extent.Text.Trim('{}'))) $window $event
   if(-not $event.Cancel -or -not $window.hidden -or $job.closing -or $script:stopRequests){throw 'Window X did not hide to tray while preserving running services'}
+  if($recoveryCode.clearCalls -ne 1){throw 'Window X did not clear the private recovery code'}
   . (Join-Path (Split-Path $EntryPath -Parent) 'simple-easy-setup-gui.ps1') -FunctionsOnly
   $signal=New-Object Threading.ManualResetEvent($false)
   try{

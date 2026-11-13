@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const { RoomEvent, Track } = require('livekit-client');
 const { load } = require('./load-typescript.cjs');
 const { bindStudioRoomLifecycle } = load('../lib/studio-room-lifecycle.ts');
+const { readGuestReceiveBitrate } = load('../lib/guest-receive-bitrate.ts');
 
 // Run the actual connection effect, including its event/interval/RAF wiring.
 // Count guest state identity changes: React uses Object.is to bail out here.
@@ -22,8 +23,8 @@ const ref = current => ({ current });
 
 function harness() {
   const room = new EventEmitter();
-  Object.assign(room, { localParticipant: { trackPublications: new Map() }, remoteParticipants: new Map(), connect: async () => {}, disconnect() {} });
-  const microphone = { isMuted: false, track: { mediaStreamTrack: { readyState: 'live' } } };
+  Object.assign(room, { state: 'connected', localParticipant: { trackPublications: new Map() }, remoteParticipants: new Map(), connect: async () => {}, disconnect() {} });
+  const microphone = { isMuted: false, track: { mediaStreamTrack: { readyState: 'live' }, getRTCStatsReport: async () => undefined } };
   let report = new Map();
   const camera = { isMuted: false, track: { getRTCStatsReport: async () => report } };
   const participant = { identity: 'guest-alice', sid: 'PA_alice', name: 'Alice', audioLevel: 0,
@@ -31,8 +32,10 @@ function harness() {
   room.remoteParticipants.set(participant.identity, participant);
   let guests = [], guestRenders = 0, nextFrame = 0;
   const frames = new Map(), intervals = new Map();
+  let clock = 1000;
   const context = {
-    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle,
+    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate,
+    Date: class extends Date { static now() { return clock; } },
     studioId: 'studio', roomName: 'room', transferSnapshot: undefined,
     acquireStudioClientId: async () => ({ clientId: 'client', release() {} }),
     fetch: async url => ({ ok: true, json: async () => url === '/api/studio-control' ? { role: 'moderator' } : { token: 'token' } }),
@@ -54,6 +57,7 @@ function harness() {
   return { room, participant, microphone, context, frames, intervals,
     guests: () => guests, renders: () => guestRenders,
     stats: value => { report = value; },
+    time: value => { clock = value; },
     tickFrames() { const pending = Array.from(frames.values()); frames.clear(); pending.forEach(callback => callback(100)); },
     stop: () => context.module.exports(),
   };
@@ -69,6 +73,7 @@ function harness() {
   for (let i = 0; i < 60; i++) h.tickFrames();
   assert.equal(h.renders(), before, '60 audio animation frames must not rerender the Studio guest list');
 
+  h.time(3000);
   await h.context.refreshRef.current();
   await h.context.refreshRef.current();
   assert.equal(h.renders(), before, 'identical participant/stat polls, including audioLevel changes, preserve guest state identity');
@@ -104,6 +109,18 @@ function harness() {
   await h.context.refreshRef.current();
   assert.equal(h.renders(), before, 'cached statistics do not replace unchanged rows');
 
+  const video = (bytesReceived, timestamp) => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', frameWidth: 1280, frameHeight: 720, bytesReceived, timestamp, packetsLost: 0, jitter: 0.002 }]]);
+  h.stats(video(1_000_000, 1000)); await h.context.refreshRef.current();
+  h.time(5000); h.stats(video(2_000_000, 3000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].receiveVideoKbps, 4000);
+  assert.equal(h.guests()[0].networkMeasured, true);
+  const freshness = h.guests()[0].statsSampledAtRef;
+  before = h.renders();
+  h.time(7000); h.stats(video(3_000_000, 5000)); await h.context.refreshRef.current();
+  assert.equal(h.renders(), before, 'equal fresh bitrate samples do not rerender the Studio roster');
+  assert.equal(h.guests()[0].statsSampledAtRef, freshness, 'freshness owner remains stable');
+  assert.equal(freshness.current, 7000, 'local expiry sees the fresh sample without a parent update');
+
   h.context.guestCameraOutboundRef.current[h.participant.identity] = { sid: h.participant.sid, bitrateKbps: 1234 };
   await h.context.refreshRef.current();
   assert.equal(h.guests()[0].roomSendBitrateKbps, 1234);
@@ -123,6 +140,44 @@ function harness() {
   assert.equal(h.room.eventNames().length, 0);
   assert.equal(h.frames.size, 0);
   assert.equal(h.intervals.size, 0);
+
+  // Noise/echo switching can republish a microphone while its old stats are pending.
+  // Exercise the real Studio sampler with both a replacement and a reused SDK track.
+  for (const reuseTrack of [false, true]) {
+    const audio = harness();
+    await flush();
+    const audioReport = (bytesReceived, timestamp) => new Map([['a', { id: 'a', type: 'inbound-rtp', kind: 'audio', bytesReceived, timestamp }]]);
+    let currentAudio = audioReport(1000, 1000);
+    const oldTrack = audio.microphone.track;
+    oldTrack.getRTCStatsReport = async () => currentAudio;
+    await audio.context.refreshRef.current();
+    currentAudio = audioReport(33000, 3000);
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, 128);
+
+    let finishOldReport;
+    oldTrack.getRTCStatsReport = () => new Promise(resolve => { finishOldReport = resolve; });
+    const pendingRefresh = audio.context.refreshRef.current();
+    await flush();
+    assert.equal(typeof finishOldReport, 'function', 'old microphone report is genuinely pending');
+    const currentTrack = reuseTrack ? oldTrack : { mediaStreamTrack: { readyState: 'live' } };
+    currentAudio = audioReport(500000, 5000);
+    currentTrack.getRTCStatsReport = async () => currentAudio;
+    const nextPublication = { isMuted: false, track: currentTrack };
+    const getPublication = audio.participant.getTrackPublication;
+    audio.participant.getTrackPublication = source => source === Track.Source.Microphone ? nextPublication : getPublication(source);
+    finishOldReport(audioReport(9000000000, 5000));
+    await pendingRefresh;
+    assert.equal(audio.guests()[0].receiveAudioKbps, null, 'superseded publication report cannot leak into the new microphone bitrate');
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, null, 'republished microphone establishes a fresh baseline');
+    assert.equal(audio.guests()[0].microphoneTrack, currentTrack, 'meter owns the current microphone after processing switch');
+    currentAudio = audioReport(532000, 7000);
+    await audio.context.refreshRef.current();
+    assert.equal(audio.guests()[0].receiveAudioKbps, 128, 'normal audio bitrate recovers without a spike after processing switch');
+    assert.equal(audio.guests()[0].stability, 'Хорошая', 'audio processing does not change the video network grade');
+    audio.stop();
+  }
 
   // GuestAudioMeter owns PCM observations and state independently of the Studio.
   let state = [], cursor = 0, effect, observer;

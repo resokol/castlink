@@ -4,14 +4,14 @@
 
 通过 SSH 终端选择[开箱即用](#out-of-box)或[高级模式](#advanced)，无需 Windows 向导。本指南使用声明支持 `network-modes-v1` 和 `linux-compose-v1` 的官方软件包；文档更新不会为旧软件包增加功能。[安装概览](INSTALL.md) · [用户指南](../../README.md) · [发行版本](https://github.com/resokol/castlink/releases)。
 
-下方新的交互步骤适用于 CLI **1.0.2**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用CLI 1.0.2。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
+下方新的交互步骤适用于 CLI **1.0.4**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用CLI 1.0.4。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
 
-## 单命令安装 — 1.0.2
+## 单命令安装 — 1.0.4
 
 全新安装可使用本发行版的独立加载脚本：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
 脚本验证固定归档，询问地址及单独的创建房间密码，并将软件包和数据保存在 `/opt/castlink-server`。`--install-runtime` 允许准备 Python/Docker/Compose；不加该参数时需先准备依赖。重复运行不会更新或重启已完成的安装。已有服务器请使用正常 `update` 命令及原数据目录。[详细说明与 24 小时图表](SERVER_INSTALL.md)。
@@ -33,14 +33,14 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.2**，源提交为 `78327495ead06f3d74902cf0c60a7973a0828f2e`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.4**，源提交为 `079fd0f9d4b18215274ff401ba584435e263994f`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
 
 发行版文件在 [resokol/castlink](https://github.com/resokol/castlink/releases) 公开提供，下载无需登录。以下示例使用 `curl` 和准确的 Linux 标签。旧版内嵌的 `castlink-releases` 链接会重定向到同一个仓库。
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.2-78327495ead0'
+RELEASE_TAG='linux-v1.0.4-079fd0f9d4b1'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
@@ -86,7 +86,7 @@ python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --lang zh-CN
 ```
 
-CLI 1.0.2 默认使用快速设置：输入服务器域名或 IPv4，可省略 `https://`。不再单独询问快速模式或证书选择。域名只有一个 IPv4 A 记录时，直接从 DNS 获取媒体 IPv4；DNS 缺失或不明确时才额外询问服务器 IPv4。全球可路由的媒体 IPv4 自动选择公共证书，私网或 loopback 地址选择私有 CA。需要明确选择网络和证书时使用 `--advanced`。
+CLI 1.0.4 默认使用快速设置：输入服务器域名或 IPv4，可省略 `https://`。不再单独询问快速模式或证书选择。域名只有一个 IPv4 A 记录时，直接从 DNS 获取媒体 IPv4；DNS 缺失或不明确时才额外询问服务器 IPv4。全球可路由的媒体 IPv4 自动选择公共证书，私网或 loopback 地址选择私有 CA。需要明确选择网络和证书时使用 `--advanced`。
 
 请替换示例地址。默认值 `127.0.0.1` 只能从服务器本机访问；远程客户端不能使用这些默认值。快速模式使用 HTTPS、HTTP/HTTPS 80/443、媒体 TCP 7881、媒体 UDP 7882、TURN UDP 3478 和 relay UDP 30000–30031。媒体 IPv4 不是 loopback 时，Caddy 绑定到 `0.0.0.0`。
 
@@ -139,7 +139,7 @@ docker compose -f "$CASTLINK_STATE/compose.json" exec -T caddy cat /data/caddy/p
 <a id="advanced"></a>
 ## 高级模式：自定义端口、HTTP 或外部 HTTPS 代理
 
-CLI 1.0.2 通过以下命令明确启用高级设置：
+CLI 1.0.4 通过以下命令明确启用高级设置：
 
 ```bash
 python3 scripts/linux-compose-setup.py init --state-dir "$CASTLINK_STATE" --advanced --lang zh-CN

@@ -2,7 +2,7 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
-Server release **1.0.2** adds [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate unverified candidate; Windows Client stays at **1.0.0**.
+Server release **1.0.2** adds [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate unverified candidate; Windows Client stays at **1.0.1**.
 
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 

@@ -2,7 +2,7 @@
 
 # CastLink: установка и работа
 
-Текущие серверные пакеты Windows Server Setup и standalone Linux — **1.0.2**; Windows Client — **1.0.0**. [История изменений](../CHANGELOG.md) · [Восстановление связи](#server-pair-recovery).
+Текущие серверные пакеты Windows Server Setup и standalone Linux — **1.0.4**; Windows Client — **1.0.1**. [История изменений](../CHANGELOG.md) · [Восстановление связи](#server-pair-recovery).
 
 В 1.0.2 добавлены [Linux одной командой, история показателей и журнал событий за 24 часа](SERVER_INSTALL.md). Локальный Windows Server Setup по-прежнему использует Docker Desktop; Windows/WSL2 без Docker — отдельный непроверенный кандидат.
 
@@ -112,9 +112,9 @@ PDF/PPTX и листание слайдов описаны [отдельно](PR
 
 | Пакет | Для чего нужен |
 | --- | --- |
-| [CastLink-Client-1.0.0-93d9b93e17da-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/CastLink-Client-1.0.0-93d9b93e17da-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.0-93d9b93e17da/SHA256SUMS) | Windows-клиент студии и кастера; подключается к существующему серверу, Docker не нужен |
-| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.2-78327495ead0/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) | Windows-клиент студии и кастера; подключается к существующему серверу, Docker не нужен |
+| [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 

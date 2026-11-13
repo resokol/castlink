@@ -25,5 +25,5 @@ assert.match(compact,/data-guest-output-shortcut="true"/,'copy URL is directly r
 assert.match(compact,/aria-label="Копировать URL: Name"/,'copy shortcut identifies the guest');
 assert.match(compact,/Камеры и звук/,'advanced camera controls have a clear disclosure');
 const copied=renderToStaticMarkup(React.createElement(GuestVideoCard,{...guestProps,compact:true,copied:true}));assert.match(copied,/aria-label="Скопировано: Name"/,'copy success is accessible without opening settings');
-const legacy=renderToStaticMarkup(React.createElement(GuestVideoCard,guestProps));assert.doesNotMatch(legacy,/data-guest-output-shortcut/,'default card retains existing URL action');assert.doesNotMatch(legacy,/popover="auto"/,'default card has no compact disclosure');
+const legacy=renderToStaticMarkup(React.createElement(GuestVideoCard,guestProps));assert.doesNotMatch(legacy,/data-guest-output-shortcut/,'default card retains existing URL action');assert.doesNotMatch(legacy,/class="advancedSurface" popover=/,'default card has no compact settings disclosure');assert.match(legacy,/data-network-help="true" popover="auto"/,'network reminder remains available on the default card');
 console.log('PASS opt-in compact guest keeps media, disabled mic, advanced actions and pending status');
