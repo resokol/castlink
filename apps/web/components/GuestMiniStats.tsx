@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { formatPacketLoss, type PacketLoss } from "@/lib/guest-network-stats";
 import { useI18n } from "./I18nProvider";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
@@ -13,36 +14,67 @@ export type GuestMiniStatsData = {
   networkMeasured?: boolean;
   statsSampledAt?: number;
   statsSampledAtRef?: { current: number };
+  networkSampledAtRef?: { current: number };
   stability: "Хорошая" | "Средняя" | "Плохая";
   packetLoss: number;
-  jitterMs: number;
-  rttMs: number;
+  currentLoss?: PacketLoss | null;
+  totalLoss?: PacketLoss | null;
+  jitterMs: number | null;
+  rttMs: number | null;
   camera: boolean;
   microphone: boolean;
 };
 
+// One card-local clock updates only statistics consumers, preserving media owners.
+const GuestStatsTime = createContext<number | null>(null);
+function useGuestStatsTime() {
+  const shared = useContext(GuestStatsTime);
+  const [now, setNow] = useState(Date.now);
+  const hasSharedClock = shared !== null;
+  useEffect(() => {
+    if (hasSharedClock) return;
+    const timer = setInterval(() => setNow(Date.now()), 2000);
+    return () => clearInterval(timer);
+  }, [hasSharedClock]);
+  return shared ?? now;
+}
+export function GuestStatsClock({ children }: { children: ReactNode }) {
+  const now = useGuestStatsTime();
+  return <GuestStatsTime.Provider value={now}>{children}</GuestStatsTime.Provider>;
+}
+export function useGuestStatsFreshness(guest: GuestMiniStatsData) {
+  const now = useGuestStatsTime();
+  const sampledAt = guest.statsSampledAtRef?.current ?? guest.statsSampledAt;
+  const networkSampledAt = guest.networkSampledAtRef?.current ?? sampledAt;
+  return {
+    fresh: sampledAt != null && sampledAt > 0 && now - sampledAt < 8000,
+    measured: networkSampledAt != null && networkSampledAt > 0 && now - networkSampledAt <= 6000 && !!guest.networkMeasured,
+  };
+}
+
 export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
   const { t, locale } = useI18n();
-  const [now, setNow] = useState(Date.now);
+  const { fresh, measured } = useGuestStatsFreshness(guest);
   const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null), popup = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const positionHelp = () => { if (popup.current && trigger.current) positionStudioConsolePopover(popup.current, trigger.current); };
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 2000); return () => clearInterval(timer); }, []);
   useEffect(() => {
     if (!helpOpen) return;
     window.addEventListener("resize", positionHelp);
     window.addEventListener("scroll", positionHelp, true);
     return () => { window.removeEventListener("resize", positionHelp); window.removeEventListener("scroll", positionHelp, true); };
   }, [helpOpen]);
-  const sampledAt = guest.statsSampledAtRef?.current ?? guest.statsSampledAt;
-  const fresh = sampledAt != null && sampledAt > 0 && now - sampledAt < 8000;
-  const measured = fresh && guest.networkMeasured;
   const quality = !measured ? "unknown" : guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad";
   const bitrate = (value: number | null | undefined, enabled: boolean) => fresh && enabled && value != null && Number.isFinite(value) && value >= 0
     ? `${value.toLocaleString(locale)} ${t("кбит/с")}` : "—";
-  const detail = measured ? t("Потери: {loss} пак. за всё время трека; джиттер: {jitter} мс; RTT: {rtt}", {
-    loss: guest.packetLoss, jitter: guest.jitterMs, rtt: guest.rttMs > 0 ? `${guest.rttMs} ${t("мс")}` : "—",
+  const lossText = (value: PacketLoss | null | undefined) => {
+    const formatted = formatPacketLoss(value, locale);
+    return formatted == null ? "—" : t("{loss} пак.", { loss: formatted });
+  };
+  const metric = (value: number | null) => value != null && Number.isFinite(value) && value >= 0 ? `${value.toLocaleString(locale)} ${t("мс")}` : "—";
+  const detail = measured ? t("Потери: {loss}; джиттер: {jitter}; RTT: {rtt}", {
+    loss: lossText(guest.currentLoss), jitter: metric(guest.jitterMs), rtt: metric(guest.rttMs),
   }) : t("Нет свежего замера соединения");
   return <><dl className={styles.miniStats} aria-label={t("Статистика соединения")}>
     <div title={t("Измеренный приём камеры этой студией; без аудио")}><dt>{t("Приём видео")}</dt><dd>{bitrate(guest.receiveVideoKbps, guest.camera)}</dd></div>
@@ -68,11 +100,12 @@ export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
     <header className={styles.networkHelpHeader}><strong id={`${menuId}-title`}>{t("Качество сети")}</strong><button type="button" data-network-help-close className={styles.networkHelpClose} popoverTarget={menuId} popoverTargetAction="hide" aria-label={t("Закрыть")}><StudioConsoleIcon kind="close" /></button></header>
     <p className={styles.networkHelpIntro}>{t("Срабатывает худший из трёх показателей.")}</p>
     <ul className={styles.networkHelpGrades}>
-      <li data-network-help-grade="good"><strong>{t("Хорошая")}</strong><span>{t("Потери ≤ 2 пак. · джиттер ≤ 30 мс · RTT ≤ 150 мс")}</span></li>
-      <li data-network-help-grade="mid"><strong>{t("Средняя")}</strong><span>{t("Потери 3–10 пак. · джиттер 31–60 мс · RTT 151–300 мс")}</span></li>
-      <li data-network-help-grade="bad"><strong>{t("Плохая")}</strong><span>{t("Потери > 10 пак. · джиттер > 60 мс · RTT > 300 мс")}</span></li>
+      <li data-network-help-grade="good"><strong>{t("Хорошая")}</strong><span>{t("Потери < 1% · джиттер ≤ 30 мс · RTT ≤ 150 мс")}</span></li>
+      <li data-network-help-grade="mid"><strong>{t("Средняя")}</strong><span>{t("Потери 1–<5% · джиттер >30–60 мс · RTT >150–300 мс")}</span></li>
+      <li data-network-help-grade="bad"><strong>{t("Плохая")}</strong><span>{t("Потери ≥ 5% · джиттер > 60 мс · RTT > 300 мс")}</span></li>
     </ul>
-    <p className={styles.networkHelpNote}>{t("Потери — за всё время видеотрека, не процент за последние секунды и не скорость интернета.")}</p>
+    <p className={styles.networkHelpNote}>{t("Оценка — за последние 10 секунд, замер каждые 2 секунды. История потерь хранится отдельно; это не скорость интернета.")}</p>
     <div className={styles.networkHelpCurrent}><strong>{t("Текущий замер")}</strong><p>{detail}</p></div>
+    <div className={styles.networkHelpCurrent}><strong>{t("За сессию участника")}</strong><p>{lossText(guest.totalLoss)}</p></div>
   </div></>;
 }

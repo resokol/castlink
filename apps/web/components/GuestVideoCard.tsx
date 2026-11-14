@@ -10,7 +10,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
-import { GuestMiniStats, type GuestMiniStatsData } from "./GuestMiniStats";
+import { formatPacketLoss } from "@/lib/guest-network-stats";
+import { GuestMiniStats, GuestStatsClock, useGuestStatsFreshness, type GuestMiniStatsData } from "./GuestMiniStats";
 
 export type GuestVideoCardData = GuestMiniStatsData & {
   identity: string;
@@ -19,8 +20,8 @@ export type GuestVideoCardData = GuestMiniStatsData & {
   bitrateKbps: number;
   roomSendBitrateKbps?: number | null;
   packetLoss: number;
-  jitterMs: number;
-  rttMs: number;
+  jitterMs: number | null;
+  rttMs: number | null;
   stability: "Хорошая" | "Средняя" | "Плохая";
   camera: boolean;
   microphone: boolean;
@@ -94,7 +95,7 @@ export function GuestVideoCard({
     window.addEventListener("resize", reposition);
     return () => window.removeEventListener("resize", reposition);
   }, [compact, menuOpen]);
-  return <div className={`panel studio-video-card studio-caster-card source-card${compact ? ` ${styles.compact}` : ""}`} data-console-compact={compact || undefined} data-source-focused={focused} data-source-selected={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
+  return <GuestStatsClock><div className={`panel studio-video-card studio-caster-card source-card${compact ? ` ${styles.compact}` : ""}`} data-console-compact={compact || undefined} data-source-focused={focused} data-source-selected={focused} data-source-identity={guest.identity} tabIndex={onSelect ? -1 : undefined}>
     <div className="guest-card-heading" tabIndex={onSelect ? -1 : undefined}>
       <h2 title={guest.name}>{guest.name}</h2>
       <span className="guest-media-state">
@@ -152,13 +153,7 @@ export function GuestVideoCard({
       </div></details>
       <details className={`guest-card-statistics ${styles.settingsSection}`} open={!compact || undefined} aria-label={t("Сведения об участнике {name}", { name: guest.name })}>
         <summary className={styles.sectionSummary}>{t("Устройства и качество соединения")}</summary><div className={styles.sectionContent}>
-        <div className="guest-card-details guest-card-connection">
-          <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
-          <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
-          <div><b>{t("Сеть")}</b><span className={`net net-${guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(guest.stability)}</span></div>
-          <div><b>RTT / Jitter</b><span>{guest.rttMs} / {guest.jitterMs} {t("мс")}</span></div>
-          <div><b>{t("Потери / Аудио")}</b><span>{guest.packetLoss} {t("пак. /")} {guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
-        </div>
+        <GuestConnectionDetails guest={guest} />
         <details className={`guest-diagnostics ${styles.hardwareDetails}`} open={compact || undefined}><summary>{t("Устройства и качество соединения")}</summary><div className="guest-card-details">
           <div><b>{t("Камера")}</b><span>{guest.cameraDevice === "Неизвестная камера" ? t("Неизвестная камера") : guest.cameraDevice || "—"}</span></div>
           <div><b>CPU</b><span>{guest.cpu ? translateWorkspaceMessage(t, guest.cpu) : "—"}</span></div>
@@ -168,5 +163,23 @@ export function GuestVideoCard({
       </div></details>
     </div></details>
     </div>
+  </div></GuestStatsClock>;
+}
+
+function GuestConnectionDetails({ guest }: { guest: GuestVideoCardData }) {
+  const { t, locale } = useI18n();
+  const { measured } = useGuestStatsFreshness(guest);
+  const lossText = (value: typeof guest.currentLoss) => {
+    const formatted = formatPacketLoss(value, locale);
+    return formatted == null ? "—" : t("{loss} пак.", { loss: formatted });
+  };
+  return <div className="guest-card-details guest-card-connection">
+    <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
+    <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
+    <div><b>{t("Сеть")}</b><span className={`net net-${!measured ? "unknown" : guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(measured ? guest.stability : "Нет данных")}</span></div>
+    <div><b>RTT / Jitter</b><span>{measured ? guest.rttMs ?? "—" : "—"} / {measured ? guest.jitterMs ?? "—" : "—"} {t("мс")}</span></div>
+    <div><b>{t("Потери за 10 секунд")}</b><span>{lossText(measured ? guest.currentLoss : null)}</span></div>
+    <div><b>{t("За сессию участника")}</b><span>{lossText(guest.totalLoss)}</span></div>
+    <div><b>{t("Аудио")}</b><span>{guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
   </div>;
 }

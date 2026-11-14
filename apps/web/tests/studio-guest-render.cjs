@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const { RoomEvent, Track } = require('livekit-client');
 const { load } = require('./load-typescript.cjs');
 const { bindStudioRoomLifecycle } = load('../lib/studio-room-lifecycle.ts');
+const { createGuestNetworkStatsState, sampleGuestNetworkStats } = load('../lib/guest-network-stats.ts');
 const { readGuestReceiveBitrate } = load('../lib/guest-receive-bitrate.ts');
 
 // Run the actual connection effect, including its event/interval/RAF wiring.
@@ -34,7 +35,7 @@ function harness() {
   const frames = new Map(), intervals = new Map();
   let clock = 1000;
   const context = {
-    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate,
+    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate, createGuestNetworkStatsState, sampleGuestNetworkStats,
     Date: class extends Date { static now() { return clock; } },
     studioId: 'studio', roomName: 'room', transferSnapshot: undefined,
     acquireStudioClientId: async () => ({ clientId: 'client', release() {} }),
@@ -54,7 +55,7 @@ function harness() {
   };
   for (const name of ['setSessionToken', 'setOnAir', 'setReturnActive', 'setPreviewReady', 'setOnAirStatus', 'setStudioClientId', 'setStudioRole', 'setStudioEpoch', 'setRemoteDesired', 'setStudioPrimaryOnline', 'setCanClaimStudio', 'setStatus']) context[name] = () => {};
   vm.runInNewContext(code, context);
-  return { room, participant, microphone, context, frames, intervals,
+  return { room, participant, microphone, camera, context, frames, intervals,
     guests: () => guests, renders: () => guestRenders,
     stats: value => { report = value; },
     time: value => { clock = value; },
@@ -109,7 +110,7 @@ function harness() {
   await h.context.refreshRef.current();
   assert.equal(h.renders(), before, 'cached statistics do not replace unchanged rows');
 
-  const video = (bytesReceived, timestamp) => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', frameWidth: 1280, frameHeight: 720, bytesReceived, timestamp, packetsLost: 0, jitter: 0.002 }]]);
+  const video = (bytesReceived, timestamp) => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', frameWidth: 1280, frameHeight: 720, bytesReceived, timestamp, packetsReceived: bytesReceived / 1000, packetsLost: 0, jitter: 0.002 }]]);
   h.stats(video(1_000_000, 1000)); await h.context.refreshRef.current();
   h.time(5000); h.stats(video(2_000_000, 3000)); await h.context.refreshRef.current();
   assert.equal(h.guests()[0].receiveVideoKbps, 4000);
@@ -120,6 +121,38 @@ function harness() {
   assert.equal(h.renders(), before, 'equal fresh bitrate samples do not rerender the Studio roster');
   assert.equal(h.guests()[0].statsSampledAtRef, freshness, 'freshness owner remains stable');
   assert.equal(freshness.current, 7000, 'local expiry sees the fresh sample without a parent update');
+
+  // Real sampler must distinguish historical totals from current observations.
+  const lossyVideo = (at, received, lost) => new Map([['v', { id: 'v', ssrc: 1, type: 'inbound-rtp', kind: 'video', timestamp: at, bytesReceived: received * 1000, packetsReceived: received, packetsLost: lost, jitter: .002 }]]);
+  h.participant.sid = 'PA_loss_history';
+  h.time(9000); h.stats(lossyVideo(9000, 9_997_000, 3000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].networkMeasured, false, 'first sample is baseline, not current health');
+  assert.equal(h.guests()[0].totalLoss.packets, 3000);
+  h.time(11000); h.stats(lossyVideo(11000, 10_007_000, 3000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].stability, 'Хорошая', 'old loss cannot poison current status');
+  assert.equal(h.guests()[0].currentLoss.packets, 0);
+  const oldTotalPercent = h.guests()[0].totalLoss.percent;
+  h.time(13000); h.stats(lossyVideo(13000, 10_017_000, 3000)); await h.context.refreshRef.current();
+  assert.ok(h.guests()[0].totalLoss.percent < oldTotalPercent, 'denominator-only changes reach the UI');
+  await h.context.refreshRef.current(); // The first cached report clears the old bitrate.
+  before = h.renders();
+  await h.context.refreshRef.current();
+  assert.equal(h.renders(), before, 'equal current/history objects preserve optimized guest row identity');
+  h.time(15000); h.stats(lossyVideo(15000, 10_026_000, 4000)); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].stability, 'Средняя', '1000 losses / 30000 recent packets is medium');
+  for (const at of [17000, 19000, 21000, 23000, 25000]) {
+    h.time(at); h.stats(lossyVideo(at, 10_026_000 + (at - 15000) * 5, 4000)); await h.context.refreshRef.current();
+  }
+  assert.equal(h.guests()[0].stability, 'Хорошая', 'current status recovers after ten seconds');
+  assert.equal(h.guests()[0].totalLoss.packets, 4000, 'history stays visible after recovery');
+  h.camera.track = { getRTCStatsReport: async () => lossyVideo(27000, 10_086_000, 4000) };
+  h.time(27000); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].currentLoss, null, 'wrapper replacement resets current samples');
+  assert.equal(h.guests()[0].totalLoss.packets, 4000, 'wrapper replacement preserves history without recounting RTP counters');
+  h.participant.sid = 'PA_new_session';
+  h.camera.track = { getRTCStatsReport: async () => lossyVideo(29000, 100, 1) };
+  h.time(29000); await h.context.refreshRef.current();
+  assert.equal(h.guests()[0].totalLoss.packets, 1, 'participant SID changes reset historical loss');
 
   h.context.guestCameraOutboundRef.current[h.participant.identity] = { sid: h.participant.sid, bitrateKbps: 1234 };
   await h.context.refreshRef.current();
@@ -179,6 +212,128 @@ function harness() {
     audio.stop();
   }
 
+  // Camera-off casters use their existing microphone report, preserving camera priority.
+  const voice = harness();
+  await flush();
+  let reads = { video: 0, audio: 0 };
+  let voiceAt = 3000, videoReceived = 1000, videoLost = 10, audioReceived = 1000, audioLost = 2;
+  let missingVideoReport = false;
+  const receiverReport = (kind, received, lost) => new Map([
+    ['same', { id: 'same', ssrc: 1, type: 'inbound-rtp', kind, timestamp: voiceAt, bytesReceived: received * 1000, packetsReceived: received, packetsLost: lost, jitter: .002 }],
+    ['pair', { id: 'pair', type: 'candidate-pair', nominated: true, state: 'succeeded', currentRoundTripTime: .025 }],
+  ]);
+  voice.camera.track.getRTCStatsReport = async () => { reads.video++; return missingVideoReport ? undefined : receiverReport('video', videoReceived, videoLost); };
+  const readAudio = async () => { reads.audio++; return receiverReport('audio', audioReceived, audioLost); };
+  voice.microphone.track.getRTCStatsReport = readAudio;
+  const refreshVoice = async at => {
+    voiceAt = at; voice.time(at);
+    const beforeReads = { ...reads };
+    await voice.context.refreshRef.current();
+    assert.equal(reads.video - beforeReads.video, voice.camera.track ? 1 : 0, 'camera stats reads are not multiplied');
+    assert.equal(reads.audio - beforeReads.audio, voice.microphone.isMuted ? 0 : 1, 'audio fallback reuses exactly one existing microphone report');
+  };
+  await refreshVoice(3000);
+  voice.camera.isMuted = true;
+  await refreshVoice(5000);
+  assert.equal(voice.guests()[0].currentLoss, null, 'camera off switches to audio with a fresh baseline');
+  assert.equal(voice.guests()[0].totalLoss.packets, 12, 'video history survives switching to microphone');
+  audioReceived += 100;
+  await refreshVoice(7000);
+  assert.equal(voice.guests()[0].networkMeasured, true, 'audio-only caster has measured network quality');
+  assert.equal(voice.guests()[0].stability, 'Хорошая');
+  assert.equal(voice.guests()[0].jitterMs, 2);
+  assert.equal(voice.guests()[0].rttMs, 25);
+  audioReceived += 90; audioLost += 10;
+  await refreshVoice(9000);
+  assert.equal(voice.guests()[0].stability, 'Плохая', 'audio packet-loss burst affects current network status');
+  for (const at of [11000, 13000, 15000, 17000, 19000]) { audioReceived += 100; await refreshVoice(at); }
+  assert.equal(voice.guests()[0].stability, 'Хорошая', 'audio network status recovers after ten seconds');
+  const voiceHistory = voice.guests()[0].totalLoss.packets;
+  voice.camera.isMuted = false;
+  await refreshVoice(21000);
+  assert.equal(voice.guests()[0].currentLoss, null, 'camera on switches back to video baseline');
+  assert.equal(voice.guests()[0].totalLoss.packets, voiceHistory, 'returning to known video counters does not recount losses');
+  videoReceived += 100;
+  await refreshVoice(23000);
+  assert.equal(voice.guests()[0].stability, 'Хорошая');
+  videoReceived += 80; videoLost += 20; audioReceived += 100;
+  await refreshVoice(25000);
+  assert.equal(voice.guests()[0].stability, 'Плохая', 'healthy microphone cannot hide failing active camera');
+  missingVideoReport = true; audioReceived += 100;
+  await refreshVoice(27000);
+  assert.equal(voice.guests()[0].networkMeasured, false, 'unavailable stats from active camera do not select healthy audio');
+  voice.camera.track = undefined;
+  await refreshVoice(29000);
+  assert.equal(voice.guests()[0].currentLoss, null, 'unsubscribed camera permits microphone fallback');
+  audioReceived += 100;
+  await refreshVoice(31000);
+  assert.equal(voice.guests()[0].networkMeasured, true);
+  const audioFreshness = voice.guests()[0].networkSampledAtRef.current;
+  voice.time(39000); await voice.context.refreshRef.current(); // Report timestamp is still31000.
+  assert.equal(voice.guests()[0].networkMeasured, false, 'cached audio expires after six seconds');
+  assert.equal(voice.guests()[0].networkSampledAtRef.current, audioFreshness, 'cached audio does not extend network freshness');
+  voice.microphone.track = { getRTCStatsReport: readAudio };
+  audioReceived += 100;
+  await refreshVoice(41000);
+  assert.equal(voice.guests()[0].currentLoss, null, 'replacement microphone resets current samples');
+  const beforeMuted = voice.guests()[0].totalLoss.packets;
+  voice.microphone.isMuted = true;
+  await refreshVoice(43000);
+  assert.equal(voice.guests()[0].networkMeasured, false, 'both muted sources are unknown');
+  assert.equal(voice.guests()[0].totalLoss.packets, beforeMuted, 'muting preserves session history');
+  voice.microphone.isMuted = false;
+  voice.participant.sid = 'PA_audio_rejoined'; audioReceived = 100; audioLost = 1;
+  await refreshVoice(45000);
+  assert.equal(voice.guests()[0].totalLoss.packets, 1, 'audio-only participant SID change resets session history');
+  audioReceived += 100;
+  await refreshVoice(47000);
+  assert.equal(voice.guests()[0].networkMeasured, true);
+  voice.stop();
+
+  for (const change of ['microphone-publication', 'camera-enabled']) {
+    const race = harness();
+    await flush();
+    race.camera.isMuted = true;
+    let reportAt = 1000, received = 100;
+    const reportAudio = () => new Map([['a', { id: 'a', type: 'inbound-rtp', kind: 'audio', timestamp: reportAt, packetsReceived: received, packetsLost: 1 }]]);
+    race.microphone.track.getRTCStatsReport = async () => reportAudio();
+    await race.context.refreshRef.current();
+    reportAt = 3000; received = 200; race.time(3000);
+    await race.context.refreshRef.current();
+    assert.equal(race.guests()[0].networkMeasured, true);
+    let finishMicrophone;
+    race.microphone.track.getRTCStatsReport = () => new Promise(resolve => { finishMicrophone = resolve; });
+    race.time(5000);
+    const oldAudioReport = race.context.refreshRef.current();
+    await flush();
+    if (change === 'camera-enabled') race.camera.isMuted = false;
+    else {
+      const getPublication = race.participant.getTrackPublication;
+      const nextMic = { isMuted: false, track: { getRTCStatsReport: async () => reportAudio() } };
+      race.participant.getTrackPublication = source => source === Track.Source.Microphone ? nextMic : getPublication(source);
+    }
+    finishMicrophone(new Map([['a', { id: 'a', type: 'inbound-rtp', kind: 'audio', timestamp: 5000, packetsReceived: 1000, packetsLost: 900 }]]));
+    await oldAudioReport;
+    assert.equal(race.guests()[0].networkMeasured, false, `${change}: superseded audio sample is unknown`);
+    assert.equal(race.guests()[0].totalLoss.packets, 1, `${change}: rejected audio report cannot contaminate history`);
+    race.stop();
+  }
+
+  const rejoined = harness();
+  await flush();
+  let finishCamera;
+  rejoined.camera.track.getRTCStatsReport = () => new Promise(resolve => { finishCamera = resolve; });
+  const oldCameraSample = rejoined.context.refreshRef.current();
+  await flush();
+  rejoined.participant.sid = 'PA_rejoin_during_report';
+  finishCamera(new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', timestamp: 1000, packetsReceived: 1000, packetsLost: 3000 }]]));
+  await oldCameraSample;
+  assert.notEqual(rejoined.guests()[0].participantSid, rejoined.participant.sid, 'old in-flight report cannot be attached to a new participant session');
+  rejoined.camera.track.getRTCStatsReport = async () => new Map([['v', { id: 'v', type: 'inbound-rtp', kind: 'video', timestamp: 3000, packetsReceived: 100, packetsLost: 1 }]]);
+  await rejoined.context.refreshRef.current();
+  assert.equal(rejoined.guests()[0].totalLoss.packets, 1, 'new participant session uses only its own counters');
+  rejoined.stop();
+
   // GuestAudioMeter owns PCM observations and state independently of the Studio.
   let state = [], cursor = 0, effect, observer;
   const { GuestAudioMeter } = load('../components/GuestAudioMeter.tsx', {
@@ -193,5 +348,5 @@ function harness() {
   assert.equal(observer.track, track.mediaStreamTrack);
   track.isMuted = true;
   assert.equal(observer.muted(), true, 'local meter observes mute changes without a new Studio render');
-  console.log('PASS: audio frames and unchanged polls preserve Studio guest state; mute/name/stats/departure update cards; PCM meters retain local updates');
+  console.log('PASS: audio frames and unchanged polls preserve Studio guest state; mute/name/stats/departure update cards; PCM meters retain local updates; audio-only fallback, source switching, camera priority, freshness, session/race guards and RTC read counts verified');
 })().catch(error => { console.error(error); process.exitCode = 1; });
