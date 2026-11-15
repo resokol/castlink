@@ -553,6 +553,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     const guestReceiveCounters: GuestReceiveCounters = new WeakMap();
     const guestNetworkStats = new WeakMap<object, { sid: string; state: GuestNetworkStatsState; sampledAt: { current: number } }>();
     const guestStatsTimes = new WeakMap<object, { current: number }>();
+    const guestUplinkSequences = new Map<string, { sid: string; sequence: number }>();
 
     let refreshBusy = false;
     const refresh = async () => {
@@ -779,7 +780,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (sample && participant.sid && room.remoteParticipants.get(participant.identity)?.sid === participant.sid) {
           const previous = guestCameraOutboundRef.current[participant.identity];
           const sameSession = previous?.sid === participant.sid;
-          if (sample.uplink && sameSession && sample.uplinkSequence! <= (previous.uplinkSequence ?? 0)) return;
+          const watermark = guestUplinkSequences.get(participant.identity);
+          if (sample.uplink && watermark?.sid === participant.sid && sample.uplinkSequence! <= watermark.sequence) return;
+          if (sample.uplink) guestUplinkSequences.set(participant.identity, { sid: participant.sid, sequence: sample.uplinkSequence! });
           guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid,
             uplinkSequence: sample.uplink ? sample.uplinkSequence : sameSession ? previous.uplinkSequence : undefined,
             uplink: sample.uplink ?? (sameSession ? previous.uplink : undefined),

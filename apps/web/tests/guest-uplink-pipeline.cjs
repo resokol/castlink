@@ -84,6 +84,15 @@ const flush = async () => { for (let i = 0; i < 60; i++) await Promise.resolve()
   assert.equal(compact.uplinkSequence, 2, 'legacy bitrate companion preserves the uplink sequence');
   assert.equal(compact.uplinkReceivedAt, accepted.uplinkReceivedAt, 'legacy companion cannot refresh feedback age');
   assert.equal(compact.uplink.audio.currentLoss.percent, 10);
+  studio.room.emit(RoomEvent.SignalReconnecting);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], undefined, 'signal reconnect clears displayed metrics');
+  deliver(oldWire);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], undefined, 'same-SID old report remains rejected after metrics are cleared');
+  deliver(acceptedWire);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], undefined, 'same-SID duplicate remains rejected after metrics are cleared');
+  studio.room.emit(RoomEvent.Reconnected);
+  deliver(oldWire);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], undefined, 'reconnected metric clear does not discard sequence watermark');
   for (const sequence of [undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     assert.equal(parseGuestCameraOutbound(new TextEncoder().encode(JSON.stringify({ ...acceptedWire, sequence })), studio.participant), null, 'versioned uplink requires a positive safe integer sequence');
   }
