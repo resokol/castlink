@@ -66,7 +66,7 @@ import { ConferenceAudioRenderer } from "@/components/RoomConference";
 import { clearTransferSnapshot, type TransferSnapshot } from "@/lib/client-transfer";
 import { resolveParticipantRole } from "@/lib/participant-role";
 import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media";
-import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
+import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, freshGuestUplink, type GuestUplink, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { readGuestReceiveBitrate, type GuestReceiveCounters } from "@/lib/guest-receive-bitrate";
@@ -89,6 +89,7 @@ type GuestStat = {
   packetLoss: number;
   currentLoss: PacketLoss | null;
   totalLoss: PacketLoss | null;
+  uplink?: GuestUplink;
   jitterMs: number | null;
   rttMs: number | null;
   stability: "Хорошая" | "Средняя" | "Плохая";
@@ -668,6 +669,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           packetLoss: network.currentLoss?.packets ?? 0,
           currentLoss: network.currentLoss,
           totalLoss: network.totalLoss,
+          uplink: freshGuestUplink(guestCameraOutboundRef.current[participant.identity]?.sid === participant.sid ? guestCameraOutboundRef.current[participant.identity] : undefined),
           jitterMs: network.jitterMs,
           rttMs: network.rttMs,
           stability,
@@ -775,7 +777,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       if (topic === GUEST_CAMERA_OUTBOUND_TOPIC && participant) {
         const sample = parseGuestCameraOutbound(payload, participant);
         if (sample && participant.sid && room.remoteParticipants.get(participant.identity)?.sid === participant.sid) {
-          guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid };
+          const previous = guestCameraOutboundRef.current[participant.identity];
+          const sameSession = previous?.sid === participant.sid;
+          guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid,
+            uplink: sample.uplink ?? (sameSession ? previous.uplink : undefined),
+            uplinkReceivedAt: sample.uplink ? Date.now() : sameSession ? previous.uplinkReceivedAt ?? previous.receivedAt : undefined };
         }
         return;
       }
@@ -796,8 +802,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     });
     const clearGuestCameraOutbound = () => {
       guestCameraOutboundRef.current = {};
-      setGuests(current => current.some(guest => guest.roomSendBitrateKbps != null)
-        ? current.map(guest => guest.roomSendBitrateKbps == null ? guest : { ...guest, roomSendBitrateKbps: null })
+      setGuests(current => current.some(guest => guest.roomSendBitrateKbps != null || guest.uplink !== undefined)
+        ? current.map(guest => guest.roomSendBitrateKbps == null && guest.uplink === undefined ? guest : { ...guest, roomSendBitrateKbps: null, uplink: undefined })
         : current);
     };
     const outboundResetEvents = [RoomEvent.Reconnecting, RoomEvent.SignalReconnecting, RoomEvent.Reconnected, RoomEvent.Disconnected];

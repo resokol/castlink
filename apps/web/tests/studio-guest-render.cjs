@@ -7,6 +7,7 @@ const { RoomEvent, Track } = require('livekit-client');
 const { load } = require('./load-typescript.cjs');
 const { bindStudioRoomLifecycle } = load('../lib/studio-room-lifecycle.ts');
 const { createGuestNetworkStatsState, sampleGuestNetworkStats } = load('../lib/guest-network-stats.ts');
+const { GUEST_CAMERA_OUTBOUND_TOPIC, freshGuestUplink, parseGuestCameraOutbound } = load('../lib/guest-camera-outbound.ts');
 const { readGuestReceiveBitrate } = load('../lib/guest-receive-bitrate.ts');
 
 // Run the actual connection effect, including its event/interval/RAF wiring.
@@ -35,7 +36,7 @@ function harness() {
   const frames = new Map(), intervals = new Map();
   let clock = 1000;
   const context = {
-    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate, createGuestNetworkStatsState, sampleGuestNetworkStats,
+    module: { exports: {} }, room, RoomEvent, Track, bindStudioRoomLifecycle, readGuestReceiveBitrate, createGuestNetworkStatsState, sampleGuestNetworkStats, freshGuestUplink, parseGuestCameraOutbound,
     Date: class extends Date { static now() { return clock; } },
     studioId: 'studio', roomName: 'room', transferSnapshot: undefined,
     acquireStudioClientId: async () => ({ clientId: 'client', release() {} }),
@@ -43,7 +44,7 @@ function harness() {
     readControlResponse: response => response.json(), getLiveKitUrl: () => 'ws://fixture', startRoomTelemetry: () => () => {},
     createStudioSenderStatsState: () => ({}),
     readTrackStats: track => track.getRTCStatsReport(), freshGuestCameraOutboundBitrate: sample => sample?.bitrateKbps ?? null,
-    GUEST_CAMERA_OUTBOUND_TOPIC: 'camera-outbound', parseGuestClientInfo: () => undefined,
+    GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestClientInfo: () => undefined,
     requestAnimationFrame: callback => { const id = ++nextFrame; frames.set(id, callback); return id; },
     cancelAnimationFrame: id => frames.delete(id),
     setInterval: callback => { const id = intervals.size + 1; intervals.set(id, callback); return id; },
@@ -64,7 +65,7 @@ function harness() {
   };
 }
 
-(async () => {
+if (require.main === module) (async () => {
   const h = harness();
   await flush();
   assert.equal(h.guests()[0].name, 'Alice');
@@ -350,3 +351,5 @@ function harness() {
   assert.equal(observer.muted(), true, 'local meter observes mute changes without a new Studio render');
   console.log('PASS: audio frames and unchanged polls preserve Studio guest state; mute/name/stats/departure update cards; PCM meters retain local updates; audio-only fallback, source switching, camera priority, freshness, session/race guards and RTC read counts verified');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
+module.exports = { harness };

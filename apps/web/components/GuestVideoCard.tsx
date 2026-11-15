@@ -11,7 +11,7 @@ import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
 import { formatPacketLoss } from "@/lib/guest-network-stats";
-import { GuestMiniStats, GuestStatsClock, useGuestStatsFreshness, type GuestMiniStatsData } from "./GuestMiniStats";
+import { GuestMiniStats, GuestStatsClock, GuestUplinkDetails, useGuestStatsFreshness, type GuestMiniStatsData } from "./GuestMiniStats";
 
 export type GuestVideoCardData = GuestMiniStatsData & {
   identity: string;
@@ -168,7 +168,7 @@ export function GuestVideoCard({
 
 function GuestConnectionDetails({ guest }: { guest: GuestVideoCardData }) {
   const { t, locale } = useI18n();
-  const { measured } = useGuestStatsFreshness(guest);
+  const { measured, uplink, stability } = useGuestStatsFreshness(guest);
   const lossText = (value: typeof guest.currentLoss) => {
     const formatted = formatPacketLoss(value, locale);
     return formatted == null ? "—" : t("{loss} пак.", { loss: formatted });
@@ -176,10 +176,11 @@ function GuestConnectionDetails({ guest }: { guest: GuestVideoCardData }) {
   return <div className="guest-card-details guest-card-connection">
     <div><b>{t("Разрешение")}</b><span>{guest.resolution}</span></div>
     <div><b>{t("Приём камеры · факт")}</b><span>{guest.bitrateKbps ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.bitrateKbps }) : "—"}</span></div>
-    <div><b>{t("Сеть")}</b><span className={`net net-${!measured ? "unknown" : guest.stability === "Хорошая" ? "good" : guest.stability === "Средняя" ? "mid" : "bad"}`}>{t(measured ? guest.stability : "Нет данных")}</span></div>
-    <div><b>RTT / Jitter</b><span>{measured ? guest.rttMs ?? "—" : "—"} / {measured ? guest.jitterMs ?? "—" : "—"} {t("мс")}</span></div>
+    <div><b>{t("Сеть")}</b><span className={`net net-${!stability ? "unknown" : stability === "Хорошая" ? "good" : stability === "Средняя" ? "mid" : "bad"}`}>{t(stability ?? "Нет данных")}</span></div>
+    <div><b>{t("Сервер → студия")} · RTT / Jitter</b><span>{measured ? guest.rttMs ?? "—" : "—"} / {measured ? guest.jitterMs ?? "—" : "—"} {t("мс")}</span></div>
     <div><b>{t("Потери за 10 секунд")}</b><span>{lossText(measured ? guest.currentLoss : null)}</span></div>
     <div><b>{t("За сессию участника")}</b><span>{lossText(guest.totalLoss)}</span></div>
+    <GuestUplinkDetails uplink={uplink} />
     <div><b>{t("Аудио")}</b><span>{guest.sampleRate ? `${guest.sampleRate} Hz` : "—"}</span></div>
   </div>;
 }

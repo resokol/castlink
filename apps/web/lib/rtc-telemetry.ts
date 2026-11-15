@@ -3,6 +3,7 @@
 import { retainSessionHttpBearer, sessionHttpBearer } from "./session-http-bearer";
 import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
+import { publishRoomOutboundStats } from "./room-outbound-stats";
 import { readTrackStats } from "./media-stats";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track } from "livekit-client";
@@ -102,11 +103,16 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         const direction = participant.isLocal ? "out" : "in";
         if (!publication.track || (publication.kind !== Track.Kind.Audio && publication.kind !== Track.Kind.Video)) continue;
         const track = publication.track;
+        const participantSid = participant.sid;
         let report: RTCStatsReport | undefined;
         try { report = await readTrackStats(track, "getRTCStatsReport", Math.min(600, Math.max(1, statsDeadline - Date.now()))); } catch { continue; }
         if (stopped) return;
         if (publication.track !== track) continue;
         if (!report) continue;
+        if (direction === "out" && participant.sid === participantSid &&
+            room.localParticipant.getTrackPublication?.(publication.source) === publication) {
+          publishRoomOutboundStats(room, { publication: publication as any, track, report, sid: participantSid, at: Date.now() });
+        }
         const stats: Record<string, any>[] = [];
         report.forEach((stat) => stats.push(stat));
         const transport = stats.find((s) => s.type === "transport" && s.selectedCandidatePairId);

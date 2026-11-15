@@ -92,6 +92,8 @@ const tests = [
   "guest-receive-bitrate.cjs",
   "network-quality-help.cjs",
   "guest-network-stats.cjs",
+  "guest-uplink-stats.cjs",
+  "guest-uplink-pipeline.cjs",
   "guest-camera-effects.cjs",
   "guest-camera-blur-ui.cjs",
   "guest-camera-segmentation.cjs",
