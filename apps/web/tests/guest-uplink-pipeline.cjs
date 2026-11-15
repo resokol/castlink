@@ -67,6 +67,26 @@ const flush = async () => { for (let i = 0; i < 60; i++) await Promise.resolve()
   const guest = studio.guests()[0];
   assert.equal(guest.currentLoss.percent, 0, 'real Studio receiver leg measures zero loss');
   assert.equal(guest.uplink.audio.currentLoss.percent, 10, 'real Studio handler preserves sender feedback');
+  const topic = messages.at(-1).options.topic;
+  const deliver = value => studio.room.emit(RoomEvent.DataReceived, new TextEncoder().encode(JSON.stringify(value)), studio.participant, undefined, topic);
+  const acceptedWire = JSON.parse(new TextDecoder().decode(messages.at(-1).bytes));
+  acceptedWire.sequence = 2;
+  deliver(acceptedWire);
+  const accepted = studio.context.guestCameraOutboundRef.current[local.identity];
+  const oldWire = structuredClone(acceptedWire); oldWire.sequence = 1;
+  oldWire.uplink.audio.currentLoss = { packets: 0, percent: 0 }; oldWire.uplink.audio.totalLoss = { packets: 0, percent: 0 };
+  now = 3500; studio.time(now); deliver(oldWire);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], accepted, 'older healthy uplink cannot replace newer bad loss, history or freshness');
+  deliver(acceptedWire);
+  assert.equal(studio.context.guestCameraOutboundRef.current[local.identity], accepted, 'duplicate uplink cannot extend freshness');
+  deliver({ type: 'guest-camera-outbound', bitrateKbps: 123 });
+  const compact = studio.context.guestCameraOutboundRef.current[local.identity];
+  assert.equal(compact.uplinkSequence, 2, 'legacy bitrate companion preserves the uplink sequence');
+  assert.equal(compact.uplinkReceivedAt, accepted.uplinkReceivedAt, 'legacy companion cannot refresh feedback age');
+  assert.equal(compact.uplink.audio.currentLoss.percent, 10);
+  for (const sequence of [undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(parseGuestCameraOutbound(new TextEncoder().encode(JSON.stringify({ ...acceptedWire, sequence })), studio.participant), null, 'versioned uplink requires a positive safe integer sequence');
+  }
   const html = renderToStaticMarkup(React.createElement(GuestMiniStats, { guest }));
   assert.match(html, /data-quality="bad"/, 'healthy downstream must not hide bad caster upload');
   assert.match(html, /10% \/ 10 пак/);
@@ -84,6 +104,15 @@ const flush = async () => { for (let i = 0; i < 60; i++) await Promise.resolve()
   assert.equal(freshGuestUplink({ ...parsed, receivedAt: now }, now).audio.currentLoss, null, 'repeated messages cannot freshen cached RTCP');
   const missing = renderToStaticMarkup(React.createElement(GuestMiniStats, { guest: { ...guest, networkSampledAtRef: { current: now }, uplink: undefined } }));
   assert.match(missing, /data-quality="unknown"/, 'legacy client uplink absence must not claim full-path good');
+  const lastSequence = JSON.parse(new TextDecoder().decode(messages.at(-1).bytes)).sequence;
+  stopWatch(); stopWatch = watchGuestCameraOutbound(room); await flush();
+  await tick(23000, 1600, 30, 5);
+  assert.ok(JSON.parse(new TextDecoder().decode(messages.at(-1).bytes)).sequence > lastSequence, 'sender sequence survives watcher remount for the same Room/SID');
+  local.sid = 'PA_new_session'; studio.participant.sid = local.sid;
+  await tick(25000, 100, 0, 1);
+  const newSession = studio.context.guestCameraOutboundRef.current[local.identity];
+  assert.equal(newSession.uplinkSequence, 1, 'new SID accepts sequence1 independently of the old session');
+  assert.equal(newSession.uplink.audio.totalLoss.packets, 0, 'new SID does not carry old session loss history');
   console.log('PASS actual telemetry→directed guest message→UI pipeline, audio upload loss with zero downstream loss, cached RR, privacy and unchanged read/timer counts');
  } finally { studio?.stop(); stopWatch?.(); stopTelemetry?.(); Object.assign(global, original); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

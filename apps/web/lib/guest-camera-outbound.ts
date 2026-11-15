@@ -5,10 +5,12 @@ import type { GuestNetworkMetrics, PacketLoss } from "./guest-network-stats";
 import { createStudioSenderStatsState, sampleStudioSenderStats } from "./studio-sender-stats";
 
 const TOPIC = "studiolink-guest-camera-outbound";
+// Persist across watcher remounts; a new LiveKit SID starts an independent sequence.
+const outboundSequences = new WeakMap<Room, { sid: string; sequence: number }>();
 type Participant = { identity: string; metadata?: string; sid?: string };
 export type GuestUplinkSample = Omit<GuestNetworkMetrics, "stability"> & { active: boolean; ageMs: number | null };
 export type GuestUplinkView = GuestNetworkMetrics & { active: boolean; expiresAt: number };
-export type GuestCameraOutbound = { bitrateKbps: number | null; uplink?: { video: GuestUplinkSample; audio: GuestUplinkSample } };
+export type GuestCameraOutbound = { bitrateKbps: number | null; uplinkSequence?: number; uplink?: { video: GuestUplinkSample; audio: GuestUplinkSample } };
 export type GuestUplink = { video: GuestUplinkView; audio: GuestUplinkView };
 export type ReceivedGuestCameraOutbound = GuestCameraOutbound & { receivedAt: number; uplinkReceivedAt?: number };
 
@@ -31,7 +33,7 @@ export function parseGuestCameraOutbound(payload: Uint8Array, participant: Parti
     if (value?.type !== "guest-camera-outbound" || !(value.bitrateKbps === null ||
       (typeof value.bitrateKbps === "number" && Number.isFinite(value.bitrateKbps) && value.bitrateKbps >= 0 && value.bitrateKbps <= 100_000))) return null;
     if (value.uplink === undefined) return { bitrateKbps: value.bitrateKbps };
-    if (value.version !== 1 || typeof value.sid !== "string" || value.sid !== participant.sid) return null;
+    if (!Number.isSafeInteger(value.sequence) || value.sequence <= 0 || value.version !== 1 || typeof value.sid !== "string" || value.sid !== participant.sid) return null;
     const metric = (n: unknown) => n === null || typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100000;
     const validLoss = (n: any): n is PacketLoss | null => n === null || n && Number.isSafeInteger(n.packets) && n.packets >= 0 &&
       typeof n.percent === "number" && Number.isFinite(n.percent) && n.percent >= 0 && n.percent <= 100;
@@ -42,7 +44,7 @@ export function parseGuestCameraOutbound(payload: Uint8Array, participant: Parti
       return { active: leg.active, currentLoss: leg.currentLoss, totalLoss: leg.totalLoss, jitterMs: leg.jitterMs, rttMs: leg.rttMs, ageMs: leg.ageMs };
     };
     const video = read(value.uplink?.video), audio = read(value.uplink?.audio);
-    return video && audio ? { bitrateKbps: value.bitrateKbps, uplink: { video, audio } } : null;
+    return video && audio ? { bitrateKbps: value.bitrateKbps, uplinkSequence: value.sequence, uplink: { video, audio } } : null;
   } catch { return null; }
 }
 
@@ -120,7 +122,10 @@ export function watchGuestCameraOutbound(room: Room) {
       if (stopped || room.state !== "connected" || room.localParticipant.sid !== sid || (track && !muted && state !== collectionState) ||
         room.localParticipant.getTrackPublication(Track.Source.Camera)?.track !== track ||
         !!room.localParticipant.getTrackPublication(Track.Source.Camera)?.isMuted !== muted) return;
-      await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "guest-camera-outbound", version: 1, sid, bitrateKbps, uplink: uplink() })), options);
+      const previousSequence = outboundSequences.get(room);
+      const sequence = previousSequence?.sid === sid ? previousSequence.sequence + 1 : 1;
+      outboundSequences.set(room, { sid, sequence });
+      await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "guest-camera-outbound", version: 1, sid, sequence, bitrateKbps, uplink: uplink() })), options);
     } catch { /* Optional measurements must never interrupt media. */ }
     finally { busy = false; }
   };

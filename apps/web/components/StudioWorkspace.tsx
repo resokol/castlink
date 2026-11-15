@@ -779,7 +779,9 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         if (sample && participant.sid && room.remoteParticipants.get(participant.identity)?.sid === participant.sid) {
           const previous = guestCameraOutboundRef.current[participant.identity];
           const sameSession = previous?.sid === participant.sid;
+          if (sample.uplink && sameSession && sample.uplinkSequence! <= (previous.uplinkSequence ?? 0)) return;
           guestCameraOutboundRef.current[participant.identity] = { ...sample, receivedAt: Date.now(), sid: participant.sid,
+            uplinkSequence: sample.uplink ? sample.uplinkSequence : sameSession ? previous.uplinkSequence : undefined,
             uplink: sample.uplink ?? (sameSession ? previous.uplink : undefined),
             uplinkReceivedAt: sample.uplink ? Date.now() : sameSession ? previous.uplinkReceivedAt ?? previous.receivedAt : undefined };
         }
