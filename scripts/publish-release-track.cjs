@@ -11,11 +11,10 @@ function releaseDestination(choice='primary'){
 }
 function verifyDestination(repository,choice='primary',context=process.env){
   const expected=releaseDestination(choice);
-  // Actions installation tokens can omit the legacy user `permissions` object.
-  // Our manual main workflows request contents:write; GitHub still authorizes
-  // every draft, asset upload and publication. Never infer this for other runs
-  // or override an explicit legacy permission denial.
-  const installationToken=repository.permissions===undefined&&repository.default_branch==='main'&&
+  // Legacy user push metadata is not the Actions token's contents grant.
+  // Our manual main workflows request contents:write; GitHub authorizes every
+  // draft, asset upload and publication. Outside that context, require push.
+  const installationToken=repository.default_branch==='main'&&
     context.GITHUB_ACTIONS==='true'&&context.GITHUB_REPOSITORY===expected&&
     context.GITHUB_REF==='refs/heads/main'&&context.GITHUB_EVENT_NAME==='workflow_dispatch';
   if(repository.full_name!==expected||repository.private!==false||
@@ -25,6 +24,7 @@ function verifyDestination(repository,choice='primary',context=process.env){
 function checkDestination(choice=process.env.CASTLINK_RELEASE_DESTINATION||'primary'){
   const destination=releaseDestination(choice);
   const repository=JSON.parse(execFileSync('gh',['api',`repos/${destination}`],{encoding:'utf8',stdio:['ignore','pipe','inherit']}));
+  console.log('Release destination metadata: '+JSON.stringify({repository:repository.full_name,public:repository.private===false,defaultBranch:repository.default_branch,legacyPush:repository.permissions?.push??null,actions:process.env.GITHUB_ACTIONS==='true',workflowRepository:process.env.GITHUB_REPOSITORY??null,sourceRef:process.env.GITHUB_REF??null,event:process.env.GITHUB_EVENT_NAME??null}));
   verifyDestination(repository,choice);return repository;
 }
 function releaseFiles(info){
