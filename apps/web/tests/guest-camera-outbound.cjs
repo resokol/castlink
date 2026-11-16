@@ -44,7 +44,7 @@ assert.equal(freshGuestCameraOutboundBitrate({ bitrateKbps: 4000, receivedAt: 10
     const camera = { getRTCStatsReport: async () => report };
     const publication = { track: camera, isMuted: false };
     const room = { state: 'connected', remoteParticipants: new Map([[primary.identity, primary], [guest.identity, guest]]),
-      localParticipant: { sid: 'session-1', getTrackPublication: source => { assert.equal(source, Track.Source.Camera); return publication; }, publishData: async (data, options) => sends.push({ data: JSON.parse(new TextDecoder().decode(data)), options }) },
+      localParticipant: { sid: 'session-1', getTrackPublication: source => source === Track.Source.Camera ? publication : undefined, publishData: async (data, options) => sends.push({ data: JSON.parse(new TextDecoder().decode(data)), options }) },
       on: (event, callback) => listeners.set(event, callback), off: event => listeners.delete(event) };
     const rtp = (id, bytes, timestamp, extra = {}) => ({ id, type: 'outbound-rtp', kind: 'video', bytesSent: bytes, timestamp, ...extra });
     const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -58,10 +58,10 @@ assert.equal(freshGuestCameraOutboundBitrate({ bitrateKbps: 4000, receivedAt: 10
     assert.equal(sends.at(-1).options.topic, 'studiolink-guest-camera-outbound');
     const count = sends.length; poll(); await settle(); assert.equal(sends.length, count, 'cached statistics do not refresh stale traffic');
     publication.isMuted = true; poll(); await settle(); assert.equal(sends.at(-1).data.bitrateKbps, null, 'camera mute clears the measured traffic');
-    publication.isMuted = false; report = [rtp('high', 1000, 5000)]; poll(); await settle(); assert.equal(sends.length, count + 1, 'camera restart baselines again');
+    publication.isMuted = false; report = [rtp('high', 1000, 5000)]; poll(); await settle(); assert.equal(sends.length, count + 2, 'camera restart baselines again');
     camera.getRTCStatsReport = () => new Promise(resolve => { pendingResolve = resolve; });
     poll(); await settle(); room.localParticipant.sid = 'session-2'; pendingResolve([rtp('high', 999_999_999, 7000)]); await settle();
-    assert.equal(sends.length, count + 1, 'an old session completion cannot report as the new session');
+    assert.equal(sends.length, count + 2, 'an old session completion cannot report as the new session');
     stop(); assert.equal(cleared, true); assert.equal(listeners.size, 0);
     assert.ok(RoomEvent.Reconnected);
   } finally { global.setInterval = originalSetInterval; global.clearInterval = originalClearInterval; }

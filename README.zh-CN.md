@@ -28,6 +28,8 @@ CastLink 是一个自托管演播室，可将远程嘉宾、演示文稿及独�
 
 ## 下载与安装
 
+**11月16日网页修复：**分别显示发送及接收丢包，支持仅音频参与者，将当前网络等级与历史分开。服务器更新后请刷新演播室及参与者页面。[详情](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md)。
+
 **1.0.4：**主播卡片新增网络质量说明；Windows Client 更新为 1.0.1。 [1.0.4](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md).
 
 **1.0.3：**降噪与回声消除使用同一开关，默认关闭；主控演播室可在主播卡片中切换。 [1.0.3](distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md).

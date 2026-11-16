@@ -1,5 +1,11 @@
 # Changelog
 
+## Web — 2026-11-16 — потери отправки и приёма / Sender and receiver loss / 发送与接收丢包
+
+- RU: потери кастер → сервер учитываются отдельно для аудио и видео; приём сервер → студия и история сохранены. Текущая оценка использует 10 секунд, процент показан перед числом пакетов. Устаревшие и переупорядоченные сообщения не скрывают новые потери. Аудио без камеры поддерживается без новых RTC-опросов и таймеров. После обновления сервера перезагрузите страницы обеих сторон. [Примечания](distribution/RELEASE_NOTES_1_0_4.md).
+- EN: caster → server loss is measured separately for audio and video, retaining server → studio reception and session history. Current quality uses 10 seconds, with percentages before counts. Stale or reordered messages cannot hide newer loss. Audio-only casters are supported without extra RTC polling or timers. Reload both sides after the server update. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
+- 简体中文：分别测量参与者向服务器发送的音频与视频丢包，保留服务器到演播室的接收指标及会话历史。当前等级使用10秒窗口，先显示百分比再显示数量；过期或乱序消息不会覆盖新的丢包。仅音频参与者无需额外RTC轮询或定时器即可获得等级。服务器更新后请刷新双方页面。[说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md)。
+
 ## 1.0.4 server/web · 1.0.1 client — 2026-11-13 — статистика гостей / Guest statistics / 参与者统计
 
 - RU: мини-статистика под карточкой гостя показывает измеренные битрейты приёма видео и микрофона и оценку сети. Маленькая стрелка открывает памятку с текущими числами и порогами; «Нет данных» тоже раскрывается. Обновления сохраняют видео и меню, одинаковые замеры не обновляют весь список. Обновите сервер и затем страницы вне эфира; Client 1.0.1 отображает интерфейс выбранного обновлённого сервера. [Примечания](distribution/RELEASE_NOTES_1_0_4.md).

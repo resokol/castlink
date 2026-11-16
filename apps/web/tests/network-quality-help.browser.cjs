@@ -126,7 +126,8 @@ async function main() {
         assert.ok(fit.topLayerHit&&fit.focusInside,`native top layer and close focus ${name}/${index}: ${JSON.stringify(fit)}`);
         assert.equal(await popup.locator('[data-network-help-grade]').count(),3);
         assert.equal(await popup.locator('[data-network-help-close]').evaluate(e=>e.getBoundingClientRect().height),24,'24px close target');
-        assert.match(await popup.innerText(),/≤ 2/);assert.match(await popup.innerText(),/31–60/);assert.match(await popup.innerText(),/> 300/);
+        assert.match(await popup.innerText(),/< 1%/);assert.match(await popup.innerText(),/>30–60/);assert.match(await popup.innerText(),/> 300/);
+        assert.match(await popup.innerText(), /0[,.]03% \/ 3[\u00a0,]000/,'historical percentage precedes the packet count');
         if(index===0)await page.clock.runFor(150);
         if(index===0)await page.screenshot({path:path.join(out,`${name}-open.png`)});
         if(index===1){await popup.locator('[data-network-help-close]').click();}
