@@ -17277,7 +17277,7 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
-Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_REF`, `GITHUB_SHA`.
+Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_ACTIONS`, `GITHUB_EVENT_NAME`, `GITHUB_REF`, `GITHUB_REPOSITORY`, `GITHUB_SHA`.
 
 ### scripts/release-track.cjs
 
