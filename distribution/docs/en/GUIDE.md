@@ -2,9 +2,9 @@
 
 # CastLink: installation and operation
 
-The current Windows Server Setup and standalone Linux packages are **1.0.4**; Windows Client is **1.0.1**. [Changelog](../../../CHANGELOG.md) · [Connection recovery](#server-pair-recovery).
+This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md). [Changelog](../../../CHANGELOG.md) · [Connection recovery](#server-pair-recovery).
 
-Version 1.0.2 adds [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The local Windows Server Setup still uses Docker Desktop; Docker-free Windows/WSL2 is a separate unverified candidate.
+Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
 
 Choose the [package and checksums for your track](PRODUCTS.md). Windows Client joins an existing server; Windows Server Setup and Linux install a server. Ordinary participants need a supported browser and HTTPS.
 
@@ -44,7 +44,7 @@ PDF/PPTX and slide navigation are documented [separately](PRESENTATIONS.md): the
 
 ## Setup mode and server address
 
-In 1.0.2, Quick is the default. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
+Quick has been the default since 1.0.2. Explicitly enable **Advanced setup** in the Windows wizard for technical options; add `--advanced` in the standalone Linux CLI. Quick uses standard HTTPS and ports. Advanced supports HTTP, direct HTTPS or an external HTTPS proxy, plus website and media addresses and ports. The wizard and Linux CLI support RU / EN / 简体中文. See [installation modes and configuration examples](INSTALL.md).
 
 When updating, select the existing installation: saved modes, addresses, ports, UUID and secrets are retained. A completed installation's network layout is not changed automatically. Backup servers can be added after quick setup.
 
@@ -249,7 +249,7 @@ When connecting a backup, select password login or a private SSH key. In the key
 1. Before updating, allow **UDP 7882** in your provider's network firewall and the server firewall. If the server is behind a router, forward this port too. Keep **TCP 80/443/7881**, **UDP 3478**, and allow **UDP 30000–30031**. Keep your SSH port accessible. Optional TURN/TLS uses **TCP 443** and a separate TURN domain.
 2. Back up data and configuration. For a Windows-wizard installation, extract the complete new Windows package, run `EasySetup.exe`, choose **Update**, and select the existing local folder or the same VPS. For a standalone Linux-helper installation, run `check-updates` and `update` from the new extracted package using the existing `--state-dir`: [steps](LINUX_MANUAL.md). The `easy-setup-8b02e2d4dc3c` legacy guide remains a separate procedure; the new helper does not adopt that installation.
 3. Update between broadcasts: the installer recreates the LiveKit container to apply the media ports, interrupting active media connections. Updating the existing installation preserves its data; deleting the installation or data volumes is unnecessary.
-4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Open the updated browser interface.
+4. After updating, check the website, a new caster connection, audio and video, individual output, `/watch`, and your configured backup from the networks you use. Manually reload **both studio and caster pages**, including pages in Windows Client.
 
 The new Easy Setup layout uses **UDP 7882 / TCP 7881** for direct media, **UDP 3478** for TURN, and **UDP 30000–30031** for TURN relay. It replaces the former **UDP 61000–61100** media range and **UDP 30000–30999** relay range. External firewall rules and router forwarding are configured separately from Docker; downloading the new ZIP alone does not update the server.
 

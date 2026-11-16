@@ -2,9 +2,15 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](SERVER_INSTALL.md) · [简体中文](../zh-CN/SERVER_INSTALL.md)
 
-The Linux bootstrap and server charts with 24-hour history and an event journal are included in **1.0.2**. [Packages and checksums](PRODUCTS.md) · [Release notes](RELEASE_NOTES_1_0_2.md). The ordinary local Windows Server Setup 1.0.2 uses Docker Desktop. Docker-free Windows/WSL2 below remains a separate candidate without verified installation and external media-call tests.
+This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md).
+
+Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](RELEASE_NOTES_1_0_2.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
+
+Update the server off air through an explicit update action, selecting the existing installation and retaining its data and configuration; keep the same Linux `--state-dir`. Publishing a package does not update a running server. After readiness checks, manually reload **both studio and caster pages**, including pages in Windows Client: the client displays its selected server interface.
 
 ## Ubuntu Linux
+
+The pinned example below is for **1.0.4**. To install **1.0.5**, select the bootstrap and checksums for that exact release in the [catalog](PRODUCTS.md).
 
 Ubuntu22.04/24.04 amd64 is supported. The Linux channel adds a self-contained
 `install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.4 asset URL, rather than global `releases/latest`:
@@ -26,7 +32,7 @@ saved helper's `status` command. Keep the same absolute `--state-dir` for custom
 locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
-## Docker-free Windows/WSL2 — unverified candidate
+## Docker-free Windows/WSL2 — separate experimental channel
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready

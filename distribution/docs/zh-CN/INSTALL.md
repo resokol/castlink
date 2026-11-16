@@ -2,7 +2,9 @@
 
 [Русский](../../INSTALL.md) · [English](../en/INSTALL.md) · [简体中文](INSTALL.md)
 
-服务器 **1.0.2** 提供[Linux 单命令安装、24 小时指标历史与事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍为独立且未经验证的候选版；Windows Client 保持 **1.0.1**。
+本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。
+
+服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
 
 CastLink 唯一的公开仓库是 [resokol/castlink](https://github.com/resokol/castlink)，包含采用 MIT许可的自有源代码、发行版和说明。下载归档及 `SHA256SUMS` 无需单独授予访问权限。旧名称 `resokol/castlink-releases` 会重定向到此仓库，以兼容旧链接和安装程序，并不是独立镜像。统一的 `releases/latest` 不能代表三个产品的当前版本。
 
@@ -151,6 +153,8 @@ server {
 默认媒体端口：TCP 7881、UDP 7882、TURN UDP 3478 和 UDP 30000–30031。请在防火墙/服务商面板开放所选端口，并在 NAT 中保持端口号不变。网站代理不能替代媒体通道。数据库和 web:3000 不单独对公网开放。向导的 TURN/TLS 443 仅适用于直接公共 HTTPS、标准 80/443 端口及独立 TURN 域名；HTTP 代理不会自动成为 TURN 代理。
 
 ## Linux 更新
+
+请在停播时通过明确的更新操作选择原有安装，保留数据与配置；Linux 继续使用原有 `--state-dir`。发布软件包不会自动更新运行中的服务器。就绪检查通过后，手动刷新**演播室和参与者双方的页面**，包括 Windows Client 中的页面：客户端显示所选服务器的界面。
 
 Linux 工具 `scripts/linux-compose-setup.py` 支持 `init`、`start`、`status`、`check-updates` 和 `update`，使用原有 `--state-dir`。UUID、密钥、网络与卷名保留；不接管 Windows/旧版安装。`backup` 命令已移除；请自行保存所需数据与配置副本。
 
