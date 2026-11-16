@@ -17,11 +17,11 @@ test('legacy updater alias and private archive cannot become publication destina
  for(const name of ['resokol/castlink-releases','resokol/studiolink'])for(const privacy of [false,true])assert.throws(()=>publisher.verifyDestination(repo(name,privacy)),/destination|repository/i);
  assert.throws(()=>publisher.verifyDestination(repo('resokol/castlink'),'public'),/destination/i);
 });
-test('destination checks reject missing write permissions and unverifiable repository metadata',()=>{
+test('ordinary destination checks reject missing write permissions and unverifiable repository metadata',()=>{
  const r=repo('resokol/castlink');
- assert.throws(()=>publisher.verifyDestination({...r,permissions:{push:false}}),/writ|destination|repository/i);
- assert.throws(()=>publisher.verifyDestination({...r,private:undefined}),/public|destination|repository/i);
- assert.throws(()=>publisher.verifyDestination({...r,default_branch:''}),/destination|repository/i);
+ assert.throws(()=>publisher.verifyDestination({...r,permissions:{push:false}},'primary',{}),/writ|destination|repository/i);
+ assert.throws(()=>publisher.verifyDestination({...r,private:undefined},'primary',{}),/public|destination|repository/i);
+ assert.throws(()=>publisher.verifyDestination({...r,default_branch:''},'primary',{}),/destination|repository/i);
 });
 test('Actions token grants are independent of legacy push metadata only in the canonical manual main workflow',()=>{
  const r=repo('resokol/castlink');delete r.permissions;
