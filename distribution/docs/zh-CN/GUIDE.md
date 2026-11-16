@@ -2,9 +2,9 @@
 
 # CastLink：安装与使用
 
-Windows Server Setup 及独立 Linux 当前版本为 **1.0.4**；Windows Client 为 **1.0.1**。[更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
+本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。 [更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
 
-1.0.2 新增[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。Windows 本地 Server Setup 仍使用 Docker Desktop；无 Docker 的 Windows/WSL2 为独立且未经验证的候选版。
+服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
 
 请选择[对应产品的软件包与校验和](PRODUCTS.md)。Windows Client 用于加入现有服务器；Windows Server Setup 与 Linux 用于安装服务器。普通参与者需要受支持的浏览器与 HTTPS。
 
@@ -44,7 +44,7 @@ PDF/PPTX 与幻灯片翻页见[独立说明](PRESENTATIONS.md)，其权限范围
 
 ## 安装模式与服务器地址
 
-1.0.2 默认使用快速模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
+自 1.0.2 起，快速模式为默认模式。需要技术选项时，在 Windows 向导中明确启用**高级设置**；独立 Linux CLI 使用 `--advanced`。快速模式使用标准 HTTPS 和默认端口。高级模式支持 HTTP、直接 HTTPS 或外部 HTTPS 代理，以及网站和媒体的地址与端口设置。向导和 Linux CLI 支持 RU / EN / 简体中文。请参阅[安装模式与配置示例](INSTALL.md)。
 
 更新时请选择原有安装：保存的模式、地址、端口、UUID 和密钥不会被新对话框的默认值覆盖。已完成安装的网络结构不会自动更改。快速安装完成后可再添加备用服务器。
 
@@ -249,7 +249,7 @@ Windows 向导和管理窗口可选择 **Русский / English / 简体中文
 1. 更新前，请在云服务商网络防火墙和服务器系统防火墙中允许 **UDP 7882**。如果服务器位于路由器后，还需要转发此端口。保留 **TCP 80/443/7881**、**UDP 3478**，并允许 **UDP 30000–30031**。保持 SSH 端口可访问。可选 TURN/TLS 使用 **TCP 443** 和独立 TURN 域名。
 2. 备份数据与配置。Windows 向导创建的安装应完整解压新的 Windows 安装包，运行 `EasySetup.exe`，选择**更新**及原本的本地目录或同一 VPS。独立 Linux 辅助程序创建的安装应从新解压的发行包使用原有 `--state-dir` 运行 `check-updates` 与 `update`：[步骤](LINUX_MANUAL.md)。`easy-setup-8b02e2d4dc3c` 旧版指南仍是独立流程，新辅助程序不会接管这种安装。
 3. 请在非直播时段更新：安装程序会重新创建 LiveKit 容器以应用媒体端口，因此当前媒体连接会中断。更新现有安装会保留数据；无需删除安装或数据卷。
-4. 更新后，请从实际使用的网络检查网站、新嘉宾连接、音视频、独立输出、`/watch` 和已配置的备用服务器，并在浏览器中打开更新后的界面。
+4. 更新后，请从实际使用的网络检查网站、新嘉宾连接、音视频、独立输出、`/watch` 和已配置的备用服务器，并手动刷新**演播室和参与者双方的页面**，包括 Windows Client 中的页面。
 
 新的 Easy Setup 端口配置为：直连媒体 **UDP 7882 / TCP 7881**，TURN **UDP 3478**，TURN relay **UDP 30000–30031**。它取代原来的媒体范围 **UDP 61000–61100** 和 relay 范围 **UDP 30000–30999**。外部防火墙和路由器转发需独立于 Docker 配置；仅下载新 ZIP 不会更新服务器。
 

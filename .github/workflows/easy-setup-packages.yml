@@ -152,8 +152,35 @@ jobs:
           python3 -B scripts/tests/linux-parent-images.test.py
           python3 -B scripts/tests/simple-easy-setup-retention-worker.test.py
           python3 -B scripts/tests/production-update.test.py
+      - name: Seed pinned sources from the verified published sidecars
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json, pathlib, tempfile
+          spec = importlib.util.spec_from_file_location('sources', 'scripts/package-third-party-sources.py')
+          sources = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(sources)
+          published = 'https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/'
+          # Reuse bytes, never the old manifest: current paths, sizes and hashes
+          # are checked again, and missing or changed sources stop the build.
+          inputs = [
+              ('CastLink-ThirdParty-Sources.tar.gz', 'distribution/third-party-sources.json', 1448018597, '77151631fa7a4d34cfa318b67fe45288845983e23cf8bf421d1905a13cf81a3c'),
+              ('CastLink-ThirdParty-Office-Sources.tar.gz', 'distribution/third-party-office-sources.json', 1110224637, '5db53be3a4dac0849b7e026046db8358e02bf0ad1462b11eb723067d42f80c93'),
+          ]
+          with tempfile.TemporaryDirectory(prefix='castlink-source-seed-') as temporary:
+              for asset, manifest_path, size, digest in inputs:
+                  item = {'component': asset, 'url': published + asset, 'path': asset, 'size': size, 'sha256': digest}
+                  archive = sources.fetch(item, pathlib.Path(temporary))
+                  manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding='utf-8'))
+                  sources.seed_cache_from_archive(manifest, '/tmp/source-cache', archive)
+                  archive.unlink()
+                  print('Verified current pinned inputs: ' + manifest_path, flush=True)
+          PY
       - name: Build current application and bundled relay image
-        run: node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA" "${{ inputs.track }}"
+        run: |
+          node scripts/build-simple-easy-setup-images.mjs /tmp "$GITHUB_SHA" "${{ inputs.track }}"
+          # This ephemeral hosted-job cache is no longer needed after both
+          # checked source assets have been produced; leave space for packaging.
+          rm -rf -- /tmp/source-cache
       - uses: actions/download-artifact@v4
         if: ${{ inputs.track == 'server-setup' }}
         with:

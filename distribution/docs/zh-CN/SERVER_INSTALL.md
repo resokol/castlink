@@ -2,9 +2,15 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](../en/SERVER_INSTALL.md) · [简体中文](SERVER_INSTALL.md)
 
-Linux 加载脚本、24 小时服务器图表历史与事件日志包含在 **1.0.2** 中。[软件包及校验和](PRODUCTS.md) · [发行说明](RELEASE_NOTES_1_0_2.md)。普通 Windows 本地 Server Setup 1.0.2 使用 Docker Desktop；下方无 Docker 的 Windows/WSL2 仍为独立候选版，尚未完成安装及外部媒体通话验证。
+本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。
+
+服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](RELEASE_NOTES_1_0_2.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
+
+请在停播时通过明确的更新操作选择原有安装，保留数据与配置；Linux 继续使用原有 `--state-dir`。发布软件包不会自动更新运行中的服务器。就绪检查通过后，手动刷新**演播室和参与者双方的页面**，包括 Windows Client 中的页面：客户端显示所选服务器的界面。
 
 ## Ubuntu Linux
+
+下方固定示例使用 **1.0.4**。安装 **1.0.5** 时，请从[目录](PRODUCTS.md)选择该发行版对应的引导脚本与校验和。
 
 支持 Ubuntu22.04/24.04 amd64。Linux 版本提供独立 `install-server.sh`，固定版本及
 压缩包 SHA256。使用以下 1.0.4 的准确下载地址，不使用全局 `releases/latest`：
@@ -23,7 +29,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 自定义目录须每次使用相同的绝对 `--state-dir`。无人值守安装支持 `--config` 和
 `--room-creation-password-file`（UTF-8，末尾不换行）。
 
-## 无 Docker 的 Windows/WSL2 候选版 — 尚未验证
+## 无 Docker 的 Windows/WSL2 — 独立实验渠道
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。

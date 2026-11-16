@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5 server/web · 1.0.1 client — 2026-11-16
+
+- RU: отдельные серверные пакеты с текущей оценкой сети за 10 секунд, историей потерь и измерениями отправки аудио и видео, включая кастеров без камеры. Обновлены инструкции установки; Windows Client остаётся на 1.0.1. Обновляйте сервер вне эфира с прежними данными и перезагрузите страницы обеих сторон. [Примечания](distribution/RELEASE_NOTES_1_0_5.md).
+- EN: separate server packages include the rolling 10-second network grade, loss history and audio/video sender measurements, including audio-only casters. Installation guides are updated; Windows Client remains 1.0.1. Update the existing server off air, retain its data, and reload both sides. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_5.md).
+- 简体中文：独立服务器软件包包含最近10秒的网络等级、丢包历史以及音视频发送指标，并支持仅音频参与者。更新安装说明；Windows Client仍为1.0.1。请在停播时更新原有服务器、保留其数据并刷新双方页面。[说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_5.md)。
+
 ## Web — 2026-11-16 — потери отправки и приёма / Sender and receiver loss / 发送与接收丢包
 
 - RU: потери кастер → сервер учитываются отдельно для аудио и видео; приём сервер → студия и история сохранены. Текущая оценка использует 10 секунд, процент показан перед числом пакетов. Устаревшие и переупорядоченные сообщения не скрывают новые потери. Аудио без камеры поддерживается без новых RTC-опросов и таймеров. После обновления сервера перезагрузите страницы обеих сторон. [Примечания](distribution/RELEASE_NOTES_1_0_4.md).

@@ -2,7 +2,9 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
-Server release **1.0.2** adds [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate unverified candidate; Windows Client stays at **1.0.1**.
+This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md).
+
+Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
 
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 
@@ -151,6 +153,8 @@ Direct public HTTPS normally uses TCP 80/443. A custom published HTTP port requi
 Default media ports: TCP 7881, UDP 7882, TURN UDP 3478 and UDP 30000–30031. Open the selected ports in the firewall/provider panel and preserve port numbers through NAT. A website proxy does not replace the media path. PostgreSQL and web:3000 are not independently exposed. The wizard's TURN/TLS 443 requires direct public HTTPS, standard 80/443 and a separate TURN domain; an HTTP proxy does not automatically proxy TURN.
 
 ## Linux updates
+
+Update the server off air through an explicit update action, selecting the existing installation and retaining its data and configuration; keep the same Linux `--state-dir`. Publishing a package does not update a running server. After readiness checks, manually reload **both studio and caster pages**, including pages in Windows Client: the client displays its selected server interface.
 
 The Linux helper `scripts/linux-compose-setup.py` provides `init`, `start`, `status`, `check-updates` and `update` with the existing `--state-dir`. UUIDs, secrets, networking and volume names persist; Windows/legacy installations are not adopted. The `backup` command is removed; save required data and configuration copies yourself.
 
