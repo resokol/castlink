@@ -9,9 +9,17 @@ function releaseDestination(choice='primary'){
   if(choice==='primary')return CANONICAL_RELEASE_REPOSITORY;
   throw Error('Unsupported release destination; only the canonical CastLink repository is allowed');
 }
-function verifyDestination(repository,choice='primary'){
+function verifyDestination(repository,choice='primary',context=process.env){
   const expected=releaseDestination(choice);
-  if(repository.full_name!==expected||repository.private!==false||repository.permissions?.push!==true||!repository.default_branch)throw Error('Public writable canonical release repository required');
+  // Actions installation tokens can omit the legacy user `permissions` object.
+  // Our manual main workflows request contents:write; GitHub still authorizes
+  // every draft, asset upload and publication. Never infer this for other runs
+  // or override an explicit legacy permission denial.
+  const installationToken=repository.permissions===undefined&&repository.default_branch==='main'&&
+    context.GITHUB_ACTIONS==='true'&&context.GITHUB_REPOSITORY===expected&&
+    context.GITHUB_REF==='refs/heads/main'&&context.GITHUB_EVENT_NAME==='workflow_dispatch';
+  if(repository.full_name!==expected||repository.private!==false||
+    (repository.permissions?.push!==true&&!installationToken)||!repository.default_branch)throw Error('Public writable canonical release repository required');
   return expected;
 }
 function checkDestination(choice=process.env.CASTLINK_RELEASE_DESTINATION||'primary'){

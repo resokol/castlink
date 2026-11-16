@@ -23,10 +23,19 @@ test('destination checks reject missing write permissions and unverifiable repos
  assert.throws(()=>publisher.verifyDestination({...r,private:undefined}),/public|destination|repository/i);
  assert.throws(()=>publisher.verifyDestination({...r,default_branch:''}),/destination|repository/i);
 });
+test('Actions installation tokens may omit legacy push metadata only in the canonical manual main workflow',()=>{
+ const r=repo('resokol/castlink');delete r.permissions;
+ const context={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'resokol/castlink',GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'workflow_dispatch'};
+ assert.doesNotThrow(()=>publisher.verifyDestination(r,'primary',context));
+ for(const change of [{GITHUB_ACTIONS:'false'},{GITHUB_REPOSITORY:'someone/other'},{GITHUB_REF:'refs/heads/feature'},{GITHUB_EVENT_NAME:'pull_request'}])assert.throws(()=>publisher.verifyDestination(r,'primary',{...context,...change}));
+ assert.throws(()=>publisher.verifyDestination(r,'primary',{}));
+ assert.throws(()=>publisher.verifyDestination({...r,permissions:{push:false}},'primary',context));
+ for(const change of [{full_name:'resokol/castlink-releases'},{full_name:'someone/other'},{private:true},{default_branch:''},{default_branch:'other'}])assert.throws(()=>publisher.verifyDestination({...r,...change},'primary',context));
+});
 test('actual publisher pins source SHA and package metadata in canonical repository',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-destination-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- for(const choice of [undefined,'primary'])for(const track of ['client','server-setup','linux']){
-  const dir=path.join(root,(choice||'default')+'-'+track);fs.mkdirSync(dir);const source='a'.repeat(40),info=resolveTrack(track,source);
+ for(const token of ['user','actions'])for(const choice of [undefined,'primary'])for(const track of ['client','server-setup','linux']){
+  const dir=path.join(root,token+'-'+(choice||'default')+'-'+track);fs.mkdirSync(dir);const source='a'.repeat(40),info=resolveTrack(track,source);
   for(const name of publisher.releaseFiles(info))if(name!=='SHA256SUMS')fs.writeFileSync(path.join(dir,name),name==='manifest.json'?JSON.stringify(info):'verified fixture '+name);
   const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
   fs.writeFileSync(path.join(dir,'SHA256SUMS'),publisher.releaseFiles(info).filter(n=>n!=='SHA256SUMS').map(n=>hash(path.join(dir,n))+'  '+n).join('\n')+'\n');
@@ -34,7 +43,7 @@ test('actual publisher pins source SHA and package metadata in canonical reposit
   const fakeExec=(bin,args)=>{
    if(bin==='git')return args[0]==='rev-parse'?source:args[0]==='status'?'':'main';
    assert.equal(bin,'gh');calls.push(args);
-   if(args[0]==='api'&&args[1]===`repos/${destination}`)return JSON.stringify(repo(destination));
+   if(args[0]==='api'&&args[1]===`repos/${destination}`){const metadata=repo(destination);if(token==='actions')delete metadata.permissions;return JSON.stringify(metadata);}
    const endpoint=args[1],method=args.includes('--method')?args[args.indexOf('--method')+1]:'GET';
    if(endpoint===`repos/${destination}/releases?per_page=100`)return JSON.stringify([[]]);
    if(endpoint===`repos/${destination}/releases`&&method==='POST'){
@@ -51,6 +60,7 @@ test('actual publisher pins source SHA and package metadata in canonical reposit
   const filename=require.resolve('../publish-release-track.cjs'),realRequire=createRequire(filename),module={exports:{}};
   const mockRequire=id=>id==='node:child_process'?{execFileSync:fakeExec}:realRequire(id);mockRequire.main=undefined;
   const env={CASTLINK_RELEASE_NOTES:'Verified fixture changes with explicit update instructions.',GITHUB_SHA:source,GITHUB_REF:'refs/heads/main'};
+  if(token==='actions')Object.assign(env,{GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:destination,GITHUB_EVENT_NAME:'workflow_dispatch'});
   if(choice)env.CASTLINK_RELEASE_DESTINATION=choice;
   vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:mockRequire,module,process:{env},console:{log(){}},__dirname:path.dirname(filename)});
   module.exports.publish(track,dir);
