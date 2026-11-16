@@ -43,3 +43,21 @@ assert.doesNotMatch(guestRender.getText(parsed), /className="guest-card-details"
 console.log("PASS: guest video card extraction preserves preview, monitoring, quality and actions");
 
 assert.doesNotMatch(card, /RotateVideoButton/, "duplicate 90-degree rotation is removed; image controls own rotation");
+
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+const { load } = require('./load-typescript.cjs');
+const { GuestVideoCard } = load('../components/GuestVideoCard.tsx');
+const props = {
+  guest: { identity: 'guest-freshness', name: 'Freshness', camera: true, microphone: true, resolution: '1920×1080', bitrateKbps: 4000,
+    packetLoss: 0, currentLoss: { packets: 0, percent: 0 }, totalLoss: { packets: 3000, percent: .03 }, rttMs: 25, jitterMs: 2,
+    stability: 'Хорошая', networkMeasured: true, statsSampledAtRef: { current: Date.now() }, networkSampledAtRef: { current: Date.now() - 7000 } },
+  roomName: 'qa', outputUrl: '#', copied: false, receiveBitrate: 4000, preference: { audio: true, video: true, volume: 75 },
+  preview: React.createElement('video'), meter: null, onCopy() {}, onQualityChange() {}, onMonitoringChange() {},
+};
+const html = renderToStaticMarkup(React.createElement(GuestVideoCard, props));
+assert.match(html, /data-quality="unknown"/, 'stale mini status is unknown even when audio is fresh');
+assert.match(html, /net-unknown/, 'expanded network grade also expires after six seconds');
+assert.doesNotMatch(html, /net-good|25 \/ 2|0% \/ 0 пак/, 'expanded current measurements do not present stale data');
+assert.match(html, /0,03% \/ 3\u00a0000 пак/, 'historical losses survive current measurement expiry');
+console.log('PASS: real card mini and expanded network status expire together while session history remains');

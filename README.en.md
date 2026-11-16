@@ -28,6 +28,8 @@ CastLink is a self-hosted studio for bringing remote guests, presentations, and 
 
 ## Download and install
 
+**November 16 web fixes:** sender and receiver packet loss, audio-only casters, and current quality separated from history. Reload studio and caster pages after updating the server. [Details](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
+
 **1.0.4:** network quality guide in caster cards; Windows Client updated to 1.0.1. [1.0.4](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
 
 **1.0.3:** one noise/echo switch, off by default; the primary studio can change it in the caster card. [1.0.3](distribution/docs/en/RELEASE_NOTES_1_0_3.md).

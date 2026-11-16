@@ -2,6 +2,17 @@
 
 # CastLink Server and Linux 1.0.4 · Windows Client 1.0.1
 
+## Web fixes — November 16, 2026
+
+- The current network grade uses the last 10 seconds; session loss history is retained separately. Percentages appear before packet counts.
+- Both legs are measured: caster → server, separately for audio and video, and server → studio. Audio-only casters also receive a grade. Counters from different legs are not added together.
+- Missing, stale and reordered reports cannot become fresh zero-loss readings. The overall grade uses the worst fresh measurement; Good requires fresh data for every active leg.
+- Existing WebRTC reports and the existing send cycle are reused. No extra RTC polling or timers are added; metric updates preserve video and open menus.
+
+After updating the web server, manually reload **both studio and caster pages** off air. These fixes are included in current source; existing installer archives and checksums remain tied to their published builds. Windows Client displays its selected server's interface.
+
+## Original 1.0.4 / 1.0.1 packages
+
 Guest cards now show measured incoming camera and microphone bitrates and the
 network grade. A small arrow beside the grade opens a compact guide with the
 Good, Medium and Poor thresholds and the current measurements. It also works
