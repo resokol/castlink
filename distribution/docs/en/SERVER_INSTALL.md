@@ -34,7 +34,7 @@ locations. Unattended setup supports `--config` and
 
 ## Docker-free Windows/WSL2 — separate experimental channel
 
-The full [1.0.5-rc.1 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458) is published as a prerelease. See [installation steps and limitations](../../../README.en.md#windows-11-server).
+The [1.0.5-rc.2 installer candidate](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-73ef1cd0c13e) is not yet published. The links below are prepared for use after publication. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready
@@ -44,7 +44,7 @@ Windows services. Download the script from the exact selected published release,
 verify `SHA256SUMS`, then run in PowerShell:
 
 ```powershell
-& .\install-server-windows.ps1 -Action Install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1 -Action Install
 ```
 
 Setup asks for address/password, verifies the rootfs SHA256 and creates only its
@@ -73,6 +73,26 @@ upgraded by this installer.
 A background process keeps only the owned WSL distribution running after the
 installer window closes. Optional autostart runs at the current Windows user's
 logon after explicit consent. An explicit `Stop` preserves the stopped state.
+
+### Maintenance: update, remove and restore
+
+Once the candidate is published, download [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-73ef1cd0c13e/CastLink-Server-WSL-Maintenance.zip) from **that same release**, extract the entire ZIP and double-click **CastLink-Maintenance.cmd**. [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-73ef1cd0c13e/SHA256SUMS). The new panel's **Maintenance** button opens the same tool. Version 1.0.5-rc.1 needs this separate tool; its original installer does not update itself.
+
+**Select and update.** Select the exact server by address and folder; do not silently choose the first of several. An incomplete installation may have an unknown address, so check its folder. Select a target release, click **Check** and review current/target versions and required/free space. The tool downloads and verifies the needed files before stopping services. Checking never starts an update; prereleases require explicit selection. The normal window does not ask you to type SHA256 values or an opaque WSL ID.
+
+Click **Update** only outside a broadcast: the server stops during transfer and readiness checks. The confirmation displays the selected address, version and folder and can be cancelled. The first supported source is exactly `server-wsl-v1.0.5-rc.1-085b087a2458`. Other source versions, Docker migration and a different PostgreSQL major are unsupported. Repair an incomplete source with its original release, or remove it through this tool; Update does not pretend it is ready.
+
+A supported upgrade preserves server UUID, rooms/history, passwords, domain, TLS material and network settings. Successful updates remove the temporary transfer and the old owned distribution: **no permanent automatic backup remains**. Failures retain needed recovery evidence. On success, click **Open server panel**, then reload both studio and caster pages.
+
+**Remove.** **Keep a restorable archive before removing** is selected by default. Choose a location outside the installation folder and click **Remove**; the tool creates and validates a new archive folder before removing the server. Alternatively, explicitly choose **Permanently erase server and data**. Confirmation identifies the selected server and whether an archive is retained; cancelling does not start the operation.
+
+The restore archive is a **folder** containing `bundle.json`, the full `distribution.tar` export and verified helpers for the saved release. It is neither the maintenance ZIP nor the 24-hour statistics export. It contains passwords, keys and other credentials: keep the whole folder private and do not upload it as an ordinary diagnostic file. Keep its files together.
+
+**Restore.** In the same window, select the archive folder and **Restore**. Choose a parent inside `%LOCALAPPDATA%\CastLinkServer`; the folder dialog proposes a new destination name. The destination must not already exist; it is not merged with another installation. Restore recreates the saved release with its identity/settings and refuses conflicting installed servers or ports. An incomplete saved installation restores as incomplete, without an application-readiness claim.
+
+**After an interruption.** Open the same tool, select the same server and choose **Recover transaction**. Keep its data; do not manually start an old shortcut or use Install as a recovery step. After switching to a new release, recovery repairs that release; it never silently substitutes old data for data that may already have changed. Uncertain distribution ownership is preserved for manual inspection.
+
+Maintenance affects only the selected server. Other installations, nested folders, unknown files and manually saved exports remain; shared WSL/firewall settings are retained. Deleting AppData manually, global `wsl --shutdown`, or unregister commands are not normal maintenance steps.
 
 ## Graphs and owner access
 
