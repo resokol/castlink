@@ -10,16 +10,16 @@ Update the server off air through an explicit update action, selecting the exist
 
 ## Ubuntu Linux
 
-The pinned example below is for **1.0.4**. To install **1.0.5**, select the bootstrap and checksums for that exact release in the [catalog](PRODUCTS.md).
+The command below installs stable **1.0.5**. For step-by-step Windows and Linux installation, see the [main guide](../../../README.en.md).
 
 Ubuntu22.04/24.04 amd64 is supported. The Linux channel adds a self-contained
-`install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.4 asset URL, rather than global `releases/latest`:
+`install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.5 asset URL, rather than global `releases/latest`:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-The **linux-v1.0.4-079fd0f9d4b1** bootstrap asks for the
+The **linux-v1.0.5-732ad5fe7006** bootstrap asks for the
 server address and room creation password, stores its package/configuration at
 `/opt/castlink-server`, loads bundled images and runs the existing Linux installer.
 `--install-runtime` authorizes prerequisites and starting Docker; otherwise Docker
@@ -33,6 +33,8 @@ locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
 ## Docker-free Windows/WSL2 — separate experimental channel
+
+The full [1.0.5-rc.1 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458) is published as a prerelease. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready

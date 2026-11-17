@@ -90,8 +90,6 @@ export default function DiagnosticsPage() {
         </div>
       </section>
 
-      <p className="muted diagnostics-note">{t("Полная topology по всем нодам, студиям и комнатам доступна только в")}{" "}<a href="/super-admin">{t("Super Admin")}</a>{t(". Эта страница намеренно не показывает tenant topology, токены, секреты и DB credentials.")}</p>
-
       <section className="diagnostics-checks">
         {checks.map(([name, check]) => (
           <div key={name} className="panel diagnostics-check">

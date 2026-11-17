@@ -113,6 +113,24 @@ if captured!=expected or upstream_actual!=expected_files:
  raise ValueError('Upstream source archive differs from reviewed dependency manifest')
 `;
 
+async function readNativePanelPackage(root){
+ const inventoryFile='server-native-panel-files.json';
+ const inventory=JSON.parse(await fs.readFile(path.join(root,'scripts',inventoryFile),'utf8'));
+ const names=[inventoryFile,...(inventory.files??[]),...(inventory.buildFiles??[])];
+ if(inventory.schemaVersion!==1||inventory.host!=='CastLinkServer.exe'||inventory.binding!=='server-native-binding.json'||
+    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==6||inventory.buildFiles.length!==2||
+    new Set(names).size!==names.length||names.some(name=>typeof name!=='string'||!/^[A-Za-z0-9][A-Za-z0-9.-]{0,127}$/.test(name)))throw Error('Invalid native panel helper inventory');
+ for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1'])
+  if(!names.includes(required))throw Error('Missing native panel helper: '+required);
+ const files=[];
+ for(const file of names){
+  const source=path.join(root,'scripts',file),stat=await fs.lstat(source);
+  if(!stat.isFile()||stat.isSymbolicLink()||stat.size===0||stat.size>4194304)throw Error('Invalid native panel helper: '+file);
+  files.push({file,sha256:await hashFile(source),size:stat.size});
+ }
+ return {schemaVersion:1,host:inventory.host,binding:inventory.binding,files};
+}
+
 export async function assembleWslPackage({root=process.cwd(),output,rootfs,sources,upstreamSources,inventory,commit,version,repository='resokol/castlink',python=process.env.CASTLINK_PYTHON||'python3'}){
  if(!/^[a-f0-9]{40}$/.test(commit??''))throw Error('Exact source commit required');
  if(!tracks.VERSION.test(version??''))throw Error('Valid product version required');
@@ -122,12 +140,14 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  try{await fs.lstat(output);throw Error('Destination already exists; choose a new package directory');}catch(e){if(e.code!=='ENOENT')throw e;}
  for(const file of [rootfs,sources,upstreamSources,inventory]){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size===0)throw Error('Missing or invalid rootfs/source/inventory');}
  execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json')],{stdio:['ignore','pipe','pipe']});
+ const nativePanel=await readNativePanelPackage(root);
  const rootfsName='CastLink-Server-WSL-amd64.tar.gz',sourcesName='CastLink-Server-WSL-Sources.tar.gz';
  const manifest={schemaVersion:1,channel:'server-wsl',version,releaseTag:`server-wsl-v${version}-${commit.slice(0,12)}`,repository,architecture:'amd64',sourceCommit:commit,
   rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size},
   sources:{file:sourcesName,sha256:await hashFile(sources),size:(await fs.stat(sources)).size},
   upstreamSources:{file:'CastLink-ThirdParty-Sources.tar.gz',sha256:await hashFile(upstreamSources),size:(await fs.stat(upstreamSources)).size},
   inventory:{file:'packages.tsv',sha256:await hashFile(inventory)},
+  nativePanel,
   requirements:{windowsBuild:22621,wsl:2,networkingMode:'mirrored',hostAddressLoopback:true},
   verification:{windowsInstall:'not-run',externalMedia:'not-run',publication:'not-published'}};
  const bytes=Buffer.from(JSON.stringify(manifest,null,2)+'\n');
@@ -142,8 +162,9 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  await fs.copyFile(inventory,path.join(output,'packages.tsv'));
  await fs.writeFile(path.join(output,'manifest.json'),bytes,{flag:'wx'});
  await fs.writeFile(path.join(output,'install-server-windows.ps1'),'\ufeff'+script.replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'),{flag:'wx'});
+ for(const entry of nativePanel.files)await fs.copyFile(path.join(root,'scripts',entry.file),path.join(output,entry.file));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.copyFile(path.join(root,name),path.join(output,name));
- const names=[rootfsName,sourcesName,manifest.upstreamSources.file,'packages.tsv','manifest.json','install-server-windows.ps1','LICENSE','THIRD_PARTY_NOTICES'];
+ const names=[rootfsName,sourcesName,manifest.upstreamSources.file,'packages.tsv','manifest.json','install-server-windows.ps1','LICENSE','THIRD_PARTY_NOTICES',...nativePanel.files.map(entry=>entry.file)];
  const sums=await Promise.all(names.map(async name=>(await hashFile(path.join(output,name)))+'  '+name));
  await fs.writeFile(path.join(output,'SHA256SUMS'),sums.join('\n')+'\n',{flag:'wx'});
  return manifest;

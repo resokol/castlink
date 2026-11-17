@@ -7,6 +7,19 @@ export type StreamStat = {
   freezes: number | null; protocol: string | null; candidateType: string | null;
   qualityLimitation: string | null;
   audio?: AudioReceiveDiagnostic;
+  audioTrack?: AudioTrackDiagnostic;
+};
+
+export type AudioTrackDiagnostic = {
+  publicationMuted: boolean | null; trackMuted: boolean | null;
+  mediaTrackEnabled: boolean | null; mediaTrackMuted: boolean | null;
+  mediaTrackReadyState: "live" | "ended" | null;
+  sourceAudioLevel: number | null;
+  capture?: {
+    sampleRate: number | null; channelCount: number | null;
+    noiseSuppression: boolean | null; echoCancellation: boolean | null;
+    autoGainControl: boolean | null; voiceIsolation: boolean | null;
+  };
 };
 
 export type AudioReceiveDiagnostic = {
@@ -14,6 +27,10 @@ export type AudioReceiveDiagnostic = {
   receivedSamples: number | null; concealedSamples: number | null; concealmentEvents: number | null;
   receivedSamplesDelta: number | null; concealedSamplesDelta: number | null; concealmentEventsDelta: number | null;
   concealedPct: number | null; jitterBufferDelayMs: number | null; audioLevel: number | null;
+  // Optional for older stored records and browsers without these counters.
+  silentConcealedSamples?: number | null; silentConcealedSamplesDelta?: number | null;
+  insertedSamplesForDeceleration?: number | null; insertedSamplesForDecelerationDelta?: number | null;
+  removedSamplesForAcceleration?: number | null; removedSamplesForAccelerationDelta?: number | null;
 };
 
 export type AudioPlaybackDiagnostic = {

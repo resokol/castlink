@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TokenVerifier } from "livekit-server-sdk";
 import { clearDisconnected, readAudioHistory, readRuntimeHistory, readHistory, saveSample } from "@/lib/telemetry-store";
-import { sanitizeAudioPlayback, sanitizeAudioReceive } from "@/lib/audio-diagnostics";
+import { sanitizeAudioPlayback, sanitizeAudioReceive, sanitizeAudioTrack } from "@/lib/audio-diagnostics";
 import { sanitizeRuntimeDiagnostic } from "@/lib/runtime-diagnostics";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         freezes: metric(s.freezes), protocol: text(s.protocol, 20) || null,
         candidateType: text(s.candidateType, 30) || null, qualityLimitation: text(s.qualityLimitation, 40) || null,
         ...(s.kind === "audio" && s.direction === "in" ? { audio: sanitizeAudioReceive(s.audio) } : {}),
+        ...(s.kind === "audio" ? { audioTrack: sanitizeAudioTrack(s.audioTrack, s.direction === "out") } : {}),
       }));
     const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :

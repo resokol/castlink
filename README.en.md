@@ -1,95 +1,150 @@
 [Русский](README.md) · **English** · [简体中文](README.zh-CN.md)
 
-<p align="center">
-  <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="CastLink logo"></a>
-</p>
+# CastLink
 
-<h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.4</strong></p>
-<p align="center"><strong>Remote guests. Separate sources. Your broadcast.</strong></p>
-<p align="center">Join in a browser · OBS and vMix · Self-hosted</p>
-<p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
-</p>
-<p align="center">
-  <a href="https://castlink.ru">Website</a> &nbsp; / &nbsp;
-  <a href="distribution/INSTALL.md">Installation</a> &nbsp; / &nbsp;
-  <a href="CHANGELOG.md">What’s new</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax">Contact</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax"><strong>♡ Support CastLink</strong></a>
-</p>
+Connect remote guests in a browser and receive separate audio/video feeds for OBS or vMix.
 
-<p align="center">Open source under <a href="LICENSE">MIT</a> · <a href="distribution/docs/en/PRODUCTS.md">All downloads and checksums</a></p>
+Choose where to install your server:
 
-
----
-
-CastLink is a self-hosted studio for bringing remote guests, presentations, and separate audio/video feeds into OBS or vMix. Hosts and guests can use a browser; a dedicated Windows client is also available. This repository contains the application source, build tools, releases, and developer documentation.
-
-## Download and install
-
-**November 16 web fixes:** sender and receiver packet loss, audio-only casters, and current quality separated from history. Reload studio and caster pages after updating the server. [Details](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
-
-**1.0.4:** network quality guide in caster cards; Windows Client updated to 1.0.1. [1.0.4](distribution/docs/en/RELEASE_NOTES_1_0_4.md).
-
-**1.0.3:** one noise/echo switch, off by default; the primary studio can change it in the caster card. [1.0.3](distribution/docs/en/RELEASE_NOTES_1_0_3.md).
-
-Windows Server Setup and Linux are **1.0.4**; Windows Client is **1.0.1**.
-
-Version 1.0.2 adds [one-command Linux installation and 24-hour server monitoring](distribution/docs/en/SERVER_INSTALL.md): chart history and an event journal survive restarts. The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate candidate without verified installation and external media-call tests.
-
-Choose a package from the [product catalog](distribution/docs/en/PRODUCTS.md) or [releases](https://github.com/resokol/castlink/releases). Windows Client, Windows Server Setup, and standalone Linux have independent release tracks. Download each package and its `SHA256SUMS` from the same product release.
-
-| Product | Purpose |
+| System | Installer |
 | --- | --- |
-| Windows Client | Join a studio as a guest or host. Install using `setup.exe`; Docker is not required. |
-| Windows Server Setup | Install your server on Windows or on Linux Ubuntu over SSH. Extract all of `CastLink-Windows.zip` and run `EasySetup.exe`. |
-| Linux Ubuntu | Install a server directly on Linux. The [Linux manual](distribution/docs/en/LINUX_MANUAL.md) covers quick and advanced setup. |
+| Windows 11 | Full **1.0.5-rc.1** installer, without Docker Desktop. Prerelease. |
+| Ubuntu Linux / VPS | One `curl` command, stable **1.0.5**. |
 
-[Installation: Русский / English / 简体中文](distribution/INSTALL.md) · [User documentation](distribution/docs/en/GUIDE.md) · [Remote PC control (Russian)](docs/REMOTE_PC_CONTROL_RU.md).
+Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
 
-[resokol/castlink](https://github.com/resokol/castlink) is the canonical public repository for MIT-licensed source, releases, and instructions. Release archives and checksums are publicly accessible. The former `resokol/castlink-releases` address redirects here to preserve existing download and installer links. The single GitHub `releases/latest` entry does not select the latest release of all three products; use the product catalog.
+## Before installation
 
-Earlier published archives and SHA256 hashes are preserved without rebuilding. Their manifests or update checks may still use the former repository name; GitHub redirects it to this repository. For manual installation, choose the exact release listed in the catalog.
+- Keep the server computer powered on while using CastLink.
+- For internet access, prepare a domain or public IPv4. Point the domain's DNS **A** record at the server. On Windows, also point `turn.YOUR-DOMAIN` at the same IP.
+- Behind a router, forward **TCP 80, 443, 7881; UDP 3478, 7882, 30000–30031** to the server. Allow these ports in your VPS firewall too. The installer does not configure DNS or your router.
+- A local IPv4 works for LAN testing; client devices must trust the server's local HTTPS certificate.
+- With CGNAT, port forwarding alone is insufficient. Request a public IPv4 from your ISP or use an Ubuntu VPS.
 
-A Windows server requires Docker Desktop with Linux containers. VPS installation supports Ubuntu 22.04/24.04 amd64. You run the server on your own infrastructure. See the installation guides for networking, HTTPS, ports, and updates.
+## Windows 11 server
 
-## Development
+Requires **Windows 11 x64 22H2/build 22621 or later**, enabled virtualization and internet. The installer uses WSL 2. You do not need to install Docker Desktop, Node.js or PostgreSQL yourself.
 
-Install Git, Node.js 22.13+, and pnpm 9.15.0. Server packages use Node.js 22.23.3 with built-in SQLite. Dependency versions are pinned in `pnpm-lock.yaml`.
+### 1. Download
 
-```sh
-git clone https://github.com/resokol/castlink.git
-cd castlink
-pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm test:ci
-pnpm build
+**[Download install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.1-085b087a2458/install-server-windows.ps1)**
+
+It downloads the server files automatically. No separate hotfix or source archive is needed.
+
+### 2. Run
+
+Open the download folder, type `powershell` in File Explorer's address bar and press Enter. Run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1
 ```
 
-Run `pnpm dev` to start the web development server. A complete local environment also needs LiveKit, access configuration, and a configured storage backend. Use a separate development environment and database. Configuration templates are in `infrastructure/`; do not use production data for tests.
+If double-click opens a text editor, use this command. Its execution-policy setting applies only to this launch.
 
-| Directory | Contents |
+### 3. Answer the prompts
+
+For `[y/N]`, type `y` and press Enter to agree; an empty answer declines. Some prompts only appear on first installation.
+
+| Prompt / step | What to do |
 | --- | --- |
-| [apps/web](apps/web) | Next.js/React, server APIs, and browser interfaces |
-| [apps/desktop](apps/desktop) | Windows client and native integrations |
-| [apps/cli](apps/cli) | Legacy CLI, distinct from the standalone Linux installer |
-| [native](native) | Native Windows components and protocols |
-| [scripts](scripts) | Builds, installers, migrations, and checks |
-| [infrastructure](infrastructure) | Compose, SQL, service templates, and runtime components |
-| [docs](docs/README.md) | Architecture, development, and operations |
-| [distribution](distribution) | User instructions and release tracks |
+| Install WSL components | Enter `y` and accept Windows elevation. If a reboot is requested, reboot and run the same command again. |
+| Public hostname or IPv4 address | Enter your domain or IPv4 **without** `https://`, a port or a path. Replace examples such as `meet.example.com` with your own address. |
+| Add `networkingMode=mirrored` and `hostAddressLoopback=true` | These configure WSL networking. On a dedicated server PC, accept with `y`. If a WSL/Windows restart is requested, reboot and rerun. The installer will not stop other running WSL systems. |
+| Add firewall rules | Enter `y` and accept Windows elevation. |
+| Media IPv4, when using a domain | Enter the server IPv4 reachable by participants: public for internet access, local for LAN testing. |
+| Room-creation password and confirmation | Create and save a separate password, then repeat it. Typed characters are hidden. |
+| Trust this server's certificate | Only approve for your own server. Local certificates also need trust on other participant devices. |
+| Start at Windows sign-in | `y` enables startup when **your user** signs in; `n` leaves manual startup. |
 
-Start with the [learning manual](docs/MANUAL_RU.md), [project guide](docs/PROJECT_GUIDE_RU.md), and [technical invariants](docs/CRITICAL_INVARIANTS_RU.md) (Russian). For UI work, see the [design system](DESIGN.md) and [UI guide](docs/UI_EDITING_GUIDE_RU.md). Updating a source checkout does not automatically update an installed application or server. Some detailed documentation is currently available only in Russian; installation instructions include English and Simplified Chinese.
+Allow several minutes for download and setup. Keep the window open. After a requested reboot, rerun the **same installer** to resume.
 
-## Contributing
+### 4. Check the result
 
-See [CONTRIBUTING](CONTRIBUTING.md) for changes and validation, and [SECURITY](SECURITY.md) for privately reporting vulnerabilities.
+The **CastLink Server** panel opens after installation. Wait for its running status and click **Open CastLink**. Use your new password to create a room.
 
-## License
+The panel provides service controls, statistics and **Export ZIP for 24 hours**. Closing the window hides it in the tray; use **Stop services** to stop the server. Test from another device; use a phone on mobile data to verify internet access.
 
-CastLink’s own source code is available under the [MIT License](LICENSE), permitting use, modification, and redistribution with the copyright and permission notice retained. Third-party components retain their respective licenses and notices: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+**Release status:** this is a full RC installer for a new PC. Build, Windows tests and checksums were verified; a fresh installation and reboot of this exact package on another clean PC were not repeated. Installing over another release is unsupported. [Release and SHA256SUMS](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458).
 
-Previously released Client `f6c47a27a62c` and Server Setup/Linux `d703726cd50b` packages retain their included CastLink Freeware Distribution License 1.1. Their archives and SHA256 hashes are unchanged; the current source license does not replace the license embedded in those packages.
+## Ubuntu Linux server
 
-Author: [Telegram @sklvmax](https://t.me/sklvmax) · [GitHub resokol](https://github.com/resokol).
+Supports **Ubuntu 22.04 / 24.04, x86-64/amd64**. Connect over SSH with a user who has `sudo` privileges.
+
+### 1. Run one command
+
+```bash
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang en
+```
+
+This pinned **1.0.5** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.
+
+If `curl` is missing, run this first, then repeat installation:
+
+```bash
+sudo apt-get update && sudo apt-get install -y curl
+```
+
+### 2. Answer the prompts
+
+| Prompt | Answer |
+| --- | --- |
+| `sudo` password, if requested | Your Ubuntu user's system password. Input is hidden. |
+| External server address | Your full address, such as `https://meet.example.com` or `https://YOUR-IP`. **Do not keep `127.0.0.1`** for access from other devices. |
+| Media IPv4, if requested | The server's reachable IPv4. Asked when it cannot be determined unambiguously. |
+| Room-creation password and confirmation | A new separate **8–256 character** password. It is not your SSH/sudo password. Input is hidden; save it. |
+
+Quick mode chooses ports and HTTPS mode automatically. Local addresses use a local certificate; configure trust separately on participant devices.
+
+### 3. Wait for startup
+
+Installation is complete when these lines appear:
+
+```text
+CastLink setup completed: https://YOUR-ADDRESS
+Installation: /opt/castlink-server
+```
+
+Open the displayed address, create a room with your password and test another device.
+
+### 4. Manage the server
+
+Check status:
+
+```bash
+sudo python3 /opt/castlink-server/.castlink-package/scripts/linux-compose-setup.py status --state-dir /opt/castlink-server --lang en
+```
+
+Replace `status` with `start` to start it. Stop while keeping data:
+
+```bash
+sudo docker compose -f /opt/castlink-server/compose.json stop
+```
+
+Repeating `curl` **does not update** a completed installation. Replace `status` with `update` above to update outside a broadcast, keeping the same data directory. Then reload both studio and caster pages.
+
+## Troubleshooting
+
+| Problem | Check |
+| --- | --- |
+| Windows requests a reboot or reports WSL is running | Save your work, reboot and rerun the same installer. Keep the installed system and data. |
+| Virtualization unavailable | Enable Intel VT-x / AMD-V in BIOS/UEFI. |
+| Address does not open | IP/DNS A record, running services, firewall and port forwarding. For Windows domains, check `turn.YOUR-DOMAIN` too. |
+| Page loads but media fails | Media IPv4 and UDP ports listed above. TCP 443 alone does not prove media connectivity. |
+| LAN certificate warning | Trust your server's **public root certificate** on each device. Do not disable TLS verification. [Linux certificate export](distribution/docs/en/LINUX_MANUAL.md). |
+| Port conflict / another installation | Stop the conflicting service before using the same ports; keep its data. |
+
+Linux diagnostics:
+
+```bash
+sudo docker compose -f /opt/castlink-server/compose.json ps
+sudo docker compose -f /opt/castlink-server/compose.json logs --tail 100
+```
+
+## More
+
+- [Website](https://castlink.ru) · [User guide](distribution/docs/en/GUIDE.md) · [Releases](https://github.com/resokol/castlink/releases) · [Changelog](CHANGELOG.md).
+- The older Docker/SSH `EasySetup.exe` is an [alternative installation method](distribution/docs/en/INSTALL.md); it is not required for the Windows instructions above.
+- Development: [CONTRIBUTING](CONTRIBUTING.md), [project guide](docs/PROJECT_GUIDE_RU.md), [technical invariants](docs/CRITICAL_INVARIANTS_RU.md). Installing a packaged server does not require Git or a source build.
+- [Report an issue](https://github.com/resokol/castlink/issues) · [Security](SECURITY.md) · [Contact / support the author](https://t.me/sklvmax).
+
+Project code: [MIT](LICENSE). Third-party components retain their own licenses: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Older Client `f6c47a27a62c` and Server Setup/Linux `d703726cd50b` packages retain their bundled Freeware Distribution License 1.1; the current MIT license does not change those packages.
