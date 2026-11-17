@@ -56,7 +56,7 @@ class RuntimeTest(unittest.TestCase):
             self.assertTrue(livekit['turn']['external_tls'])
             self.assertEqual(livekit['rtc']['node_ip'], '203.0.113.2')
             self.assertEqual(livekit['turn']['domain'], 'relay.example.org')
-            self.assertIn('disable_tlsalpn_challenge', caddy)
+            self.assertIn('disable_http_challenge', caddy)
 
     def test_assigned_media_ip_filters_udp_mux_without_broadening_turn(self):
         for media in ['192.168.1.23', '127.0.0.1']:
@@ -129,6 +129,44 @@ class RuntimeTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'Existing runtime configuration differs'): runtime.materialize(state)
                 self.assertEqual(files, {f.name: f.read_bytes() for f in config.iterdir()})
             self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+
+    def test_public_dns_issuers_use_443_but_ip_and_local_modes_are_preserved(self):
+        cases = [
+            ('node2.castlink.ru', 'turn.node2.castlink.ru', None, 2, 0, False),
+            ('8.8.8.8', '8.8.8.8', None, 0, 1, True),
+            ('8.8.8.8', 'relay.example.org', None, 1, 1, True),
+            ('192.168.1.23', '192.168.1.23', None, 0, 0, False),
+            ('studio.example.org', 'relay.example.org', False, 0, 0, False),
+        ]
+        for host, turn, public, tls_alpn_issuers, http_issuers, shortlived in cases:
+            with self.subTest(host=host, turn=turn, public=public), tempfile.TemporaryDirectory() as temp:
+                folder = Path(temp) / 'state'
+                state = self.fresh(folder, host, turn_host=turn, public_https=public)
+                caddy = runtime.configs(state, json.loads((folder / 'secrets.json').read_text()), {state['mediaIp']})['Caddyfile']
+                self.assertEqual(caddy.count('disable_http_challenge'), tls_alpn_issuers)
+                self.assertEqual(caddy.count('disable_tlsalpn_challenge'), http_issuers)
+                self.assertEqual('profile shortlived' in caddy, shortlived)
+                if not state['publicHttps']:
+                    self.assertIn('tls internal', caddy)
+                    self.assertNotIn('issuer acme', caddy)
+
+    def test_acme_alpn_for_configured_names_precedes_turn_even_before_pem(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = self.fresh(Path(temp) / 'state', 'node2.castlink.ru', turn_host='turn.node2.castlink.ru')
+            acme = '  use_backend web_tls if { req.ssl_alpn -i acme-tls/1 } { req.ssl_sni -i node2.castlink.ru turn.node2.castlink.ru }'
+            turn = '  use_backend turn_entry if { req.ssl_sni -i turn.node2.castlink.ru }'
+            for pem in [None, Path('/run/castlink-turn-tls/cert.pem')]:
+                with self.subTest(pem=pem):
+                    config = runtime.haproxy_config(state, pem)
+                    self.assertIn(acme, config)
+                    self.assertLess(config.index(acme), config.index(turn))
+                    self.assertIn('server caddy 127.0.0.1:8443 send-proxy-v2', config)
+                    self.assertIn('!{ req.ssl_sni -m found } !{ req.ssl_alpn -m found }', config)
+                    self.assertEqual('frontend turn_tls' in config, pem is not None)
+            local = self.fresh(Path(temp) / 'local')
+            self.assertNotIn('acme-tls/1', runtime.haproxy_config(local, None))
+            public_ip = self.fresh(Path(temp) / 'ip', '8.8.8.8')
+            self.assertNotIn('acme-tls/1', runtime.haproxy_config(public_ip, None))
 
     def test_local_tls_and_address_input(self):
         with tempfile.TemporaryDirectory() as temp:

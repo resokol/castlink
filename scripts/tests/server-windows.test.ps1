@@ -1,4 +1,4 @@
-param([switch]$NetworkingOnly, [switch]$StateSharingOnly, [string]$InstallerPath)
+param([switch]$NetworkingOnly, [switch]$StateSharingOnly, [switch]$NativePanelOnly, [string]$InstallerPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $installer = if ($InstallerPath) { [IO.Path]::GetFullPath($InstallerPath) } else { Join-Path $PSScriptRoot '../install-server-windows.ps1' }
@@ -8,6 +8,97 @@ function Assert($Condition, [string]$Message) { if (-not $Condition) { throw $Me
 function Assert-Throws([scriptblock]$Block, [string]$Pattern) {
   try { & $Block } catch { Assert ($_.Exception.Message -match $Pattern) "Unexpected error: $($_.Exception.Message)"; return }
   throw "Expected rejection matching $Pattern"
+}
+function Test-CastlinkNativeCompilerChild([string]$Directory) {
+  if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Write-Host 'SKIP: native Windows PowerShell compiler-child fixture requires Windows'; return }
+  $folder=Join-Path $Directory "compiler child's space";$null=[IO.Directory]::CreateDirectory($folder)
+  $helper=Join-Path $folder 'build-server-native-panel-host.ps1'
+  $output=Join-Path $folder "output host's space.exe"
+  $body=@'
+param([Parameter(Mandatory=$true)][string]$Output)
+$ErrorActionPreference='Stop'
+$record=[ordered]@{hostPath=[Diagnostics.Process]::GetCurrentProcess().MainModule.FileName;processId=$PID;major=$PSVersionTable.PSVersion.Major;edition=$PSVersionTable.PSEdition;output=$Output}
+[IO.File]::WriteAllText($Output,($record|ConvertTo-Json -Compress))
+'@
+  [IO.File]::WriteAllText($helper,$body)
+  Build-CastlinkNativePanelHost $folder $output
+  $record=[IO.File]::ReadAllText($output)|ConvertFrom-Json
+  $expectedHost=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+  Assert ($record.hostPath -ieq $expectedHost -and $record.major -eq 5 -and $record.edition -ceq 'Desktop') 'Compiler helper did not execute in fixed native Windows PowerShell 5.1'
+  Assert ($record.processId -ne $PID) 'Compiler helper ran inside the caller instead of a native child'
+  Assert ($record.output -ceq $output) 'Compiler output path changed across the actual process argv boundary'
+  [IO.File]::WriteAllText($helper,"param([string]`$Output)`nexit 0")
+  Assert-Throws {Build-CastlinkNativePanelHost $folder (Join-Path $folder 'missing.exe')} 'did not produce'
+  [IO.File]::WriteAllText($helper,($body+"`nexit 17"))
+  try {Assert-Throws {Build-CastlinkNativePanelHost $folder (Join-Path $folder 'failed.exe')} 'compiler.*failed'} finally {$global:LASTEXITCODE=0}
+  Write-Host 'PASS: actual native Windows PowerShell compiler child, exact argv and nonzero/missing output guards (temporary helper; no real compilation)'
+}
+function Test-CastlinkNativePanelStaging([string]$Directory) {
+  $folder=Join-Path $Directory 'native-panel-integration';$null=[IO.Directory]::CreateDirectory($folder)
+  $root=Join-Path $folder 'installation';$null=[IO.Directory]::CreateDirectory($root)
+  $package=Join-Path $folder 'package';$null=[IO.Directory]::CreateDirectory($package)
+  $tag='server-wsl-v1.0.0-'+('c'*12);$repo='resokol/castlink';$rootHash='d'*64
+  $state=Get-CastlinkInstallation $root $tag $repo $rootHash
+  $state.phase='imported';Save-CastlinkInstallation $root $state
+  $status=[pscustomobject]@{ready=$true;buildId=('1.0.0-'+('c'*12));origin='https://meet.example.test'}
+  $names=@('server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1')
+  $entries=@()
+  foreach($name in $names){
+    $path=Join-Path $package $name;[IO.File]::WriteAllText($path,('fixture helper '+$name))
+    $entries += [pscustomobject]@{file=$name;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $path).Length}
+  }
+  $manifest=[ordered]@{schemaVersion=1;channel='server-wsl';releaseTag=$tag;repository=$repo;rootfs=@{sha256=$rootHash};nativePanel=@{schemaVersion=1;host='CastLinkServer.exe';binding='server-native-binding.json';files=$entries}}
+  $manifestPath=Join-Path $package 'manifest.json';[IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Depth 8))
+  $oldTag=$script:PackagedReleaseTag;$oldRepository=$script:PackagedRepository;$oldManifest=$script:PackagedManifestSha256
+  $originalBuild=(Get-Command Build-CastlinkNativePanelHost).ScriptBlock
+  $originalSid=(Get-Command Get-CastlinkCurrentUserSid).ScriptBlock
+  $script:NativeBuilds=0
+  function Build-CastlinkNativePanelHost([string]$Directory,[string]$Output){$script:NativeBuilds++;[IO.File]::WriteAllText($Output,'fixture compiled host')}
+  function Get-CastlinkCurrentUserSid{return 'S-1-5-21-1234'}
+  try{
+    $script:PackagedReleaseTag=$tag;$script:PackagedRepository=$repo
+    $script:PackagedManifestSha256=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $panel=Prepare-CastlinkNativePanel $root $state $status $package $installer $false
+    Assert ($script:NativeBuilds -eq 1) 'Native host was not compiled once'
+    Assert ($panel.hostPath -ceq (Join-Path (Join-Path $root 'native-panel') 'CastLinkServer.exe')) 'Panel host escaped the owned root'
+    $binding=[IO.File]::ReadAllText($panel.bindingPath)|ConvertFrom-Json
+    Assert ($binding.installationId -ceq $state.installationId -and $binding.origin -ceq $status.origin) 'Panel binding does not match its owned server'
+    Assert ($binding.sourceScriptPath -ceq (Join-Path $root 'install-server-windows.ps1')) 'Panel retains an external package installer dependency'
+    Assert ($binding.expectedInstallerSha256 -ceq (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()) 'Binding bypasses the exact pinned installer bytes'
+    $spec=Get-CastlinkLogonTaskSpec $root $state $installer
+    Assert ($spec.mode -ceq 'native-panel' -and $spec.execute -ceq $panel.hostPath) 'New native installation still schedules a console controller'
+    Assert ($spec.arguments -ceq ('--binding "'+$panel.bindingPath+'" --startup')) 'Native logon task does not use its exact binding/startup args'
+    $legacy=$state|ConvertTo-Json -Depth 8|ConvertFrom-Json
+    $legacy|Add-Member NoteProperty autoStartAtLogon $true
+    $legacySpec=Get-CastlinkLogonTaskSpec $root $legacy $installer
+    Assert ($legacySpec.mode -ceq 'installer' -and $legacySpec.arguments -match '-KeepaliveTask') 'Existing legacy task was silently converted to native'
+    $state|Add-Member NoteProperty logonTaskMode 'installer'
+    Assert ((Get-CastlinkLogonTaskSpec $root $state $installer).mode -ceq 'installer') 'Explicit original task mode was ignored'
+    $state.PSObject.Properties.Remove('logonTaskMode')
+    $null=Prepare-CastlinkNativePanel $root $state $status $package $installer $false
+    Assert ($script:NativeBuilds -eq 1) 'Repeat preparation recompiled the recorded host'
+    $hostBytes=[IO.File]::ReadAllBytes($panel.hostPath)
+    [IO.File]::AppendAllText($panel.hostPath,'tampered')
+    Assert-Throws {Assert-CastlinkNativePanelReceipt $root $state} 'checksum'
+    [IO.File]::WriteAllBytes($panel.hostPath,$hostBytes)
+    [IO.File]::AppendAllText((Join-Path $package $names[1]),'tampered')
+    Assert-Throws {Prepare-CastlinkNativePanel $root $state $status $package $installer $false} 'checksum'
+    Assert ($script:NativeBuilds -eq 1) 'Corrupt package was compiled'
+    [IO.File]::WriteAllText((Join-Path $package $names[1]),('fixture helper '+$names[1]))
+    [IO.File]::WriteAllText((Join-Path (Split-Path $panel.hostPath -Parent) 'foreign.txt'),'preserve')
+    Assert-Throws {Prepare-CastlinkNativePanel $root $state $status $package $installer $false} 'unknown files'
+    Assert ([IO.File]::ReadAllText((Join-Path (Split-Path $panel.hostPath -Parent) 'foreign.txt')) -ceq 'preserve') 'Unknown panel files were changed'
+    $manifest.Remove('nativePanel')
+    [IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Depth 8))
+    $script:PackagedManifestSha256=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert ($null -eq (Prepare-CastlinkNativePanel $root $state $status $package $installer $false)) 'Legacy manifest no longer supports console-only installation'
+    Write-Host 'PASS: native panel package staging, pinned binding and legacy/native task choice (compiler mocked; no WPF launch)'
+  }finally{
+    $script:PackagedReleaseTag=$oldTag;$script:PackagedRepository=$oldRepository;$script:PackagedManifestSha256=$oldManifest
+    Set-Item Function:Build-CastlinkNativePanelHost $originalBuild
+    Set-Item Function:Get-CastlinkCurrentUserSid $originalSid
+  }
+  Test-CastlinkNativeCompilerChild $Directory
 }
 function Test-CastlinkStateSharing([string]$Directory) {
   if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
@@ -167,6 +258,7 @@ function Test-CastlinkWslNetworkSettings([string]$Directory) {
 $testDir = Join-Path ([IO.Path]::GetTempPath()) ('castlink-windows-test-' + [guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testDir)
 try {
+  if ($NativePanelOnly) { Test-CastlinkNativePanelStaging $testDir; return }
   if ($StateSharingOnly) { Test-CastlinkStateSharing $testDir; return }
   Test-CastlinkWslNetworkSettings $testDir
   if ($NetworkingOnly) { Write-Host 'PASS: shared WSL networking behavioral fixtures (real config files; no WSL operations)'; return }
@@ -422,5 +514,6 @@ try {
   [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 4))
   [IO.File]::AppendAllText($rootfsPath, 'tampered')
   Assert-Throws { Assert-CastlinkPackage $packageDir $manifest.releaseTag $manifest.repository $rootfsHash $manifestHash } 'checksum'
+  Test-CastlinkNativePanelStaging $testDir
   Write-Host 'PASS: server Windows installer behavioral fixtures (PowerShell runtime; WSL is not exercised)'
 } finally { Remove-Item -LiteralPath $testDir -Recurse -Force }

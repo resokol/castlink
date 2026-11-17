@@ -24,6 +24,10 @@ jobs:
           if ($errors.Count) { $errors | Format-List; throw 'PowerShell parser failed' }
           & scripts/tests/server-windows.test.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-native-control.fixtures.ps1 -Visual
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/tests/server-native-monitor.fixtures.ps1 -BridgePath scripts/server-native-monitor.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       # This job proves parser/fixtures, not a supported Windows11 WSL install.
   package:
     needs: windows-parser
@@ -37,7 +41,7 @@ jobs:
         run: npx --yes pnpm@9.15.0 install --frozen-lockfile
       - name: Installer and package checks
         run: |
-          node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs
+          node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs scripts/tests/server-windows.test.mjs scripts/tests/server-native-panel.test.mjs scripts/tests/server-native-monitor.test.mjs
           python3 scripts/tests/server-wsl-runtime.test.py
           python3 scripts/tests/server-wsl-export.test.py
           python3 scripts/tests/server-bootstrap.test.py
@@ -74,6 +78,15 @@ jobs:
           CASTLINK_BUILD_VERSION: ${{ inputs.version }}
           CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE: ${{ runner.temp }}/castlink-upstream-sources-1.0.2.tar.gz
         run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: castlink-server-wsl-install-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/server-wsl/package/*
+            !${{ runner.temp }}/server-wsl/package/CastLink-Server-WSL-Sources.tar.gz
+            !${{ runner.temp }}/server-wsl/package/CastLink-ThirdParty-Sources.tar.gz
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: castlink-server-wsl-candidate-${{ github.sha }}

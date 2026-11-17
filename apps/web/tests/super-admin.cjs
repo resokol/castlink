@@ -8,6 +8,7 @@ const overviewApi = fs.readFileSync(path.resolve(__dirname, "../app/api/super-ad
 const page = fs.readFileSync(path.resolve(__dirname, "../app/super-admin/page.tsx"), "utf8");
 const tokenApi = fs.readFileSync(path.resolve(__dirname, "../app/api/token/route.ts"), "utf8");
 const diagnostics = fs.readFileSync(path.resolve(__dirname, "../app/diagnostics/page.tsx"), "utf8");
+const platformGate = fs.readFileSync(path.resolve(__dirname, "../components/PlatformAccessGate.tsx"), "utf8");
 const health = fs.readFileSync(path.resolve(__dirname, "../app/api/health/route.ts"), "utf8");
 const migration = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/control-plane/002_super_admin.sql"), "utf8");
 const nodeStateMigration = fs.readFileSync(path.resolve(__dirname, "../../../infrastructure/control-plane/003_node_operational_state.sql"), "utf8");
@@ -33,19 +34,18 @@ assert.match(overviewApi, /listControlRooms/);
 for (const forbidden of ["livekit-client", "RoomAudioRenderer", "ScreenShareButton", "setCameraEnabled", "setMicrophoneEnabled", "ON AIR"]) {
   assert.ok(!page.includes(forbidden), `Super Admin page must not contain broadcast media control: ${forbidden}`);
 }
-assert.match(page, /\/api\/super-admin/);
-assert.match(page, /Создать Super Admin link/);
-assert.match(page, /Ноды/);
-assert.match(page, /Студии/);
-assert.match(page, /Комнаты/);
+assert.match(page, /\/api\/super-admin-access/, "original owner links retain their browser redemption entry");
+assert.match(page, /location\.replace\("\/servers"\)/, "confirmed owner access goes only to the fixed server registry");
+assert.doesNotMatch(page, /notFound\(|ServerMonitor|StatisticsDashboard|PlatformParticipantActions|\/api\/super-admin["']|node-state|create-invite|bootstrap/, "owner entry must not restore the separate dashboard, topology, controls or bootstrap");
 
 assert.ok(!tokenApi.includes('"super-admin"'), "LiveKit token endpoint must not recognize Super Admin as a media role");
 assert.match(migration, /castlink_control\.platform_access/);
 assert.match(migration, /super_admin/);
 assert.equal(packageJson.scripts["control-plane:migrate"], "node scripts/control-plane-migrate.mjs");
 
-assert.match(diagnostics, /\/super-admin/);
-assert.match(diagnostics, /намеренно не показывает tenant topology/);
+assert.doesNotMatch(diagnostics, /href="\/super-admin"/, "diagnostics no longer links to the removed screen");
+assert.doesNotMatch(platformGate, /href="\/super-admin"/, "platform gate does not link to the removed screen");
+assert.match(platformGate, /fetch\("\/api\/super-admin-access"/, "platform features retain their separate authorization gate");
 assert.ok(!health.includes("listControlNodes"), "limited diagnostics must not expose cluster topology");
 assert.ok(!health.includes("listAllStudios"), "limited diagnostics must not expose tenant list");
 assert.match(health, /controlPlaneMode/);
@@ -58,9 +58,6 @@ assert.match(store, /health=CASE WHEN \$2='force_offline' THEN 'offline'/);
 assert.match(scheduler, /node\.state !== "active"/, "only Enabled/active nodes can receive new assignments");
 assert.match(overviewApi, /action !== "node-state"/);
 assert.match(overviewApi, /changeNodeState/);
-assert.match(page, /Force Offline/);
-assert.match(page, /Draining/);
-assert.match(page, /Enabled/);
 
 assert.match(topologyRoute, /verifyNodeControlRequest/);
 assert.match(topologyRoute, /requestedNodeId !== ownNodeId/, "topology endpoint is bound to its own node identity");
@@ -68,7 +65,7 @@ assert.match(topologyRoute, /collectLocalNodeTopology/);
 for (const metric of ["bitrateInKbps", "bitrateOutKbps", "rttMs", "jitterMs", "lossPct", "reconnects"]) assert.ok(fs.readFileSync(path.resolve(__dirname,"../lib/node-topology.ts"),"utf8").includes(metric), `topology missing ${metric}`);
 assert.match(overviewApi, /signNodeControlRequest/);
 assert.match(overviewApi, /\/v1\/node\/topology/);
-assert.match(page, /Участники по комнатам/);
-assert.match(page, /Node latency/);
 
-console.log("PASS: isolated Super Admin access, four node states, signed topology, no media grants and limited diagnostics boundary");
+require('./super-admin-entry-behavior.cjs').run().then(() => {
+  console.log("PASS: owner invitation redemption without dashboard; isolated platform access, no media grants and limited diagnostics boundary");
+}).catch(error => { console.error(error); process.exitCode = 1; });
