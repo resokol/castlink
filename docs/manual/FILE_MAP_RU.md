@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2013**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2015**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -5844,7 +5844,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestWorkspace`.
 
-Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestNoiseSuppressionControl.tsx`](../../apps/web/components/GuestNoiseSuppressionControl.tsx), [`apps/web/components/GuestPrivateTalkback.tsx`](../../apps/web/components/GuestPrivateTalkback.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestSettingsPanel.tsx`](../../apps/web/components/GuestSettingsPanel.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-audio-gain.ts`](../../apps/web/lib/guest-audio-gain.ts), [`apps/web/lib/guest-audio-permissions.ts`](../../apps/web/lib/guest-audio-permissions.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-camera-outbound.ts`](../../apps/web/lib/guest-camera-outbound.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-entry-settings.ts`](../../apps/web/lib/guest-entry-settings.ts), [`apps/web/lib/guest-media-control-client.ts`](../../apps/web/lib/guest-media-control-client.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-resume.ts`](../../apps/web/lib/guest-resume.ts), [`apps/web/lib/guest-staff-transition.ts`](../../apps/web/lib/guest-staff-transition.ts), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/session-http-bearer.ts`](../../apps/web/lib/session-http-bearer.ts), [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-room-chat-bearer.ts`](../../apps/web/lib/use-room-chat-bearer.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/AppChrome.tsx`](../../apps/web/components/AppChrome.tsx), [`apps/web/components/BrandIcon.tsx`](../../apps/web/components/BrandIcon.tsx), [`apps/web/components/CoPresentationPanel.tsx`](../../apps/web/components/CoPresentationPanel.tsx), [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestNoiseSuppressionControl.tsx`](../../apps/web/components/GuestNoiseSuppressionControl.tsx), [`apps/web/components/GuestPrivateTalkback.tsx`](../../apps/web/components/GuestPrivateTalkback.tsx), [`apps/web/components/GuestRoleOffer.tsx`](../../apps/web/components/GuestRoleOffer.tsx), [`apps/web/components/GuestSettingsPanel.tsx`](../../apps/web/components/GuestSettingsPanel.tsx), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MediaDevicePicker.tsx`](../../apps/web/components/MediaDevicePicker.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/RoomConference.tsx`](../../apps/web/components/RoomConference.tsx), [`apps/web/lib/client-transfer.ts`](../../apps/web/lib/client-transfer.ts), [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/fullscreen.ts`](../../apps/web/lib/fullscreen.ts), [`apps/web/lib/guest-audio-gain.ts`](../../apps/web/lib/guest-audio-gain.ts), [`apps/web/lib/guest-audio-permissions.ts`](../../apps/web/lib/guest-audio-permissions.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-camera-outbound.ts`](../../apps/web/lib/guest-camera-outbound.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-entry-settings.ts`](../../apps/web/lib/guest-entry-settings.ts), [`apps/web/lib/guest-media-control-client.ts`](../../apps/web/lib/guest-media-control-client.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-resume.ts`](../../apps/web/lib/guest-resume.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/guest-staff-transition.ts`](../../apps/web/lib/guest-staff-transition.ts), [`apps/web/lib/guest-video-bitrate.ts`](../../apps/web/lib/guest-video-bitrate.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/livekit-url.ts`](../../apps/web/lib/livekit-url.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/reconnect-status.ts`](../../apps/web/lib/reconnect-status.ts), [`apps/web/lib/remote-pc-client.ts`](../../apps/web/lib/remote-pc-client.ts), [`apps/web/lib/remote-pc-sources.ts`](../../apps/web/lib/remote-pc-sources.ts), [`apps/web/lib/room-mode.ts`](../../apps/web/lib/room-mode.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/lib/session-http-bearer.ts`](../../apps/web/lib/session-http-bearer.ts), [`apps/web/lib/studio-video-recovery.ts`](../../apps/web/lib/studio-video-recovery.ts), [`apps/web/lib/talkback-policy.ts`](../../apps/web/lib/talkback-policy.ts), [`apps/web/lib/use-room-chat-bearer.ts`](../../apps/web/lib/use-room-chat-bearer.ts), [`apps/web/lib/use-session-transfer.ts`](../../apps/web/lib/use-session-transfer.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `@livekit/components-react`, `livekit-client`, `next/navigation`, `react`.
 
@@ -6872,7 +6872,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 230 файлов
+## apps/web/lib · 231 файлов
 
 ### apps/web/lib/access.ts
 
@@ -7540,7 +7540,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-device-switch.cjs`](../../apps/web/tests/guest-device-switch.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs).
+Используют: [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-device-switch.cjs`](../../apps/web/tests/guest-device-switch.cjs), [`apps/web/tests/guest-route-capture.cjs`](../../apps/web/tests/guest-route-capture.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs).
 
 ### apps/web/lib/guest-capture-settings.ts
 
@@ -7550,7 +7550,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `GUEST_CAMERA_RESOLUTIONS`, `GUEST_CAMERA_FRAME_RATES`, `GuestCameraPreferences`, `guestCameraPreferences`, `effectiveGuestCameraCapture`, `CAMERA_RESOLUTIONS`, `CAMERA_FRAME_RATES`, `GuestCameraCapture`, `ActualCameraCapture`, `parseGuestCameraCapture`, `parseActualCameraCapture`, `staffGuestCameraCapture`, `guestCameraConstraints`, `applyGuestCaptureConstraints`, `applyPreferredGuestCameraCapture`.
 
-Используют: [`apps/web/components/GuestCameraCaptureControls.tsx`](../../apps/web/components/GuestCameraCaptureControls.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+Используют: [`apps/web/components/GuestCameraCaptureControls.tsx`](../../apps/web/components/GuestCameraCaptureControls.tsx), [`apps/web/components/GuestCameraResolutionControl.tsx`](../../apps/web/components/GuestCameraResolutionControl.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/guest-device-control-client.ts
 
@@ -7686,7 +7686,7 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Читает/импортирует: [`apps/web/lib/connection-route.ts`](../../apps/web/lib/connection-route.ts), [`apps/web/lib/guest-audio.ts`](../../apps/web/lib/guest-audio.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestMicrophoneTest.tsx`](../../apps/web/components/GuestMicrophoneTest.tsx), [`apps/web/components/GuestWaitingPanel.tsx`](../../apps/web/components/GuestWaitingPanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-entry-settings.cjs`](../../apps/web/tests/guest-entry-settings.cjs), [`apps/web/tests/guest-media.cjs`](../../apps/web/tests/guest-media.cjs), [`apps/web/tests/guest-preflight-ui.cjs`](../../apps/web/tests/guest-preflight-ui.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestDeviceRequests.tsx`](../../apps/web/components/GuestDeviceRequests.tsx), [`apps/web/components/GuestMicrophoneButton.tsx`](../../apps/web/components/GuestMicrophoneButton.tsx), [`apps/web/components/GuestMicrophoneTest.tsx`](../../apps/web/components/GuestMicrophoneTest.tsx), [`apps/web/components/GuestWaitingPanel.tsx`](../../apps/web/components/GuestWaitingPanel.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-audio.cjs`](../../apps/web/tests/guest-audio.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-entry-settings.cjs`](../../apps/web/tests/guest-entry-settings.cjs), [`apps/web/tests/guest-media.cjs`](../../apps/web/tests/guest-media.cjs), [`apps/web/tests/guest-preflight-ui.cjs`](../../apps/web/tests/guest-preflight-ui.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/guest-network-stats.ts
 
@@ -7717,6 +7717,20 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 Экспортируемые символы: `guestResumeKey`, `refreshGuestResumeToken`, `guestResumeStorage`, `acceptGuestInvite`, `requestGuestSession`, `claimGuestResumeIdentity`.
 
 Используют: [`apps/web/components/GuestAccessGate.tsx`](../../apps/web/components/GuestAccessGate.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/guest-invite-entry.cjs`](../../apps/web/tests/guest-invite-entry.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+
+### apps/web/lib/guest-route-capture.ts
+
+[`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `clearGuestRouteCapture`, `guestRouteCaptureConstraints`, `bindGuestRouteCaptureSource`, `prepareGuestRouteChange`.
+
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts).
+
+Библиотеки/Node: `livekit-client`.
+
+Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts), [`apps/web/tests/guest-route-capture.cjs`](../../apps/web/tests/guest-route-capture.cjs).
 
 ### apps/web/lib/guest-session-settings.ts
 
@@ -7774,11 +7788,11 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Экспортируемые символы: `enqueueGuestCameraTask`, `guestVideoCodec`, `supportedGuestVideoCodecs`, `guestCameraPublishOptions`, `applyGuestCameraHeightInTask`, `applyGuestCameraHeight`, `watchGuestCameraHeight`, `switchGuestCameraCodec`, `setGuestCameraEnabled`, `guestCameraCodecState`, `switchGuestCameraCapture`, `guestCameraCaptureState`.
 
-Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-capture-settings.ts`](../../apps/web/lib/guest-capture-settings.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/video-quality-vp9.cjs`](../../apps/web/tests/video-quality-vp9.cjs).
+Используют: [`apps/web/components/GuestAvCheck.tsx`](../../apps/web/components/GuestAvCheck.tsx), [`apps/web/components/GuestCodecCameraButton.tsx`](../../apps/web/components/GuestCodecCameraButton.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/lib/guest-camera-effects.ts`](../../apps/web/lib/guest-camera-effects.ts), [`apps/web/lib/guest-device-switch.ts`](../../apps/web/lib/guest-device-switch.ts), [`apps/web/tests/guest-audio-profile-ui.cjs`](../../apps/web/tests/guest-audio-profile-ui.cjs), [`apps/web/tests/guest-camera-capture.cjs`](../../apps/web/tests/guest-camera-capture.cjs), [`apps/web/tests/guest-camera-effects.cjs`](../../apps/web/tests/guest-camera-effects.cjs), [`apps/web/tests/guest-route-capture.cjs`](../../apps/web/tests/guest-route-capture.cjs), [`apps/web/tests/guest-video-codec.cjs`](../../apps/web/tests/guest-video-codec.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs), [`apps/web/tests/video-quality-vp9.cjs`](../../apps/web/tests/video-quality-vp9.cjs).
 
 ### apps/web/lib/hosted-access.ts
 
@@ -8886,7 +8900,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Сбор клиентских RTC samples, дельты счётчиков и отправка статистики.
 
-Экспортируемые символы: `roomTelemetryToken`, `rateDelta`, `startRoomTelemetry`.
+Экспортируемые символы: `roomTelemetryToken`, `acceptRoomTelemetryToken`, `rateDelta`, `startRoomTelemetry`.
 
 Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/browser-runtime-diagnostics.ts`](../../apps/web/lib/browser-runtime-diagnostics.ts), [`apps/web/lib/guest-resume.ts`](../../apps/web/lib/guest-resume.ts), [`apps/web/lib/media-stats.ts`](../../apps/web/lib/media-stats.ts), [`apps/web/lib/room-outbound-stats.ts`](../../apps/web/lib/room-outbound-stats.ts), [`apps/web/lib/session-http-bearer.ts`](../../apps/web/lib/session-http-bearer.ts), [`apps/web/lib/telemetry-context.ts`](../../apps/web/lib/telemetry-context.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
@@ -9514,7 +9528,7 @@ Scoped доступ владельца Studio; legacy пароль разреш�
 
 Экспортируемые символы: `telemetryContext`.
 
-Используют: [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs), [`apps/web/tests/telemetry-scope.cjs`](../../apps/web/tests/telemetry-scope.cjs).
+Используют: [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/rtc-telemetry-audio.cjs`](../../apps/web/tests/rtc-telemetry-audio.cjs), [`apps/web/tests/telemetry-scope.cjs`](../../apps/web/tests/telemetry-scope.cjs).
 
 ### apps/web/lib/telemetry-store.ts
 
@@ -10016,7 +10030,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 484 файлов
+## apps/web/tests · 485 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -11751,6 +11765,16 @@ React-жизненный цикл поворота: metadata и resize → ге�
 Проверка/тестовый инструмент. PASS: authenticated scoped resume, invitation binding, durable reopen, duplicate-tab isolation, expiry/revocation and storage fallback
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `typescript`.
+
+### apps/web/tests/guest-route-capture.cjs
+
+[`apps/web/tests/guest-route-capture.cjs`](../../apps/web/tests/guest-route-capture.cjs)
+
+Проверка/тестовый инструмент. guest-route-capture: passed
+
+Читает/импортирует: [`apps/web/lib/guest-camera-source.ts`](../../apps/web/lib/guest-camera-source.ts), [`apps/web/lib/guest-route-capture.ts`](../../apps/web/lib/guest-route-capture.ts), [`apps/web/lib/guest-video-codec.ts`](../../apps/web/lib/guest-video-codec.ts).
+
+Библиотеки/Node: `livekit-client`, `node:assert/strict`, `node:events`, `node:fs`, `typescript`.
 
 ### apps/web/tests/guest-session-settings.cjs
 

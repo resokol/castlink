@@ -19,7 +19,23 @@ const renewedRoomTokens = new WeakMap<Room, { source: string; token: string }>()
 /** Reuse only a server renewal accepted for this Room and exact source token. */
 export function roomTelemetryToken(room: Room, source: string) {
   const renewed = renewedRoomTokens.get(room);
-  return renewed?.source === source ? renewed.token : source;
+  const bearer = sessionHttpBearer(source);
+  return bearer !== source ? bearer : renewed?.source === source ? renewed.token : source;
+}
+
+/** Accept a scoped renewal only while its request's predecessor is still current. */
+export function acceptRoomTelemetryToken(room: Room, source: string, next: string, expected: string): boolean {
+  if (roomTelemetryToken(room, source) !== expected) return false;
+  const owner = retainSessionHttpBearer(source);
+  try {
+    // Rehydrate the accepted cache when a deliberate rejoin released the last HTTP owner.
+    if (sessionHttpBearer(source) !== expected && !owner.update(expected, source)) return false;
+    if (!owner.update(next, expected)) return false;
+    renewedRoomTokens.set(room, { source, token: next });
+    const scope = telemetryContext(source, room.name);
+    if (scope.tokenRole === "guest") refreshGuestResumeToken(scope.studioId, scope.roomName, room.localParticipant.identity, expected, next);
+    return true;
+  } finally { owner.release(); }
 }
 
 export function rateDelta(previous: Counter | undefined, next: Counter) {
@@ -36,7 +52,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   const scope = telemetryContext(initialToken, roomName);
   const httpBearer = retainSessionHttpBearer(initialToken);
   const renewed = roomTelemetryToken(room, initialToken);
-  if (renewed !== initialToken) httpBearer.update(renewed);
+  if (renewed !== initialToken) httpBearer.update(renewed, initialToken);
   const session = crypto.randomUUID();
   const runtime = studioControl?.role === "studio-panel" ? startBrowserRuntimeDiagnostics(session, mediaDiagnostic) : undefined;
   const started = Date.now();
@@ -73,23 +89,23 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   const collect = async () => {
     const cycleStarted = Date.now();
     try {
+      token = roomTelemetryToken(room, initialToken);
       const expiresAt = tokenExpiresAt(token);
       if (expiresAt !== null ? expiresAt - Date.now() < 120_000 : Date.now() - tokenAt > 50 * 60_000) {
         const tokenUrl = studioControl
           ? `/api/token?room=${encodeURIComponent(scope.roomName)}&role=${studioControl.role}&clientId=${encodeURIComponent(studioControl.clientId)}${studioControl.role === "studio-panel" ? `&epoch=${encodeURIComponent(String(studioControl.epoch))}` : ""}`
           : `/api/token?room=${encodeURIComponent(scope.roomName)}&identity=${encodeURIComponent(identity)}&role=${role === "studio" ? "studio-panel" : role}`;
         const scopedTokenUrl = `${tokenUrl}&studioId=${encodeURIComponent(scope.studioId)}${scope.moderatorPanel ? "&panelMode=moderator" : ""}`;
+        const renewalSource = token;
         const response = await fetch(scopedTokenUrl, { signal: AbortSignal.timeout(5000), headers: {
           authorization: `Bearer ${token}`,
           ...(viewAccess ? { "x-castlink-view-access": viewAccess } : {}),
         }, cache: "no-store" });
         if (response.ok && !stopped) {
           const next = (await response.json()).token;
-          if (!stopped && typeof next === "string" && httpBearer.update(next)) {
-            if (scope.tokenRole === "guest") refreshGuestResumeToken(scope.studioId, scope.roomName, identity, token, next);
-            renewedRoomTokens.set(room, { source: initialToken, token: next });
+          if (!stopped && typeof next === "string" && acceptRoomTelemetryToken(room, initialToken, next, renewalSource)) {
             token = next; tokenAt = Date.now();
-          }
+          } else token = roomTelemetryToken(room, initialToken);
         }
       }
       const streams: StreamStat[] = [];
