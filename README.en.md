@@ -8,7 +8,7 @@ Choose where to install your server:
 
 | System | Installer |
 | --- | --- |
-| Windows 11 | Full **1.0.5-rc.2** installer without Docker Desktop. Candidate, not yet published. |
+| Windows 11 | Full **1.0.5-rc.2** installer without Docker Desktop. Published prerelease. |
 | Ubuntu Linux / VPS | One `curl` command, stable **1.0.5**. |
 
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
@@ -85,11 +85,11 @@ The **CastLink Server** panel opens after installation. Wait for its running sta
 
 The panel provides service controls, statistics and **Export ZIP for 24 hours**. Closing the window hides it in the tray; use **Stop services** to stop the server. Test from another device; use a phone on mobile data to verify internet access.
 
-**Release status:** **1.0.5-rc.2** is a candidate and is not yet published. These pinned release links are prepared for use after publication. Maintain an existing server through the tool below; do not install over its data. [Release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS).
+**Release status:** **1.0.5-rc.2** is a published prerelease. Maintain an existing server through the tool below; do not install over its data. [Release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS).
 
 ### Update, remove or restore a WSL server
 
-1. Once the selected release is published, download its [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
+1. Download the [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
 2. Select the server by address and folder. Click **Check**, review current/target versions and disk space, then **Update**. Updating interrupts service: do it outside a broadcast. Confirm the displayed server; no manual checksum or WSL ID entry is needed.
 3. To remove it, choose **Keep a restorable archive before removing** or **Permanently erase server and data**, then **Remove**. The saved archive is a **folder** containing a full export and restore helpers, not a statistics ZIP. It contains credentials; keep the whole folder private.
 4. **Restore** uses that archive folder and a new installation folder that does not yet exist under `%LOCALAPPDATA%\CastLinkServer`. After an interruption, select the same server and **Recover transaction**. On success, use **Open server panel**.

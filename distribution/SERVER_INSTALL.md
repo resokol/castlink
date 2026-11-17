@@ -34,7 +34,7 @@ curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-73
 
 ## Windows/WSL2 без Docker — отдельный экспериментальный канал
 
-Подготовлен [кандидат установщика 1.0.5-rc.2](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926), пока не опубликованный. Ссылки ниже предназначены для использования после публикации. [Шаги установки и ограничения](../README.md#сервер-на-windows-11).
+Доступен [установщик предварительного выпуска 1.0.5-rc.2](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926). [Шаги установки и ограничения](../README.md#сервер-на-windows-11).
 
 Нужны Windows11 x64, build22621+, WSL2 версии2.4.13+ и поддержка виртуализации.
 Установщик `install-server-windows.ps1` из отдельного канала `server-wsl-v…`
@@ -81,7 +81,7 @@ TURN hostname (`turn.<domain>`), направленный на тот же IP. �
 
 ### Обслуживание: обновление, удаление, восстановление
 
-После публикации кандидата скачайте [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip) из **этого же выпуска** и распакуйте ZIP целиком. [Контрольные суммы SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS). Дважды нажмите **CastLink-Maintenance.cmd**. Новая панель открывает тот же инструмент кнопкой **«Обслуживание»**. Для старой 1.0.5-rc.1 это отдельный инструмент: её установщик не обновляется сам.
+Скачайте [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip) из **этого же выпуска** и распакуйте ZIP целиком. [Контрольные суммы SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS). Дважды нажмите **CastLink-Maintenance.cmd**. Новая панель открывает тот же инструмент кнопкой **«Обслуживание»**. Для старой 1.0.5-rc.1 это отдельный инструмент: её установщик не обновляется сам.
 
 **Выбор и обновление.** Выберите точный сервер по адресу и папке; не выбирайте автоматически первый из нескольких. В неполной установке адрес может быть неизвестен — сверяйте папку. Выберите целевую версию, нажмите **«Проверить»** и сверьте текущую/целевую версии и требуемое/свободное место. Инструмент загрузит и проверит нужные файлы до остановки сервера. Проверка сама ничего не обновляет; RC выбирается явно. В обычном окне не требуется вводить SHA256 или непрозрачное имя WSL.
 
