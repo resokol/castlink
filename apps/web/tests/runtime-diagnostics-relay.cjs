@@ -21,6 +21,7 @@ const get=(diagnostics='runtime')=>loaded.exports.GET({nextUrl:new URL(`https://
   relayData={...relayData,nodeId:'another-node'};assert.equal((await get()).status,503,'relay cannot substitute a different node');
   relayData={nodeId:'remote',history:{connections:[],series:[]}};assert.equal((await get()).status,503,'runtime response must contain samples');
   relayData={nodeId:'remote',history:{samples:[]}};assert.equal((await get('audio')).status,200,'audio detailed relay remains supported');
+  assert.equal((await get('video')).status,200,'video detailed relay accepts samples response');
   assert.equal((await get('')).status,503,'aggregate history keeps connections/series validation');
   relayData={nodeId:'remote',history:{connections:[],series:[]}};assert.equal((await get('')).status,200);
   relayData={nodeId:'local',history:{from:1,to:2,samples:[],nextCursor:null,limited:false}};nodeId='local';

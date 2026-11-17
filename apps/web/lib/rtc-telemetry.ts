@@ -5,6 +5,7 @@ import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { publishRoomOutboundStats } from "./room-outbound-stats";
 import { readTrackStats } from "./media-stats";
+import { videoDiagnostic, telemetryBody } from "./video-diagnostics";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track, type LocalAudioTrack } from "livekit-client";
 import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample, StudioMediaDiagnostic } from "./telemetry-types";
@@ -67,7 +68,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   });
   const send = (sample: TelemetrySample, keepalive = false) => fetch("/api/stats", {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify(sample), keepalive, signal: AbortSignal.timeout(5000),
+    body: telemetryBody(sample), keepalive, signal: AbortSignal.timeout(5000),
   });
 
   const collect = async () => {
@@ -119,8 +120,8 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         const pair = (transport && report.get(transport.selectedCandidatePairId)) || stats.find((s) => s.type === "candidate-pair" && s.state === "succeeded" && (s.nominated || s.selected));
         const candidate = pair ? report.get(pair.localCandidateId) : undefined;
         let mediaTrack: MediaStreamTrack | undefined, capture: MediaTrackSettings | undefined;
+        try { mediaTrack = track.mediaStreamTrack; } catch { /* Keep RTP stats if capture became unavailable. */ }
         if (publication.kind === Track.Kind.Audio) {
-          try { mediaTrack = track.mediaStreamTrack; } catch { /* Keep RTP stats if capture became unavailable. */ }
           if (direction === "out") {
             // The exposed track may be processor output; only source settings describe capture DSP.
             try { capture = (track as LocalAudioTrack).getSourceTrackSettings(); } catch { /* Unsupported settings stay unknown. */ }
@@ -167,6 +168,11 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
             candidateType: candidate?.candidateType ?? null, qualityLimitation: stat.qualityLimitationReason ?? null,
             ...(audio ? { audio } : {}),
             ...(audioTrack ? { audioTrack } : {}),
+            ...(publication.kind === Track.Kind.Video ? { video: videoDiagnostic(stat, mediaSource, pair, {
+              trackSid: publication.trackSid, publicationMuted: publication.isMuted, trackMuted: track.isMuted,
+              mediaTrackEnabled: mediaTrack?.enabled, mediaTrackMuted: mediaTrack?.muted,
+              mediaTrackReadyState: mediaTrack?.readyState,
+            }) } : {}),
           });
         }
       }

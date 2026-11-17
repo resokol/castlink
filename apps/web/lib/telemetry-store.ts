@@ -163,7 +163,11 @@ export function readRuntimeHistory(room: string, minutes: number, options: Diagn
   return readDiagnosticHistory(room, minutes, options, "runtime");
 }
 
-async function readDiagnosticHistory(room: string, minutes: number, options: DiagnosticHistoryOptions, mode: "audio" | "runtime") {
+export function readVideoHistory(room: string, minutes: number, options: DiagnosticHistoryOptions = {}): Promise<RuntimeHistoryResponse> {
+  return readDiagnosticHistory(room, minutes, options, "video");
+}
+
+async function readDiagnosticHistory(room: string, minutes: number, options: DiagnosticHistoryOptions, mode: "audio" | "runtime" | "video") {
   if (![15, 60, 360, 720, 1440].includes(minutes)) throw new Error(`invalid_${mode}_period`);
   const to = historyEnd(options.to);
   const from = to - minutes * 60_000;
@@ -196,11 +200,15 @@ async function readDiagnosticHistory(room: string, minutes: number, options: Dia
           ? sanitizeRuntimeDiagnostic(sample.runtime) : undefined;
         if (sample && sample.room === room && sample.at >= from && sample.at <= to &&
           (!options.session || sample.session === options.session) && (!options.identity || sample.identity === options.identity) &&
-          (!options.role || sample.role === options.role) && (mode === "runtime" ? runtime : sample.audioPlayback || sample.streams?.some(s => s.kind === "audio"))) {
+          (!options.role || sample.role === options.role) && (mode === "runtime" ? runtime : mode === "video"
+            ? sample.streams?.some(s => s.kind === "video") : sample.audioPlayback || sample.streams?.some(s => s.kind === "audio"))) {
           const detail: TelemetrySample = { at: sample.at, clientAt: sample.clientAt, room: sample.room, identity: sample.identity,
             name: sample.name, session: sample.session, role: sample.role, state: sample.state, quality: sample.quality,
             reconnects: sample.reconnects, uptimeSec: sample.uptimeSec,
-            ...(mode === "runtime" ? { runtime, streams: [] } : {
+            ...(mode === "runtime" ? { runtime, streams: [] } : mode === "video" ? {
+              streams: sample.streams.filter(s => s.kind === "video"),
+              ...(sample.videoDiagnosticsLimited === true ? { videoDiagnosticsLimited: true } : {}),
+            } : {
               audioPlayback: sample.audioPlayback, streams: sample.streams.filter(s => s.kind === "audio"),
             }) };
           const detailBytes = Buffer.byteLength(JSON.stringify(detail), "utf8");

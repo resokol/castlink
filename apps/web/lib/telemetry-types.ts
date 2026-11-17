@@ -8,6 +8,24 @@ export type StreamStat = {
   qualityLimitation: string | null;
   audio?: AudioReceiveDiagnostic;
   audioTrack?: AudioTrackDiagnostic;
+  video?: VideoDiagnostic;
+};
+
+/** Cumulative RTC counters; seconds remain seconds as defined by getStats. */
+export type VideoDiagnostic = {
+  statsAt: number | null; trackSid: string | null;
+  framesSent: number | null; framesEncoded: number | null;
+  framesReceived: number | null; framesDecoded: number | null; framesDropped: number | null;
+  keyFramesEncoded: number | null; keyFramesDecoded: number | null;
+  freezeCount: number | null; totalFreezesDuration: number | null;
+  totalEncodeTime: number | null; totalDecodeTime: number | null; totalPacketSendDelay: number | null;
+  packetsSent: number | null; packetsReceived: number | null;
+  nackCount: number | null; pliCount: number | null; firCount: number | null;
+  jitterBufferDelay: number | null; jitterBufferEmittedCount: number | null;
+  captureFrames: number | null; captureFps: number | null; availableOutgoingBitrate: number | null;
+  publicationMuted: boolean | null; trackMuted: boolean | null;
+  mediaTrackEnabled: boolean | null; mediaTrackMuted: boolean | null;
+  mediaTrackReadyState: "live" | "ended" | null;
 };
 
 export type AudioTrackDiagnostic = {
@@ -84,6 +102,8 @@ export type RuntimeHistoryResponse = {
   from: number; to: number; samples: TelemetrySample[]; nextCursor: string | null; limited: boolean;
 };
 
+export type VideoHistoryResponse = RuntimeHistoryResponse;
+
 export type TelemetrySample = {
   at: number; room: string; identity: string; name: string; session: string;
   role: TelemetryRole;
@@ -92,6 +112,7 @@ export type TelemetrySample = {
   clientAt?: number;
   audioPlayback?: AudioPlaybackDiagnostic;
   runtime?: RuntimeDiagnostic;
+  videoDiagnosticsLimited?: boolean;
 };
 
 export type MetricPoint = {
