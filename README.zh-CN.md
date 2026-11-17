@@ -25,6 +25,35 @@
 
 需要 **Windows 11 x64 22H2/build 22621 或更高版本**、已启用虚拟化和互联网连接。安装程序使用 WSL 2，无需手动安装 Docker Desktop、Node.js 或 PostgreSQL。
 
+### 0. 准备 WSL
+
+打开 **开始菜单 → PowerShell → 以管理员身份运行**，检查：
+
+```powershell
+wsl --version
+```
+
+需要 **WSL 2.4.13 或更高版本**。如果尚未安装 WSL、提示运行 `wsl.exe --install`，或没有显示版本，请执行：
+
+```powershell
+wsl --install --no-distribution
+```
+
+安装成功后，**保存工作并重启 Windows**。再次以管理员身份打开 PowerShell：
+
+```powershell
+wsl --update
+wsl --version
+```
+
+如果已有 WSL，更新并检查版本即可；如要求重启，请先重启。不需要单独安装 Ubuntu，CastLink 会下载自己的服务器环境。任何命令失败时，应先解决错误，再继续安装 CastLink。
+
+**从 Docker 版 CastLink 迁移时：**在旧面板中停止服务器。如果 Docker Desktop 在重启后自动启动旧服务器，请通过 **Quit Docker Desktop** 退出。保留旧数据：新的 WSL 安装不会自动迁移房间或设置。
+
+**红色乱码中包含 `wsl.exe --install`：**可能是 WSL 输出解码错误。请使用上述命令检查 WSL。行号 `742` 只是报告错误的位置，不能单独说明原因。
+
+**提示 `Shared WSL settings saved. Restart Windows...`：**网络设置已保存，但尚未生效。保存工作、重启 Windows，然后从同一文件夹再次运行同一个安装程序。安装 WSL 后重启过，也可能仍需要这次重启。
+
 ### 1. 下载
 
 **[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.1-085b087a2458/install-server-windows.ps1)**

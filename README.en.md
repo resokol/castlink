@@ -25,6 +25,35 @@ Joining someone else's server only requires a browser. The [Windows client](http
 
 Requires **Windows 11 x64 22H2/build 22621 or later**, enabled virtualization and internet. The installer uses WSL 2. You do not need to install Docker Desktop, Node.js or PostgreSQL yourself.
 
+### 0. Prepare WSL
+
+Open **Start → PowerShell → Run as administrator** and check:
+
+```powershell
+wsl --version
+```
+
+Requires **WSL 2.4.13 or later**. If WSL is missing, the command suggests `wsl.exe --install`, or no version is displayed, run:
+
+```powershell
+wsl --install --no-distribution
+```
+
+After successful installation, **save your work and restart Windows**. Open PowerShell as administrator again:
+
+```powershell
+wsl --update
+wsl --version
+```
+
+If WSL is already installed, update it and check the version; reboot if requested. Do not install Ubuntu separately: CastLink downloads its own server environment. If any command fails, resolve that error before continuing with CastLink.
+
+**Moving from Docker CastLink:** stop the old server in its panel. Also use **Quit Docker Desktop** if it starts the old server again after reboot. Keep the old data: the new WSL installation does not automatically migrate rooms or settings.
+
+**Unreadable red text containing `wsl.exe --install`:** WSL output may have been decoded incorrectly. Check WSL using the commands above. Line `742` alone does not identify the cause; it is where the error is reported.
+
+**`Shared WSL settings saved. Restart Windows...`:** network settings were saved but are not yet applied. Save your work, restart Windows and rerun the same installer from the same folder. This may require a separate reboot after the one for WSL installation.
+
 ### 1. Download
 
 **[Download install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.1-085b087a2458/install-server-windows.ps1)**
