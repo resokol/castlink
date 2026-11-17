@@ -1,99 +1,107 @@
-name: Docker-free WSL server candidate package
+name: Publish verified WSL candidate draft
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Candidate version (build only; no release publication)
-        required: true
-        default: 1.0.2-rc.1
 permissions:
-  contents: read
+  contents: write
+  actions: read
 concurrency:
   group: server-wsl-package
   cancel-in-progress: false
 jobs:
-  windows-parser:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Windows PowerShell parser and behavioral boundaries
-        shell: powershell
-        run: |
-          $tokens=$null; $errors=$null
-          [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/scripts/install-server-windows.ps1",[ref]$tokens,[ref]$errors)
-          if ($errors.Count) { $errors | Format-List; throw 'PowerShell parser failed' }
-          & scripts/tests/server-windows.test.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-native-control.fixtures.ps1 -Visual
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/tests/server-native-monitor.fixtures.ps1 -BridgePath scripts/server-native-monitor.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      # This job proves parser/fixtures, not a supported Windows11 WSL install.
-  package:
-    needs: windows-parser
+  publish-draft:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Install pinned dependencies
-        run: npx --yes pnpm@9.15.0 install --frozen-lockfile
-      - name: Installer and package checks
-        run: |
-          node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs scripts/tests/server-windows.test.mjs scripts/tests/server-native-panel.test.mjs scripts/tests/server-native-monitor.test.mjs
-          python3 scripts/tests/server-wsl-runtime.test.py
-          python3 scripts/tests/server-wsl-export.test.py
-          python3 scripts/tests/server-bootstrap.test.py
-          python3 scripts/tests/linux-owner-access.test.py
-          python3 -B scripts/tests/third-party-sources.test.py
-      - name: Monitoring checks
-        run: |
-          node apps/web/tests/server-monitor.cjs
-          node apps/web/tests/server-monitor-api.cjs
-          node apps/web/tests/server-monitor-collection.cjs
-          node apps/web/tests/server-monitor-ui.cjs
-          node apps/web/tests/server-monitor-aggregation.cjs
-          node apps/web/tests/server-monitor-read-only.cjs
-          node apps/web/tests/server-observability-store.cjs
-          node apps/web/tests/server-observability-worker.cjs
-          node apps/web/tests/server-observability-instrumentation.cjs
-          node apps/web/tests/server-observability-events.cjs
-          node apps/web/tests/server-observability-node-errors.cjs
-          node apps/web/tests/server-event-journal.cjs
-          node apps/web/tests/server-event-journal-ui.cjs
-          node apps/web/tests/server-events-api.cjs
-      - name: Download and verify pinned reusable upstream sources
+          ref: 085b087a24582824471d185d5bc10ebb07246d47
+      - uses: actions/download-artifact@v4
+        with:
+          name: castlink-server-wsl-candidate-085b087a24582824471d185d5bc10ebb07246d47
+          run-id: 44042953002
+          github-token: ${{ github.token }}
+          path: payload
+      - name: Verify exact candidate contents
+        shell: bash
         run: |
           set -euo pipefail
-          CASTLINK_REUSE_ARCHIVE="$RUNNER_TEMP/castlink-upstream-sources-1.0.2.tar.gz"
-          curl --fail --location --proto '=https' --proto-redir '=https' \
-            --connect-timeout 20 --max-time 1800 --retry 3 --max-filesize 1448015378 \
-            --output "$CASTLINK_REUSE_ARCHIVE" \
-            'https://github.com/resokol/castlink/releases/download/linux-v1.0.2-78327495ead0/CastLink-ThirdParty-Sources.tar.gz'
-          test "$(stat -c %s "$CASTLINK_REUSE_ARCHIVE")" -eq 1448015378
-          printf '%s  %s\n' 'e755e7abeb183f144ed7486ffb9dcf04fc076bf17910d54e6ecdedc609d1f25c' "$CASTLINK_REUSE_ARCHIVE" | sha256sum --check --strict
-      - name: Build candidate rootfs and exact corresponding-source package
+          cd payload
+          sha256sum --check --strict SHA256SUMS
+          python3 - <<'PY'
+          import json, pathlib, hashlib
+          p=pathlib.Path('.')
+          expected={'CastLink-Server-WSL-amd64.tar.gz','CastLink-Server-WSL-Sources.tar.gz','CastLink-ThirdParty-Sources.tar.gz','packages.tsv','manifest.json','install-server-windows.ps1','LICENSE','THIRD_PARTY_NOTICES','SHA256SUMS','server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1'}
+          assert {x.name for x in p.iterdir()}==expected
+          assert all(x.is_file() and not x.is_symlink() and x.stat().st_size for x in p.iterdir())
+          m=json.loads((p/'manifest.json').read_text())
+          assert m['sourceCommit']=='085b087a24582824471d185d5bc10ebb07246d47'
+          assert m['releaseTag']=='server-wsl-v1.0.5-rc.1-085b087a2458'
+          assert m['version']=='1.0.5-rc.1' and m['channel']=='server-wsl' and m['repository']=='resokol/castlink'
+          for e in [m['rootfs'],m['sources'],m['upstreamSources'],m['inventory']]+m['nativePanel']['files']:
+              f=p/e['file']
+              assert hashlib.file_digest(f.open('rb'),'sha256').hexdigest()==e['sha256']
+              if 'size' in e: assert f.stat().st_size==e['size']
+          assert (p/'server-native-monitor.ps1').read_bytes()==pathlib.Path('../scripts/server-native-monitor.ps1').read_bytes()
+          assert 'if ($version.buildId -cne $status.buildId)' in (p/'server-native-monitor.ps1').read_text()
+          text=(p/'install-server-windows.ps1').read_text()
+          for name,value in {'PackagedReleaseTag':m['releaseTag'],'PackagedRootfsSha256':m['rootfs']['sha256'],'PackagedManifestSha256':hashlib.sha256((p/'manifest.json').read_bytes()).hexdigest(),'PackagedRepository':'resokol/castlink'}.items():
+              assert "$script:"+name+" = '"+value+"'" in text
+          assert '@CASTLINK_' not in text
+          print('PASS: all 18 assets, hashes, native fix, installer pins and source provenance')
+          PY
+      - name: Upload immutable draft release
         env:
-          CASTLINK_BUILD_VERSION: ${{ inputs.version }}
-          CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE: ${{ runner.temp }}/castlink-upstream-sources-1.0.2.tar.gz
-        run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: castlink-server-wsl-install-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/server-wsl/package/*
-            !${{ runner.temp }}/server-wsl/package/CastLink-Server-WSL-Sources.tar.gz
-            !${{ runner.temp }}/server-wsl/package/CastLink-ThirdParty-Sources.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-      - uses: actions/upload-artifact@v4
-        with:
-          name: castlink-server-wsl-candidate-${{ github.sha }}
-          path: ${{ runner.temp }}/server-wsl/package/*
-          if-no-files-found: error
-          retention-days: 7
-      - name: Required release gates
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: resokol/castlink
+          RELEASE_NOTES: |
+            # CastLink Server для Windows 11 — 1.0.5-rc.1
+            
+            ## Русский
+            Полный установщик сервера без Docker для нового Windows 11 x64 ПК. Включает отдельную WSL 2 систему, web, PostgreSQL, LiveKit, TURN/HTTPS и native-панель с запуском/остановкой, треем, статистикой и экспортом ZIP за 24 часа.
+            
+            Исправлено: статистика и ZIP больше не отказывают после обновления web-приложения из-за сравнения с исходной версией установщика. Идентичность установки, SHA256 и авторизация сохраняются.
+            
+            **Установка на другой ПК**
+            1. Скачайте `install-server-windows.ps1` из Assets ниже. Остальные необходимые файлы установщик скачает из этого же выпуска и проверит автоматически.
+            2. Откройте Windows PowerShell в папке загрузки и выполните:
+            ```powershell
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1
+            ```
+            3. Укажите собственный адрес нового сервера без `https://` и пути. Следуйте запросам WSL/сетевых настроек и брандмауэра. Первичная настройка WSL может потребовать прав администратора и перезагрузки Windows; затем повторите ту же команду.
+            4. Задайте пароль создания комнат в скрытом приглашении. После успешной установки откроется `CastLinkServer.exe` со статистикой. Автозапуск при входе предлагается отдельно.
+            
+            Требуются Windows 11 x64 build 22621+, актуальный WSL 2 и аппаратная виртуализация. Для внешнего доступа настройте DNS/маршрутизатор: TCP 80/443/7881 и UDP 3478/7882/30000–30031 на новый ПК. WSL использует общую сеть; другой сервер на тех же портах должен быть остановлен. При существующей установке другой версии не используйте этот пакет для обновления поверх неё: автоматическая миграция не реализована.
+            
+            Это полный **предварительный выпуск (RC)**. Для данного пакета пройдены factory, Windows-тесты и проверки архивов; новая установка и перезагрузка на отдельном чистом ПК не повторялись. Исправление статистики и реальный ZIP проверены на действующем Windows-сервере. Архив hotfix для установки с нуля не нужен.
+            
+            ## English
+            Full Docker-free server installer for a new Windows 11 x64 PC: isolated WSL 2 system, web, PostgreSQL, LiveKit, TURN/HTTPS and native tray/control/statistics panel.
+            
+            Fixes unavailable statistics and ZIP export after a web-only update while preserving installation identity, hashes and authorization.
+            
+            Download `install-server-windows.ps1` from Assets and run the PowerShell command above. It downloads and verifies the required assets from this exact release. Enter your new server hostname/IP, follow WSL/network/firewall prompts, restart Windows if initial WSL setup requires it, then rerun the same installer. Set the room-creation password in the hidden prompt. The native `CastLinkServer.exe` panel opens after installation.
+            
+            Requires Windows 11 x64 build 22621+, current WSL 2 and hardware virtualization. Forward TCP 80/443/7881 and UDP 3478/7882/30000–30031 and configure DNS for external access. Other WSL servers cannot occupy the same shared ports. This is for fresh installation; upgrading an existing different-version installation is not supported.
+            
+            Full **release candidate**: factory, Windows fixtures and package integrity checked. A new clean-PC install/reboot was not repeated for this exact package. Live Windows statistics and ZIP behavior were verified separately. No hotfix archive is needed for fresh installation.
+            
+            ## 简体中文
+            适用于另一台全新 Windows 11 x64 电脑的完整无 Docker 服务器安装程序，包含独立 WSL 2 系统、Web、PostgreSQL、LiveKit、TURN/HTTPS，以及带启动/停止、托盘、统计和 24 小时 ZIP 导出的原生面板。
+            
+            修复仅更新 Web 应用后统计不可用和 ZIP 导出失败的问题，保留安装身份、哈希和授权检查。
+            
+            从下方 Assets 下载 `install-server-windows.ps1`，在下载目录的 Windows PowerShell 中运行上面的命令。程序自动下载并校验本版本所需文件。输入新服务器的主机名/IP，按照提示配置 WSL、网络和防火墙；如初次启用 WSL 要求重启，请重启后运行同一命令。在隐藏提示中设置创建房间密码，安装完成后打开 `CastLinkServer.exe` 面板。
+            
+            要求 Windows 11 x64 build 22621+、最新 WSL 2 和硬件虚拟化。外网访问需要 DNS 和端口转发：TCP 80/443/7881、UDP 3478/7882/30000–30031。其他 WSL 服务器不能占用相同的共享端口。本包用于全新安装，不支持直接升级另一版本的现有安装。
+            
+            这是完整的**候选版本（RC）**。已验证构建、Windows 测试和包完整性；此确切版本尚未在另一台全新电脑上重新验证安装与重启。统计和 ZIP 功能已在运行中的 Windows 服务器上验证。全新安装无需另行下载 hotfix。
+            
+            ## Source and checksums
+            Source commit: `085b087a24582824471d185d5bc10ebb07246d47` — native-panel baseline plus the reviewed monitor fix and regression test only.
+            Factory: https://github.com/resokol/castlink/actions/runs/44042953002
+            Assets include SHA256SUMS, manifest, MIT license, notices and corresponding third-party source archives.
+        shell: bash
         run: |
-          echo 'Candidate build only: no public release was created.'
-          echo 'Before release: actual Windows11 WSL install/reboot/start/stop, CA/firewall, external HTTPS and forced TCP443 relay.'
+          set -euo pipefail
+          printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/release-notes.md"
+          gh release create server-wsl-v1.0.5-rc.1-085b087a2458 --target 085b087a24582824471d185d5bc10ebb07246d47 --title 'CastLink Server for Windows 11 — 1.0.5-rc.1 (full installer)' --notes-file "$RUNNER_TEMP/release-notes.md" --draft --prerelease --latest=false payload/*
+          gh release view server-wsl-v1.0.5-rc.1-085b087a2458 --json databaseId,tagName,isDraft,assets
