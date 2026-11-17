@@ -114,7 +114,8 @@ namespace CastLinkLifecycle {
 }
 '@
 }
-function ConvertTo-CLMArg([string]$Value){if($Value.Contains([char]0)){throw 'Unsafe process argument'};return '"'+([regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1'))+'"'}
+# WSL parses option tokens before its command payload; leave simple tokens bare.
+function ConvertTo-CLMArg([string]$Value){if($Value.Contains([char]0)){throw 'Unsafe process argument'};if($Value.Length -gt 0 -and $Value -notmatch '[\s"]'){return $Value};return '"'+([regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1'))+'"'}
 function Invoke-CLMProcess([string]$Exe,[string[]]$Arguments,[string]$InputFile,[string]$OutputFile,[long]$Limit=1048576,[int]$Timeout=600){Initialize-CLMTransport;$argsText=(@($Arguments|ForEach-Object {ConvertTo-CLMArg $_}) -join ' ');return [CastLinkLifecycle.Transport]::Run($Exe,$argsText,$(if($InputFile){$InputFile}else{$null}),$(if($OutputFile){$OutputFile}else{$null}),$Limit,$Timeout)}
 function Invoke-CLMWsl($State,[string[]]$Arguments,[string]$InputFile,[string]$OutputFile,[long]$Limit=1048576,[int]$Timeout=600){return Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') (@('--distribution',$State.distroName,'--user','root','--exec')+$Arguments) $InputFile $OutputFile $Limit $Timeout}
 function Invoke-CLMInstaller($Module,[scriptblock]$Code,$Data){return & $Module $Code $Data}

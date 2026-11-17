@@ -110,6 +110,23 @@ try{
   [IO.File]::WriteAllText($childScript,$childBody,[Text.UTF8Encoding]::new($true));$code='& '+"'"+$childScript.Replace("'","''")+"' '"+$manager.Replace("'","''")+"' '"+$testRoot.Replace("'","''")+"' '"+$childResult.Replace("'","''")+"'";$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code));$info=New-Object Diagnostics.ProcessStartInfo;$info.FileName=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe';$info.Arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand '+$encoded;$info.UseShellExecute=$false;$info.CreateNoWindow=$true;$p=New-Object Diagnostics.Process;$p.StartInfo=$info
   try{$null=$p.Start();if(-not $p.WaitForExit(45000)){$p.Kill();throw 'No-console binary fixture timed out'};Assert ($p.ExitCode -eq 0) 'no-console child failure';Assert ([IO.File]::ReadAllText($childResult) -ceq 'pass-no-console-four-isolated-pipes') 'no-console proof absent'}finally{$p.Dispose()}
  }
+ Test 'process argv leaves simple options bare and round trips quoted CRT payloads' {
+  Assert ((ConvertTo-CLMArg '--distribution') -ceq '--distribution') 'WSL options must not be quoted';Assert ((ConvertTo-CLMArg '/usr/bin/python3') -ceq '/usr/bin/python3') 'simple executable token must not be quoted'
+  Throws {ConvertTo-CLMArg ('invalid'+[char]0+'argument')} 'Unsafe process argument'
+  $exe=Join-Path $testRoot 'argv-echo.exe';$source=@'
+using System;using System.IO;using System.Text;
+public static class CLMArgvEchoFixture {
+ public static int Main(string[] args){using(var output=Console.OpenStandardOutput()){
+  var header=Encoding.UTF8.GetBytes(args.Length.ToString()+"\n");output.Write(header,0,header.Length);
+  foreach(string arg in args){var bytes=Encoding.UTF8.GetBytes(Convert.ToBase64String(Encoding.UTF8.GetBytes(arg))+"\n");output.Write(bytes,0,bytes.Length);}
+ }return 0;}
+}
+'@
+  Add-Type -TypeDefinition $source -OutputAssembly $exe -OutputType ConsoleApplication
+  $values=@('--distribution','plain','two words','quote"inside','back\slash','C:\plain\','space and trailing\','space and "quote" \\ tail','','Русский 中文',"with`ttab")
+  $result=Invoke-CLMProcess $exe $values '' '' 1048576 10;$lines=$result.Split([char]10);Assert ([int]$lines[0] -eq $values.Count) 'argv count changed'
+  for($i=0;$i -lt $values.Count;$i++){Assert ($lines[$i+1] -ceq [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($values[$i]))) ('argv payload changed at '+$i)}
+ }
  Test 'actual maintenance XAML constructs controls without launching services' {. (Join-Path (Split-Path $PSScriptRoot -Parent) 'server-wsl-maintenance-ui.ps1') -FunctionsOnly;$w=New-CLMWindow en;foreach($n in @('Server','Confirm','Target','Pin','Bundle','Check','Update','Remove','Restore','Recover','Progress','Result')){Assert ($null -ne $w.FindName($n)) ('missing control '+$n)};$w.Close()}
  Test 'removal requires explicit erase or archive' {$f=Fixture;Throws {Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'archive|Erase';Assert (-not $f.world.events.Contains('StopSource')) 'implicit erase stopped server'}
  Test 'stopped source leaves committed candidate stopped' {$f=Fixture;$f.world.source.desiredRunning=$false;$f.world.sourceRunning=$false;$r=Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter;Assert ($r.phase -eq 'completed') 'phase';Assert (-not $f.world.candidateRunning) 'stopped source was started';Assert ($f.world.events.IndexOf('StopCandidate') -lt $f.world.events.IndexOf('GateOpen')) 'stop must precede commit exposure'}
