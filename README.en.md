@@ -27,32 +27,22 @@ Requires **Windows 11 x64 22H2/build 22621 or later**, enabled virtualization an
 
 ### 0. Prepare WSL
 
-Open **Start → PowerShell → Run as administrator** and check:
+Open **PowerShell as administrator**:
 
 ```powershell
 wsl --version
 ```
 
-Requires **WSL 2.4.13 or later**. If WSL is missing, the command suggests `wsl.exe --install`, or no version is displayed, run:
-
-```powershell
-wsl --install --no-distribution
-```
-
-After successful installation, **save your work and restart Windows**. Open PowerShell as administrator again:
+If WSL is missing, run `wsl --install --no-distribution`, then **restart Windows**. Afterwards (or if WSL is already installed):
 
 ```powershell
 wsl --update
 wsl --version
 ```
 
-If WSL is already installed, update it and check the version; reboot if requested. Do not install Ubuntu separately: CastLink downloads its own server environment. If any command fails, resolve that error before continuing with CastLink.
+Requires WSL **2.4.13+**. Reboot if requested; resolve any errors before continuing. No separate Ubuntu installation is needed.
 
-**Moving from Docker CastLink:** stop the old server in its panel. Also use **Quit Docker Desktop** if it starts the old server again after reboot. Keep the old data: the new WSL installation does not automatically migrate rooms or settings.
-
-**Unreadable red text containing `wsl.exe --install`:** WSL output may have been decoded incorrectly. Check WSL using the commands above. Line `742` alone does not identify the cause; it is where the error is reported.
-
-**`Shared WSL settings saved. Restart Windows...`:** network settings were saved but are not yet applied. Save your work, restart Windows and rerun the same installer from the same folder. This may require a separate reboot after the one for WSL installation.
+Moving from Docker? Stop the old CastLink server and quit Docker Desktop. Keep the old data; it is not migrated automatically.
 
 ### 1. Download
 
@@ -68,7 +58,9 @@ Open the download folder, type `powershell` in File Explorer's address bar and p
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1
 ```
 
-If double-click opens a text editor, use this command. Its execution-policy setting applies only to this launch.
+Use the command above instead of double-clicking the file.
+
+**If the script requests a reboot:** `Shared WSL settings saved. Restart Windows...` means new network settings were saved. Even if you rebooted after installing WSL, **save your work and restart Windows again**. Open PowerShell **in the same folder** and repeat the command above to resume. Do not delete the files.
 
 ### 3. Answer the prompts
 
@@ -156,6 +148,7 @@ Repeating `curl` **does not update** a completed installation. Replace `status` 
 | Problem | Check |
 | --- | --- |
 | Windows requests a reboot or reports WSL is running | Save your work, reboot and rerun the same installer. Keep the installed system and data. |
+| Unreadable error containing `wsl.exe --install` | WSL output may have been decoded incorrectly. Check `wsl --version` and follow the WSL preparation step above. Line 742 is where the error is reported, not its cause. |
 | Virtualization unavailable | Enable Intel VT-x / AMD-V in BIOS/UEFI. |
 | Address does not open | IP/DNS A record, running services, firewall and port forwarding. For Windows domains, check `turn.YOUR-DOMAIN` too. |
 | Page loads but media fails | Media IPv4 and UDP ports listed above. TCP 443 alone does not prove media connectivity. |
