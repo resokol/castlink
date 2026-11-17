@@ -24,11 +24,14 @@ const settle=async()=>{for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout
 const RoomEvent=new Proxy({}, {get:(_,key)=>key});
 const Track={Source:{Microphone:'microphone',Camera:'camera'},Kind:{Video:'video'}};
 let latestRoom;
+const sessionMetadata=JSON.stringify({role:"guest",studioId:"test-studio",roomDisplayName:"test-room"});
+const sessionJwt=(metadata=sessionMetadata,exp=2000000000)=>"header."+Buffer.from(JSON.stringify({iss:"test",sub:"guest-test",exp,video:{room:"test-room"},metadata})).toString("base64url")+".signature";
+const routeTokens=new WeakMap();
 class Room extends EventEmitter{
   constructor(){super();latestRoom=this;this.state='disconnected';this.remoteParticipants=new Map();this.name='test-room';this.calls=[];this.publications={};this.activeDevices={audioinput:'default',videoinput:'system-cam'};
     const room=this;
     this.localParticipant={
-      sid:'PA-0',
+      sid:'PA-0', identity:'guest-test', metadata:sessionMetadata,
       getTrackPublication:source=>room.publications[source],
       get isMicrophoneEnabled(){return !!room.publications.microphone&&!room.publications.microphone.track.isMuted;},
       get isScreenShareEnabled(){return !!room.publications.screen_share;},
@@ -47,10 +50,10 @@ class Room extends EventEmitter{
     if(publication){publication.track.isMuted=false;this.emit(RoomEvent.TrackUnmuted,publication);return publication;}
     if(source==='camera'&&!capture.deviceId&&this.activeDevices.videoinput==='default')throw new Error('OverconstrainedError: exact video deviceId default is invalid');
     const room=this,kind=source==='microphone'?'audioinput':'videoinput';
-    const track={source,codec:source==='camera'?options.videoCodec:undefined,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(options){track.nativeConstraints=options;},get enabled(){return !track.isMuted;}}};
+    const track={source,codec:source==='camera'?options.videoCodec:undefined,isMuted:false,stopped:0,constraints:{...capture},getSourceTrackSettings(){return{deviceId:room.activeDevices[kind],...(source==='camera'?{width:1920,height:1080,frameRate:25}:{}),channelCount:1,sampleRate:48000,noiseSuppression:room.omitNoiseSuppression?undefined:this.constraints.noiseSuppression,autoGainControl:this.constraints.autoGainControl,echoCancellation:this.constraints.echoCancellation,voiceIsolation:this.constraints.voiceIsolation};},stop(){this.stopped++;},async applyConstraints(next){this.constraints={...this.constraints,...next};},async restartTrack(next){assert.equal(room.publications[source],undefined,'fresh mic capture remains unpublished during restart');this.constraints={...next};},mediaStreamTrack:{getSettings:()=>track.getSourceTrackSettings(),async applyConstraints(options){track.nativeConstraints=options;},get enabled(){return !track.isMuted;}}};
     publication={track,options,get isMuted(){return track.isMuted;}};this.publications[source]=publication;this.emit(RoomEvent.LocalTrackPublished,publication);return publication;
   }
-  async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;this.state='connected';this.emit(RoomEvent.Connected);}
+  async connect(url,token,options){this.calls.push(['connect',url,token,options]);if(this.kickOnRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.kickOnRelay=false;this.localParticipant.sid='';this.state='disconnected';this.emit(RoomEvent.Disconnected,sdk.DisconnectReason.PARTICIPANT_REMOVED);throw new Error('participant removed');}if(this.failRelay&&options.rtcConfig?.iceTransportPolicy==='relay'){this.failRelay=false;this.localParticipant.sid='';this.state='disconnected';throw new Error('TURN relay failed');}this.localParticipant.sid=`PA-${this.calls.filter(call=>call[0]==='connect').length}`;try{const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'));this.localParticipant.identity=claims.sub;this.localParticipant.metadata=claims.metadata;}catch{}this.state='connected';this.emit(RoomEvent.Connected);}
   async disconnect(){this.calls.push(['disconnect']);for(const publication of Object.values(this.publications))publication.track.stop();this.publications={};this.state='disconnected';this.emit(RoomEvent.Disconnected);}
   async switchActiveDevice(kind,id){this.calls.push(['device',kind,id]);this.activeDevices[kind]=id;return true;}
   async startAudio(){}
@@ -87,7 +90,7 @@ const mocked={
   '@/lib/studio-video-recovery':{watchStudioVideo:()=>noop},'@/lib/video-quality':{...require('../lib/video-quality.ts'),DEFAULT_GUEST_VIDEO_BITRATE_KBPS:6000},
   '@/lib/guest-video-bitrate':{watchGuestVideoBitrate:()=>noop},'@/lib/livekit-url':{getLiveKitUrl:()=> 'wss://room.example.test'},
   '@/lib/personal-monitoring':{usePersonalMonitoring:()=>({participants:[],preferences:{},videoEnabled:()=>true})},
-  '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop,roomTelemetryToken:(room,token)=>token},
+  '@/components/MonitoringControls':{MonitoringControls:component},'@/lib/rtc-telemetry':{startRoomTelemetry:()=>noop,roomTelemetryToken:(room,token)=>routeTokens.get(room)||token,acceptRoomTelemetryToken:(room,source,next)=>{routeTokens.set(room,next);return true;}},
   '@/lib/client-transfer':{readTransferSnapshot:()=>undefined,clearTransferSnapshot:noop},
   '@/lib/use-session-transfer':{useSessionTransfer:options=>{transferOptions=options;return{view:{}};},guestReserveStatusText:()=>null},
   '@/lib/talkback-policy':{parseGuestMediaCommand:payload=>payload?.source?payload:undefined},'@/lib/reconnect-status':recovery,
@@ -121,9 +124,9 @@ global.RTCRtpSender={getCapabilities:()=>({codecs:['VP8','H264','AV1'].map(codec
 global.window={setTimeout,clearTimeout,location:{origin:'https://room.example.test'}};
 global.document={addEventListener:noop,removeEventListener:noop,createElement:()=>({getContext:()=>null})};
 Object.defineProperty(global,'navigator',{configurable:true,value:{hardwareConcurrency:4,platform:'test',mediaDevices:{enumerateDevices:async()=>[],addEventListener:noop,removeEventListener:noop}}});
-let tokenRequests=0;
+let tokenRequests=0,renewalRequests=0;
 const reports=[];
-global.fetch=async(url,options)=>{if(url==='/api/guest-media-control')reports.push(JSON.parse(options.body));return{ok:true,json:async()=>url.startsWith('/api/token')?(tokenRequests++,{token:'same-session-token',identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true,allowed:true}};};
+global.fetch=async(url,options)=>{if(url==='/api/guest-media-control')reports.push(JSON.parse(options.body));return{ok:true,json:async()=>url.startsWith('/api/token')?(url.includes('identity=')?renewalRequests++:tokenRequests++,{token:sessionJwt(url.includes('identity=')?latestRoom.localParticipant.metadata:sessionMetadata,2000000000+renewalRequests),identity:'guest-test',connectionRoutes:{relay:{configured:true,transport:'udp'}}}):{exists:true,allowed:true}};};
 let sequence=0;
 function settings(room,patch,overrides={},sender=undefined){const now=Date.now();const command={id:`settings-${++sequence}`,participantSid:room.localParticipant.sid,issuedAt:now,expiresAt:now+60000,patch,...overrides};room.emit(RoomEvent.DataReceived,new TextEncoder().encode(JSON.stringify(command)),sender,undefined,GUEST_MEDIA_SETTINGS_TOPIC);return command;}
 
@@ -229,16 +232,19 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   await room.localParticipant.setCameraEnabled(true);await room.localParticipant.setCameraEnabled(false);
   tree=workspace.render(props);
   const priorMic=room.publications.microphone.track;
+  room.localParticipant.metadata=JSON.stringify({role:'guest',studioId:'test-studio',cameraCapture:{mode:'custom',resolution:'1920x1080',frameRate:'25'}});
+  await room.localParticipant.setCameraEnabled(true);
   const routeCommand=settings(room,{connectionRoute:'relay'});await settle();tree=workspace.render(props);
   assert.equal(reports.some(report=>report.commandId===routeCommand.id),false,'route is never acknowledged before the new media join succeeds');
   connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();tree=workspace.render(props);
   const connections=room.calls.filter(call=>call[0]==='connect');
   assert.equal(connections.length,2,'deliberate route change creates exactly one new media join');
-  assert.equal(connections[0][2],connections[1][2],'same participant token is retained');
+  assert.equal(JSON.parse(Buffer.from(connections[0][2].split('.')[1],'base64url')).sub,JSON.parse(Buffer.from(connections[1][2].split('.')[1],'base64url')).sub,'same participant identity is retained with a renewed token');
   assert.equal(connections[1][3].rtcConfig.iceTransportPolicy,'relay');
   assert.equal(tokenRequests,1,'route changes do not create another identity');
   assert.equal(room.publications.microphone,undefined,'muted microphone remains disabled after route reconnect');
-  assert.equal(room.publications.camera,undefined,'muted camera remains disabled after route reconnect');
+  assert.deepEqual([room.publications.camera.track.nativeConstraints.width.ideal,room.publications.camera.track.nativeConstraints.height.ideal,room.publications.camera.track.nativeConstraints.frameRate.ideal],[1920,1080,25],'deliberate route reconnect retains active camera capture');
+  await room.localParticipant.setCameraEnabled(false);
   const routeReport=reports.find(report=>report.commandId===routeCommand.id);assert.ok(routeReport);assert.equal(routeReport.state.connectionRoute,'relay');assert.equal(routeReport.state.activeRoute,'relay');assert.equal(routeReport.error,undefined);
   const reportCount=reports.length;
   settings(room,{audioProfile:'speech'},{participantSid:'PA-1'});
@@ -250,6 +256,28 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   assert.equal(snapshot.settings.choices.videoCodec,'av1','transfer snapshot retains selected camera codec');assert.equal(snapshot.settings.choices.audioProfile,'raw');assert.equal(snapshot.settings.choices.connectionRoute,'relay');
   assert.equal(snapshot.settings.choices.audioDeviceId,'replacement-mic');assert.equal(snapshot.settings.choices.videoDeviceId,'selected-cam');
   assert.equal(snapshot.settings.choices.audioEnabled,false);assert.equal(snapshot.settings.choices.videoEnabled,false);
+  const savedFetch=global.fetch, oldSid=room.localParticipant.sid, oldConnections=room.calls.filter(call=>call[0]==='connect').length;
+  const oldGeneration=nodes(tree).find(node=>node.type===RoomConnector).props.mediaGeneration.current;
+  global.fetch=async(url,options)=>url.startsWith('/api/token')?{ok:false}:savedFetch(url,options);
+  const deniedRoute=settings(room,{connectionRoute:'normal'});await settle();tree=workspace.render(props);
+  assert.ok(reports.find(report=>report.commandId===deniedRoute.id)?.error);
+  assert.equal(room.localParticipant.sid,oldSid);assert.equal(room.state,'connected');
+  assert.equal(room.calls.filter(call=>call[0]==='connect').length,oldConnections);
+  assert.equal(nodes(tree).find(node=>node.type===RoomConnector).props.mediaGeneration.current,oldGeneration,'failed renewal preserves generation-sensitive callbacks');
+  global.fetch=savedFetch;
+  let releaseRouteMic;const micBarrier=new Promise(resolve=>releaseRouteMic=resolve);
+  const blockedMic=audio.enqueueGuestMicrophoneTask(room,()=>micBarrier);
+  const tokenBeforeBlockedRoute=routeTokens.get(room);
+  const blockedGeneration=nodes(tree).find(node=>node.type===RoomConnector).props.mediaGeneration.current;
+  const blockedAttempt=nodes(tree).find(node=>node.type===RoomConnector).props.attempt;
+  const blockedRoute=settings(room,{connectionRoute:'normal'});await settle();
+  room.localParticipant.metadata=JSON.stringify({role:'guest',studioId:'test-studio',videoHeight:720});
+  room.emit(RoomEvent.ParticipantMetadataChanged,'',room.localParticipant);
+  releaseRouteMic();await blockedMic;await settle();tree=workspace.render(props);
+  assert.ok(reports.find(report=>report.commandId===blockedRoute.id)?.error,'new staff intent while microphone queue is blocked cancels route');
+  assert.equal(routeTokens.get(room),tokenBeforeBlockedRoute,'cancelled route cannot cache stale metadata JWT');
+  assert.equal(nodes(tree).find(node=>node.type===RoomConnector).props.mediaGeneration.current,blockedGeneration);
+  assert.equal(nodes(tree).find(node=>node.type===RoomConnector).props.attempt,blockedAttempt,'no reconnect with stale staff intent');
   const normalCommand=settings(room,{connectionRoute:'normal'});await settle();tree=workspace.render(props);connector.render(nodes(tree).find(node=>node.type===RoomConnector).props);await settle();tree=workspace.render(props);
   assert.equal(reports.find(report=>report.commandId===normalCommand.id).state.connectionRoute,'normal');
   room.failRelay=true;
@@ -260,7 +288,7 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   const failureReport=reports.find(report=>report.commandId===failedTurn.id);assert.ok(failureReport);assert.match(failureReport.error,/TURN relay failed/);assert.equal(failureReport.state.connectionRoute,'normal');
   const allConnections=room.calls.filter(call=>call[0]==='connect');assert.equal(allConnections.length,5,'failed requested TURN makes exactly one rollback join to prior working route');
   assert.equal(allConnections.at(-1)[3].rtcConfig,undefined,'rollback uses ordinary route rather than retrying failed forced TURN');
-  assert.ok(allConnections.every(call=>call[2]==='same-session-token'));assert.equal(tokenRequests,1);
+  assert.ok(allConnections.every(call=>JSON.parse(Buffer.from(call[2].split('.')[1],'base64url')).sub==='guest-test'));assert.equal(tokenRequests,1);
   assert.equal(room.state,'connected');assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
   const restored=await transferOptions.snapshot();assert.equal(restored.settings.choices.connectionRoute,'normal');assert.equal(restored.settings.choices.audioProfile,'raw');assert.equal(restored.settings.choices.audioDeviceId,'replacement-mic');
   const beforeKick=room.calls.filter(call=>call[0]==='connect').length;

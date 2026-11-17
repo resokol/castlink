@@ -244,6 +244,7 @@ const tests = [
   "guest-audio.cjs",
   "guest-audio-profile-ui.cjs",
   "guest-workspace-media.cjs",
+  "guest-route-capture.cjs",
   "guest-media-control-api.cjs",
   "guest-media-controls-ui.cjs",
   "guest-camera-button.cjs",

@@ -1,4 +1,5 @@
 "use client";
+import { prepareGuestRouteChange, bindGuestRouteCaptureSource, clearGuestRouteCapture } from "../lib/guest-route-capture";
 import { sessionHttpBearer } from "../lib/session-http-bearer";
 
 import { ownRemotePcSession, stopOwnedRemotePc } from '@/lib/remote-pc-client';
@@ -44,7 +45,7 @@ import { watchGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { getLiveKitUrl } from "@/lib/livekit-url";
 import { usePersonalMonitoring, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
-import { roomTelemetryToken, startRoomTelemetry } from "@/lib/rtc-telemetry";
+import { acceptRoomTelemetryToken, roomTelemetryToken, startRoomTelemetry } from "@/lib/rtc-telemetry";
 import { clearTransferSnapshot, readTransferSnapshot } from "@/lib/client-transfer";
 import { useSessionTransfer, guestReserveStatusText } from "@/lib/use-session-transfer";
 import { parseGuestMediaCommand } from "@/lib/talkback-policy";
@@ -70,6 +71,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
   const choicesRef = useRef<GuestChoices | undefined>(undefined);
   const setChoices = (value: React.SetStateAction<GuestChoices | undefined>) => {
     const next = typeof value === "function" ? value(choicesRef.current) : value;
+    if (next?.videoDeviceId !== choicesRef.current?.videoDeviceId || next?.cameraResolution !== choicesRef.current?.cameraResolution || next?.cameraFrameRate !== choicesRef.current?.cameraFrameRate) clearGuestRouteCapture(room);
     choicesRef.current = next;
     storeChoices(next);
   };
@@ -335,28 +337,39 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
     if (connectionRoute === confirmedRoute.current && room.state === "connected") return;
     const previousRoute = confirmedRoute.current;
     setRouteBusy(true); setDeviceError("");
-    mediaGeneration.current++; profileAttempt.current++;
+    let routeStarted = false;
+    const generation = mediaGeneration.current;
     try {
+      if (!token) throw new Error("Сессия гостя недоступна.");
+      const renewalBearer = roomTelemetryToken(room, token);
+      const preparedRoute = await enqueueGuestCameraTask(room, () => prepareGuestRouteChange(room, {
+        sourceToken: token, bearer: renewalBearer, studioId, roomName,
+        choices: () => choicesRef.current!, isCurrent: () => !sessionStopping.current && generation === mediaGeneration.current,
+      }));
+      let completion: Promise<void> | undefined;
       await enqueueGuestMicrophoneTask(room, async () => {
+        preparedRoute.commit(() => acceptRoomTelemetryToken(room, token, preparedRoute.token, renewalBearer));
+        mediaGeneration.current++; profileAttempt.current++;
         setChoices(current => current ? { ...current, connectionRoute,
           audioDeviceId: room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack.getSettings().deviceId || current.audioDeviceId,
-          videoDeviceId: room.localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack.getSettings().deviceId || current.videoDeviceId,
+          videoDeviceId: current.videoDeviceId,
           audioEnabled: room.state === "connected" ? room.localParticipant.isMicrophoneEnabled : current.audioEnabled,
           videoEnabled: room.state === "connected" ? room.localParticipant.isCameraEnabled : current.videoEnabled,
         } : current);
+        setConnectionStatus(current => nextRecoveryStatus(current, "connect-start"));
+        completion = new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => { routeCompletion.current = undefined; reject(new Error("Не удалось подтвердить подключение по новому маршруту")); }, 45_000);
+          routeCompletion.current = { attempt: connectionAttempt + 1, resolve, reject, timer };
+        });
+        routeStarted = true;
+        setConnectionAttempt(value => value + 1);
       });
-      setConnectionStatus(current => nextRecoveryStatus(current, "connect-start"));
-      const completion = new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => { routeCompletion.current = undefined; reject(new Error("Не удалось подтвердить подключение по новому маршруту")); }, 45_000);
-        routeCompletion.current = { attempt: connectionAttempt + 1, resolve, reject, timer };
-      });
-      setConnectionAttempt(value => value + 1);
       await completion;
     } catch (cause) {
       setDeviceError(cause instanceof Error ? cause.message : "Не удалось сменить маршрут");
       // A failed requested route must not strand a guest without route controls.
       // Restore the prior working choice and make one bounded same-token join.
-      if (!sessionStopping.current) {
+      if (routeStarted && !sessionStopping.current) {
         setChoices(current => current ? { ...current, connectionRoute: previousRoute } : current);
         setConnectionStatus(current => nextRecoveryStatus(current, "connect-start"));
         setConnectionAttempt(value => value + 1);
@@ -661,6 +674,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
       if (!active) return;
       let mediaConnected = false;
       try {
+        bindGuestRouteCaptureSource(room, token);
         const selected = choicesRef.current?.connectionRoute || "auto";
         const activeRoute = await connectGuestRoom(room, getLiveKitUrl(), roomTelemetryToken(room, token), {
           route: selected, relay: connectionRoutes.relay, isActive: () => active && !participantRemoved,

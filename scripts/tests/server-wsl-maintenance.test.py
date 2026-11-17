@@ -19,6 +19,11 @@ SOURCE = {'schemaVersion': 1, 'version': '1.0.5-rc.1', 'commit': '085b087a2458' 
 TARGET = {'schemaVersion': 1, 'version': '1.0.6', 'commit': 'b'*40, 'buildId': '1.0.6-'+'b'*12,
           'lifecycle': {'schemaVersion': 1, 'runtimeContract': 'castlink-wsl-pg16-v1', 'postgresMajor': 16, 'supportedSources': ['server-wsl-v'+SOURCE['buildId']]}}
 
+RC2 = {'schemaVersion': 1, 'version': '1.0.5-rc.2', 'commit': 'af3e309d09265412d8d6c74e78cf8a181957ad07',
+       'buildId': '1.0.5-rc.2-af3e309d0926', 'lifecycle': dict(TARGET['lifecycle'])}
+RC3 = {**TARGET, 'version': '1.0.5-rc.3', 'buildId': '1.0.5-rc.3-'+'b'*12,
+       'lifecycle': {**TARGET['lifecycle'], 'supportedSources': ['server-wsl-v'+r['buildId'] for r in (SOURCE, RC2)]}}
+
 class TransferTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -81,6 +86,47 @@ class TransferTest(unittest.TestCase):
         self.assertEqual(state['release'],TARGET)
         self.assertEqual((target/'caddy/private.key').stat().st_mode&0o777,0o600)
         self.assertEqual((self.source/'var/lib/castlink-server/state.json').read_bytes(),before['state.json'])
+
+    def test_rc2_export_and_rc3_import_preserve_data_and_source_identity(self):
+        self.source=self.fixture('published-rc2',RC2)
+        (self.target/'opt/castlink/release.json').write_text(json.dumps(RC3))
+        state_path=self.source/'var/lib/castlink-server/state.json';before=state_path.read_bytes()
+        data=self.export()
+        with tarfile.open(fileobj=io.BytesIO(data),mode='r:') as archive:
+            self.assertEqual(json.load(archive.extractfile('manifest.json'))['sourceRelease'],RC2)
+        self.helper(self.target).import_(HOST,io.BytesIO(data))
+        source=self.source/'var/lib/castlink-server';target=self.target/'var/lib/castlink-server'
+        old=json.loads(before);new=json.loads((target/'state.json').read_text())
+        for key in ('installationId','nodeId','address','origin','mediaIp','turnHost','publicHttps','roomCreationPasswordHash'):
+            self.assertEqual(new[key],old[key])
+        for name in ('secrets.json','data/rooms.json','caddy/private.key'):
+            self.assertEqual((target/name).read_bytes(),(source/name).read_bytes())
+            self.assertEqual((target/name).stat().st_mode&0o777,(source/name).stat().st_mode&0o777)
+        self.assertEqual(new['release'],RC3);self.assertEqual(state_path.read_bytes(),before)
+
+    def test_target_must_explicitly_list_actual_transfer_source(self):
+        for number,(source,allowed) in enumerate(((RC2,SOURCE),(SOURCE,RC2))):
+            with self.subTest(source=source['buildId']):
+                self.source=self.fixture('membership-source-'+str(number),source)
+                target=self.fixture('membership-target-'+str(number),{**RC3,'lifecycle':{
+                    **RC3['lifecycle'],'supportedSources':['server-wsl-v'+allowed['buildId']]}},False)
+                with self.assertRaisesRegex(ValueError,'Target does not explicitly support this source'):
+                    self.helper(target).import_(HOST,io.BytesIO(self.export()))
+                self.assertFalse((target/'var/lib/castlink-server').exists())
+
+    def test_unknown_transfer_sources_refused_even_when_target_lists_them(self):
+        with tarfile.open(fileobj=io.BytesIO(self.export()),mode='r:') as archive:
+            manifest=json.load(archive.extractfile('manifest.json'))
+        for number,version in enumerate(('1.0.5-rc.2','1.0.7')):
+            with self.subTest(version=version):
+                unknown={'schemaVersion':1,'version':version,'commit':'d'*40,'buildId':version+'-'+'d'*12}
+                source=self.fixture('unknown-source-'+str(number),unknown)
+                with self.assertRaisesRegex(ValueError,'Unsupported source release'):
+                    self.helper(source).export(HOST,io.BytesIO())
+                (self.target/'opt/castlink/release.json').write_text(json.dumps({**RC3,'lifecycle':{
+                    **RC3['lifecycle'],'supportedSources':['server-wsl-v'+unknown['buildId']]}}))
+                with self.assertRaisesRegex(ValueError,'Unsupported transfer source'):
+                    self.helper(self.target).validate_manifest({**manifest,'sourceRelease':unknown})
 
     def test_inspect_is_bounded_and_contains_no_secrets(self):
         result=self.helper(self.source).inspect(HOST)
