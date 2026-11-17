@@ -130,10 +130,12 @@ function Get-CastlinkMonitorSession($Binding) {
         Remove-Item -LiteralPath $cache -Force -ErrorAction Stop
     }
     $version = Invoke-CastlinkMonitorRequest $Binding $cookies '/api/version'
-    if ($version.buildId -cne $Binding.expectedBuildId) { throw (New-CastlinkMonitorError 'The HTTPS server build does not match this installation.') }
     try { $status = (Invoke-CastlinkMonitorInstaller $Binding 'Status') | ConvertFrom-Json -ErrorAction Stop }
     catch { throw (New-CastlinkMonitorError 'Owned server status is unavailable.') }
-    if ($status.origin -cne $Binding.origin -or $status.buildId -cne $Binding.expectedBuildId -or $status.ready -ne $true) { throw (New-CastlinkMonitorError 'Owned server origin or build does not match; server may be stopped.') }
+    # The release binding pins the installer/rootfs identity; supported web updates change the live build.
+    # Compare HTTPS against the current runtime reported by that same checksum-verified owned installer.
+    if ($status.origin -cne $Binding.origin -or $status.buildId -isnot [string] -or $status.buildId -notmatch '^[A-Za-z0-9.+-]{1,128}$' -or $status.ready -ne $true) { throw (New-CastlinkMonitorError 'Owned server origin or build does not match; server may be stopped.') }
+    if ($version.buildId -cne $status.buildId) { throw (New-CastlinkMonitorError 'The HTTPS server build does not match the owned installation.') }
     $before = @(Get-ChildItem -LiteralPath $Binding.installRoot -Filter 'owner-access-*.txt' -File | ForEach-Object { $_.FullName })
     $null = Invoke-CastlinkMonitorInstaller $Binding 'OwnerAccess'
     $created = @(Get-ChildItem -LiteralPath $Binding.installRoot -Filter 'owner-access-*.txt' -File | Where-Object { $before -notcontains $_.FullName })
