@@ -32,6 +32,17 @@ MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4
 
 
+class TransferTarInfo(tarfile.TarInfo):
+    def _proc_member(self, archive):
+        # This hook runs after the fixed 512-byte header is parsed, BEFORE
+        # tarfile dispatches to PAX/GNU/sparse processors that read whole bodies.
+        if self.type not in (tarfile.REGTYPE,tarfile.AREGTYPE,tarfile.DIRTYPE):
+            raise ValueError('Archive extensions and special entries are unsupported')
+        if self.size<0 or self.size>MAX_BYTES:
+            raise ValueError('Archive member exceeds transfer bound')
+        return super()._proc_member(archive)
+
+
 def bounded_json(path, limit=65536):
     with open(path, 'rb') as source: data = source.read(limit + 1)
     if len(data) > limit: raise ValueError('Metadata exceeds bound')
@@ -255,7 +266,7 @@ class Maintenance:
         if any(p.name!='maintenance.json' for p in self.config.iterdir()):raise ValueError('Candidate configuration must be empty')
         staging=Path(tempfile.mkdtemp(prefix='.castlink-transfer-',dir=self.state.parent))
         try:
-            with tarfile.open(fileobj=source,mode='r|') as archive:
+            with tarfile.open(fileobj=source,mode='r|',tarinfo=TransferTarInfo,bufsize=512) as archive:
                 iterator=iter(archive)
                 first=next(iterator,None)
                 if first is None or first.name!='manifest.json' or not first.isfile() or first.size<0 or first.size>MAX_MANIFEST or first.pax_headers or first.type not in (tarfile.REGTYPE,tarfile.AREGTYPE):raise ValueError('Transfer manifest must be first')

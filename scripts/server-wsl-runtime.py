@@ -491,10 +491,10 @@ def maintenance_gate():
     return gate
 
 
-def restore_maintenance_firewall():
+def prepare_maintenance_gate():
     gate = maintenance_gate()
     if not gate: return
-    # Called before any public listener starts, including after guest reboot.
+    # Validate/reconcile guest configuration without mutating shared networking.
     import importlib.util
     from importlib.machinery import SourceFileLoader
     path = Path(__file__).with_name('server-wsl-maintenance.py')
@@ -504,11 +504,11 @@ def restore_maintenance_firewall():
     manager = helper.Maintenance()
     manager.owned(gate['hostInstallationId'])
     manager.reconcile_config()
-    manager.firewall(gate['hostInstallationId'], closed=gate['phase'] == 'closed')
+    return manager, gate
 
 
 def preflight_ports():
-    restore_maintenance_firewall()
+    maintenance = prepare_maintenance_gate()
     try:
         nftables = json.loads(run(['/usr/sbin/nft', '-j', 'list', 'tables']))['nftables']
         if not isinstance(nftables, list): raise ValueError()
@@ -535,6 +535,11 @@ def preflight_ports():
                     except OSError as error:
                         if family == socket.AF_INET6 and error.errno == errno.EADDRNOTAVAIL: continue
                         raise ValueError('Required CastLink port is already in use or unavailable: ' + str(port) + ('/tcp' if kind == socket.SOCK_STREAM else '/udp')) from None
+        # All required sockets are reserved before any media-drop table mutation.
+        # Keep them held until the gate is restored, before service listeners start.
+        if maintenance:
+            manager, gate = maintenance
+            manager.firewall(gate['hostInstallationId'], closed=gate['phase'] == 'closed')
     finally:
         for listener in held: listener.close()
 

@@ -254,6 +254,39 @@ class TransferTest(unittest.TestCase):
         self.assertIn('Maintenance',(self.source/'etc/castlink-server/Caddyfile').read_text())
         with self.assertRaises(ValueError):self.helper(self.source,False).gate_close(HOST,'rollback',release_stopped_firewall=True)
 
+    def test_raw_archive_extensions_are_rejected_before_publication(self):
+        data=self.export()
+        for kind,body in ((tarfile.XHDTYPE,b''),(tarfile.XGLTYPE,b''),
+                          (tarfile.GNUTYPE_LONGNAME,b'manifest.json\0'),
+                          (tarfile.GNUTYPE_LONGLINK,b'state/secrets.json\0')):
+            header=tarfile.TarInfo('extension');header.type=kind;header.size=len(body)
+            prefix=header.tobuf(format=tarfile.USTAR_FORMAT)+body+b'\0'*((-len(body))%512)
+            for position in ('first','after-manifest'):
+                if position=='first':changed=prefix+data
+                else:
+                    first=tarfile.TarInfo.frombuf(data[:512],'utf-8','strict')
+                    offset=512+((first.size+511)//512)*512
+                    changed=data[:offset]+prefix+data[offset:]
+                with self.subTest(type=kind,position=position),self.assertRaises(ValueError):
+                    self.helper(self.target).import_(HOST,io.BytesIO(changed))
+                self.assertFalse((self.target/'var/lib/castlink-server').exists())
+                self.assertEqual(list((self.target/'etc/castlink-server').iterdir()),[])
+
+    def test_oversized_extension_is_refused_after_only_its_header(self):
+        for kind in (tarfile.XHDTYPE,tarfile.XGLTYPE,tarfile.GNUTYPE_LONGNAME,tarfile.GNUTYPE_LONGLINK):
+            header=tarfile.TarInfo('extension');header.type=kind;header.size=4*1024**3
+            raw=header.tobuf(format=tarfile.USTAR_FORMAT)
+            class HeaderOnly(io.BytesIO):
+                def read(self,size=-1):
+                    if size<0 or self.tell()+size>512:
+                        raise AssertionError('Extension body read before rejection')
+                    return super().read(size)
+            source=HeaderOnly(raw)
+            with self.subTest(type=kind),self.assertRaises(ValueError):self.helper(self.target).import_(HOST,source)
+            self.assertEqual(source.tell(),512)
+            self.assertFalse((self.target/'var/lib/castlink-server').exists())
+            self.assertEqual(list((self.target/'etc/castlink-server').iterdir()),[])
+
     def test_gate_render_blocks_writes_and_existing_media_tokens(self):
         state=self.m.runtime.load_state(self.source/'var/lib/castlink-server')
         secrets=json.loads((self.source/'var/lib/castlink-server/secrets.json').read_text())

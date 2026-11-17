@@ -354,6 +354,44 @@ class RuntimeTest(unittest.TestCase):
         self.assertLess(unit.index('ExecStartPre='), unit.index('ExecStart='))
         self.assertIn('ExecStop=/usr/sbin/nft delete table inet castlink_private', unit)
 
+    def test_closed_candidate_with_foreign_listener_never_mutates_media_firewall(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        gate={'phase':'closed','hostInstallationId':'a'*32}
+        for tables in ([],[{'table':{'family':'inet','name':'unrelated'}}],
+                       [{'table':{'family':'inet','name':'castlink_maintenance'}}]):
+            manager=Mock();helper=SimpleNamespace(Maintenance=Mock(return_value=manager))
+            with patch.object(runtime,'maintenance_gate',return_value=gate), \
+                 patch('importlib.util.module_from_spec',return_value=helper), \
+                 patch('importlib.machinery.SourceFileLoader.exec_module'), \
+                 patch.object(runtime,'run',return_value=json.dumps({'nftables':tables})) as invoke, \
+                 patch.object(runtime.socket,'socket') as create:
+                create.return_value.bind.side_effect=OSError('Foreign listener owns port')
+                with self.assertRaisesRegex(ValueError,'already in use'):runtime.preflight_ports()
+                manager.owned.assert_called_once_with('a'*32)
+                manager.reconcile_config.assert_called_once_with()
+                manager.firewall.assert_not_called()
+                invoke.assert_called_once_with(['/usr/sbin/nft','-j','list','tables'])
+                create.return_value.close.assert_called_once_with()
+
+    def test_closed_candidate_restores_gate_only_after_all_ports_are_reserved(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        gate={'phase':'closed','hostInstallationId':'a'*32}
+        manager=Mock();helper=SimpleNamespace(Maintenance=Mock(return_value=manager))
+        with patch.object(runtime,'maintenance_gate',return_value=gate), \
+             patch('importlib.util.module_from_spec',return_value=helper), \
+             patch('importlib.machinery.SourceFileLoader.exec_module'), \
+             patch.object(runtime,'run',return_value='{"nftables":[]}'), \
+             patch.object(runtime.socket,'socket') as create:
+            def apply_gate(*args,**kwargs):
+                self.assertGreater(create.return_value.bind.call_count,1)
+                self.assertEqual(create.return_value.close.call_count,0)
+            manager.firewall.side_effect=apply_gate
+            runtime.preflight_ports()
+            manager.firewall.assert_called_once_with('a'*32,closed=True)
+            self.assertEqual(create.return_value.close.call_count,create.return_value.bind.call_count)
+
     def test_mirrored_loopback_exception_keeps_interface_address_and_port_guards(self):
         import re
         rules = (ROOT / 'infrastructure/server-wsl/castlink-private-ports.nft').read_text()
