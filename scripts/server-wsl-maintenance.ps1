@@ -48,18 +48,70 @@ function Get-CastlinkMaintenanceInstallations([string]$Base=(Join-Path $env:LOCA
 function Initialize-CLMTransport {
  if('CastLinkLifecycle.Transport' -as [type]){return}
  Add-Type -TypeDefinition @'
-using System;using System.IO;using System.Diagnostics;using System.Threading.Tasks;
-namespace CastLinkLifecycle {public static class Transport {
- static async Task<long> Copy(Stream a, Stream b,long limit){byte[] x=new byte[65536];long n=0;int k;while((k=await a.ReadAsync(x,0,x.Length))>0){n+=k;if(n>limit)throw new IOException("Process stream size limit");await b.WriteAsync(x,0,k);}return n;}
- public static string Run(string exe,string args,string input,string output,long limit,int seconds){
- var p=new Process();p.StartInfo=new ProcessStartInfo(exe,args){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
- Stream source=null,sink=null;MemoryStream text=null;try {if(!p.Start())throw new IOException("Process did not start");
- source=String.IsNullOrEmpty(input)?(Stream)new MemoryStream():File.OpenRead(input);sink=String.IsNullOrEmpty(output)?(Stream)(text=new MemoryStream()):new FileStream(output,FileMode.CreateNew,FileAccess.Write,FileShare.None);
- var i=Copy(source,p.StandardInput.BaseStream,1099511627776L).ContinueWith(t=>{p.StandardInput.Close();if(t.IsFaulted)throw t.Exception;});var o=Copy(p.StandardOutput.BaseStream,sink,limit);var e=Copy(p.StandardError.BaseStream,Stream.Null,65536);
- var all=Task.WhenAll(i,o,e);var clock=Stopwatch.StartNew();while(!all.IsCompleted || !p.HasExited){if(i.IsFaulted || o.IsFaulted || e.IsFaulted || clock.Elapsed.TotalSeconds>seconds){try{p.Kill();}catch{}throw new IOException("Process timeout or bounded transport failure; inspect journal");}System.Threading.Thread.Sleep(20);}
- all.GetAwaiter().GetResult();if(p.ExitCode!=0)throw new IOException("Lifecycle child failed (exit "+p.ExitCode+")");sink.Flush();return text==null?null:(Array.IndexOf(text.ToArray(),(byte)0)>=0?System.Text.Encoding.Unicode.GetString(text.ToArray()):System.Text.Encoding.UTF8.GetString(text.ToArray()));
- }finally{if(source!=null)source.Dispose();if(sink!=null)sink.Dispose();p.Dispose();}}
-}}
+using System;
+using System.IO;
+using System.Text;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+namespace CastLinkLifecycle {
+ public static class Transport {
+  [StructLayout(LayoutKind.Sequential)] struct SecurityAttributes {public int Length;public IntPtr Descriptor;[MarshalAs(UnmanagedType.Bool)]public bool Inherit;}
+  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] struct StartupInfo {public int cb;public string reserved;public string desktop;public string title;public int x,y,width,height,xchars,ychars,fill,flags;public short show,reservedSize;public IntPtr reservedBytes,stdin,stdout,stderr;}
+  [StructLayout(LayoutKind.Sequential)] struct StartupInfoEx {public StartupInfo info;public IntPtr attributes;}
+  [StructLayout(LayoutKind.Sequential)] struct ProcessInformation {public IntPtr process,thread;public int processId,threadId;}
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool CreatePipe(out SafeFileHandle read,out SafeFileHandle write,ref SecurityAttributes attributes,int size);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetHandleInformation(SafeFileHandle handle,int mask,int flags);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool InitializeProcThreadAttributeList(IntPtr list,int count,int flags,ref IntPtr size);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool UpdateProcThreadAttribute(IntPtr list,int flags,IntPtr attribute,IntPtr value,IntPtr size,IntPtr previous,IntPtr returned);
+  [DllImport("kernel32.dll")] static extern void DeleteProcThreadAttributeList(IntPtr list);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateProcess(string application,StringBuilder command,IntPtr processAttributes,IntPtr threadAttributes,bool inherit,int flags,IntPtr environment,string directory,ref StartupInfoEx startup,out ProcessInformation process);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle,int milliseconds);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr process,out int exitCode);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern bool TerminateProcess(IntPtr process,int exitCode);
+  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+  static async Task<long> Copy(Stream input,Stream output,long limit){byte[] bytes=new byte[65536];long total=0;int count;while((count=await input.ReadAsync(bytes,0,bytes.Length))>0){total+=count;if(total>limit)throw new IOException("Process stream size limit");await output.WriteAsync(bytes,0,count);}return total;}
+  public static string Run(string exe,string args,string input,string output,long limit,int seconds){
+   // Framework Process.Start constructs an AutoFlush StreamWriter for stdin and
+   // can prepend the console encoding BOM even when its BaseStream is used.
+   // These three anonymous pipes contain bytes only; the handle-list attribute
+   // prevents unrelated concurrent process/secret handles from being inherited.
+   SafeFileHandle childIn=null,parentIn=null,parentOut=null,childOut=null,parentError=null,childError=null;
+   Stream source=null,sink=null,stdin=null,stdout=null,stderr=null;MemoryStream text=null;
+   IntPtr attributeList=IntPtr.Zero,handleList=IntPtr.Zero;bool attributeReady=false;
+   ProcessInformation process=new ProcessInformation();
+   try{
+    var security=new SecurityAttributes{Length=Marshal.SizeOf(typeof(SecurityAttributes)),Inherit=true};
+    if(!CreatePipe(out childIn,out parentIn,ref security,0)||!CreatePipe(out parentOut,out childOut,ref security,0)||!CreatePipe(out parentError,out childError,ref security,0))throw new IOException("Cannot create binary process pipes");
+    if(!SetHandleInformation(parentIn,1,0)||!SetHandleInformation(parentOut,1,0)||!SetHandleInformation(parentError,1,0))throw new IOException("Cannot scope process pipe inheritance");
+    IntPtr attributeSize=IntPtr.Zero;InitializeProcThreadAttributeList(IntPtr.Zero,1,0,ref attributeSize);
+    if(attributeSize.ToInt64()<=0||attributeSize.ToInt64()>65536)throw new IOException("Invalid process attribute size");
+    attributeList=Marshal.AllocHGlobal(attributeSize);if(!InitializeProcThreadAttributeList(attributeList,1,0,ref attributeSize))throw new IOException("Cannot initialize process attributes");attributeReady=true;
+    handleList=Marshal.AllocHGlobal(IntPtr.Size*3);Marshal.WriteIntPtr(handleList,0,childIn.DangerousGetHandle());Marshal.WriteIntPtr(handleList,IntPtr.Size,childOut.DangerousGetHandle());Marshal.WriteIntPtr(handleList,IntPtr.Size*2,childError.DangerousGetHandle());
+    if(!UpdateProcThreadAttribute(attributeList,0,new IntPtr(0x20002),handleList,new IntPtr(IntPtr.Size*3),IntPtr.Zero,IntPtr.Zero))throw new IOException("Cannot bind process pipe handles");
+    var startup=new StartupInfoEx{info=new StartupInfo{cb=Marshal.SizeOf(typeof(StartupInfoEx)),flags=0x100,stdin=childIn.DangerousGetHandle(),stdout=childOut.DangerousGetHandle(),stderr=childError.DangerousGetHandle()},attributes=attributeList};
+    if(exe.IndexOf('"')>=0||!CreateProcess(exe,new StringBuilder("\""+exe+"\" "+args),IntPtr.Zero,IntPtr.Zero,true,0x08080000,IntPtr.Zero,null,ref startup,out process))throw new IOException("Binary lifecycle child did not start");
+    childIn.Dispose();childOut.Dispose();childError.Dispose();
+    source=String.IsNullOrEmpty(input)?(Stream)new MemoryStream():File.OpenRead(input);
+    sink=String.IsNullOrEmpty(output)?(Stream)(text=new MemoryStream()):new FileStream(output,FileMode.CreateNew,FileAccess.Write,FileShare.None);
+    stdin=new FileStream(parentIn,FileAccess.Write,65536,false);stdout=new FileStream(parentOut,FileAccess.Read,65536,false);stderr=new FileStream(parentError,FileAccess.Read,65536,false);
+    var write=Copy(source,stdin,1099511627776L).ContinueWith(task=>{stdin.Dispose();if(task.IsFaulted)throw task.Exception;});
+    var read=Copy(stdout,sink,limit);var error=Copy(stderr,Stream.Null,65536);var all=Task.WhenAll(write,read,error);var clock=Stopwatch.StartNew();
+    while(!all.IsCompleted||WaitForSingleObject(process.process,0)!=0){if(write.IsFaulted||read.IsFaulted||error.IsFaulted||clock.Elapsed.TotalSeconds>seconds)throw new IOException("Process timeout or bounded transport failure; inspect journal");System.Threading.Thread.Sleep(20);}
+    all.GetAwaiter().GetResult();int exitCode;if(!GetExitCodeProcess(process.process,out exitCode)||exitCode!=0)throw new IOException("Lifecycle child failed (exit "+exitCode+")");
+    if(sink is FileStream)((FileStream)sink).Flush(true);else sink.Flush();
+    return text==null?null:(Array.IndexOf(text.ToArray(),(byte)0)>=0?Encoding.Unicode.GetString(text.ToArray()):Encoding.UTF8.GetString(text.ToArray()));
+   }catch{if(process.process!=IntPtr.Zero&&WaitForSingleObject(process.process,0)!=0){TerminateProcess(process.process,1);WaitForSingleObject(process.process,5000);}throw;}
+   finally{
+    if(source!=null)source.Dispose();if(sink!=null)sink.Dispose();if(stdin!=null)stdin.Dispose();if(stdout!=null)stdout.Dispose();if(stderr!=null)stderr.Dispose();
+    foreach(var handle in new[]{childIn,parentIn,parentOut,childOut,parentError,childError})if(handle!=null)handle.Dispose();
+    if(process.thread!=IntPtr.Zero)CloseHandle(process.thread);if(process.process!=IntPtr.Zero)CloseHandle(process.process);
+    if(attributeReady)DeleteProcThreadAttributeList(attributeList);if(attributeList!=IntPtr.Zero)Marshal.FreeHGlobal(attributeList);if(handleList!=IntPtr.Zero)Marshal.FreeHGlobal(handleList);
+   }
+  }
+ }
+}
 '@
 }
 function ConvertTo-CLMArg([string]$Value){if($Value.Contains([char]0)){throw 'Unsafe process argument'};return '"'+([regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1'))+'"'}
