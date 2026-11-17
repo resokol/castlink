@@ -488,7 +488,7 @@ function Wait-CastlinkScheduledKeepalive {
 function Protect-CastlinkInstallationDirectory([string]$Root) {
     # Only the proven owned installation directory is changed; never its ancestors.
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-    # Change only the owned directory DACL; re-setting an unchanged owner can require privileges unavailable on a data volume.
+    # Grant the private DACL first: an existing owner may have WRITE_DAC without WRITE_OWNER.
     $acl = ([IO.DirectoryInfo]::new($Root)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
     $acl.SetAccessRuleProtection($true, $false)
     foreach ($existingRule in @($acl.Access)) { [void]$acl.RemoveAccessRuleSpecific($existingRule) }
@@ -497,7 +497,19 @@ function Protect-CastlinkInstallationDirectory([string]$Root) {
         $rule = [Security.AccessControl.FileSystemAccessRule]::new($principal, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
         [void]$acl.AddAccessRule($rule)
     }
-    ([IO.DirectoryInfo]::new($Root)).SetAccessControl($acl)
+    $directory = [IO.DirectoryInfo]::new($Root)
+    $directory.SetAccessControl($acl)
+    $ownerAcl = $directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+    if ($ownerAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value) {
+        # Elevated Windows tokens can create directories owned by Administrators.
+        # The preceding DACL grant makes a necessary take-ownership-to-self legal.
+        $ownerAcl.SetOwner($sid)
+        $directory.SetAccessControl($ownerAcl)
+    }
+    $verified = $directory.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+    if (-not $verified.AreAccessRulesProtected -or $verified.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value) {
+        throw 'The owned installation directory could not be secured for the current Windows user.'
+    }
 }
 
 function Write-CastlinkPrivateFile([string]$Path, [string]$Content) {
