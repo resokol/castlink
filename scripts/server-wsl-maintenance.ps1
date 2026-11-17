@@ -613,7 +613,7 @@ function Start-CLMRestore([string]$Root,[string]$BundleDirectory,[scriptblock]$A
 }
 function Invoke-CLMAdapter($Ctx,[string]$Name,$Data=$null){if($Ctx.adapter){return & $Ctx.adapter $Name $Ctx $Data};return Invoke-CLMDefaultAdapter $Name $Ctx $Data}
 function Save-CLMJournal($Ctx,[string]$Phase){$Ctx.phase=$Phase;$saved=@{};foreach($k in $Ctx.Keys){if($k -notin @('adapter','progress','sourceModule')){$saved[$k]=$Ctx[$k]}};Write-CLMJson $Ctx.journal $saved; if($Ctx.progress){& $Ctx.progress $Phase|Out-Null}}
-function Get-CLMJournal([string]$Root){$p=Join-Path $Root 'maintenance-transaction.json';if(-not (Test-Path -LiteralPath $p)){throw 'No maintenance journal for selected server'};$v=Read-CLMJson $p;if($v.schemaVersion -ne 1 -or $v.selectedRoot -cne $Root){throw 'Invalid maintenance journal pointer'};$j=Read-CLMJson $v.journal;if($j.schemaVersion -ne 1 -or $j.selectedRoot -cne $Root -or $j.id -cne $v.id -or $j.journal -cne $v.journal){throw 'Maintenance journal identity mismatch'};return $j}
+function Get-CLMJournal([string]$Root){$Root=Assert-CLMPath $Root;$p=Join-Path $Root 'maintenance-transaction.json';if(-not (Test-Path -LiteralPath $p)){throw 'No maintenance journal for selected server'};$v=Read-CLMJson $p;if($v.schemaVersion -ne 1 -or $v.selectedRoot -cne $Root){throw 'Invalid maintenance journal pointer'};$j=Read-CLMJson $v.journal;if($j.schemaVersion -ne 1 -or $j.selectedRoot -cne $Root -or $j.id -cne $v.id -or $j.journal -cne $v.journal){throw 'Maintenance journal identity mismatch'};return $j}
 function Complete-CLMUpdate($Ctx){
  # Commit intent is durable BEFORE any entry point/task or gate can expose candidate.
  Save-CLMJournal $Ctx 'commit-decided'

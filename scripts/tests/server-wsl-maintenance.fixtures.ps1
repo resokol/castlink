@@ -7,7 +7,7 @@ function Assert($Condition,$Message){if(-not $Condition){throw $Message}}
 $script:passes=0
 function Test($Name,[scriptblock]$Body){if($Only -and $Name -notlike $Only){return};& $Body;$script:passes++;Write-Output ('PASS '+$Name)}
 function Throws([scriptblock]$Body,[string]$Pattern){try{& $Body}catch{if($_.Exception.Message -match $Pattern){return};throw};throw ('Expected refusal '+$Pattern)}
-$testRoot=Join-Path $ScratchRoot ('castlink-lifecycle-fixtures-'+[guid]::NewGuid().ToString('N'))
+$testRoot=Assert-CLMPath (Join-Path $ScratchRoot ('castlink-lifecycle-fixtures-'+[guid]::NewGuid().ToString('N')))
 [void][IO.Directory]::CreateDirectory($testRoot)
 function Fixture {
  $root=Join-Path $testRoot ([guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($root)
@@ -114,6 +114,12 @@ try{
  Test 'removal requires explicit erase or archive' {$f=Fixture;Throws {Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'archive|Erase';Assert (-not $f.world.events.Contains('StopSource')) 'implicit erase stopped server'}
  Test 'stopped source leaves committed candidate stopped' {$f=Fixture;$f.world.source.desiredRunning=$false;$f.world.sourceRunning=$false;$r=Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter;Assert ($r.phase -eq 'completed') 'phase';Assert (-not $f.world.candidateRunning) 'stopped source was started';Assert ($f.world.events.IndexOf('StopCandidate') -lt $f.world.events.IndexOf('GateOpen')) 'stop must precede commit exposure'}
  Test 'each preflight has a private unique staging identity' {$ids=@();1..2|ForEach-Object {$f=Fixture;$capture={param($name,$ctx,$data);if($name -ceq 'InspectSource'){$ctx.inspectionStage=$ctx.stagingId}; & $f.adapter $name $ctx $data}.GetNewClosure();$r=Invoke-CastlinkMaintenance Check $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Adapter $capture;$ids+= $r.stagingId};Assert ($ids[0] -cmatch '^[a-f0-9]{32}$') 'missing staging id';Assert ($ids[0] -cne $ids[1]) 'staging collision'}
+ Test 'journal lookup canonicalizes caller aliases while rejecting altered saved identities' {
+  $f=Fixture;$f.world.fail='DisableSourceTask';Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'Injected'
+  $journal=Get-CLMJournal ($f.root+'\.');Assert ($journal.selectedRoot -ceq (Assert-CLMPath $f.root)) 'caller alias did not resolve to canonical selected root'
+  $pointerPath=Join-Path $f.root 'maintenance-transaction.json';$pointer=Read-CLMJson $pointerPath;$original=Copy-CLMObject $pointer;$pointer.selectedRoot+='\.';Write-CLMJson $pointerPath $pointer;Throws {Get-CLMJournal $f.root} 'Invalid maintenance journal pointer';Write-CLMJson $pointerPath $original
+  $journal.id='different-transaction';Write-CLMJson $journal.journal $journal;Throws {Get-CLMJournal $f.root} 'Maintenance journal identity mismatch'
+ }
  Test 'all update side-effect failure boundaries recover fail closed' {
   foreach($boundary in @('DisableSourceTask','StopSource','AssertSourceStopped','ExportTransfer','ImportCandidate','MarkCandidate','GateClose','ImportTransfer','StartCandidate','CandidateReady','PrepareBindings','PublishCandidateTask','GateOpen','CleanupSource')){
    $f=Fixture;$f.world.fail=$boundary;Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'Injected';$f.world.fail='';$j=Get-CLMJournal $f.root
