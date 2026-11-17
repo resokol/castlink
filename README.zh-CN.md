@@ -27,32 +27,22 @@
 
 ### 0. 准备 WSL
 
-打开 **开始菜单 → PowerShell → 以管理员身份运行**，检查：
+**以管理员身份打开 PowerShell**：
 
 ```powershell
 wsl --version
 ```
 
-需要 **WSL 2.4.13 或更高版本**。如果尚未安装 WSL、提示运行 `wsl.exe --install`，或没有显示版本，请执行：
-
-```powershell
-wsl --install --no-distribution
-```
-
-安装成功后，**保存工作并重启 Windows**。再次以管理员身份打开 PowerShell：
+如果尚未安装 WSL，执行 `wsl --install --no-distribution`，然后**重启 Windows**。之后（或已有 WSL 时）执行：
 
 ```powershell
 wsl --update
 wsl --version
 ```
 
-如果已有 WSL，更新并检查版本即可；如要求重启，请先重启。不需要单独安装 Ubuntu，CastLink 会下载自己的服务器环境。任何命令失败时，应先解决错误，再继续安装 CastLink。
+需要 WSL **2.4.13+**。如要求重启，请先重启；如有错误，先解决再继续。无需单独安装 Ubuntu。
 
-**从 Docker 版 CastLink 迁移时：**在旧面板中停止服务器。如果 Docker Desktop 在重启后自动启动旧服务器，请通过 **Quit Docker Desktop** 退出。保留旧数据：新的 WSL 安装不会自动迁移房间或设置。
-
-**红色乱码中包含 `wsl.exe --install`：**可能是 WSL 输出解码错误。请使用上述命令检查 WSL。行号 `742` 只是报告错误的位置，不能单独说明原因。
-
-**提示 `Shared WSL settings saved. Restart Windows...`：**网络设置已保存，但尚未生效。保存工作、重启 Windows，然后从同一文件夹再次运行同一个安装程序。安装 WSL 后重启过，也可能仍需要这次重启。
+从 Docker 迁移时，请停止旧 CastLink 服务器并退出 Docker Desktop。保留旧数据，安装程序不会自动迁移。
 
 ### 1. 下载
 
@@ -68,7 +58,9 @@ wsl --version
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1
 ```
 
-双击文件可能打开文本编辑器，这是正常的，请使用上面的命令。执行策略设置仅对本次启动生效。
+请使用上面的命令启动，不要双击文件。
+
+**如果脚本要求重启：**提示 `Shared WSL settings saved. Restart Windows...` 表示已保存新的网络设置。即使安装 WSL 后重启过，也请**保存工作并再次重启 Windows**。然后**在同一文件夹中**打开 PowerShell，重复上面的命令以继续安装。无需删除文件。
 
 ### 3. 回答提示
 
@@ -156,6 +148,7 @@ sudo docker compose -f /opt/castlink-server/compose.json stop
 | 问题 | 检查方法 |
 | --- | --- |
 | Windows 要求重启，或提示 WSL 正在运行 | 保存工作后重启电脑，再运行同一个安装程序。不要删除已安装的系统或数据。 |
+| 乱码错误包含 `wsl.exe --install` | 可能是 WSL 输出解码错误。检查 `wsl --version`，并按照上面的 WSL 准备步骤操作。行号 742 是报告错误的位置，不是原因。 |
 | 虚拟化不可用 | 在 BIOS/UEFI 中启用 Intel VT-x / AMD-V。 |
 | 地址无法打开 | 检查 IP、DNS A 记录、服务状态、防火墙和端口转发。Windows 域名还需检查 `turn.你的域名`。 |
 | 网页能打开但没有音视频 | 检查媒体 IPv4 和前文列出的 UDP 端口。仅 TCP 443 可用并不代表媒体连接正常。 |
