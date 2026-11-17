@@ -1,9 +1,11 @@
 """Synthetic Linux trees only; never touches a real guest or service."""
 import importlib.util
+import contextlib
 import io
 import json
 import os
 import shlex
+import shutil
 from pathlib import Path
 import tarfile
 import tempfile
@@ -287,11 +289,9 @@ class TransferTest(unittest.TestCase):
         with self.assertRaises(ValueError):self.helper(self.target).import_(HOST,io.BytesIO(out.getvalue()))
 
     def test_stopped_proof_refuses_surviving_public_or_private_listener(self):
-        def command(args,**kwargs):
-            class Result:returncode=0;stdout='inactive\n'
-            if args[0]=='/usr/bin/ss':Result.stdout='tcp LISTEN 0 128 0.0.0.0:3000 0.0.0.0:*\n'
-            return Result()
-        with patch.object(self.m.subprocess,'run',side_effect=command),patch.object(Path,'glob',return_value=[]):
+        with self.stopped_environment() as (cgroups,evidence):
+            evidence['state']='inactive'
+            evidence['sockets']='tcp LISTEN 0 128 0.0.0.0:3000 0.0.0.0:*\n'
             self.assertFalse(self.m.stopped_services())
 
     def test_source_runtime_release_must_match_saved_state(self):
@@ -307,26 +307,93 @@ class TransferTest(unittest.TestCase):
         self.assertIn('Maintenance',(self.source/'etc/castlink-server/Caddyfile').read_text())
         with self.assertRaises(ValueError):self.helper(self.source,False).gate_close(HOST,'rollback',release_stopped_firewall=True)
 
+    @contextlib.contextmanager
+    def stopped_environment(self):
+        from types import SimpleNamespace
+        cgroups=self.base/'cgroups';(cgroups/'system.slice').mkdir(parents=True)
+        (cgroups/'cgroup.controllers').write_text('cpu memory pids\n')
+        mountinfo=self.base/'mountinfo'
+        mountinfo.write_text('36 25 0:32 / '+str(cgroups)+' rw - cgroup2 cgroup rw\n')
+        evidence={'state':'failed','properties':{},'unitProperties':{},'omit':set(),'extra':'','sockets':'','processes':[]}
+        def command(args,**kwargs):
+            if args[0]=='/usr/bin/ss':return SimpleNamespace(returncode=0,stdout=evidence['sockets'])
+            unit=args[2].removesuffix('.service')+'.service'
+            fields={'Id':unit,'LoadState':'loaded','ActiveState':evidence['state'],
+                    'MainPID':'0','ControlPID':'0','Slice':'system.slice','ControlGroup':''}
+            fields.update(evidence['properties']);fields.update(evidence['unitProperties'].get(unit,{}))
+            return SimpleNamespace(returncode=0,stdout=''.join(key+'='+value+'\n' for key,value in fields.items() if key not in evidence['omit'])+evidence['extra'])
+        with patch.object(self.m,'CGROUP_ROOT',cgroups,create=True),patch.object(self.m,'CGROUP_MOUNTINFO',mountinfo,create=True), \
+             patch.object(self.m.subprocess,'run',side_effect=command), \
+             patch.object(Path,'glob',side_effect=lambda *args,**kwargs:evidence['processes']):
+            yield cgroups,evidence
+
     def test_failed_units_are_stopped_only_without_processes_listeners_or_pid(self):
         from types import SimpleNamespace
-        sockets={'output':''}
-        def command(args,**kwargs):
-            return SimpleNamespace(returncode=0,stdout=sockets['output'] if args[0]=='/usr/bin/ss' else 'failed\n')
         helper=self.helper(self.source);helper.stopped=self.m.stopped_services
-        with patch.object(self.m.subprocess,'run',side_effect=command),patch.object(Path,'glob',return_value=[]) as processes:
+        with self.stopped_environment() as (cgroups,evidence):
             self.assertTrue(self.m.stopped_services())
             helper.require_stopped()
             pid=self.source/'var/lib/castlink-server/postgres/postmaster.pid';pid.write_text('123')
             with self.assertRaises(ValueError):helper.require_stopped()
             pid.unlink()
-            sockets['output']='tcp LISTEN 0 128 0.0.0.0:7881 0.0.0.0:*\n'
+            evidence['sockets']='tcp LISTEN 0 128 0.0.0.0:7881 0.0.0.0:*\n'
             self.assertFalse(self.m.stopped_services())
-            sockets['output']=''
-            processes.return_value=[SimpleNamespace(read_text=lambda:'postgres\n')]
+            evidence['sockets']=''
+            evidence['processes']=[SimpleNamespace(read_text=lambda:'postgres\n')]
             self.assertFalse(self.m.stopped_services())
-        for state in ('active','activating','deactivating','reloading','unknown'):
-            with patch.object(self.m.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=state+'\n')):
+            evidence['processes']=[]
+            for state in ('active','activating','deactivating','reloading','unknown'):
+                evidence['state']=state
                 self.assertFalse(self.m.stopped_services())
+
+    def test_failed_owned_node_python_descendants_without_listeners_are_not_stopped(self):
+        from types import SimpleNamespace
+        with self.stopped_environment() as (cgroups,evidence):
+            for service,comm in (('castlink-web','node'),('castlink-converter','python3')):
+                group=cgroups/'system.slice'/(service+'.service');(group/'worker').mkdir(parents=True)
+                (group/'cgroup.events').write_text('populated 1\nfrozen 0\n')
+                (group/'cgroup.procs').write_text('')
+                (group/'worker/cgroup.procs').write_text('123\n')
+                evidence['processes']=[SimpleNamespace(read_text=lambda:comm+'\n')]
+                with self.subTest(service=service):self.assertFalse(self.m.stopped_services())
+                shutil.rmtree(group)
+                self.assertTrue(self.m.stopped_services())  # Unrelated Node/Python names confer no unit ownership.
+
+    def test_unit_pid_binding_and_cgroup_evidence_must_be_unambiguous(self):
+        with self.stopped_environment() as (cgroups,evidence):
+            self.assertTrue(self.m.stopped_services())
+            for properties in ({'MainPID':'123'},{'ControlPID':'123'},{'MainPID':''},
+                               {'Id':'foreign.service'},{'LoadState':'not-found'},{'Slice':'foreign.slice'},
+                               {'ControlGroup':'/system.slice/foreign.service'}):
+                evidence['properties']=properties
+                with self.subTest(properties=properties):self.assertFalse(self.m.stopped_services())
+            evidence['properties']={}
+            evidence['omit']={'MainPID'}
+            self.assertFalse(self.m.stopped_services())
+            evidence['omit']=set();evidence['extra']='MainPID=0\n'
+            self.assertFalse(self.m.stopped_services())
+            evidence['extra']=''
+            group=cgroups/'system.slice/castlink-web.service';group.mkdir()
+            self.assertFalse(self.m.stopped_services())  # Existing group without readable kernel evidence.
+            (group/'cgroup.events').write_text('populated 0\nfrozen 0\n');(group/'cgroup.procs').write_text('')
+            self.assertTrue(self.m.stopped_services())
+            evidence['unitProperties']={'castlink-web.service':{'ControlGroup':'/system.slice/castlink-web.service'}}
+            self.assertTrue(self.m.stopped_services())
+            evidence['unitProperties']={}
+            (group/'cgroup.procs').write_text('123\n')
+            self.assertFalse(self.m.stopped_services())
+            (group/'cgroup.procs').write_text('')
+            (group/'cgroup.events').write_text('frozen 0\n')
+            self.assertFalse(self.m.stopped_services())
+            (group/'cgroup.events').write_text('populated 0\npopulated 0\n')
+            self.assertFalse(self.m.stopped_services())
+            (group/'cgroup.events').write_text('populated 0\nfrozen 0\n')
+            self.assertTrue(self.m.stopped_services())
+            (cgroups/'cgroup.controllers').unlink()
+            self.assertFalse(self.m.stopped_services())
+            (cgroups/'cgroup.controllers').write_text('cpu memory pids\n')
+            self.m.CGROUP_MOUNTINFO.write_text('36 25 0:32 / '+str(cgroups)+' rw - cgroup cgroup rw\n')
+            self.assertFalse(self.m.stopped_services())
 
     def test_raw_archive_extensions_are_rejected_before_publication(self):
         data=self.export()

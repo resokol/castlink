@@ -30,6 +30,8 @@ SOURCE = 'server-wsl-v1.0.5-rc.1-085b087a2458'
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4
+CGROUP_ROOT = Path('/sys/fs/cgroup')
+CGROUP_MOUNTINFO = Path('/proc/self/mountinfo')
 
 
 class TransferTarInfo(tarfile.TarInfo):
@@ -73,13 +75,69 @@ def gate_rules(installation_id):
             '  udp dport { 3478, 7882, 30000-30031 } drop\n }\n}\n')
 
 
+def cgroup_v2_available():
+    try:
+        if CGROUP_ROOT.is_symlink() or not CGROUP_ROOT.is_dir(): return False
+        controllers=CGROUP_ROOT/'cgroup.controllers'
+        if controllers.is_symlink(): return False
+        bounded_text(controllers,4096)
+        for line in bounded_text(CGROUP_MOUNTINFO,1024*1024).splitlines():
+            fields=line.split()
+            if len(fields)>6 and fields[3]=='/' and fields[4]==str(CGROUP_ROOT):
+                separator=fields.index('-')
+                return fields[separator+1]=='cgroup2'
+    except (OSError,ValueError,IndexError,UnicodeError):
+        return False
+    return False
+
+
+def unit_cgroup_empty(unit,control_group):
+    expected='/system.slice/'+unit
+    if control_group not in ('',expected): return False
+    parent=CGROUP_ROOT/'system.slice'
+    group=parent/unit
+    try:
+        if parent.is_symlink() or not parent.is_dir(): return False
+        try: info=group.lstat()
+        except FileNotFoundError:
+            # systemd clears ControlGroup after removing an empty unit cgroup.
+            # Check its exact default path too, rather than trusting an empty field.
+            return True
+        if not stat.S_ISDIR(info.st_mode): return False
+        events=group/'cgroup.events';processes=group/'cgroup.procs'
+        if events.is_symlink() or processes.is_symlink(): return False
+        def unpopulated():
+            values={}
+            for line in bounded_text(events,4096).splitlines():
+                key,value=line.split()
+                if key in values: return False
+                values[key]=value
+            # cgroup v2 populated covers this cgroup AND every descendant.
+            return values.get('populated')=='0'
+        return unpopulated() and not bounded_text(processes,65536).strip() and unpopulated()
+    except (OSError,ValueError,UnicodeError):
+        return False
+
+
 def stopped_services():
+    if not cgroup_v2_available(): return False
+    properties=('Id','LoadState','ActiveState','MainPID','ControlPID','ControlGroup','Slice')
     for service in runtime.SERVICES:
-        result = subprocess.run(['/usr/bin/systemctl', 'show', service, '--property=ActiveState', '--value'],
+        unit=service+'.service'
+        result = subprocess.run(['/usr/bin/systemctl', 'show', unit, '--property='+','.join(properties)],
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
-        # Preserve failed-unit diagnostics: failed is nonrunning only when the
-        # independent process/listener/cluster-PID checks also prove quiescence.
-        if result.returncode != 0 or result.stdout.strip() not in ('inactive','failed'): return False
+        if result.returncode or len(result.stdout)>16384: return False
+        values={}
+        for line in result.stdout.splitlines():
+            key,separator,value=line.partition('=')
+            if not separator or key in values: return False
+            values[key]=value
+        if set(values)!=set(properties): return False
+        # Preserve failed diagnostics, but require exact unit binding and zero
+        # process IDs plus recursive kernel cgroup evidence for every owned unit.
+        if values['Id']!=unit or values['LoadState']!='loaded' or values['Slice']!='system.slice': return False
+        if values['ActiveState'] not in ('inactive','failed') or values['MainPID']!='0' or values['ControlPID']!='0': return False
+        if not unit_cgroup_empty(unit,values['ControlGroup']): return False
     # A dead service receipt does not prove there are no surviving processes.
     for process in Path('/proc').glob('[0-9]*/comm'):
         try: name = process.read_text().strip()
