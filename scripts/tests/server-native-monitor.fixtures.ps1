@@ -125,15 +125,19 @@ try {
     if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
         Set-Item Function:Get-CastlinkMonitorSession $sessionImplementation
         $script:fixtureMints = 0; $script:fixtureAccepts = 0
+        $script:fixtureRuntimeBuild = $binding.expectedBuildId
+        $script:fixtureHttpsBuild = $binding.expectedBuildId
+        $script:fixtureStatusOrigin = $binding.origin
+        $script:fixtureReady = $true
         $older = Join-Path $root ('owner-access-'+('b'*32)+'.txt')
         [IO.File]::WriteAllText($older, 'PRIVATE_OLDER_INVITATION')
         function Invoke-CastlinkMonitorInstaller($Binding, [string]$Action) {
-            if ($Action -eq 'Status') { return (@{origin=$Binding.origin;buildId=$Binding.expectedBuildId;ready=$true} | ConvertTo-Json) }
+            if ($Action -eq 'Status') { return (@{origin=$script:fixtureStatusOrigin;buildId=$script:fixtureRuntimeBuild;ready=$script:fixtureReady} | ConvertTo-Json) }
             $script:fixtureMints++
             [IO.File]::WriteAllText((Join-Path $Binding.installRoot ('owner-access-'+('c'*32)+'.txt')), ($Binding.origin+'/super-admin#access=csa2.'+('x'*43)))
         }
         function Invoke-CastlinkMonitorRequest($Binding, $Cookies, [string]$Path, [string]$Body = '') {
-            if ($Path -eq '/api/version') { return [pscustomobject]@{buildId=$Binding.expectedBuildId} }
+            if ($Path -eq '/api/version') { return [pscustomobject]@{buildId=$script:fixtureHttpsBuild} }
             Assert ($Path -ceq '/api/super-admin-access') 'Unexpected auth endpoint'
             $data = $Body | ConvertFrom-Json
             Assert ($data.action -ceq 'accept' -and $data.invite -ceq ('csa2.'+('x'*43))) 'Existing invitation accept contract changed'
@@ -151,12 +155,37 @@ try {
         $cookies = Get-CastlinkMonitorSession $binding
         Assert ($script:fixtureMints -eq 1 -and $cookies.GetCookies([Uri]$binding.origin).Count -eq 1) 'DPAPI cookie was not reused by the current user'
         Remove-Item -LiteralPath $cache -Force
-        function Invoke-CastlinkMonitorInstaller($Binding, [string]$Action) {
-            if ($Action -eq 'Status') { return (@{origin='https://foreign.invalid';buildId=$Binding.expectedBuildId;ready=$true} | ConvertTo-Json) }
-            $script:fixtureMints++
+
+        # A supported web-only update changes the runtime build, not the pinned installer identity.
+        $script:fixtureRuntimeBuild = '1.0.4-rc.2-bbbbbbbbbbbb'
+        $script:fixtureHttpsBuild = $script:fixtureRuntimeBuild
+        $cookies = Get-CastlinkMonitorSession $binding
+        Assert ($script:fixtureMints -eq 2 -and $script:fixtureAccepts -eq 2) 'Owned updated runtime could not authorize the monitor'
+        $cookies = Get-CastlinkMonitorSession $binding
+        Assert ($script:fixtureMints -eq 2 -and $cookies.GetCookies([Uri]$binding.origin).Count -eq 1) 'Updated runtime session cache was not reused'
+        $validated = Read-CastlinkNativeMonitorBinding $bindingFile
+        Assert ($validated.expectedBuildId -ceq $binding.expectedBuildId) 'Runtime update changed the original release binding'
+        Remove-Item -LiteralPath $cache -Force
+
+        $script:fixtureHttpsBuild = '1.0.4-rc.2-cccccccccccc'
+        Assert-Throws { Get-CastlinkMonitorSession $binding } 'HTTPS server build'
+        Assert ($script:fixtureMints -eq 2) 'Foreign HTTPS runtime reached owner invitation minting'
+        $script:fixtureHttpsBuild = $script:fixtureRuntimeBuild
+        foreach ($invalidBuild in @('', 'https://foreign.invalid', ('x'*129))) {
+            $script:fixtureRuntimeBuild = $invalidBuild
+            $script:fixtureHttpsBuild = $invalidBuild
+            Assert-Throws { Get-CastlinkMonitorSession $binding } 'origin or build'
         }
+        Assert ($script:fixtureMints -eq 2) 'Invalid runtime status reached owner invitation minting'
+        $script:fixtureRuntimeBuild = '1.0.4-rc.2-bbbbbbbbbbbb'
+        $script:fixtureHttpsBuild = $script:fixtureRuntimeBuild
+        $script:fixtureReady = $false
         Assert-Throws { Get-CastlinkMonitorSession $binding } 'origin or build'
-        Assert ($script:fixtureMints -eq 1) 'Foreign origin reached owner invitation minting'
+        Assert ($script:fixtureMints -eq 2) 'Stopped runtime reached owner invitation minting'
+        $script:fixtureReady = $true
+        $script:fixtureStatusOrigin = 'https://foreign.invalid'
+        Assert-Throws { Get-CastlinkMonitorSession $binding } 'origin or build'
+        Assert ($script:fixtureMints -eq 2) 'Foreign origin reached owner invitation minting'
     } else { Write-Host 'SKIP: actual Windows current-user ACL and DPAPI session cache' }
     Write-Host 'PASS: native monitor binding, denied authorization, snapshot shape, bounded pagination, redacted CSV/JSONL ZIP and protected owner session fixtures'
 } finally {
