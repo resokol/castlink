@@ -6,12 +6,12 @@
 
 下方新的交互步骤适用于 CLI **1.0.4**：`init` 默认快速设置，使用 `--advanced` 明确启用高级设置。先通过 `--help` 确认支持该参数。[选择已发布的 Linux 版本](PRODUCTS.md)。下方所选软件包使用CLI 1.0.4。[历史 CLI1472 部分](#legacy-1472)仅适用于旧软件包。
 
-## 单命令安装 — 1.0.4
+## 单命令安装 — 1.0.5
 
 全新安装可使用本发行版的独立加载脚本：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
 脚本验证固定归档，询问地址及单独的创建房间密码，并将软件包和数据保存在 `/opt/castlink-server`。`--install-runtime` 允许准备 Python/Docker/Compose；不加该参数时需先准备依赖。重复运行不会更新或重启已完成的安装。已有服务器请使用正常 `update` 命令及原数据目录。[详细说明与 24 小时图表](SERVER_INSTALL.md)。

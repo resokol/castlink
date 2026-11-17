@@ -10,16 +10,16 @@
 
 ## Linux Ubuntu
 
-Ниже приведён закреплённый пример для **1.0.4**. Для установки **1.0.5** выберите bootstrap и контрольные суммы именно этого выпуска в [каталоге](PRODUCTS.md).
+Ниже приведена команда для стабильного выпуска **1.0.5**. Пошаговая установка Windows и Linux: [главная инструкция](../README.md).
 
 Поддерживаются Ubuntu22.04/24.04 amd64. В Linux-выпуск добавлен самостоятельный
-`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.4 (не общий `releases/latest`) и выполните:
+`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.5 (не общий `releases/latest`) и выполните:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang ru
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-Скрипт из **linux-v1.0.4-079fd0f9d4b1** запросит адрес и отдельный пароль создания комнат, сохранит
+Скрипт из **linux-v1.0.5-732ad5fe7006** запросит адрес и отдельный пароль создания комнат, сохранит
 пакет/настройки в `/opt/castlink-server`, загрузит включённые образы и запустит
 существующий Linux installer. `--install-runtime` разрешает установку зависимостей
 и запуск Docker; без этого флага требуется готовый Docker/Compose. Домен, DNS и
@@ -34,13 +34,15 @@ curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-07
 
 ## Windows/WSL2 без Docker — отдельный экспериментальный канал
 
+Выпущен полный [установщик 1.0.5-rc.1](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458). Это предварительный выпуск; [шаги установки и ограничения](../README.md#сервер-на-windows-11).
+
 Нужны Windows11 x64, build22621+, WSL2 версии2.4.13+ и поддержка виртуализации.
 Установщик `install-server-windows.ps1` из отдельного канала `server-wsl-v…`
 скачивает готовую Ubuntu-среду со всеми серверными компонентами. Docker Desktop,
 Docker Engine, сборка исходников и ручная установка Node/PostgreSQL не нужны.
 Это WSL-сервер, а не полностью нативные службы Windows.
 
-После публикации скачайте скрипт из **того же выбранного выпуска**, сверив
+Скачайте скрипт из **того же выбранного выпуска**, сверив
 `SHA256SUMS`, и запустите в PowerShell:
 
 ```powershell

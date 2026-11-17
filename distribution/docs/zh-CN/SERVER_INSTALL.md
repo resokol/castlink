@@ -10,16 +10,16 @@
 
 ## Ubuntu Linux
 
-下方固定示例使用 **1.0.4**。安装 **1.0.5** 时，请从[目录](PRODUCTS.md)选择该发行版对应的引导脚本与校验和。
+以下命令安装稳定版 **1.0.5**。Windows 和 Linux 的分步安装请见[主页指南](../../../README.zh-CN.md)。
 
 支持 Ubuntu22.04/24.04 amd64。Linux 版本提供独立 `install-server.sh`，固定版本及
-压缩包 SHA256。使用以下 1.0.4 的准确下载地址，不使用全局 `releases/latest`：
+压缩包 SHA256。使用以下 1.0.5 的准确下载地址，不使用全局 `releases/latest`：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-**linux-v1.0.4-079fd0f9d4b1** 安装器询问服务器地址及创建房间密码，
+**linux-v1.0.5-732ad5fe7006** 安装器询问服务器地址及创建房间密码，
 将软件包和配置保存在 `/opt/castlink-server`，载入附带镜像并运行现有 Linux 安装流程。
 `--install-runtime` 允许安装依赖及启动 Docker；不加此参数则需要可用的 Docker/Compose。
 DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模式](LINUX_MANUAL.md)。
@@ -31,10 +31,12 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 ## 无 Docker 的 Windows/WSL2 — 独立实验渠道
 
+完整 [1.0.5-rc.1 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458)已作为预发布版本发布。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
+
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。
 用户不需要 Docker Desktop/Engine、源码编译或手动安装 Node/PostgreSQL。
-这是 WSL 服务器，并非原生 Windows 服务。发布后下载所选版本的脚本，核对 `SHA256SUMS`，
+这是 WSL 服务器，并非原生 Windows 服务。下载所选版本的脚本，核对 `SHA256SUMS`，
 然后在 PowerShell 中运行：
 
 ```powershell

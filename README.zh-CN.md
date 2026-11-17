@@ -1,95 +1,150 @@
 [Русский](README.md) · [English](README.en.md) · **简体中文**
 
-<p align="center">
-  <a href="https://castlink.ru"><img src="assets/brand/castlink-logo.svg" width="112" height="112" alt="CastLink 标志"></a>
-</p>
+# CastLink
 
-<h1 align="center">CastLink</h1>
-<p align="center"><strong>CastLink 1.0.4</strong></p>
-<p align="center"><strong>远程嘉宾，独立音视频源，打造你的直播。</strong></p>
-<p align="center">浏览器接入 · OBS 和 vMix · 自托管</p>
-<p align="center">
-  <a href="https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe"><strong>Windows Client</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip"><strong>Windows Server</strong></a> · <a href="https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz"><strong>Linux Ubuntu</strong></a>
-</p>
-<p align="center">
-  <a href="https://castlink.ru">官网</a> &nbsp; / &nbsp;
-  <a href="distribution/INSTALL.md">安装指南</a> &nbsp; / &nbsp;
-  <a href="CHANGELOG.md">更新日志</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax">联系作者</a> &nbsp; / &nbsp;
-  <a href="https://t.me/sklvmax"><strong>♡ 支持 CastLink</strong></a>
-</p>
+让远程嘉宾通过浏览器接入，为 OBS 或 vMix 提供独立的音视频流。
 
-<p align="center">开源许可证： <a href="LICENSE">MIT</a> · <a href="distribution/docs/zh-CN/PRODUCTS.md">下载与校验和</a></p>
+选择服务器的安装系统：
 
-
----
-
-CastLink 是一个自托管演播室，可将远程嘉宾、演示文稿及独立音视频流接入 OBS 或 vMix。主持人和嘉宾可以使用浏览器，也可以使用专用 Windows 客户端。本仓库提供应用源代码、构建工具、发行版和开发文档。
-
-## 下载与安装
-
-**11月16日网页修复：**分别显示发送及接收丢包，支持仅音频参与者，将当前网络等级与历史分开。服务器更新后请刷新演播室及参与者页面。[详情](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md)。
-
-**1.0.4：**主播卡片新增网络质量说明；Windows Client 更新为 1.0.1。 [1.0.4](distribution/docs/zh-CN/RELEASE_NOTES_1_0_4.md).
-
-**1.0.3：**降噪与回声消除使用同一开关，默认关闭；主控演播室可在主播卡片中切换。 [1.0.3](distribution/docs/zh-CN/RELEASE_NOTES_1_0_3.md).
-
-Windows Server Setup 和 Linux 为 **1.0.4**；Windows Client 为 **1.0.1**。
-
-1.0.2 新增[Linux 单命令安装与 24 小时服务器监控](distribution/docs/zh-CN/SERVER_INSTALL.md)：图表历史和事件日志在重启后保留。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 方案仍是独立候选版，尚未完成安装及外部媒体通话验证。
-
-请从[产品目录](distribution/docs/zh-CN/PRODUCTS.md)或[发行版页面](https://github.com/resokol/castlink/releases)选择安装包。Windows Client、Windows Server Setup 和独立 Linux 安装程序分别发布。安装包和 `SHA256SUMS` 必须来自同一产品的同一发行版。
-
-| 产品 | 用途 |
+| 系统 | 安装方式 |
 | --- | --- |
-| Windows Client | 以嘉宾或主持人身份加入演播室。运行 `setup.exe` 安装，无需 Docker。 |
-| Windows Server Setup | 在 Windows 上，或通过 SSH 在 Linux Ubuntu 上安装服务器。完整解压 `CastLink-Windows.zip` 后运行 `EasySetup.exe`。 |
-| Linux Ubuntu | 直接在 Linux 上安装服务器。[Linux 手册](distribution/docs/zh-CN/LINUX_MANUAL.md)提供快速和高级安装说明。 |
+| Windows 11 | 完整 **1.0.5-rc.1** 安装程序，无需 Docker Desktop。这是预发布版本。 |
+| Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.5**。 |
 
-[安装指南：Русский / English / 简体中文](distribution/INSTALL.md) · [用户文档](distribution/docs/zh-CN/GUIDE.md) · [远程电脑控制（俄语）](docs/REMOTE_PC_CONTROL_RU.md)。
+如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
 
-[resokol/castlink](https://github.com/resokol/castlink) 是本项目唯一的公开主仓库，提供 MIT 许可的源代码、发行版及说明。安装包和校验和可公开下载。旧地址 `resokol/castlink-releases` 重定向到此仓库，以兼容旧下载链接和安装程序。GitHub 的单个 `releases/latest` 入口不代表三个产品各自的最新版本，请使用产品目录选择。
+## 安装前
 
-此前发布的安装包及 SHA256 保持不变，未重新构建。包内清单或更新检查仍可能使用旧仓库名称，GitHub 会将其重定向到当前仓库。手动安装时请使用目录中列出的具体发行版。
+- 使用 CastLink 时，服务器电脑必须保持开机。
+- 公网使用需要域名或公网 IPv4。将域名的 DNS **A** 记录指向服务器；Windows 还需要把 `turn.你的域名` 指向同一 IP。
+- 如果经过路由器，请转发 **TCP 80、443、7881；UDP 3478、7882、30000–30031** 到服务器。VPS 防火墙也要放行这些端口。安装程序不会配置 DNS 或路由器。
+- 局域网测试可以使用本地 IPv4，但客户端设备需要信任服务器的本地 HTTPS 证书。
+- 如果使用 CGNAT，仅端口转发不够。请向网络运营商申请公网 IPv4，或使用 Ubuntu VPS。
 
-Windows 服务器需要运行 Linux 容器的 Docker Desktop。VPS 安装支持 Ubuntu 22.04/24.04 amd64。服务器部署在你自己的基础设施上；网络、HTTPS、端口及更新要求见安装文档。
+## Windows 11 服务器
 
-## 开发
+需要 **Windows 11 x64 22H2/build 22621 或更高版本**、已启用虚拟化和互联网连接。安装程序使用 WSL 2，无需手动安装 Docker Desktop、Node.js 或 PostgreSQL。
 
-需要 Git、Node.js 22.13+ 和 pnpm 9.15.0。服务器软件包使用内置 SQLite 的 Node.js 22.23.3。依赖版本固定在 `pnpm-lock.yaml` 中。
+### 1. 下载
 
-```sh
-git clone https://github.com/resokol/castlink.git
-cd castlink
-pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm test:ci
-pnpm build
+**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.1-085b087a2458/install-server-windows.ps1)**
+
+安装程序会自动下载服务器文件，无需单独下载补丁或源码压缩包。
+
+### 2. 运行
+
+打开下载文件所在文件夹，在文件资源管理器地址栏输入 `powershell` 并按回车，然后执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1
 ```
 
-运行 `pnpm dev` 启动 Web 开发服务器。完整的本地环境还需要 LiveKit、访问配置及存储后端。请使用独立的开发环境和数据库；配置模板位于 `infrastructure/`。不要使用生产数据进行测试。
+双击文件可能打开文本编辑器，这是正常的，请使用上面的命令。执行策略设置仅对本次启动生效。
 
-| 目录 | 内容 |
+### 3. 回答提示
+
+对于 `[y/N]`，输入 `y` 并按回车表示同意；直接回车表示拒绝。部分问题只在首次安装时出现。
+
+| 提示或步骤 | 操作 |
 | --- | --- |
-| [apps/web](apps/web) | Next.js/React、服务器 API 和浏览器界面 |
-| [apps/desktop](apps/desktop) | Windows 客户端及原生集成 |
-| [apps/cli](apps/cli) | 旧版 CLI，与独立 Linux 安装程序不同 |
-| [native](native) | Windows 原生组件和协议 |
-| [scripts](scripts) | 构建、安装、迁移和检查脚本 |
-| [infrastructure](infrastructure) | Compose、SQL、服务模板及运行时组件 |
-| [docs](docs/README.md) | 架构、开发和运维文档 |
-| [distribution](distribution) | 用户指南和产品发行说明 |
+| 安装 WSL 组件 | 输入 `y`，确认 Windows 权限提示。如要求重启，重启后再次运行同一命令。 |
+| Public hostname or IPv4 address | 输入自己的域名或 IPv4，**不要包含** `https://`、端口或路径。`meet.example.com` 只是示例。 |
+| 添加 `networkingMode=mirrored` 和 `hostAddressLoopback=true` | 这是 WSL 网络设置。专用服务器电脑可输入 `y` 同意。如要求重启 WSL/Windows，请重启电脑后重新运行。安装程序不会停止其他正在运行的 WSL 系统。 |
+| 添加防火墙规则 | 输入 `y`，确认 Windows 管理员权限提示。 |
+| 使用域名时的媒体 IPv4 | 填写参与者可访问的服务器 IPv4：互联网使用公网地址，局域网测试使用本地地址。 |
+| 创建房间密码及确认 | 设置并保存独立密码，再次输入确认。输入字符不会显示。 |
+| 信任服务器证书 | 仅信任自己的服务器证书。其他参与设备也需要信任本地证书。 |
+| 登录 Windows 时启动 | `y`：在**当前用户登录**时启动；`n`：手动启动。 |
 
-开发入门可阅读[学习手册](docs/MANUAL_RU.md)、[项目指南](docs/PROJECT_GUIDE_RU.md)和[技术约束](docs/CRITICAL_INVARIANTS_RU.md)（俄语）。界面开发请参考[设计系统](DESIGN.md)和[UI 指南](docs/UI_EDITING_GUIDE_RU.md)。更新源代码不会自动更新已安装的应用或服务器。部分详细文档目前仅有俄语；安装指南包含英语和简体中文。
+下载和准备可能需要几分钟，请勿提前关闭窗口。如果要求重启，请重新运行**同一个安装程序**以继续安装。
 
-## 参与贡献
+### 4. 检查结果
 
-修改和验证流程见 [CONTRIBUTING](CONTRIBUTING.md)。安全漏洞请按 [SECURITY](SECURITY.md) 中的方式私下报告。
+安装成功后打开 **CastLink Server** 面板。等待运行状态，然后点击 **Open CastLink**（打开 CastLink），使用刚设置的密码创建房间。
 
-## 许可证
+面板提供启动、停止、统计信息和 **24 小时 ZIP 导出**。关闭窗口会隐藏到系统托盘；停止服务器请点击 **Stop services**。请用另一台设备测试；验证公网访问时，可用手机移动网络。
 
-CastLink 自有源代码采用 [MIT 许可证](LICENSE)，允许使用、修改及再分发，但须保留版权及许可声明。第三方组件保留各自的许可证和声明，见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)。
+**版本说明：**这是用于新电脑的完整 RC 安装程序。构建、Windows 测试和文件校验已完成；尚未在另一台干净电脑上重新执行此确切包的全新安装及重启。不支持覆盖安装其他版本。[发布页面及 SHA256SUMS](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458)。
 
-此前发布的 Client `f6c47a27a62c` 和 Server Setup/Linux `d703726cd50b` 安装包仍保留包内的 CastLink Freeware Distribution License 1.1。安装包及 SHA256 未改变，当前源代码的 MIT 许可证不会替换旧包内的许可证。
+## Ubuntu Linux 服务器
 
-作者：[Telegram @sklvmax](https://t.me/sklvmax) · [GitHub resokol](https://github.com/resokol)。
+支持 **Ubuntu 22.04 / 24.04，x86-64/amd64**。通过 SSH 使用具有 `sudo` 权限的用户登录。
+
+### 1. 执行一条命令
+
+```bash
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+```
+
+固定版本 **1.0.5** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。
+
+如果提示没有 `curl`，先运行以下命令，再重新安装：
+
+```bash
+sudo apt-get update && sudo apt-get install -y curl
+```
+
+### 2. 回答提示
+
+| 提示 | 输入内容 |
+| --- | --- |
+| `sudo` 密码（如有） | Ubuntu 用户的系统密码，输入不可见。 |
+| 服务器外部地址 | 完整地址，如 `https://meet.example.com` 或 `https://你的IP`。请替换成自己的地址。需要其他设备访问时，**不要保留 `127.0.0.1`**。 |
+| 媒体 IPv4（如有） | 可访问的服务器 IPv4。无法明确确定时才会询问。 |
+| 创建房间密码及确认 | 新的独立密码，长度 **8–256 个字符**。这不是 SSH/sudo 密码。输入不可见，请保存。 |
+
+快速模式自动选择端口和 HTTPS 模式。本地地址使用本地证书，需要在参与者设备上另行配置信任。
+
+### 3. 等待启动
+
+出现以下两行才表示安装完成：
+
+```text
+CastLink setup completed: https://你的地址
+Installation: /opt/castlink-server
+```
+
+用浏览器打开显示的地址，使用设置的密码创建房间，并从另一台设备测试连接。
+
+### 4. 管理服务器
+
+检查状态：
+
+```bash
+sudo python3 /opt/castlink-server/.castlink-package/scripts/linux-compose-setup.py status --state-dir /opt/castlink-server --lang zh-CN
+```
+
+将 `status` 改为 `start` 可启动服务器。停止并保留数据：
+
+```bash
+sudo docker compose -f /opt/castlink-server/compose.json stop
+```
+
+重新执行 `curl` **不会更新**已完成的安装。更新时，将上述命令中的 `status` 改为 `update`，保留原数据目录，并在非直播时执行。完成后刷新导播和嘉宾页面。
+
+## 常见问题
+
+| 问题 | 检查方法 |
+| --- | --- |
+| Windows 要求重启，或提示 WSL 正在运行 | 保存工作后重启电脑，再运行同一个安装程序。不要删除已安装的系统或数据。 |
+| 虚拟化不可用 | 在 BIOS/UEFI 中启用 Intel VT-x / AMD-V。 |
+| 地址无法打开 | 检查 IP、DNS A 记录、服务状态、防火墙和端口转发。Windows 域名还需检查 `turn.你的域名`。 |
+| 网页能打开但没有音视频 | 检查媒体 IPv4 和前文列出的 UDP 端口。仅 TCP 443 可用并不代表媒体连接正常。 |
+| 局域网证书警告 | 在每台客户端设备上信任自己服务器的**公共根证书**，不要关闭 TLS 验证。[Linux 证书导出](distribution/docs/zh-CN/LINUX_MANUAL.md)。 |
+| 端口被占用或存在其他安装 | 使用相同端口前先停止冲突服务，保留其数据。 |
+
+Linux 诊断：
+
+```bash
+sudo docker compose -f /opt/castlink-server/compose.json ps
+sudo docker compose -f /opt/castlink-server/compose.json logs --tail 100
+```
+
+## 更多
+
+- [网站](https://castlink.ru) · [用户手册](distribution/docs/zh-CN/GUIDE.md) · [发布版本](https://github.com/resokol/castlink/releases) · [更新记录](CHANGELOG.md)。
+- 旧版 Docker/SSH 工具 `EasySetup.exe` 是[另一种安装方式](distribution/docs/zh-CN/INSTALL.md)，以上 Windows 安装不需要它。
+- 开发资料：[CONTRIBUTING](CONTRIBUTING.md)、[项目指南](docs/PROJECT_GUIDE_RU.md)、[技术约束](docs/CRITICAL_INVARIANTS_RU.md)。安装已打包服务器无需克隆 Git 或编译源码。
+- [报告问题](https://github.com/resokol/castlink/issues) · [安全](SECURITY.md) · [联系或支持作者](https://t.me/sklvmax)。
+
+项目代码使用 [MIT](LICENSE)；第三方组件保留各自许可证：[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)。旧 Client `f6c47a27a62c` 和 Server Setup/Linux `d703726cd50b` 包仍适用其内附的 Freeware Distribution License 1.1，当前 MIT 许可证不会改变旧包内容。
