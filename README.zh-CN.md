@@ -46,7 +46,7 @@ wsl --version
 
 ### 1. 下载
 
-**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/install-server-windows.ps1)**
+**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/install-server-windows.ps1)**
 
 安装程序会自动下载服务器文件，无需单独下载补丁或源码压缩包。
 
@@ -85,16 +85,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 面板提供启动、停止、统计信息和 **24 小时 ZIP 导出**。关闭窗口会隐藏到系统托盘；停止服务器请点击 **Stop services**。请用另一台设备测试；验证公网访问时，可用手机移动网络。
 
-**版本状态：** **1.0.5-rc.2** 是尚未发布的候选版本。以下固定版本链接供发布后使用。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-ccbc0db7e937) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/SHA256SUMS)。
+**版本状态：** **1.0.5-rc.2** 是尚未发布的候选版本。以下固定版本链接供发布后使用。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS)。
 
 ### 更新、删除或恢复 WSL 服务器
 
-1. 所选版本发布后，下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
+1. 所选版本发布后，下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
 2. 按地址和文件夹选择服务器。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
 3. 删除时选择**删除前保留可恢复归档**或**永久删除服务器和数据**，再点击**删除**。保存的归档是包含完整导出和恢复辅助文件的**文件夹**，不是统计 ZIP。它含有凭据，请完整、私密地保存。
 4. **恢复**使用此归档文件夹，以及 `%LOCALAPPDATA%\CastLinkServer` 下尚不存在的新安装文件夹。操作中断后，选择同一服务器并点击**恢复事务**。成功后使用**打开服务器面板**。
 
-首个受支持的升级来源仅为 `server-wsl-v1.0.5-rc.1-085b087a2458`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/SHA256SUMS)。
+首个受支持的升级来源仅为 `server-wsl-v1.0.5-rc.1-085b087a2458`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS)。
 
 ## Ubuntu Linux 服务器
 

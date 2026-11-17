@@ -34,7 +34,7 @@ locations. Unattended setup supports `--config` and
 
 ## Docker-free Windows/WSL2 — separate experimental channel
 
-The [1.0.5-rc.2 installer candidate](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-ccbc0db7e937) is not yet published. The links below are prepared for use after publication. See [installation steps and limitations](../../../README.en.md#windows-11-server).
+The [1.0.5-rc.2 installer candidate](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926) is not yet published. The links below are prepared for use after publication. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready
@@ -76,7 +76,7 @@ logon after explicit consent. An explicit `Stop` preserves the stopped state.
 
 ### Maintenance: update, remove and restore
 
-Once the candidate is published, download [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/CastLink-Server-WSL-Maintenance.zip) from **that same release**, extract the entire ZIP and double-click **CastLink-Maintenance.cmd**. [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/SHA256SUMS). The new panel's **Maintenance** button opens the same tool. Version 1.0.5-rc.1 needs this separate tool; its original installer does not update itself.
+Once the candidate is published, download [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip) from **that same release**, extract the entire ZIP and double-click **CastLink-Maintenance.cmd**. [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS). The new panel's **Maintenance** button opens the same tool. Version 1.0.5-rc.1 needs this separate tool; its original installer does not update itself.
 
 **Select and update.** Select the exact server by address and folder; do not silently choose the first of several. An incomplete installation may have an unknown address, so check its folder. Select a target release, click **Check** and review current/target versions and required/free space. The tool downloads and verifies the needed files before stopping services. Checking never starts an update; prereleases require explicit selection. The normal window does not ask you to type SHA256 values or an opaque WSL ID.
 

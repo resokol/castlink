@@ -31,7 +31,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 ## 无 Docker 的 Windows/WSL2 — 独立实验渠道
 
-[1.0.5-rc.2 安装程序候选版](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-ccbc0db7e937)尚未发布。以下链接供发布后使用。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
+[1.0.5-rc.2 安装程序候选版](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926)尚未发布。以下链接供发布后使用。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。
@@ -65,7 +65,7 @@ HTTPS/数据库就绪不代表已验证外部媒体通话。
 
 ### 维护：更新、删除及恢复
 
-候选版本发布后，从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-ccbc0db7e937/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
+候选版本发布后，从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
 
 **选择与更新。** 按地址和文件夹选择确切的服务器，不要默认选择多个安装中的第一个。不完整安装的地址可能未知，请核对文件夹。选择目标版本，点击**检查**，核对当前/目标版本及所需/可用空间。工具在停止服务前下载并验证所需文件。检查不会自动开始更新，预发布版本必须明确选择。正常窗口无需输入 SHA256 或不透明的 WSL 标识。
 
