@@ -141,6 +141,31 @@ try {
    Assert (@(CimCmdlets\Get-CimInstance Win32_Process | Where-Object {$_.ExecutablePath -ieq $keeper.exe}).Count -eq 0) 'normal Stop left a keeper';Assert (-not (Read-CLMReceipt $f.root).keepalive) 'Stop did not clear receipt'
   }finally{Stop-FixtureKeepers $keeper}
  }
+
+ Test 'source panel close accepts Start-Process trailing space and preserves other bindings' {
+  $scripts=Split-Path $PSScriptRoot -Parent;$panel=Join-Path $testRoot ('panel close '+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($panel)
+  $exe=Join-Path $panel 'CastLinkServer.exe';$builder=Join-Path $scripts 'build-server-native-panel-host.ps1'
+  $compiler=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe';$null=& $compiler -NoProfile -ExecutionPolicy Bypass -File $builder -Output $exe;Assert ($LASTEXITCODE -eq 0) 'production native launcher did not compile'
+  $binding=Join-Path $panel 'server-native-binding.json';$otherBinding=Join-Path $panel 'other-binding.json';[IO.File]::WriteAllText($binding,'{}');[IO.File]::WriteAllText($otherBinding,'{}')
+  # The real launcher runs only this private sleeping control fixture, never product controls or services.
+  [IO.File]::WriteAllText((Join-Path $panel 'server-native-control.ps1'),"param([string]`$BindingFile,[switch]`$Startup,[switch]`$StartServer);Start-Sleep -Seconds 600")
+  $held=New-Object Collections.Generic.List[Diagnostics.Process];$owned=New-Object Collections.Generic.List[Diagnostics.Process];$children=New-Object Collections.Generic.List[Diagnostics.Process]
+  try{
+   foreach($mode in @('normal','startup','other')){
+    $arguments='--binding "'+$(if($mode -ceq 'other'){$otherBinding}else{$binding})+'"';if($mode -ceq 'startup'){$arguments+=' --startup'}
+    $hostProcess=Start-Process -FilePath $exe -ArgumentList $arguments -PassThru;[void]$hostProcess.Handle;$held.Add($hostProcess);if($mode -cne 'other'){$owned.Add($hostProcess)}else{$other=$hostProcess}
+    $clock=[Diagnostics.Stopwatch]::StartNew();$child=$null
+    while(-not $child -and $clock.Elapsed.TotalSeconds -lt 10){$child=CimCmdlets\Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$hostProcess.Id) | Where-Object {$_.ExecutablePath -ieq $compiler};if(-not $child){Start-Sleep -Milliseconds 100}}
+    Assert ($null -ne $child) 'launcher child absent';$childProcess=[Diagnostics.Process]::GetProcessById([int]$child.ProcessId);[void]$childProcess.Handle
+    Assert ($childProcess.StartTime.ToUniversalTime().ToString('yyyyMMddHHmmssffffff') -ceq $child.CreationDate.ToUniversalTime().ToString('yyyyMMddHHmmssffffff')) 'child timestamp differs';$held.Add($childProcess);if($mode -cne 'other'){$children.Add($childProcess)}else{$otherChild=$childProcess}
+    $evidence=CimCmdlets\Get-CimInstance Win32_Process -Filter ('ProcessId='+$hostProcess.Id);Assert ($evidence.CommandLine.EndsWith(' ')) 'ordinary Start-Process trailing-space regression not exercised'
+   }
+   $ctx=@{source=[pscustomobject]@{nativePanel=[pscustomobject]@{hostPath=$exe;hostSha256=(Get-CLMHash $exe);bindingPath=$binding;bindingSha256=(Get-CLMHash $binding)}}}
+   Close-CLMSourcePanel $ctx
+   foreach($process in @($owned.ToArray())+@($children.ToArray())){Assert $process.HasExited 'exact owned launcher or encoded child remained alive'}
+   Assert (-not $other.HasExited -and -not $otherChild.HasExited) 'different binding launcher or child was closed'
+  }finally{foreach($process in $held){try{if(-not $process.HasExited){$process.Kill();$null=$process.WaitForExit(10000)}}finally{$process.Dispose()}}}
+ }
  Test 'binary process transport preserves bytes across OEM and BOM-capable UTF8 consoles' {
   $savedEncoding=[Console]::InputEncoding;$inputPath=Join-Path $testRoot 'binary.in';$b=[byte[]]@(0,255,128,13,10,0,60);[IO.File]::WriteAllBytes($inputPath,$b);$exe=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe';$code='$i=[Console]::OpenStandardInput();$o=[Console]::OpenStandardOutput();$i.CopyTo($o)';$enc=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
   try{foreach($encoding in @([Text.Encoding]::GetEncoding(437),[Text.UTF8Encoding]::new($false),[Text.UTF8Encoding]::new($true))){[Console]::InputEncoding=$encoding;$outputPath=Join-Path $testRoot ('binary-'+[guid]::NewGuid().ToString('N')+'.out');$null=Invoke-CLMProcess $exe @('-NoProfile','-EncodedCommand',$enc) $inputPath $outputPath 20 10;Assert ((Get-CLMHash $inputPath) -ceq (Get-CLMHash $outputPath)) ('binary changed for codepage '+$encoding.CodePage+' preamble '+$encoding.GetPreamble().Length)}

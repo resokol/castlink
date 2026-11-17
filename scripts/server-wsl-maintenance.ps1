@@ -554,12 +554,12 @@ function Close-CLMSourcePanel($Ctx){
  if((Get-CLMHash $p.hostPath) -cne $p.hostSha256 -or (Get-CLMHash $p.bindingPath) -cne $p.bindingSha256){throw 'Source panel checksum mismatch'}
  foreach($cim in Get-CimInstance Win32_Process -Filter "Name='CastLinkServer.exe'"){
   if($cim.ExecutablePath -ine $p.hostPath){continue};$args='--binding "'+$p.bindingPath+'"';$quoted='"'+$p.hostPath+'" ';$unquoted=$p.hostPath+' '
-  if($cim.CommandLine -cnotin @($quoted+$args,$unquoted+$args,$quoted+$args+' --startup',$unquoted+$args+' --startup')){continue}
+  if(([string]$cim.CommandLine).TrimEnd([char]32) -cnotin @(($quoted+$args),($unquoted+$args),($quoted+$args+' --startup'),($unquoted+$args+' --startup'))){continue}
   $childExe=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
   $control=Join-Path (Split-Path $p.hostPath -Parent) 'server-native-control.ps1';$quote={param($v) $v.Replace("'","''")}
   $baseCommand="`$ErrorActionPreference='Stop'; try { & '"+(& $quote $control)+"' -BindingFile '"+(& $quote $p.bindingPath)+"'"
   $suffix='; if ($null -eq $LASTEXITCODE) { exit 0 }; exit $LASTEXITCODE } catch { exit 1 }'
-  $expectedCommands=@($baseCommand+$suffix,$baseCommand+' -Startup -StartServer'+$suffix)
+  $expectedCommands=@(($baseCommand+$suffix),($baseCommand+' -Startup -StartServer'+$suffix))
   foreach($child in Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$cim.ProcessId)){
    if($child.ExecutablePath -ine $childExe -or $child.CommandLine -notmatch ' -EncodedCommand ([A-Za-z0-9+/=]+)$'){continue}
    $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]));if($decoded -cnotin $expectedCommands){continue}
