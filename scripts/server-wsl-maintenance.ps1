@@ -372,6 +372,20 @@ function Get-CLMSourcePackage($Ctx,$State){
  $State|Add-Member NoteProperty releaseManifestSha256 $record.manifestSha256 -Force
  $Ctx.sourceCache=$cache;$Ctx.sourceProvenance=$provenancePath;$Ctx.sourceProvenanceSha256=Get-CLMHash $provenancePath
 }
+function Sync-CLMKeepaliveReceipt([string]$Root,$State,$Module){
+ $current=Read-CLMReceipt $Root
+ foreach($name in @('installationId','distroName','rootPath','repository','releaseTag','rootfsSha256')){if($current.$name -cne $State.$name){throw 'Current keepalive installation identity differs; replay refused'}}
+ $keeper=$null
+ if($current.keepalive){
+  if(-not $Module){throw 'Verified installer required to reconcile current keepalive identity'}
+  $process=Invoke-CLMInstaller $Module {param($s);Get-CastlinkKeepaliveProcess $s} $current
+  if($process){try{$keeper=Copy-CLMObject $current.keepalive}finally{$process.Dispose()}}
+  elseif(Invoke-CLMInstaller $Module {param($s);Get-CastlinkProcessEvidence ([int]$s.keepalive.processId)} $current){throw 'Current keepalive process identity is not owned; replay refused'}
+ }
+ # Never replay an obsolete journal PID over a newer persisted keeper (or a recorded stop).
+ $State|Add-Member NoteProperty keepalive $keeper -Force
+ return $State
+}
 function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
  switch($Name){
   'VerifySource' {
@@ -414,7 +428,8 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
   'CandidateReady' {$v=Invoke-CLMWsl $Ctx.candidate @('/usr/local/bin/castlink-server','status')|ConvertFrom-Json;if(-not $v.ready -or $v.buildId -cne ($Ctx.target.releaseTag -replace '^server-wsl-v','')){throw 'Candidate readiness or exact build mismatch'};return $v}
   'PrepareBindings' {
    $cache=Join-Path $Ctx.candidateRoot 'release';Protect-CLMDirectory $cache
-   foreach($e in @($Ctx.target.rootfs,$Ctx.target.sources,$Ctx.target.upstreamSources,$Ctx.target.inventory)+@($Ctx.target.nativePanel.files)+@($Ctx.target.lifecycle.helpers)){if(-not (Test-Path -LiteralPath (Join-Path $cache $e.file))){[IO.File]::Copy((Assert-CLMFile $Ctx.targetDirectory $e),(Join-Path $cache $e.file),$false)}}
+   # Full archives remain in the verified target package; installed controls need only metadata and helpers.
+   foreach($e in @($Ctx.target.inventory)+@($Ctx.target.nativePanel.files)+@($Ctx.target.lifecycle.helpers)){if(-not (Test-Path -LiteralPath (Join-Path $cache $e.file))){[IO.File]::Copy((Assert-CLMFile $Ctx.targetDirectory $e),(Join-Path $cache $e.file),$false)}}
    if(Test-Path -LiteralPath (Join-Path $cache 'manifest.json')){if((Get-CLMHash (Join-Path $cache 'manifest.json')) -cne $Ctx.manifestSha256){throw 'Candidate manifest collision'}}else{[IO.File]::Copy((Join-Path $Ctx.targetDirectory 'manifest.json'),(Join-Path $cache 'manifest.json'),$false)}
    $installer=Stage-CLMInstaller $cache $Ctx.target $Ctx.manifestSha256;$module=Import-CLMInstaller $installer;$Ctx.candidate.phase='ready'
    $Ctx.candidate=Set-CLMNativeBindings $Ctx $Ctx.candidate $Ctx.ready $cache $installer $Ctx.manifestSha256 $module
@@ -465,7 +480,8 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
   'VerifyRestoreBundle' {Assert-CLMRestoreHelpers $Ctx}
   'RestoreOwned' {return Invoke-CLMDefaultAdapter 'CandidateOwned' $Ctx $null}
   'RestoreBindings' {
-   $s=$Ctx.source;$cache=Join-Path $Ctx.sourceRoot 'release';$m=Import-CLMInstaller (Join-Path $cache 'install-server-windows.ps1');$Ctx.sourceModule=$m
+   $cache=Join-Path $Ctx.sourceRoot 'release';$m=Import-CLMInstaller (Join-Path $cache 'install-server-windows.ps1');$Ctx.sourceModule=$m
+   $s=Sync-CLMKeepaliveReceipt $Ctx.sourceRoot $Ctx.source $m;$Ctx.source=$s
    $null=Invoke-CLMInstaller $m {param($d);Stage-CastlinkPinnedInstaller $d.root $d.installer} @{root=$Ctx.sourceRoot;installer=(Join-Path $cache 'install-server-windows.ps1')}
    if($Ctx.originalSource.phase -ceq 'ready'){
     # Private readiness behind no newly configured public target: this is the identical saved generation.
@@ -508,6 +524,9 @@ function Set-CLMNativeBindings($Ctx,$State,$Status,[string]$Cache,[string]$Insta
 }
 function Get-CLMOwnedFiles($Ctx){
  $known=@{};$m=Read-CLMJson $Ctx.sourceManifest
+ # These release payloads are installed copies, never shared caches or retained export bundles.
+ $release=Join-Path $Ctx.sourceRoot 'release'
+ foreach($e in @($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)){if(-not $e){continue};$p=Join-Path $release $e.file;if(Test-Path -LiteralPath $p){$null=Assert-CLMFile $release $e;$known[$p]=$e.sha256}}
  foreach($e in @($m.nativePanel.files)+@($m.lifecycle.helpers)){
   if(-not $e){continue};foreach($dir in @((Join-Path $Ctx.sourceRoot 'release'),(Join-Path $Ctx.sourceRoot 'native-panel'))){$p=Join-Path $dir $e.file;if(Test-Path -LiteralPath $p){$null=Assert-CLMFile $dir $e;$known[$p]=$e.sha256}}
  }
@@ -589,6 +608,9 @@ function Assert-CLMRestoreHelpers($Ctx){
 }
 function Complete-CLMRestore($Ctx){
  if($Ctx.phase -eq 'restored'){return $Ctx}
+ # The saved journal inventory is immutable across replay; a mutable sidecar cannot repin server data.
+ $exports=@($Ctx.bundle.files|Where-Object {$_.file -ceq 'distribution.tar'});if($exports.Count -ne 1){throw 'Saved restore export inventory is missing or ambiguous'}
+ $null=Assert-CLMFile $Ctx.bundleDirectory $exports[0]
  Invoke-CLMAdapter $Ctx 'VerifyRestoreBundle'|Out-Null
  if($Ctx.phase -eq 'restore-import'){
   # An interrupted WSL import is safe to continue only if the exported marker proves it.
@@ -645,7 +667,7 @@ function Recover-CLMTransaction($Ctx){
  if($Ctx.kind -ceq 'restore'){return Complete-CLMRestore $Ctx}
  $hasCandidate=Invoke-CLMAdapter $Ctx 'CandidateOwned'
  if($hasCandidate){Save-CLMJournal $Ctx 'rollback-stop-candidate';Invoke-CLMAdapter $Ctx 'StopCandidate'|Out-Null;Invoke-CLMAdapter $Ctx 'GateClose'|Out-Null;Save-CLMJournal $Ctx 'rollback-release-firewall';Invoke-CLMAdapter $Ctx 'ReleaseStoppedFirewall'|Out-Null;Save-CLMJournal $Ctx 'rollback-terminate-candidate';Invoke-CLMAdapter $Ctx 'TerminateCandidate'|Out-Null;Save-CLMJournal $Ctx 'rollback-discard-candidate';Invoke-CLMAdapter $Ctx 'DiscardCandidate'|Out-Null}
- Save-CLMJournal $Ctx 'rollback-source-receipt';Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $Ctx.source
+ Save-CLMJournal $Ctx 'rollback-source-receipt';$Ctx.source=Sync-CLMKeepaliveReceipt $Ctx.sourceRoot $Ctx.source $Ctx.sourceModule;Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $Ctx.source
  Invoke-CLMAdapter $Ctx 'RestoreSourceTask'|Out-Null
  if($Ctx.source.desiredRunning){Invoke-CLMAdapter $Ctx 'ResumeSource'|Out-Null}
  Save-CLMJournal $Ctx 'rolled-back';return $Ctx

@@ -64,12 +64,35 @@ function InstalledSourceFixture([string]$Profile,[bool]$Incomplete){
   function Get-CastlinkWslReleaseChoices {$script:world.catalogCalls++;return [pscustomobject]@{releaseTag=$script:world.state.releaseTag;manifestSha256=$script:world.pin;manifestSize=(Get-Item (Join-Path $script:world.public 'manifest.json')).Length}}
   function Get-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction);return $null}
   function Get-CimInstance {param($ClassName,$Filter);return @()}
-  function Invoke-CLMWsl($State,$Arguments,$InputFile,$OutputFile,$Limit,$Timeout){if($Arguments -contains 'inspect'){return '{"initialized":true,"complete":true,"postgresMajor":16,"dataBytes":128,"stopped":true}'};if($Arguments -contains 'status'){return '{"ready":true,"buildId":"1.0.6-cccccccccccc","origin":"https://fixture.invalid"}'};return ''}
+  function Invoke-CLMWsl($State,$Arguments,$InputFile,$OutputFile,$Limit,$Timeout){if($Arguments -contains 'inspect'){return '{"initialized":true,"complete":true,"postgresMajor":16,"dataBytes":128,"stopped":true}'};if($Arguments -contains 'status'){if($script:world.statusFailures -gt 0){$script:world.statusFailures--;throw 'Injected readiness after keeper persist'};return '{"ready":true,"buildId":"1.0.6-cccccccccccc","origin":"https://fixture.invalid"}'};return ''}
   function Invoke-CLMProcess($Exe,$Arguments,$InputFile,$OutputFile,$Limit,$Timeout){if($Arguments -contains '--list'){if($script:world.registered){return $script:world.state.distroName};return ''};if($Arguments -contains '--unregister'){$script:world.registered=$false};if($Arguments -contains '--import'){$script:world.registered=$true};if($Arguments -contains '--export'){[IO.File]::WriteAllBytes($Arguments[-1],[byte[]]@(0,255,128,13,10))};return ''}
-  function Import-CLMInstaller($Path){$script:world.imports++;New-Module -ArgumentList $Path -ScriptBlock {param($p);. $p;$script:WslExe=Join-Path $env:WINDIR 'System32/wsl.exe';function Start-CastlinkKeepalive($Root,$State){};function Stop-CastlinkKeepalive($Root,$State){};function Build-CastlinkNativePanelHost($Directory,$Output){[IO.File]::WriteAllText($Output,'synthetic compiled host, never executed')};Export-ModuleMember -Function *}}
+  function Import-CLMInstaller($Path){$script:world.imports++;if($script:world.keeperModule){return $script:world.keeperModule};New-Module -ArgumentList $Path -ScriptBlock {param($p);. $p;$script:WslExe=Join-Path $env:WINDIR 'System32/wsl.exe';function Start-CastlinkKeepalive($Root,$State){};function Stop-CastlinkKeepalive($Root,$State){};function Build-CastlinkNativePanelHost($Directory,$Output){[IO.File]::WriteAllText($Output,'synthetic compiled host, never executed')};Export-ModuleMember -Function *}}
   Export-ModuleMember -Function *
  }
  return @{root=$root;public=$public;target=$target;targetPin=(Get-CLMHash (Join-Path $target 'manifest.json'));state=$s;world=$world;module=$module}
+}
+
+function New-KeeperReplayFixture {
+ $exe=Join-Path $testRoot ('owned-keeper-'+[guid]::NewGuid().ToString('N')+'.exe')
+ $class='OwnedKeeper'+[guid]::NewGuid().ToString('N')
+ Add-Type -TypeDefinition ('public static class '+$class+' { public static void Main(string[] args) { System.Threading.Thread.Sleep(600000); } }') -OutputAssembly $exe -OutputType ConsoleApplication
+ $installer=Join-Path (Split-Path $PSScriptRoot -Parent) 'install-server-windows.ps1'
+ $module=New-Module -ArgumentList $installer,$exe -ScriptBlock {param($installer,$exe);. $installer;$script:WslExe=$exe;function Assert-CastlinkGuestIdentity($State){};function Get-CastlinkProcessEvidence([int]$ProcessId){CimCmdlets\Get-CimInstance Win32_Process -Filter ('ProcessId = '+$ProcessId) -ErrorAction SilentlyContinue};Export-ModuleMember -Function *}
+ return @{exe=$exe;module=$module}
+}
+function Assert-SoleKeeper($Keeper,$State) {
+ $process=Invoke-CLMInstaller $Keeper.module {param($s);Get-CastlinkKeepaliveProcess $s} $State
+ Assert ($null -ne $process) 'keeper did not pass held-handle PID/start-time/path/command-line/CIM proof';$process.Dispose()
+ $processes=@(CimCmdlets\Get-CimInstance Win32_Process | Where-Object {$_.ExecutablePath -ieq $Keeper.exe})
+ Assert ($processes.Count -eq 1 -and $processes[0].ProcessId -eq $State.keepalive.processId) 'duplicate or unrecorded keeper'
+}
+function Stop-FixtureKeepers($Keeper) {
+ # This unique compiled executable is used only by this fixture. Hold a handle and recheck path before final cleanup.
+ foreach($e in @(CimCmdlets\Get-CimInstance Win32_Process | Where-Object {$_.ExecutablePath -ieq $Keeper.exe})){
+  $p=[Diagnostics.Process]::GetProcessById($e.ProcessId)
+  try{[void]$p.Handle;if(-not $p.HasExited -and $p.MainModule.FileName -ieq $Keeper.exe){$p.Kill();$null=$p.WaitForExit(10000)}}finally{$p.Dispose()}
+ }
+ Remove-Module $Keeper.module
 }
 try {
  Test 'unimplemented host lifecycle API fails red' {Assert ([bool](Get-Command Invoke-CastlinkMaintenance -ErrorAction SilentlyContinue)) 'Missing API'}
@@ -85,6 +108,39 @@ try {
  Test 'removal bundle is validated and unknown/nested files preserved' {$f=Fixture;$bundle=Join-Path $testRoot ('bundle-'+[guid]::NewGuid().ToString('N'));[IO.File]::WriteAllText((Join-Path $f.root 'unknown.txt'),'preserve');$nested=Join-Path $f.root 'child';[void][IO.Directory]::CreateDirectory($nested);[IO.File]::WriteAllText((Join-Path $nested 'installation.json'),'preserve');$r=Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -BundleDirectory $bundle -Adapter $f.adapter;Assert ($r.phase -eq 'removed') 'removed';$b=Read-CLMBundle $bundle;Assert ($b.schemaVersion -eq 1) 'bundle';Assert (Test-Path (Join-Path $f.root 'unknown.txt')) 'unknown deleted';Assert (Test-Path (Join-Path $nested 'installation.json')) 'nested deleted';[IO.File]::AppendAllText((Join-Path $bundle 'distribution.tar'),'tamper');Throws {Read-CLMBundle $bundle} 'checksum|size'}
  Test 'restore validates bundle before import and preserves host identity' {$f=Fixture;$bundle=Join-Path $testRoot ('restore-bundle-'+[guid]::NewGuid().ToString('N'));$null=Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -BundleDirectory $bundle -Adapter $f.adapter;$dest=Join-Path $testRoot 'restore-destination';$r=Invoke-CastlinkMaintenance Restore $dest -BundleDirectory $bundle -Adapter $f.adapter;Assert ($r.phase -eq 'restored') 'restore phase';Assert ($r.source.installationId -ceq $f.world.source.installationId) 'identity changed';Assert ($f.world.events.Contains('RestoreImport')) 'no import';Assert ($f.world.events.IndexOf('CheckIdentityConflict') -lt $f.world.events.IndexOf('RestoreImport')) 'conflict check ordering'}
  Test 'restore tamper fails before side effects' {$f=Fixture;$bundle=Join-Path $testRoot ('tamper-bundle-'+[guid]::NewGuid().ToString('N'));$null=Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -BundleDirectory $bundle -Adapter $f.adapter;[IO.File]::AppendAllText((Join-Path $bundle 'distribution.tar'),'tamper');Throws {Invoke-CastlinkMaintenance Restore (Join-Path $testRoot 'tampered-destination') -BundleDirectory $bundle -Adapter $f.adapter} 'checksum|size';Assert (-not $f.world.events.Contains('RestoreImport')) 'tampered import'}
+
+ Test 'resumed restore verifies immutable journal export inventory before import' {
+  $f=Fixture;$bundle=Join-Path $testRoot ('saved-export-'+[guid]::NewGuid().ToString('N'));$null=Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.world.source.distroName -BundleDirectory $bundle -Adapter $f.adapter
+  $seen=@{checks=0};$adapter={param($name,$ctx,$data);if($name -ceq 'VerifyRestoreBundle'){$seen.checks++;if($seen.checks -eq 2){throw 'Interrupted after restore-prepared'}};& $f.adapter $name $ctx $data}.GetNewClosure()
+  $dest=Join-Path $testRoot ('resumed-restore-'+[guid]::NewGuid().ToString('N'));Throws {Invoke-CastlinkMaintenance Restore $dest -BundleDirectory $bundle -Adapter $adapter} 'Interrupted'
+  $journal=Get-CLMJournal $dest;Assert ($journal.phase -ceq 'restore-prepared') 'wrong interruption boundary';Assert (-not $f.world.events.Contains('RestoreImport')) 'import occurred before interruption'
+  $export=Join-Path $bundle 'distribution.tar';$bytes=[IO.File]::ReadAllBytes($export);$bytes[0]=$bytes[0] -bxor 1;[IO.File]::WriteAllBytes($export,$bytes)
+  # An edited sidecar must not replace the inventory already committed to the journal.
+  $sidecar=Read-CLMJson (Join-Path $bundle 'bundle.json');$sidecar.files[0].sha256=Get-CLMHash $export;Write-CLMJson (Join-Path $bundle 'bundle.json') $sidecar
+  Throws {Invoke-CastlinkMaintenance Recover $dest -Adapter $f.adapter} 'checksum|size';Assert (-not $f.world.events.Contains('RestoreImport')) 'changed saved export was imported';Assert ((Get-CLMJournal $dest).phase -ceq 'restore-prepared') 'failed validation advanced journal'
+ }
+ Test 'rollback retry preserves the sole positively identified persisted keeper' {
+  $f=Fixture;$keeper=New-KeeperReplayFixture;$state=@{failAfterPersist=$true}
+  $adapter={param($name,$ctx,$data)
+   if($name -ceq 'VerifySource'){$ctx.sourceModule=$keeper.module;return Read-CLMReceipt $ctx.sourceRoot}
+   if($name -ceq 'ResumeSource'){
+    Throws {[IO.File]::Open((Join-Path $ctx.sourceRoot 'operation.lock'),'OpenOrCreate','ReadWrite','None')} '.'
+    Invoke-CLMInstaller $keeper.module {param($d);Start-CastlinkKeepalive $d.root $d.s} @{root=$ctx.sourceRoot;s=$ctx.source}
+    if($state.failAfterPersist){$state.failAfterPersist=$false;throw 'Injected after keeper persisted'};return
+   }
+   & $f.adapter $name $ctx $data
+  }.GetNewClosure()
+  try{
+   $f.world.fail='DisableSourceTask';Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $adapter} 'Injected';$f.world.fail=''
+   Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter} 'after keeper persisted';$first=Read-CLMReceipt $f.root;Assert-SoleKeeper $keeper $first
+   Assert (-not (Get-CLMJournal $f.root).source.keepalive) 'fixture journal unexpectedly contains new keeper'
+   $forged=Copy-CLMObject $first;$forged.keepalive.startTimeUtcTicks='1';Write-CLMJson (Join-Path $f.root 'installation.json') $forged
+   Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter} 'keepalive.*identity|keeper.*identity';Write-CLMJson (Join-Path $f.root 'installation.json') $first
+   $r=Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter;$current=Read-CLMReceipt $f.root;Assert ($r.phase -ceq 'rolled-back' -and $current.keepalive.processId -eq $first.keepalive.processId) 'retry replaced persisted keeper';Assert-SoleKeeper $keeper $current
+   Invoke-CLMInstaller $keeper.module {param($d);Stop-CastlinkKeepalive $d.root $d.s} @{root=$f.root;s=$current}
+   Assert (@(CimCmdlets\Get-CimInstance Win32_Process | Where-Object {$_.ExecutablePath -ieq $keeper.exe}).Count -eq 0) 'normal Stop left a keeper';Assert (-not (Read-CLMReceipt $f.root).keepalive) 'Stop did not clear receipt'
+  }finally{Stop-FixtureKeepers $keeper}
+ }
  Test 'binary process transport preserves bytes across OEM and BOM-capable UTF8 consoles' {
   $savedEncoding=[Console]::InputEncoding;$inputPath=Join-Path $testRoot 'binary.in';$b=[byte[]]@(0,255,128,13,10,0,60);[IO.File]::WriteAllBytes($inputPath,$b);$exe=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe';$code='$i=[Console]::OpenStandardInput();$o=[Console]::OpenStandardOutput();$i.CopyTo($o)';$enc=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
   try{foreach($encoding in @([Text.Encoding]::GetEncoding(437),[Text.UTF8Encoding]::new($false),[Text.UTF8Encoding]::new($true))){[Console]::InputEncoding=$encoding;$outputPath=Join-Path $testRoot ('binary-'+[guid]::NewGuid().ToString('N')+'.out');$null=Invoke-CLMProcess $exe @('-NoProfile','-EncodedCommand',$enc) $inputPath $outputPath 20 10;Assert ((Get-CLMHash $inputPath) -ceq (Get-CLMHash $outputPath)) ('binary changed for codepage '+$encoding.CodePage+' preamble '+$encoding.GetPreamble().Length)}
@@ -233,6 +289,62 @@ public static class CLMArgvEchoFixture {
  Test 'mutable incomplete source metadata is never its own trust anchor' {
   $savedLocal=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot ('untrusted-profile-'+[guid]::NewGuid().ToString('N'))
   try{$f=InstalledSourceFixture $env:LOCALAPPDATA $true;[IO.File]::AppendAllText((Join-Path $f.root 'release/manifest.json'),' ');Throws {& $f.module {param($f);Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -EraseData} $f} 'checksum|pin';Assert ($f.world.imports -eq 0) 'unverified installer was imported';Assert ($f.world.registered) 'untrusted source was removed'}finally{$env:LOCALAPPDATA=$savedLocal}
+ }
+ Test 'restore bindings retry reconciles persisted keeper before readiness replay' {
+  $savedLocal=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot ('keeper-restore-'+[guid]::NewGuid().ToString('N'));$keeper=New-KeeperReplayFixture
+  try{
+   $f=InstalledSourceFixture $env:LOCALAPPDATA $false;$f.world.keeperModule=$keeper.module;$f.world.statusFailures=1; & $keeper.module {param($pin);$script:PackagedManifestSha256=$pin} $f.world.pin
+   $cache=Join-Path $f.root 'release';foreach($file in Get-ChildItem $f.public -File){$dest=Join-Path $cache $file.Name;if(-not (Test-Path $dest)){[IO.File]::Copy($file.FullName,$dest,$false)}}
+   $before=Copy-CLMObject $f.state;$before.desiredRunning=$true;Write-CLMJson (Join-Path $f.root 'installation.json') $before
+   $ctx=@{source=(Copy-CLMObject $before);originalSource=(Copy-CLMObject $before);sourceRoot=$f.root;task=[pscustomobject]@{exists=$false};directory=$testRoot}
+   $lease=[IO.File]::Open((Join-Path $f.root 'operation.lock'),'OpenOrCreate','ReadWrite','None')
+   try{
+    Throws {& $f.module {param($ctx);Invoke-CLMDefaultAdapter RestoreBindings $ctx $null} $ctx} 'readiness after keeper persist';$first=Read-CLMReceipt $f.root;Assert-SoleKeeper $keeper $first
+    $ctx.source=Copy-CLMObject $before # replay the journal saved before the keeper receipt
+    & $f.module {param($ctx);Invoke-CLMDefaultAdapter RestoreBindings $ctx $null} $ctx
+    $current=Read-CLMReceipt $f.root;Assert ($current.keepalive.processId -eq $first.keepalive.processId) 'restore replay replaced persisted keeper';Assert-SoleKeeper $keeper $current
+    Invoke-CLMInstaller $keeper.module {param($d);Stop-CastlinkKeepalive $d.root $d.s} @{root=$f.root;s=$current}
+    Assert (@(CimCmdlets\Get-CimInstance Win32_Process | Where-Object {$_.ExecutablePath -ieq $keeper.exe}).Count -eq 0) 'Stop left restored keeper'
+   }finally{$lease.Dispose()}
+  }finally{Stop-FixtureKeepers $keeper;$env:LOCALAPPDATA=$savedLocal}
+ }
+
+ Test 'prepared generation retains controls and inventory without copying full package archives' {
+  $savedLocal=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot ('sparse-generation-'+[guid]::NewGuid().ToString('N'))
+  try{
+   $f=InstalledSourceFixture $env:LOCALAPPDATA $false;$target=Read-CLMJson (Join-Path $f.target 'manifest.json');$root=Join-Path $env:LOCALAPPDATA 'CastLinkServer/lifecycle-generations/next';[void][IO.Directory]::CreateDirectory($root)
+   $candidate=Copy-CLMObject $f.state;$candidate.installationId='d'*32;$candidate.distroName='CastLink-Server-'+('d'*12);$candidate.rootPath=$root;$candidate.releaseTag=$target.releaseTag;$candidate.phase='imported';$candidate.PSObject.Properties.Remove('nativePanel');$candidate|Add-Member NoteProperty releaseManifestSha256 $f.targetPin
+   Write-CLMJson (Join-Path $root 'installation.json') $candidate
+   $directory=Join-Path $env:LOCALAPPDATA 'transaction';[void][IO.Directory]::CreateDirectory($directory)
+   $ctx=@{source=$f.state;sourceRoot=$f.root;candidate=$candidate;candidateRoot=$root;target=$target;targetDirectory=$f.target;manifestSha256=$f.targetPin;directory=$directory;journal=(Join-Path $directory 'journal.json');id=('e'*32);kind='update';ready=[pscustomobject]@{ready=$true;buildId=($target.releaseTag -replace '^server-wsl-v','');origin='https://fixture.invalid'}}
+   $bound=& $f.module {param($ctx);Invoke-CLMDefaultAdapter PrepareBindings $ctx $null} $ctx;Assert ($bound.phase -ceq 'ready' -and $bound.nativePanel) 'generation did not bind native controls'
+   $release=Join-Path $root 'release'
+   foreach($e in @($target.rootfs,$target.sources,$target.upstreamSources)){Assert (-not (Test-Path (Join-Path $release $e.file))) ('unused archive copied '+$e.file);Assert (Test-Path (Join-Path $f.target $e.file)) 'verified target archive changed'}
+   foreach($e in @($target.inventory)+@($target.nativePanel.files)+@($target.lifecycle.helpers)){$null=Assert-CLMFile $release $e}
+   Assert ((Get-CLMHash (Join-Path $release 'manifest.json')) -ceq $f.targetPin) 'generation manifest pin changed'
+   $verify=@{sourceRoot=$root};$verified=& $f.module {param($ctx);Invoke-CLMDefaultAdapter VerifySource $ctx $null} $verify;Assert ($verified.installationId -ceq $candidate.installationId) 'sparse installed provenance failed'
+  }finally{$env:LOCALAPPDATA=$savedLocal}
+ }
+ Test 'owned installed payload cleanup covers archive erase and retired generations only' {
+  $savedLocal=$env:LOCALAPPDATA
+  try{foreach($mode in @('archive','erase','retired')){
+   $env:LOCALAPPDATA=Join-Path $testRoot ('payload-'+$mode);$f=InstalledSourceFixture $env:LOCALAPPDATA $false;$m=Read-CLMJson (Join-Path $f.public 'manifest.json');$payloads=@($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)
+   foreach($e in $payloads){$dest=Join-Path $f.root ('release/'+$e.file);if(-not (Test-Path $dest)){[IO.File]::Copy((Join-Path $f.public $e.file),$dest,$false)}}
+   $unknown=Join-Path $f.root 'release/owner-note.txt';[IO.File]::WriteAllText($unknown,'preserve unknown');$nested=Join-Path $f.root 'release/nested';[void][IO.Directory]::CreateDirectory($nested);[IO.File]::Copy((Join-Path $f.public $m.sources.file),(Join-Path $nested $m.sources.file),$false)
+   $shared=Join-Path $env:LOCALAPPDATA 'CastLinkServer/lifecycle-packages/retained';[void][IO.Directory]::CreateDirectory($shared);$sharedFile=Join-Path $shared $m.sources.file;[IO.File]::Copy((Join-Path $f.public $m.sources.file),$sharedFile,$false)
+   if($mode -ceq 'retired'){
+    $ctx=@{sourceRoot=$f.root;selectedRoot=$f.root};$ctx.source=& $f.module {param($ctx);Invoke-CLMDefaultAdapter VerifySource $ctx $null} $ctx;$ctx.task=[pscustomobject]@{exists=$false}
+    & $f.module {param($ctx);Get-CLMOwnedFiles $ctx} $ctx
+    $changed=Join-Path $f.root ('release/'+$m.inventory.file);[IO.File]::AppendAllText($changed,'changed');Throws {& $f.module {param($ctx);Remove-CLMOwnedFiles $ctx} $ctx} 'changed';[IO.File]::Copy((Join-Path $f.public $m.inventory.file),$changed,$true)
+    # Collision checks are per-file; files already removed before the collision stay safely absent.
+    & $f.module {param($ctx);Invoke-CLMDefaultAdapter CleanupSource $ctx $null} $ctx
+   }else{
+    $bundle=Join-Path $env:LOCALAPPDATA 'explicit-archive';$r=& $f.module {param($f,$mode,$bundle);if($mode -ceq 'archive'){Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -BundleDirectory $bundle}else{Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -EraseData}} $f $mode $bundle;Assert ($r.phase -ceq 'removed') 'Remove failed'
+    if($mode -ceq 'archive'){Assert (Test-Path (Join-Path $bundle 'distribution.tar')) 'explicit archive removed'}
+   }
+   foreach($e in $payloads){Assert (-not (Test-Path (Join-Path $f.root ('release/'+$e.file)))) ('owned payload retained '+$mode+' '+$e.file)}
+   Assert ((Test-Path $unknown) -and (Test-Path (Join-Path $nested $m.sources.file)) -and (Test-Path $sharedFile)) 'unknown nested or shared data removed'
+  }}finally{$env:LOCALAPPDATA=$savedLocal}
  }
  Test 'recovery holds the real candidate lease before rollback or postcommit effects' {
   foreach($boundary in @('CandidateReady','GateOpen')){
