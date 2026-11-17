@@ -63,8 +63,9 @@ def load_state(folder):
 
 
 def gate_rules(installation_id):
-    return ('create table inet castlink_maintenance\n'
-            'table inet castlink_maintenance {\n comment "castlink:' + installation_id + '"\n'
+    # Table metadata must be part of exclusive creation: nft 1.0.9 ignores
+    # a comment in a subsequent declaration of an already-created table.
+    return ('create table inet castlink_maintenance {\n comment "castlink:' + installation_id + '";\n'
             ' chain input { type filter hook input priority -20; policy accept;\n'
             '  ip saddr 127.0.0.1 ip daddr 127.0.0.1 accept\n'
             '  ip6 saddr ::1 ip6 daddr ::1 accept\n'
@@ -76,7 +77,9 @@ def stopped_services():
     for service in runtime.SERVICES:
         result = subprocess.run(['/usr/bin/systemctl', 'show', service, '--property=ActiveState', '--value'],
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
-        if result.returncode != 0 or result.stdout.strip() != 'inactive': return False
+        # Preserve failed-unit diagnostics: failed is nonrunning only when the
+        # independent process/listener/cluster-PID checks also prove quiescence.
+        if result.returncode != 0 or result.stdout.strip() not in ('inactive','failed'): return False
     # A dead service receipt does not prove there are no surviving processes.
     for process in Path('/proc').glob('[0-9]*/comm'):
         try: name = process.read_text().strip()

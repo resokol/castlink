@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 from pathlib import Path
 import tarfile
 import tempfile
@@ -209,6 +210,58 @@ class TransferTest(unittest.TestCase):
                     self.real_firewall(helper,HOST,closed=False)
                     self.assertEqual(command.call_args.args[0],['/usr/sbin/nft','delete','table','inet','castlink_maintenance'])
 
+    def test_created_gate_keeps_owner_comment_through_preflight_and_release(self):
+        # nft 1.0.9 sets table metadata on creation; a later `table NAME {}`
+        # declaration adds chains/rules but does not retrofit its table comment.
+        # Derive the JSON receipt from emitted commands, never from HOST itself.
+        tables={'unrelated':{'family':'inet','name':'unrelated','comment':'foreign'}}
+        batches=[]
+        def execute_batch(text):
+            lexer=shlex.shlex(text,posix=True,punctuation_chars='{};');lexer.whitespace_split=True
+            tokens=list(lexer);index=0
+            while index<len(tokens):
+                exclusive=tokens[index]=='create'
+                if exclusive:index+=1
+                self.assertEqual(tokens[index],'table');index+=1
+                family,name=tokens[index:index+2];index+=2
+                metadata={'family':family,'name':name}
+                if index<len(tokens) and tokens[index]=='{':
+                    index+=1;depth=1
+                    while depth:
+                        token=tokens[index];index+=1
+                        if token=='{':depth+=1
+                        elif token=='}':depth-=1
+                        elif token=='comment' and depth==1:
+                            metadata['comment']=tokens[index];index+=1
+                if name in tables:
+                    if exclusive:raise ValueError('Table already exists')
+                else:tables[name]=metadata
+        def command(args,**kwargs):
+            if args==['/usr/sbin/nft','-j','list','tables']:
+                return json.dumps({'nftables':[{'table':value} for value in tables.values()]})
+            if args==['/usr/sbin/nft','-j','list','table','inet','castlink_maintenance']:
+                return json.dumps({'nftables':[{'metainfo':{'version':'1.0.9'}},{'table':tables['castlink_maintenance']}]})
+            if args==['/usr/sbin/nft','-f','-']:
+                batches.append(kwargs['data']);execute_batch(kwargs['data']);return ''
+            if args==['/usr/sbin/nft','delete','table','inet','castlink_maintenance']:
+                del tables['castlink_maintenance'];return ''
+            self.fail('Unexpected fixture command: '+repr(args))
+        def process(args,**kwargs):
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0,stdout=command(args,**kwargs))
+        helper=self.helper(self.source)
+        helper.firewall=lambda installation_id,**kwargs:self.real_firewall(helper,installation_id,**kwargs)
+        with patch.object(self.m.subprocess,'run',side_effect=process),patch.object(self.m.runtime,'run',side_effect=command):
+            helper.gate_close(HOST,'create-restart-release')
+            self.assertEqual(tables['castlink_maintenance'].get('comment'),'castlink:'+HOST)
+            with patch.object(self.m.runtime,'prepare_maintenance_gate',return_value=(helper,helper.gate())), \
+                 patch.object(self.m.runtime.socket,'socket'):
+                self.m.runtime.preflight_ports()
+            self.assertEqual(len(batches),1)
+            helper.gate_close(HOST,'create-restart-release',release_stopped_firewall=True)
+            self.assertNotIn('castlink_maintenance',tables)
+            self.assertEqual(tables['unrelated'],{'family':'inet','name':'unrelated','comment':'foreign'})
+
     def test_wrong_host_cannot_reuse_existing_gate(self):
         helper=self.helper(self.source);helper.gate_close(HOST,'one')
         path=self.source/'etc/castlink-server/maintenance.json'
@@ -253,6 +306,27 @@ class TransferTest(unittest.TestCase):
         self.assertEqual(helper.gate()['phase'],'closed')
         self.assertIn('Maintenance',(self.source/'etc/castlink-server/Caddyfile').read_text())
         with self.assertRaises(ValueError):self.helper(self.source,False).gate_close(HOST,'rollback',release_stopped_firewall=True)
+
+    def test_failed_units_are_stopped_only_without_processes_listeners_or_pid(self):
+        from types import SimpleNamespace
+        sockets={'output':''}
+        def command(args,**kwargs):
+            return SimpleNamespace(returncode=0,stdout=sockets['output'] if args[0]=='/usr/bin/ss' else 'failed\n')
+        helper=self.helper(self.source);helper.stopped=self.m.stopped_services
+        with patch.object(self.m.subprocess,'run',side_effect=command),patch.object(Path,'glob',return_value=[]) as processes:
+            self.assertTrue(self.m.stopped_services())
+            helper.require_stopped()
+            pid=self.source/'var/lib/castlink-server/postgres/postmaster.pid';pid.write_text('123')
+            with self.assertRaises(ValueError):helper.require_stopped()
+            pid.unlink()
+            sockets['output']='tcp LISTEN 0 128 0.0.0.0:7881 0.0.0.0:*\n'
+            self.assertFalse(self.m.stopped_services())
+            sockets['output']=''
+            processes.return_value=[SimpleNamespace(read_text=lambda:'postgres\n')]
+            self.assertFalse(self.m.stopped_services())
+        for state in ('active','activating','deactivating','reloading','unknown'):
+            with patch.object(self.m.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=state+'\n')):
+                self.assertFalse(self.m.stopped_services())
 
     def test_raw_archive_extensions_are_rejected_before_publication(self):
         data=self.export()
