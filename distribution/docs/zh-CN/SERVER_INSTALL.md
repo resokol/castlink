@@ -31,7 +31,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 ## 无 Docker 的 Windows/WSL2 — 独立实验渠道
 
-[1.0.5-rc.2 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.2-af3e309d0926)现已发布，仍为预发布版本。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
+[1.0.5-rc.3 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.3-95ec46463c82)现已发布，仍为预发布版本。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。
@@ -65,11 +65,11 @@ HTTPS/数据库就绪不代表已验证外部媒体通话。
 
 ### 维护：更新、删除及恢复
 
-从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.2-af3e309d0926/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
+从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
 
 **选择与更新。** 按地址和文件夹选择确切的服务器，不要默认选择多个安装中的第一个。不完整安装的地址可能未知，请核对文件夹。选择目标版本，点击**检查**，核对当前/目标版本及所需/可用空间。工具在停止服务前下载并验证所需文件。检查不会自动开始更新，预发布版本必须明确选择。正常窗口无需输入 SHA256 或不透明的 WSL 标识。
 
-请仅在非直播时点击**更新**：迁移和就绪检查期间服务器会停止。确认对话框显示所选地址、版本和文件夹，也可取消。首个受支持的来源仅为 `server-wsl-v1.0.5-rc.1-085b087a2458`。不支持其他来源版本、迁移 Docker 或跨 PostgreSQL 主版本更新。不完整来源需用原版本修复，或通过此工具删除；更新不会将其假定为就绪。
+请仅在非直播时点击**更新**：迁移和就绪检查期间服务器会停止。确认对话框显示所选地址、版本和文件夹，也可取消。支持的来源版本为 `server-wsl-v1.0.5-rc.1-085b087a2458` 和 `server-wsl-v1.0.5-rc.2-af3e309d0926`。不支持其他来源版本、迁移 Docker 或跨 PostgreSQL 主版本更新。不完整来源需用原版本修复，或通过此工具删除；更新不会将其假定为就绪。
 
 受支持的升级保留服务器 UUID、房间及历史、密码、域名、TLS 材料和网络设置。成功后删除临时迁移副本和旧的专属发行版，**不会保留永久自动备份**；失败时保留所需恢复依据。成功后点击**打开服务器面板**，并刷新导播及嘉宾页面。
 
