@@ -426,15 +426,15 @@ if(!refused)throw Error('Unbounded input accepted');
             program = r"""
 import https from 'node:https';import fs from 'node:fs';
 const {probeOrigin}=await import(process.argv[1]);
-let negotiated;
+let negotiated;let probeHeader;
 const certificate=fs.readFileSync(process.argv[3]);
 const server=https.createServer({key:fs.readFileSync(process.argv[2]),cert:certificate,ALPNProtocols:['http/1.1']},(req,res)=>{
- negotiated=req.socket.alpnProtocol;
+ negotiated=req.socket.alpnProtocol;probeHeader=req.headers['x-castlink-maintenance-probe'];
  res.writeHead(negotiated==='http/1.1'?200:502,{'content-type':'application/json'});
  res.end(JSON.stringify({buildId:'test-build'}));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-try{await probeOrigin({host:'127.0.0.1',publicHttps:false,caPem:certificate,buildId:'test-build'},server.address().port);if(negotiated!=='http/1.1')throw Error('Wrong ALPN');}
+try{await probeOrigin({host:'127.0.0.1',publicHttps:false,caPem:certificate,buildId:'test-build',maintenanceProbeToken:'test-only-probe-secret'},server.address().port);if(probeHeader!=='test-only-probe-secret')throw Error('Missing authenticated probe header');if(negotiated!=='http/1.1')throw Error('Wrong ALPN');}
 finally{server.closeAllConnections();server.close();}
 """
             result = subprocess.run(['node', '--input-type=module', '-e', program, (ROOT / 'infrastructure/server-wsl/health.mjs').as_uri(), str(key), str(cert)], text=True, capture_output=True, timeout=15)
