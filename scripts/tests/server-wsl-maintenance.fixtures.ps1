@@ -161,10 +161,68 @@ try {
     $evidence=CimCmdlets\Get-CimInstance Win32_Process -Filter ('ProcessId='+$hostProcess.Id);Assert ($evidence.CommandLine.EndsWith(' ')) 'ordinary Start-Process trailing-space regression not exercised'
    }
    $ctx=@{source=[pscustomobject]@{nativePanel=[pscustomobject]@{hostPath=$exe;hostSha256=(Get-CLMHash $exe);bindingPath=$binding;bindingSha256=(Get-CLMHash $binding)}}}
-   Close-CLMSourcePanel $ctx
+   $race=@{naturalParents=0}
+   $closeModule=New-Module -ArgumentList $manager,$race -ScriptBlock {
+    param($manager,$race);. $manager -FunctionsOnly;$script:race=$race;$script:productionStop=(Get-Command Stop-CLMPanelProcess).ScriptBlock
+    function Stop-CLMPanelProcess($Process,$Description,$GraceMilliseconds=0){
+     if($Description -ceq 'Owned panel'){
+      # Deterministic barrier: the production launcher must exit from the child's exit, using the retained handle.
+      [void]$Process.Handle;if(-not $Process.WaitForExit(10000) -or -not $Process.HasExited){throw 'Production launcher did not exit naturally after its child'};$script:race.naturalParents++
+     }
+     & $script:productionStop $Process $Description $GraceMilliseconds
+    }
+   }
+   $output=@(& $closeModule {param($ctx);$ErrorActionPreference='Stop';Close-CLMSourcePanel $ctx} $ctx 2>&1)
+   Assert ($output.Count -eq 0 -and $race.naturalParents -eq 2) 'panel close wrote an error or skipped positive natural-exit proof'
    foreach($process in @($owned.ToArray())+@($children.ToArray())){Assert $process.HasExited 'exact owned launcher or encoded child remained alive'}
    Assert (-not $other.HasExited -and -not $otherChild.HasExited) 'different binding launcher or child was closed'
   }finally{foreach($process in $held){try{if(-not $process.HasExited){$process.Kill();$null=$process.WaitForExit(10000)}}finally{$process.Dispose()}}}
+ }
+
+ Test 'panel termination tolerates a Kill race only after positive same-handle exit' {
+  foreach($outcome in @('exited','alive','inconsistent')){
+   $process=[pscustomobject]@{HasExited=$false;calls=0;outcome=$outcome}
+   $process|Add-Member ScriptMethod Kill {$this.calls++;throw [ComponentModel.Win32Exception]::new(5)}
+   $process|Add-Member ScriptMethod WaitForExit {param($timeout);$this.HasExited=($this.outcome -ceq 'exited');return ($this.outcome -cne 'alive')}
+   if($outcome -ceq 'exited'){$output=@(Stop-CLMPanelProcess $process 'Owned fixture' 2>&1);Assert ($output.Count -eq 0 -and $process.HasExited) 'positive exit was reported as failure'}else{Throws {Stop-CLMPanelProcess $process 'Owned fixture'} '.'}
+   Assert ($process.calls -eq 1) 'termination fixture did not reach Kill race'
+  }
+ }
+
+ Test 'published legacy size-less inventory remains hash checked without relaxing modern assets' {
+  $f=Fixture;$release=Join-Path $f.root 'release';[void][IO.Directory]::CreateDirectory($release);$file=Join-Path $release 'packages.tsv';[IO.File]::WriteAllText($file,"package`tversion`nfixture`t1`n")
+  # Exact published RC1 inventory schema: file + SHA256, deliberately no size property.
+  $entry=[pscustomobject]@{file='packages.tsv';sha256=(Get-CLMHash $file)};$manifest=Join-Path $release 'manifest.json';$m=[pscustomobject]@{releaseTag=$script:CLMLegacyTag;inventory=$entry};Write-CLMJson $manifest $m
+  $ctx=@{source=$f.world.source;sourceRoot=$f.root;sourceManifest=$manifest;sourceInstaller=(Join-Path $testRoot 'outside-installer.ps1')}
+  [IO.File]::WriteAllText($ctx.sourceInstaller,'fixture metadata only');Get-CLMOwnedFiles $ctx;Assert (@($ctx.ownedFiles|Where-Object {$_.path -ceq $file}).Count -eq 1) 'published inventory omitted'
+  [IO.File]::AppendAllText($file,'corrupt');Throws {Get-CLMOwnedFiles $ctx} 'checksum|size';[IO.File]::WriteAllText($file,"package`tversion`nfixture`t1`n")
+  $m.releaseTag='server-wsl-v1.0.6-cccccccccccc';$ctx.source=Copy-CLMObject $f.world.source;$ctx.source.releaseTag=$m.releaseTag;Write-CLMJson $manifest $m;Throws {Get-CLMOwnedFiles $ctx} 'checksum|size'
+  Throws {Assert-CLMFile $release $entry} 'checksum|size'
+ }
+ Test 'rollback retires unregistered candidates across discard gaps and terminal replay' {
+  foreach($boundary in @('discard-gap','receipt-retired-gap','import-failed')){
+   $f=Fixture
+   $adapter={param($name,$ctx,$data)
+    if($boundary -ceq 'import-failed' -and $name -ceq 'ImportCandidate'){[void][IO.Directory]::CreateDirectory($ctx.candidateRoot);Write-CLMJson (Join-Path $ctx.candidateRoot 'installation.json') $ctx.candidate;throw 'Injected host-only failed import'}
+    & $f.adapter $name $ctx $data
+   }.GetNewClosure()
+   if($boundary -cne 'import-failed'){$f.world.fail='CandidateReady'}
+   Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $adapter} 'Injected';$f.world.fail='';$journal=Get-CLMJournal $f.root
+   $unknown=Join-Path $journal.candidateRoot 'owner-note.txt';[IO.File]::WriteAllText($unknown,'preserve')
+   if($boundary -ceq 'discard-gap'){$f.world.after='DiscardCandidate';Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter} 'Lost response';$f.world.after='';Assert (-not $f.world.candidate) 'fixture did not unregister before interruption'}
+   if($boundary -ceq 'receipt-retired-gap'){$f.world.fail='ResumeSource';Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter} 'Injected';$f.world.fail='';Assert ((Read-CLMReceipt $journal.candidateRoot -AllowRemoved).phase -ceq 'removed') 'receipt retirement boundary not exercised'}
+   $r=Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter;Assert ($r.phase -ceq 'rolled-back') 'rollback did not finish'
+   Assert ((Read-CLMReceipt $journal.candidateRoot -AllowRemoved).phase -ceq 'removed') 'unregistered candidate receipt still active'
+   Assert (-not @(Get-CastlinkMaintenanceInstallations $testRoot|Where-Object {$_.activeRoot -ceq $journal.candidateRoot}).Count) 'default picker lists discarded candidate'
+   Assert (Test-Path $unknown) 'candidate unknown file deleted'
+   # An old terminal journal may still have an imported host receipt from the previous coordinator.
+   $ghost=Read-CLMReceipt $journal.candidateRoot -AllowRemoved;$ghost.phase='imported';Write-CLMJson (Join-Path $journal.candidateRoot 'installation.json') $ghost
+   $before=$f.world.events.Count;$null=Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter;$null=Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter
+   Assert ((Read-CLMReceipt $journal.candidateRoot -AllowRemoved).phase -ceq 'removed') 'old terminal ghost was not reconciled'
+   $later=@($f.world.events|Select-Object -Skip $before);Assert (-not ($later|Where-Object {$_ -notin @('VerifySource','CandidateRegistered')})) 'terminal reconciliation changed runtime'
+   $f.world.candidate=$true;$f.world.marked=$false;Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $adapter} 'registered|manual'
+   Assert ((Read-CLMReceipt $journal.candidateRoot -AllowRemoved).phase -ceq 'removed') 'registered collision was adopted';$f.world.candidate=$false
+  }
  }
  Test 'binary process transport preserves bytes across OEM and BOM-capable UTF8 consoles' {
   $savedEncoding=[Console]::InputEncoding;$inputPath=Join-Path $testRoot 'binary.in';$b=[byte[]]@(0,255,128,13,10,0,60);[IO.File]::WriteAllBytes($inputPath,$b);$exe=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe';$code='$i=[Console]::OpenStandardInput();$o=[Console]::OpenStandardOutput();$i.CopyTo($o)';$enc=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
@@ -224,7 +282,7 @@ public static class CLMArgvEchoFixture {
    if($f.world.candidate -and -not $f.world.marked){Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter} 'Unmarked';Assert (-not $f.world.sourceRunning) 'unsafe source resume';continue}
    $r=Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter
    if($boundary -in @('PublishCandidateTask','GateOpen','CleanupSource')){Assert ($r.phase -eq 'completed') ('must finish committed '+$boundary);Assert (-not $f.world.events.Contains('ResumeSource')) 'postcommit rollback'}else{Assert ($r.phase -eq 'rolled-back') ('must roll back '+$boundary)}
-   $e=$f.world.events.Count;$null=Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter;Assert ($f.world.events.Count -le $e+1) 'repeat recovery changed external state'
+   $e=$f.world.events.Count;$null=Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter;$later=@($f.world.events|Select-Object -Skip $e);Assert (-not ($later|Where-Object {$_ -notin @('VerifySource','CandidateRegistered')})) 'repeat recovery changed external state'
   }
  }
  Test 'GUI helper loading preserves launcher request parameters' {. (Join-Path (Split-Path $PSScriptRoot -Parent) 'server-wsl-maintenance-ui.ps1') -FunctionsOnly -InstallRoot 'exact-root' -Lang en -TargetDirectory 'exact-package' -ExpectedManifestSha256 ('f'*64);Assert ($maintenanceUiRequest.root -ceq 'exact-root' -and $maintenanceUiRequest.target -ceq 'exact-package' -and $maintenanceUiRequest.pin -ceq ('f'*64) -and $maintenanceUiRequest.lang -ceq 'en') 'launcher request was clobbered by dot-sourced helper'}

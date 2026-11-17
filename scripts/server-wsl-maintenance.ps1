@@ -526,7 +526,17 @@ function Get-CLMOwnedFiles($Ctx){
  $known=@{};$m=Read-CLMJson $Ctx.sourceManifest
  # These release payloads are installed copies, never shared caches or retained export bundles.
  $release=Join-Path $Ctx.sourceRoot 'release'
- foreach($e in @($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)){if(-not $e){continue};$p=Join-Path $release $e.file;if(Test-Path -LiteralPath $p){$null=Assert-CLMFile $release $e;$known[$p]=$e.sha256}}
+ foreach($e in @($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)){
+  if(-not $e){continue};$p=Join-Path $release $e.file
+  if(Test-Path -LiteralPath $p){
+   $entry=$e
+   # The independently pinned RC1 manifest published packages.tsv with a digest but no size.
+   if($Ctx.source.releaseTag -ceq $script:CLMLegacyTag -and $m.releaseTag -ceq $script:CLMLegacyTag -and $e.file -ceq 'packages.tsv' -and -not $e.PSObject.Properties['size']){
+    $entry=Copy-CLMObject $e;$size=(Get-Item -LiteralPath (Assert-CLMPath $p)).Length;if($size -le 0 -or $size -gt 4194304){throw 'Legacy installed inventory exceeds cleanup bound'};$entry|Add-Member NoteProperty size $size
+   }
+   $null=Assert-CLMFile $release $entry;$known[$p]=$e.sha256
+  }
+ }
  foreach($e in @($m.nativePanel.files)+@($m.lifecycle.helpers)){
   if(-not $e){continue};foreach($dir in @((Join-Path $Ctx.sourceRoot 'release'),(Join-Path $Ctx.sourceRoot 'native-panel'))){$p=Join-Path $dir $e.file;if(Test-Path -LiteralPath $p){$null=Assert-CLMFile $dir $e;$known[$p]=$e.sha256}}
  }
@@ -549,25 +559,40 @@ function Publish-CLMEntryPoint($Ctx){
  $source=Join-Path $Ctx.directory 'active-panel.lnk';if((Get-CLMHash $source) -cne $Ctx.entryPointHash){throw 'Prepared shortcut checksum mismatch'};$tmp=Join-Path $Ctx.selectedRoot ($Ctx.id+'.new.lnk');if(Test-Path -LiteralPath $tmp){if((Get-CLMHash $tmp) -cne $Ctx.entryPointHash){throw 'Shortcut staging collision'}}else{[IO.File]::Copy($source,$tmp,$false)}
  if(Test-Path -LiteralPath $p){[IO.File]::Replace($tmp,$p,[NullString]::Value)}else{[IO.File]::Move($tmp,$p)}
 }
+function Stop-CLMPanelProcess($Process,[string]$Description,[int]$GraceMilliseconds=0){
+ # Callers retain the handle and prove executable/argv/creation identity before arriving here.
+ if($GraceMilliseconds -gt 0 -and $Process.WaitForExit($GraceMilliseconds)){return}
+ if($Process.HasExited){return}
+ try{$Process.Kill()}catch{
+  # Kill can race the launcher's natural exit after its child stops. Accept only this same handle's exit.
+  if(-not $Process.WaitForExit(10000) -or -not $Process.HasExited){throw}
+ }
+ if(-not $Process.WaitForExit(10000) -or -not $Process.HasExited){throw ($Description+' did not close')}
+}
 function Close-CLMSourcePanel($Ctx){
  if(-not $Ctx.source.nativePanel){return};$p=$Ctx.source.nativePanel
  if((Get-CLMHash $p.hostPath) -cne $p.hostSha256 -or (Get-CLMHash $p.bindingPath) -cne $p.bindingSha256){throw 'Source panel checksum mismatch'}
  foreach($cim in Get-CimInstance Win32_Process -Filter "Name='CastLinkServer.exe'"){
   if($cim.ExecutablePath -ine $p.hostPath){continue};$args='--binding "'+$p.bindingPath+'"';$quoted='"'+$p.hostPath+'" ';$unquoted=$p.hostPath+' '
   if(([string]$cim.CommandLine).TrimEnd([char]32) -cnotin @(($quoted+$args),($unquoted+$args),($quoted+$args+' --startup'),($unquoted+$args+' --startup'))){continue}
-  $childExe=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  $control=Join-Path (Split-Path $p.hostPath -Parent) 'server-native-control.ps1';$quote={param($v) $v.Replace("'","''")}
-  $baseCommand="`$ErrorActionPreference='Stop'; try { & '"+(& $quote $control)+"' -BindingFile '"+(& $quote $p.bindingPath)+"'"
-  $suffix='; if ($null -eq $LASTEXITCODE) { exit 0 }; exit $LASTEXITCODE } catch { exit 1 }'
-  $expectedCommands=@(($baseCommand+$suffix),($baseCommand+' -Startup -StartServer'+$suffix))
-  foreach($child in Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$cim.ProcessId)){
-   if($child.ExecutablePath -ine $childExe -or $child.CommandLine -notmatch ' -EncodedCommand ([A-Za-z0-9+/=]+)$'){continue}
-   $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]));if($decoded -cnotin $expectedCommands){continue}
-   $handle=[Diagnostics.Process]::GetProcessById([int]$child.ProcessId)
-   try{if($handle.StartTime.ToUniversalTime().ToString('yyyyMMddHHmmssffffff') -cne $child.CreationDate.ToUniversalTime().ToString('yyyyMMddHHmmssffffff')){throw 'Panel child process identity changed'};$handle.Kill();if(-not $handle.WaitForExit(10000)){throw 'Owned panel child did not close'}}finally{$handle.Dispose()}
-  }
+  # Retain the exact parent handle and validate its creation time before closing its child.
   $process=$null;try{$process=[Diagnostics.Process]::GetProcessById([int]$cim.ProcessId)}catch [ArgumentException]{continue}
-  try{if($process.StartTime.ToUniversalTime().ToString('yyyyMMddHHmmssffffff') -cne $cim.CreationDate.ToUniversalTime().ToString('yyyyMMddHHmmssffffff')){throw 'Panel process identity changed'};$process.Kill();if(-not $process.WaitForExit(10000)){throw 'Owned panel did not close'}}finally{$process.Dispose()}
+  try{
+   [void]$process.Handle
+   if($process.StartTime.ToUniversalTime().ToString('yyyyMMddHHmmssffffff') -cne $cim.CreationDate.ToUniversalTime().ToString('yyyyMMddHHmmssffffff')){throw 'Panel process identity changed'}
+   $childExe=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+   $control=Join-Path (Split-Path $p.hostPath -Parent) 'server-native-control.ps1';$quote={param($v) $v.Replace("'","''")}
+   $baseCommand="`$ErrorActionPreference='Stop'; try { & '"+(& $quote $control)+"' -BindingFile '"+(& $quote $p.bindingPath)+"'"
+   $suffix='; if ($null -eq $LASTEXITCODE) { exit 0 }; exit $LASTEXITCODE } catch { exit 1 }'
+   $expectedCommands=@(($baseCommand+$suffix),($baseCommand+' -Startup -StartServer'+$suffix))
+   foreach($child in Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$cim.ProcessId)){
+    if($child.ExecutablePath -ine $childExe -or $child.CommandLine -notmatch ' -EncodedCommand ([A-Za-z0-9+/=]+)$'){continue}
+    $decoded=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($Matches[1]));if($decoded -cnotin $expectedCommands){continue}
+    $handle=[Diagnostics.Process]::GetProcessById([int]$child.ProcessId)
+    try{[void]$handle.Handle;if($handle.StartTime.ToUniversalTime().ToString('yyyyMMddHHmmssffffff') -cne $child.CreationDate.ToUniversalTime().ToString('yyyyMMddHHmmssffffff')){throw 'Panel child process identity changed'};Stop-CLMPanelProcess $handle 'Owned panel child'}finally{$handle.Dispose()}
+   }
+   Stop-CLMPanelProcess $process 'Owned panel' 1000
+  }finally{$process.Dispose()}
  }
 }
 function Open-CastlinkActivePanel([string]$SelectedRoot){
@@ -649,6 +674,11 @@ function Complete-CLMUpdate($Ctx){
  foreach($p in @($Ctx.transfer,$Ctx.nativeHostStage,(Join-Path $Ctx.directory 'marker.stdin'))|Where-Object {$_}){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath (Assert-CLMPath $p) -Force}}
  Save-CLMJournal $Ctx 'completed';return $Ctx
 }
+function Read-CLMCandidateHostReceipt($Ctx){
+ $root=Assert-CLMPath $Ctx.candidateRoot;$s=Read-CLMReceipt $root -AllowRemoved
+ if($s.installationId -cne $Ctx.candidate.installationId -or $s.installationId -ceq $Ctx.source.installationId -or $s.distroName -cne $Ctx.candidate.distroName -or $s.releaseTag -cne $Ctx.candidate.releaseTag -or $s.rootfsSha256 -cne $Ctx.candidate.rootfsSha256 -or $Ctx.candidate.rootPath -cne $root){throw 'Candidate host identity differs; operation lease refused'}
+ return $s
+}
 function Get-CLMCandidateLease($Ctx){
  if($Ctx.kind -cne 'update'){return $null}
  $root=Assert-CLMPath $Ctx.candidateRoot
@@ -656,17 +686,28 @@ function Get-CLMCandidateLease($Ctx){
   if(Invoke-CLMAdapter $Ctx 'CandidateRegistered'){throw 'Registered candidate has no owned host root; manual inspection required'}
   return $null
  }
- $s=Read-CLMReceipt $root
- if($s.installationId -cne $Ctx.candidate.installationId -or $s.installationId -ceq $Ctx.source.installationId -or $s.distroName -cne $Ctx.candidate.distroName -or $s.releaseTag -cne $Ctx.candidate.releaseTag -or $s.rootfsSha256 -cne $Ctx.candidate.rootfsSha256 -or $Ctx.candidate.rootPath -cne $root){throw 'Candidate host identity differs; operation lease refused'}
- try{return [IO.File]::Open((Join-Path $root 'operation.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw 'Candidate operation lock is owned by another control; recovery preserved'}
+ try{$lease=[IO.File]::Open((Join-Path $root 'operation.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw 'Candidate operation lock is owned by another control; recovery preserved'}
+ try{
+  $s=Read-CLMCandidateHostReceipt $Ctx
+  if($s.phase -ceq 'removed' -and (Invoke-CLMAdapter $Ctx 'CandidateRegistered')){throw 'Retired candidate is registered; manual inspection required'}
+  return $lease
+ }catch{$lease.Dispose();throw}
+}
+function Retire-CLMDiscardedCandidate($Ctx){
+ if(-not (Test-Path -LiteralPath $Ctx.candidateRoot)){return}
+ # The caller holds candidate operation.lock. Never hide a registered, possibly unmarked import.
+ if(Invoke-CLMAdapter $Ctx 'CandidateRegistered'){throw 'Candidate remains registered; manual inspection required'}
+ $s=Read-CLMCandidateHostReceipt $Ctx
+ if($s.phase -cne 'removed'){$s.phase='removed';Write-CLMJson (Join-Path $Ctx.candidateRoot 'installation.json') $s}
 }
 function Recover-CLMTransaction($Ctx){
- if($Ctx.phase -in @('completed','removed','rolled-back','restored')){return $Ctx}
+ if($Ctx.phase -in @('completed','removed','rolled-back','restored')){if($Ctx.kind -ceq 'update' -and $Ctx.phase -ceq 'rolled-back'){Retire-CLMDiscardedCandidate $Ctx};return $Ctx}
  if($Ctx.kind -ceq 'update' -and $Ctx.phase -in @('commit-decided','gate-open-attempted','committed')){return Complete-CLMUpdate $Ctx}
  if($Ctx.kind -ceq 'remove'){return Complete-CLMRemove $Ctx}
  if($Ctx.kind -ceq 'restore'){return Complete-CLMRestore $Ctx}
  $hasCandidate=Invoke-CLMAdapter $Ctx 'CandidateOwned'
  if($hasCandidate){Save-CLMJournal $Ctx 'rollback-stop-candidate';Invoke-CLMAdapter $Ctx 'StopCandidate'|Out-Null;Invoke-CLMAdapter $Ctx 'GateClose'|Out-Null;Save-CLMJournal $Ctx 'rollback-release-firewall';Invoke-CLMAdapter $Ctx 'ReleaseStoppedFirewall'|Out-Null;Save-CLMJournal $Ctx 'rollback-terminate-candidate';Invoke-CLMAdapter $Ctx 'TerminateCandidate'|Out-Null;Save-CLMJournal $Ctx 'rollback-discard-candidate';Invoke-CLMAdapter $Ctx 'DiscardCandidate'|Out-Null}
+ Retire-CLMDiscardedCandidate $Ctx
  Save-CLMJournal $Ctx 'rollback-source-receipt';$Ctx.source=Sync-CLMKeepaliveReceipt $Ctx.sourceRoot $Ctx.source $Ctx.sourceModule;Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $Ctx.source
  Invoke-CLMAdapter $Ctx 'RestoreSourceTask'|Out-Null
  if($Ctx.source.desiredRunning){Invoke-CLMAdapter $Ctx 'ResumeSource'|Out-Null}
@@ -693,7 +734,7 @@ function Invoke-CastlinkMaintenance {
  if($Action -ceq 'List'){return Get-CastlinkMaintenanceInstallations}
  if(-not $InstallRoot){throw 'Select an exact installation root'};$selected=Assert-CLMPath $InstallRoot
  if($Action -ceq 'Restore'){return Start-CLMRestore -Root $selected -BundleDirectory $BundleDirectory -Adapter $Adapter -Progress $Progress}
- if($Action -ceq 'Recover'){$old=Get-CLMJournal $selected;if($old.phase -in @('completed','removed','rolled-back','restored')){return $old};$root=$old.sourceRoot}else{$root=Get-CLMRoot $selected}
+ if($Action -ceq 'Recover'){$old=Get-CLMJournal $selected;if($old.phase -in @('completed','removed','rolled-back','restored') -and -not ($old.kind -ceq 'update' -and $old.phase -ceq 'rolled-back' -and (Test-Path -LiteralPath $old.candidateRoot))){return $old};$root=$old.sourceRoot}else{$root=Get-CLMRoot $selected}
  $ctx=@{schemaVersion=1;selectedRoot=$selected;sourceRoot=$root;targetDirectory=$TargetDirectory;manifestSha256=$ExpectedManifestSha256;adapter=$Adapter;progress=$Progress;sourceModule=$null;stagingId=[guid]::NewGuid().ToString('N');recovery=($Action -ceq 'Recover')}
  $locks=New-Object Collections.Generic.List[IDisposable]
  try{
