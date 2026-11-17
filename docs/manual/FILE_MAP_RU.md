@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2008**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2013**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -74,7 +74,7 @@ CastLink
 
 [`README.ru.md`](../../README.ru.md)
 
-Документация/инструкция; сверяйте дату и статус с текущей сборкой.
+CastLink
 
 ### README.zh-CN.md
 
@@ -16762,7 +16762,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 274 файлов
+## scripts · 279 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17557,6 +17557,24 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/server-wsl-maintenance-ui.ps1
+
+[`scripts/server-wsl-maintenance-ui.ps1`](../../scripts/server-wsl-maintenance-ui.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/server-wsl-maintenance.ps1
+
+[`scripts/server-wsl-maintenance.ps1`](../../scripts/server-wsl-maintenance.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/server-wsl-maintenance.py
+
+[`scripts/server-wsl-maintenance.py`](../../scripts/server-wsl-maintenance.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/server-wsl-runtime.py
 
 [`scripts/server-wsl-runtime.py`](../../scripts/server-wsl-runtime.py)
@@ -18043,6 +18061,8 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
+Переменные окружения (только имена): `CASTLINK_PYTHON`.
+
 ### scripts/tests/package-simple-easy-setup.test.mjs
 
 [`scripts/tests/package-simple-easy-setup.test.mjs`](../../scripts/tests/package-simple-easy-setup.test.mjs)
@@ -18426,6 +18446,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-export.test.py
 
 [`scripts/tests/server-wsl-export.test.py`](../../scripts/tests/server-wsl-export.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-maintenance.fixtures.ps1
+
+[`scripts/tests/server-wsl-maintenance.fixtures.ps1`](../../scripts/tests/server-wsl-maintenance.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-maintenance.test.py
+
+[`scripts/tests/server-wsl-maintenance.test.py`](../../scripts/tests/server-wsl-maintenance.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
