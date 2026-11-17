@@ -1,18 +1,23 @@
-import type { AudioHistorySummary, AudioPlaybackDiagnostic, AudioReceiveDiagnostic, TelemetrySample } from "./telemetry-types";
+import type { AudioHistorySummary, AudioPlaybackDiagnostic, AudioReceiveDiagnostic, AudioTrackDiagnostic, TelemetrySample } from "./telemetry-types";
 
 const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-export type AudioCounters = { at: number; received: number | null; concealed: number | null; events: number | null; delay: number | null; emitted: number | null };
+export type AudioCounters = { at: number; received: number | null; concealed: number | null; events: number | null; delay: number | null; emitted: number | null;
+  silent: number | null; inserted: number | null; removed: number | null };
 const difference = (before: number | null, after: number | null) => before !== null && after !== null && after >= before ? after - before : null;
 
 export function audioReceiveDiagnostic(stat: Record<string, any>, previous?: AudioCounters): { diagnostic: AudioReceiveDiagnostic; counters: AudioCounters } {
   const counters: AudioCounters = { at: stat.timestamp, received: finite(stat.totalSamplesReceived), concealed: finite(stat.concealedSamples),
-    events: finite(stat.concealmentEvents), delay: finite(stat.jitterBufferDelay), emitted: finite(stat.jitterBufferEmittedCount) };
+    events: finite(stat.concealmentEvents), delay: finite(stat.jitterBufferDelay), emitted: finite(stat.jitterBufferEmittedCount),
+    silent: finite(stat.silentConcealedSamples), inserted: finite(stat.insertedSamplesForDeceleration), removed: finite(stat.removedSamplesForAcceleration) };
   const valid = previous && Number.isFinite(counters.at) && counters.at > previous.at;
-  const delta = (key: "received" | "concealed" | "events" | "delay" | "emitted") => valid ? difference(previous[key], counters[key]) : null;
+  const delta = (key: "received" | "concealed" | "events" | "delay" | "emitted" | "silent" | "inserted" | "removed") => valid ? difference(previous[key], counters[key]) : null;
   const received = delta("received"), concealed = delta("concealed"), emitted = delta("emitted"), delay = delta("delay");
   return { counters, diagnostic: { statsAt: finite(stat.timestamp), intervalMs: valid ? counters.at - previous.at : null,
     receivedSamples: counters.received, concealedSamples: counters.concealed, concealmentEvents: counters.events,
     receivedSamplesDelta: received, concealedSamplesDelta: concealed, concealmentEventsDelta: delta("events"),
+    silentConcealedSamples: counters.silent, silentConcealedSamplesDelta: delta("silent"),
+    insertedSamplesForDeceleration: counters.inserted, insertedSamplesForDecelerationDelta: delta("inserted"),
+    removedSamplesForAcceleration: counters.removed, removedSamplesForAccelerationDelta: delta("removed"),
     // totalSamplesReceived already includes concealed samples, per WebRTC stats.
     concealedPct: received !== null && received > 0 && concealed !== null ? Math.min(100, concealed / received * 100) : null,
     jitterBufferDelayMs: delay !== null && emitted !== null && emitted > 0 ? delay / emitted * 1000 : null,
@@ -58,7 +63,26 @@ export function sanitizeAudioPlayback(value: unknown): AudioPlaybackDiagnostic |
 export function sanitizeAudioReceive(value: unknown): AudioReceiveDiagnostic | undefined {
   if (!value || typeof value !== "object") return undefined;
   const v = value as Record<string, unknown>;
-  const fields = ["statsAt", "intervalMs", "receivedSamples", "concealedSamples", "concealmentEvents", "receivedSamplesDelta", "concealedSamplesDelta", "concealmentEventsDelta", "concealedPct", "jitterBufferDelayMs", "audioLevel"] as const;
+  const fields = ["statsAt", "intervalMs", "receivedSamples", "concealedSamples", "concealmentEvents", "receivedSamplesDelta", "concealedSamplesDelta", "concealmentEventsDelta", "concealedPct", "jitterBufferDelayMs", "audioLevel",
+    "silentConcealedSamples", "silentConcealedSamplesDelta", "insertedSamplesForDeceleration", "insertedSamplesForDecelerationDelta", "removedSamplesForAcceleration", "removedSamplesForAccelerationDelta"] as const;
   const result = Object.fromEntries(fields.map(key => [key, finite(v[key]) === null ? null : Math.min(finite(v[key])!, key === "concealedPct" ? 100 : key === "audioLevel" ? 1 : 1e15)]));
   return result as AudioReceiveDiagnostic;
+}
+
+/** Fixed operational fields only: never serialize device IDs, labels or arbitrary settings. */
+export function sanitizeAudioTrack(value: unknown, local: boolean): AudioTrackDiagnostic | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const v = value as Record<string, unknown>;
+  const bool = (value: unknown): boolean | null => typeof value === "boolean" ? value : null;
+  const integer = (value: unknown, max: number): number | null => typeof value === "number" && Number.isSafeInteger(value) && value > 0 && value <= max ? value : null;
+  const level = local ? finite(v.sourceAudioLevel) : null;
+  const capture = v.capture && typeof v.capture === "object" && !Array.isArray(v.capture) ? v.capture as Record<string, unknown> : {};
+  return { publicationMuted: bool(v.publicationMuted), trackMuted: bool(v.trackMuted),
+    mediaTrackEnabled: bool(v.mediaTrackEnabled), mediaTrackMuted: bool(v.mediaTrackMuted),
+    mediaTrackReadyState: v.mediaTrackReadyState === "live" || v.mediaTrackReadyState === "ended" ? v.mediaTrackReadyState : null,
+    sourceAudioLevel: level === null ? null : Math.min(1, level),
+    ...(local ? { capture: { sampleRate: integer(capture.sampleRate, 384000), channelCount: integer(capture.channelCount, 32),
+      noiseSuppression: bool(capture.noiseSuppression), echoCancellation: bool(capture.echoCancellation),
+      autoGainControl: bool(capture.autoGainControl), voiceIsolation: bool(capture.voiceIsolation) } } : {}),
+  };
 }

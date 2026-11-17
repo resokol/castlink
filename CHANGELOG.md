@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — диагностика аудио / Audio diagnostics / 音频诊断
+
+- RU: аудиоистория различает mute публикации, SDK-трека и плеера; записывает доступные фактические параметры захвата и обработки, подстановку тишины и коррекцию темпа декодером. Новые поля требуют обновлённых страниц отправителя/получателя; старые замеры остаются неизвестными. Это улучшение диагностики, а не автоматическое исправление искажённого звука.
+- EN: audio history distinguishes publication, SDK-track and player mute, and records available actual capture/processing settings, silent concealment and decoder rate correction. New fields require refreshed sender/receiver pages; older samples remain unknown. This improves diagnosis without automatically repairing distorted audio.
+- 简体中文：音频历史区分发布、SDK 音轨与播放器静音，记录可用的实际采集和处理设置、静音补偿及解码器速率修正。新增字段需要刷新发送和接收页面；旧记录仍为未知。这是诊断改进，不会自动修复音频失真。
+
 ## 1.0.5 server/web · 1.0.1 client — 2026-11-16
 
 - RU: отдельные серверные пакеты с текущей оценкой сети за 10 секунд, историей потерь и измерениями отправки аудио и видео, включая кастеров без камеры. Обновлены инструкции установки; Windows Client остаётся на 1.0.1. Обновляйте сервер вне эфира с прежними данными и перезагрузите страницы обеих сторон. [Примечания](distribution/RELEASE_NOTES_1_0_5.md).
