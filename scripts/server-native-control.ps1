@@ -5,6 +5,15 @@ $script:NativePanelSource=$PSCommandPath
 $nativeRequestedStartup=[bool]$Startup
 . (Join-Path $PSScriptRoot 'simple-easy-setup-control.ps1') -ControlFunctionsOnly
 
+function Test-CastlinkNativeMaintenance([string]$Root){
+ try{
+  $s=[IO.File]::ReadAllText((Join-Path $Root 'installation.json'))|ConvertFrom-Json
+  if($s.phase -ceq 'maintenance' -or (Test-Path -LiteralPath (Join-Path $Root 'active-generation.json'))){return $true}
+  $lease=$null;try{$lease=[IO.File]::Open((Join-Path $Root 'operation.lock'),'OpenOrCreate','ReadWrite','None')}catch{return $true}finally{if($lease){$lease.Dispose()}}
+  return $false
+ }catch{return $true}
+}
+
 function Get-CastlinkNativePanelText([string]$Key,[string]$Language='ru') {
   $catalog=@{
     statistics=@('Статистика сервера','Server statistics','服务器统计'); export=@('Экспорт ZIP за 24 часа','Export 24-hour ZIP','导出24小时 ZIP');
@@ -18,6 +27,7 @@ function Get-CastlinkNativePanelText([string]$Key,[string]$Language='ru') {
     failure=@('Результат операции не подтверждён. Проверьте состояние служб. Данные сохранены.','The operation result could not be confirmed. Check service status. Data is preserved.','无法确认操作结果。请检查服务状态。数据已保留。');
     exportReady=@('Архив за 24 часа сохранён.','24-hour archive saved.','已保存24小时归档。'); exporting=@('Сохраняю архив за 24 часа…','Saving 24-hour archive…','正在保存24小时归档…');
     scope=@('Ресурсы WSL · история за 24 часа','WSL resources · 24-hour history','WSL 资源 · 24小时历史');
+    maintenance=@('Обслуживание','Maintenance','维护');
     ok=@('работает','healthy','正常'); unconfigured=@('не настроено','unconfigured','未配置');
     unavailableService=@('недоступно','unavailable','不可用'); services=@('Службы','Services','服务')
   }
@@ -76,6 +86,7 @@ function Get-CastlinkNativeControlTimeout([ValidateSet('Start','Stop','Status')]
 function Invoke-CastlinkNativeControlAction([string]$BindingFile,[ValidateSet('Start','Stop','Status')][string]$Action) {
   . (Join-Path $PSScriptRoot 'server-native-monitor.ps1')
   $binding=Read-CastlinkNativeMonitorBinding -BindingFile $BindingFile
+  if(Test-CastlinkNativeMaintenance $binding.installRoot){throw 'Maintenance owns this generation; open Maintenance to recover or use the active generation'}
   # Call the pinned, unmodified original. Its lease, identity and authorization checks remain authoritative.
   $quote={param([string]$Value) "'"+$Value.Replace("'","''")+"'"}
   $command='& '+(& $quote $binding.sourceScriptPath)+' -Action '+$Action+' -InstallRoot '+(& $quote $binding.installRoot)
@@ -106,6 +117,7 @@ function Start-CastlinkNativePanelWork([string]$Source,[string]$BindingFile,[str
   try{return [pscustomobject]@{pipeline=$pipeline;handle=$pipeline.BeginInvoke();mode=$Mode}}catch{$pipeline.Dispose();throw}
 }
 function Get-CastlinkNativePanelScheduledWork($State,[datetime]$Now=[datetime]::UtcNow) {
+  if($State.PSObject.Properties['maintenance'] -and $State.maintenance){return ''}
   if($State.control -or $State.monitor -or $State.export){return ''}
   if($State.pendingControl -and (-not $State.closing -or $State.pendingControl -ceq 'Stop')){return $State.pendingControl}
   if($State.closing){return ''}
@@ -114,6 +126,7 @@ function Get-CastlinkNativePanelScheduledWork($State,[datetime]$Now=[datetime]::
   return ''
 }
 function Request-CastlinkNativePanelControl($State,[ValidateSet('Start','Stop')][string]$Mode) {
+  if($State.PSObject.Properties['maintenance'] -and $State.maintenance){return}
   if($Mode -ceq 'Stop'){
     $State.pendingExport=''
     $State.pendingControl=if($State.control -and $State.control.mode -ceq 'Stop'){''}else{'Stop'}
@@ -153,9 +166,9 @@ function Add-CastlinkNativeStatisticsView($Window) {
 
 function Update-CastlinkNativePanelView($Window,$State) {
   $language=$State.language;$view=$State.view;$snapshot=$State.snapshot
-  $Window.FindName('Start').IsEnabled=-not ($State.closing -or $State.control -or $State.pendingControl)
-  $Window.FindName('Stop').IsEnabled=-not ($State.closing -or $State.pendingControl -ceq 'Stop' -or $State.control.mode -ceq 'Stop')
-  $view.export.IsEnabled=-not ($State.closing -or $State.control -or $State.pendingControl -or $State.export -or $State.pendingExport)
+  $Window.FindName('Start').IsEnabled=-not ($State.maintenance -or $State.closing -or $State.control -or $State.pendingControl)
+  $Window.FindName('Stop').IsEnabled=-not ($State.maintenance -or $State.closing -or $State.pendingControl -ceq 'Stop' -or $State.control.mode -ceq 'Stop')
+  $view.export.IsEnabled=-not ($State.maintenance -or $State.closing -or $State.control -or $State.pendingControl -or $State.export -or $State.pendingExport)
   $view.clock.Text=(Get-CastlinkNativePanelText clock $language)+': '+[datetime]::UtcNow.AddHours(3).ToString('dd.MM.yyyy HH:mm:ss')+' UTC+3'
   $freshness=Get-CastlinkNativePanelFreshness $snapshot
   if($State.monitorFailed){$freshness=if($snapshot -and $snapshot.latest){'stale'}else{'unavailable'}}
@@ -167,6 +180,7 @@ function Update-CastlinkNativePanelView($Window,$State) {
   $view.lastSnapshot=$snapshot;$view.lastLanguage=$language;$view.lastFreshness=$freshness;$view.lastMode=$mode;$view.lastNotice=$State.notice
   $view.title.Text=Get-CastlinkNativePanelText statistics $language
   $view.export.Content=Get-CastlinkNativePanelText export $language
+  if($view.maintenance){$view.maintenance.Content=Get-CastlinkNativePanelText maintenance $language}
   $view.scope.Text=Get-CastlinkNativePanelText scope $language
   foreach($key in $view.metrics.Keys){$view.metrics[$key].label.Text=Get-CastlinkNativePanelText $key $language}
   $view.freshness.Text=if($freshness -ceq 'fresh'){
@@ -224,12 +238,21 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
     $source=$script:NativePanelSource
     $helpers=New-Module -AsCustomObject -ArgumentList $source -ScriptBlock {
       param($Source);. $Source -FunctionsOnly
-      Export-ModuleMember -Function Start-CastlinkNativePanelWork,Get-CastlinkNativePanelScheduledWork,Request-CastlinkNativePanelControl,Update-CastlinkNativePanelView,Update-SimpleControlLanguage,ConvertTo-SimpleControlText,Set-SimpleGuiLanguage
+      Export-ModuleMember -Function Test-CastlinkNativeMaintenance,Start-CastlinkNativePanelWork,Get-CastlinkNativePanelScheduledWork,Request-CastlinkNativePanelControl,Update-CastlinkNativePanelView,Update-SimpleControlLanguage,ConvertTo-SimpleControlText,Set-SimpleGuiLanguage
     }
     $tray=New-Object Windows.Forms.NotifyIcon;$icon=New-Object Drawing.Icon((Join-Path $PSScriptRoot 'simple-easy-setup-control.ico'));$tray.Icon=$icon;$tray.Text='CastLink Server'
     $menu=New-Object Windows.Forms.ContextMenuStrip;$trayOpen=$menu.Items.Add('Открыть панель');$trayExit=$menu.Items.Add('Остановить и выйти');$tray.ContextMenuStrip=$menu;$tray.Visible=$true
-    $state=[pscustomobject]@{language=$language;view=$view;snapshot=$null;control=$null;pendingControl='';monitor=$null;export=$null;pendingExport='';monitorFailed=$false;notice='';next=[datetime]::UtcNow;closing=$false;canClose=$false;lastStoppedAt=$null}
+    $state=[pscustomobject]@{language=$language;view=$view;snapshot=$null;control=$null;pendingControl='';monitor=$null;export=$null;pendingExport='';monitorFailed=$false;notice='';next=[datetime]::UtcNow;closing=$false;canClose=$false;lastStoppedAt=$null;maintenance=$false}
     $window.Tag=$state
+    if(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'server-wsl-maintenance-ui.ps1')){
+      $maintenanceButton=New-Object Windows.Controls.Button;$maintenanceButton.Content=Get-CastlinkNativePanelText maintenance $language;$maintenanceButton.MinHeight=36;$maintenanceButton.Margin='0,8,0,0';$view.root.Children.Insert(0,$maintenanceButton);$view.maintenance=$maintenanceButton
+      $maintenanceScript=Join-Path $PSScriptRoot 'server-wsl-maintenance-ui.ps1'
+      $maintenanceButton.Add_Click({
+        if($state.control -or $state.export -or $state.monitor){return}
+        $quote={param($v) "'"+$v.Replace("'","''")+"'"};$code='& '+(& $quote $maintenanceScript)+' -InstallRoot '+(& $quote $binding.installRoot)+' -Lang '+(& $quote $state.language)
+        $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code));Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList ('-NoLogo -NoProfile -STA -ExecutionPolicy Bypass -EncodedCommand '+$encoded)|Out-Null
+      }.GetNewClosure())
+    }
     $restore={$window.Show();$window.WindowState='Normal';$null=$window.Activate();$handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle;$null=[CastLinkControl.Native]::SetForegroundWindow($handle)}.GetNewClosure()
     $window.Add_SourceInitialized({
       $hwnd=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
@@ -269,6 +292,7 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
     $trayOpen.Text=ConvertTo-SimpleControlText 'Открыть панель' $language;$trayExit.Text=ConvertTo-SimpleControlText 'Остановить и выйти' $language
     $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(250)
     $timer.Add_Tick({
+      $state.maintenance=$helpers.'Test-CastlinkNativeMaintenance'($binding.installRoot)
       foreach($slot in @('monitor','control','export')){
         $job=$state.$slot
         if(-not $job -or -not $job.handle.IsCompleted){continue}
@@ -279,7 +303,7 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
           if($slot -ceq 'monitor'){$state.snapshot=$output[-1];$state.monitorFailed=$false}
           elseif($slot -ceq 'export'){$state.notice='exportReady'}
           elseif($job.mode -ceq 'Stop'){$state.lastStoppedAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds();if($state.closing){$state.canClose=$true;$window.Close()}}
-          elseif($job.mode -ceq 'Start'){$state.lastStoppedAt=$null}
+          elseif($job.mode -ceq 'Start'){$state.lastStoppedAt=$null;maintenance=$false}
         }catch{
           $failed=$true
           if($slot -ceq 'monitor'){$state.monitorFailed=$true}else{

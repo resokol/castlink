@@ -18,20 +18,23 @@ async function fixture(){
   "'@CASTLINK_WSL_MANIFEST_SHA256@'", "'@CASTLINK_WSL_REPOSITORY@'"
  ].join('\n'));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.writeFile(path.join(root,name),'fixture legal notice');
- for(const name of ['usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','opt/castlink/app/apps/web/server.js']){
+ for(const name of ['usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket','usr/local/bin/node','usr/local/bin/caddy','usr/local/bin/livekit-server','usr/local/bin/castlink-server','usr/local/bin/castlink-server-maintenance','opt/castlink/app/apps/web/server.js']){
   await fs.mkdir(path.dirname(path.join(tree,name)),{recursive:true});await fs.writeFile(path.join(tree,name),'fixture executable');
  }
  await fs.mkdir(path.join(tree,'etc'),{recursive:true});
  await fs.writeFile(path.join(tree,'etc/wsl.conf'),'[boot]\nsystemd=true\n[automount]\nenabled=false\n[interop]\nenabled=false\n');
  await fs.writeFile(path.join(tree,'etc/machine-id'),'');
- await fs.writeFile(path.join(tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12)}));
+ await fs.writeFile(path.join(tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12),lifecycle:{schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458']}}));
+ await fs.mkdir(path.join(tree,'usr/local/lib'),{recursive:true});
  const rootfs=path.join(dir,'rootfs.tar.gz');
  const pack=()=>execFileSync('tar',['-czf',rootfs,'-C',tree,'.']);pack();
  const sources=path.join(dir,'sources.tar.gz');
  await fs.writeFile(sources,'corresponding source archive fixture');
- const panelInventory={schemaVersion:1,host:'CastLinkServer.exe',binding:'server-native-binding.json',buildFiles:['server-native-panel-host.cs','build-server-native-panel-host.ps1'],files:['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico']};
+ const panelInventory={schemaVersion:1,host:'CastLinkServer.exe',binding:'server-native-binding.json',buildFiles:['server-native-panel-host.cs','build-server-native-panel-host.ps1'],files:['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1']};
  await fs.writeFile(path.join(root,'scripts/server-native-panel-files.json'),JSON.stringify(panelInventory));
  for(const name of [...panelInventory.files,...panelInventory.buildFiles])await fs.writeFile(path.join(root,'scripts',name),'panel fixture '+name);
+ for(const name of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py'])await fs.writeFile(path.join(root,'scripts',name),'lifecycle fixture '+name);
+ await fs.writeFile(path.join(tree,'usr/local/bin/castlink-server'),'lifecycle fixture server-wsl-runtime.py');await fs.writeFile(path.join(tree,'usr/local/bin/castlink-server-maintenance'),'lifecycle fixture server-wsl-maintenance.py');
  const inventory=path.join(dir,'packages.tsv');await fs.writeFile(inventory,'base-files\t13ubuntu10.3\n');
  await fs.writeFile(path.join(tree,'opt/castlink/packages.tsv'),await fs.readFile(inventory));pack();
  const sourceDir=path.join(dir,'source-archive');await fs.mkdir(sourceDir);
@@ -55,7 +58,7 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   assert.equal(m.sourceCommit,commit);assert.equal(m.architecture,'amd64');
   assert.equal(m.requirements.hostAddressLoopback,true);
   assert.equal(m.nativePanel.host,'CastLinkServer.exe');
-  assert.equal(m.nativePanel.files.length,9);
+  assert.equal(m.nativePanel.files.length,11);
   for(const entry of m.nativePanel.files){const original=await fs.readFile(path.join(f.root,'scripts',entry.file));assert.equal(entry.sha256,hash(original));assert.equal(entry.size,original.length);assert.deepEqual(await fs.readFile(path.join(f.output,entry.file)),original);}
   const rootfsBytes=await fs.readFile(f.rootfs);
   assert.equal(m.rootfs.sha256,hash(rootfsBytes));assert.equal(m.rootfs.size,rootfsBytes.length);
@@ -142,4 +145,17 @@ test('native panel inventory rejects traversal, duplicate or missing helpers bef
   await assert.rejects(assembleWslPackage(f),/panel|helper|inventory|ENOENT/i);
   await assert.rejects(fs.stat(f.output),{code:'ENOENT'});
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}}
+});
+
+test('lifecycle package contract and standalone ZIP pin helpers without circular bootstrap inventory',async()=>{
+ const f=await fixture();try{const m=await assembleWslPackage(f);
+ assert.equal(m.lifecycle.runtimeContract,'castlink-wsl-pg16-v1');assert.equal(m.lifecycle.postgresMajor,16);assert.deepEqual(m.lifecycle.supportedSources,['server-wsl-v1.0.5-rc.1-085b087a2458']);assert.ok(m.rootfs.expandedBytes>0);
+ assert.ok(m.inventory.size>0);for(const name of ['server-wsl-maintenance.py','server-wsl-runtime.py','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','install-server-windows.template.ps1'])assert.ok(m.lifecycle.helpers.some(e=>e.file===name));
+ assert.ok(!m.lifecycle.helpers.some(e=>e.file==='maintenance-bootstrap.ps1'));
+ const zip=path.join(f.output,'CastLink-Server-WSL-Maintenance.zip');const names=execFileSync(process.env.CASTLINK_PYTHON||'python3',['-c','import zipfile,sys;print(chr(10).join(zipfile.ZipFile(sys.argv[1]).namelist()))',zip],{encoding:'utf8'});assert.ok(names.includes('CastLink-Maintenance.cmd'));assert.ok(names.includes('maintenance-bootstrap.ps1'));assert.ok(!names.includes(m.rootfs.file));
+ const bootstrap=await fs.readFile(path.join(f.output,'maintenance-bootstrap.ps1'),'utf8');assert.ok(bootstrap.includes(hash(await fs.readFile(path.join(f.output,'manifest.json')))));assert.ok(!bootstrap.includes('/latest'));assert.ok((await fs.readFile(path.join(f.output,'SHA256SUMS'),'utf8')).includes('CastLink-Server-WSL-Maintenance.zip'));
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
+test('embedded lifecycle contract mismatch is refused before output',async()=>{
+ for(const lifecycle of [null,{schemaVersion:1,runtimeContract:'wrong',postgresMajor:16,supportedSources:[]},{schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:17,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458']}]){const f=await fixture();try{await fs.writeFile(path.join(f.tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12),lifecycle}));f.pack();await assert.rejects(assembleWslPackage(f),/lifecycle|contract|major/i);await assert.rejects(fs.stat(f.output),{code:'ENOENT'});}finally{await fs.rm(f.dir,{recursive:true,force:true});}}
 });

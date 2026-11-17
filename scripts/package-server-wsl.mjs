@@ -14,12 +14,12 @@ export async function hashFile(file){
 // device entries, but must not carry the producer's identity or an installation.
 const audit=String.raw`
 import hashlib,json,re,sys,tarfile
-archive,version,commit,inventory_path,sources_path,upstream_path,upstream_manifest=sys.argv[1:]
+archive,version,commit,inventory_path,sources_path,upstream_path,upstream_manifest,helper_hash,runtime_hash=sys.argv[1:]
 required={'usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket',
           'usr/local/bin/node','usr/local/bin/caddy',
-          'usr/local/bin/livekit-server','usr/local/bin/castlink-server',
+          'usr/local/bin/livekit-server','usr/local/bin/castlink-server','usr/local/bin/castlink-server-maintenance',
           'opt/castlink/app/apps/web/server.js','etc/wsl.conf','opt/castlink/release.json','opt/castlink/packages.tsv'}
-seen=set(); selected={}
+seen=set(); selected={}; expanded=0; runtime_hashes={}
 with tarfile.open(archive,'r:gz') as source:
  for member in source:
   name=member.name.removeprefix('./').rstrip('/')
@@ -27,6 +27,10 @@ with tarfile.open(archive,'r:gz') as source:
   if name.startswith('/') or '..' in name.split('/') or name in seen:
    raise ValueError('Unsafe or duplicate rootfs member')
   seen.add(name)
+  if member.isfile(): expanded+=member.size
+  if name in ('usr/local/bin/castlink-server','usr/local/bin/castlink-server-maintenance'):
+   if not member.isfile() or member.size>4194304: raise ValueError('Invalid lifecycle guest helper')
+   runtime_hashes[name]=hashlib.sha256(source.extractfile(member).read()).hexdigest()
   parts=name.split('/')
   if any(p in ('.git','.aws','.codex','.agents','.env','.dockerenv','.containerenv') for p in parts):
    raise ValueError('Rootfs contains private producer data')
@@ -43,6 +47,10 @@ with tarfile.open(archive,'r:gz') as source:
  value=json.loads(selected['opt/castlink/release.json'])
  if value.get('version')!=version or value.get('commit')!=commit or value.get('buildId')!=version+'-'+commit[:12]:
   raise ValueError('Embedded runtime release/version/commit mismatch')
+ if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458']}:
+  raise ValueError('Embedded lifecycle compatibility contract mismatch')
+ if runtime_hashes!={'usr/local/bin/castlink-server':runtime_hash,'usr/local/bin/castlink-server-maintenance':helper_hash}:
+  raise ValueError('Embedded lifecycle helper inventory mismatch')
  import configparser
  cfg=configparser.ConfigParser();cfg.read_string(selected['etc/wsl.conf'])
  if not cfg.getboolean('boot','systemd',fallback=False): raise ValueError('WSL systemd must be enabled')
@@ -111,6 +119,7 @@ with tarfile.open(upstream_path,'r:gz') as source:
   upstream_actual[name]={'sha256':digest.hexdigest(),'size':size}
 if captured!=expected or upstream_actual!=expected_files:
  raise ValueError('Upstream source archive differs from reviewed dependency manifest')
+print(json.dumps({'expandedBytes':expanded}))
 `;
 
 async function readNativePanelPackage(root){
@@ -118,9 +127,9 @@ async function readNativePanelPackage(root){
  const inventory=JSON.parse(await fs.readFile(path.join(root,'scripts',inventoryFile),'utf8'));
  const names=[inventoryFile,...(inventory.files??[]),...(inventory.buildFiles??[])];
  if(inventory.schemaVersion!==1||inventory.host!=='CastLinkServer.exe'||inventory.binding!=='server-native-binding.json'||
-    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==6||inventory.buildFiles.length!==2||
+    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==8||inventory.buildFiles.length!==2||
     new Set(names).size!==names.length||names.some(name=>typeof name!=='string'||!/^[A-Za-z0-9][A-Za-z0-9.-]{0,127}$/.test(name)))throw Error('Invalid native panel helper inventory');
- for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1'])
+ for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1'])
   if(!names.includes(required))throw Error('Missing native panel helper: '+required);
  const files=[];
  for(const file of names){
@@ -131,6 +140,20 @@ async function readNativePanelPackage(root){
  return {schemaVersion:1,host:inventory.host,binding:inventory.binding,files};
 }
 
+function maintenanceBootstrap(pin){return `# Generated pinned standalone launcher. SHA256SUMS covers this bootstrap and ZIP.
+[CmdletBinding()]param([switch]$VerifyOnly)
+$ErrorActionPreference='Stop'
+$root=[IO.Path]::GetFullPath($PSScriptRoot);$ancestor=$root
+while($ancestor){if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Maintenance launcher cannot use reparse points'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+$manifestPath=Join-Path $root 'manifest.json'
+if((Get-Item -LiteralPath $manifestPath).Length -gt 1048576 -or (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne '${pin}'){throw 'Pinned maintenance manifest checksum mismatch'}
+$m=[IO.File]::ReadAllText($manifestPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
+if($m.channel -cne 'server-wsl' -or $m.lifecycle.schemaVersion -ne 1){throw 'Unsupported maintenance contract'}
+$seen=@{};foreach($e in $m.lifecycle.helpers){if($e.file -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $seen.ContainsKey($e.file)){throw 'Invalid helper inventory'};$seen[$e.file]=$true;$p=Join-Path $root $e.file;$s=Get-Item -LiteralPath $p -Force;if($s.PSIsContainer -or ($s.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $s.Length -ne $e.size -or $e.sha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne $e.sha256){throw 'Maintenance helper checksum mismatch'}}
+foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(-not $seen.ContainsKey($name)){throw 'Missing maintenance helper'}}
+if(-not $VerifyOnly){& (Join-Path $root 'server-wsl-maintenance-ui.ps1') -TargetDirectory $root -ExpectedManifestSha256 '${pin}'}
+`;}
+
 export async function assembleWslPackage({root=process.cwd(),output,rootfs,sources,upstreamSources,inventory,commit,version,repository='resokol/castlink',python=process.env.CASTLINK_PYTHON||'python3'}){
  if(!/^[a-f0-9]{40}$/.test(commit??''))throw Error('Exact source commit required');
  if(!tracks.VERSION.test(version??''))throw Error('Valid product version required');
@@ -139,14 +162,20 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  output=path.resolve(output);
  try{await fs.lstat(output);throw Error('Destination already exists; choose a new package directory');}catch(e){if(e.code!=='ENOENT')throw e;}
  for(const file of [rootfs,sources,upstreamSources,inventory]){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size===0)throw Error('Missing or invalid rootfs/source/inventory');}
- execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json')],{stdio:['ignore','pipe','pipe']});
+ const audited=JSON.parse(execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json'),await hashFile(path.join(root,'scripts/server-wsl-maintenance.py')),await hashFile(path.join(root,'scripts/server-wsl-runtime.py'))],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
  const nativePanel=await readNativePanelPackage(root);
+ const helpers=[];for(const file of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1']){
+  const source=path.join(root,'scripts',file==='install-server-windows.template.ps1'?'install-server-windows.ps1':file),stat=await fs.lstat(source);if(!stat.isFile()||stat.isSymbolicLink()||stat.size<=0||stat.size>4194304)throw Error('Invalid lifecycle helper');
+  helpers.push({file,sha256:await hashFile(source),size:stat.size});
+ }
+ const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458'],applicationMigrations:'runtime-bootstrap-v1',helpers};
  const rootfsName='CastLink-Server-WSL-amd64.tar.gz',sourcesName='CastLink-Server-WSL-Sources.tar.gz';
  const manifest={schemaVersion:1,channel:'server-wsl',version,releaseTag:`server-wsl-v${version}-${commit.slice(0,12)}`,repository,architecture:'amd64',sourceCommit:commit,
-  rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size},
+  rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size,expandedBytes:audited.expandedBytes},
   sources:{file:sourcesName,sha256:await hashFile(sources),size:(await fs.stat(sources)).size},
   upstreamSources:{file:'CastLink-ThirdParty-Sources.tar.gz',sha256:await hashFile(upstreamSources),size:(await fs.stat(upstreamSources)).size},
-  inventory:{file:'packages.tsv',sha256:await hashFile(inventory)},
+  inventory:{file:'packages.tsv',sha256:await hashFile(inventory),size:(await fs.stat(inventory)).size},
+  lifecycle,
   nativePanel,
   requirements:{windowsBuild:22621,wsl:2,networkingMode:'mirrored',hostAddressLoopback:true},
   verification:{windowsInstall:'not-run',externalMedia:'not-run',publication:'not-published'}};
@@ -163,8 +192,14 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  await fs.writeFile(path.join(output,'manifest.json'),bytes,{flag:'wx'});
  await fs.writeFile(path.join(output,'install-server-windows.ps1'),'\ufeff'+script.replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'),{flag:'wx'});
  for(const entry of nativePanel.files)await fs.copyFile(path.join(root,'scripts',entry.file),path.join(output,entry.file));
+ for(const entry of helpers)if(!nativePanel.files.some(e=>e.file===entry.file))await fs.copyFile(path.join(root,'scripts',entry.file==='install-server-windows.template.ps1'?'install-server-windows.ps1':entry.file),path.join(output,entry.file));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.copyFile(path.join(root,name),path.join(output,name));
- const names=[rootfsName,sourcesName,manifest.upstreamSources.file,'packages.tsv','manifest.json','install-server-windows.ps1','LICENSE','THIRD_PARTY_NOTICES',...nativePanel.files.map(entry=>entry.file)];
+ const bootstrap=maintenanceBootstrap(createHash('sha256').update(bytes).digest('hex'));
+ await fs.writeFile(path.join(output,'maintenance-bootstrap.ps1'),'\ufeff'+bootstrap.replace(/\r?\n/g,'\r\n'),{flag:'wx'});
+ await fs.writeFile(path.join(output,'CastLink-Maintenance.cmd'),'@echo off\r\n"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File "%~dp0maintenance-bootstrap.ps1"\r\nif errorlevel 1 pause\r\n',{flag:'wx'});
+ const zipNames=['manifest.json','maintenance-bootstrap.ps1','CastLink-Maintenance.cmd',...helpers.map(e=>e.file)];
+ execFileSync(python,['-c','import zipfile,sys,os; z=zipfile.ZipFile(os.path.join(sys.argv[1],"CastLink-Server-WSL-Maintenance.zip"),"x",zipfile.ZIP_DEFLATED); [z.write(os.path.join(sys.argv[1],n),n) for n in sys.argv[2:]]; z.close()',output,...zipNames],{stdio:['ignore','pipe','pipe']});
+ const names=[rootfsName,sourcesName,manifest.upstreamSources.file,'packages.tsv','manifest.json','install-server-windows.ps1','LICENSE','THIRD_PARTY_NOTICES',...nativePanel.files.map(entry=>entry.file),...helpers.filter(e=>!nativePanel.files.some(n=>n.file===e.file)).map(e=>e.file),'maintenance-bootstrap.ps1','CastLink-Maintenance.cmd','CastLink-Server-WSL-Maintenance.zip'];
  const sums=await Promise.all(names.map(async name=>(await hashFile(path.join(output,name)))+'  '+name));
  await fs.writeFile(path.join(output,'SHA256SUMS'),sums.join('\n')+'\n',{flag:'wx'});
  return manifest;
