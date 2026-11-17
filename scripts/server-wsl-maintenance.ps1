@@ -306,8 +306,30 @@ function Copy-CLMTaskForValidation($Task){
  # Keep CIM trigger metadata intact; normalize only enabled state for validating an owned disabled task.
  return [pscustomobject]@{TaskName=$Task.TaskName;TaskPath=$Task.TaskPath;Description=$Task.Description;Principal=$Task.Principal;Actions=@($Task.Actions);Triggers=@($Task.Triggers);Settings=[pscustomobject]@{Enabled=$true;ExecutionTimeLimit=$Task.Settings.ExecutionTimeLimit;MultipleInstances=$Task.Settings.MultipleInstances}}
 }
+function Assert-CLMSourceManifest($Manifest,$State){
+ # Installed provenance does not require redistributing rootfs/corresponding sources.
+ $m=$Manifest;$l=$m.lifecycle
+ if($m.schemaVersion -ne 1 -or $m.channel -cne 'server-wsl' -or $m.repository -cne $State.repository -or $m.architecture -cne 'amd64' -or $m.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $m.releaseTag -cne $State.releaseTag -or $m.releaseTag -cne ('server-wsl-v'+$m.version+'-'+$m.sourceCommit.Substring(0,12)) -or $m.rootfs.sha256 -cne $State.rootfsSha256 -or $l.schemaVersion -ne 1 -or $l.runtimeContract -cne 'castlink-wsl-pg16-v1' -or $l.postgresMajor -ne 16){throw 'Installed source lifecycle provenance mismatch'}
+ $required=@('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1');$seen=@{}
+ foreach($e in @($l.helpers)){Assert-CLMAssetName $e.file;if($e.file -cnotin $required -or $seen.ContainsKey($e.file) -or $e.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $e.size -le 0 -or $e.size -gt 4194304){throw 'Installed source helper inventory mismatch'};$seen[$e.file]=$true}
+ if($seen.Count -ne $required.Count){throw 'Installed source helper inventory incomplete'}
+}
+function Get-CLMProvenancePath([string]$Base,$State){
+ $hash=[Security.Cryptography.SHA256]::Create();try{$key=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($State.rootPath.ToLowerInvariant()))).Replace('-','').ToLowerInvariant().Substring(0,16)}finally{$hash.Dispose()}
+ return Join-Path $Base ('source-'+$State.installationId+'-'+$key+'.json')
+}
+function Assert-CLMProvenance($Record,$State){
+ if($Record.schemaVersion -ne 1 -or $Record.installationId -cne $State.installationId -or $Record.rootPath -cne $State.rootPath -or $Record.releaseTag -cne $State.releaseTag -or $Record.rootfsSha256 -cne $State.rootfsSha256 -or $Record.manifestSha256 -cnotmatch '^[a-f0-9]{64}$' -or $Record.installerSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Independent source provenance identity mismatch'}
+}
+function Receive-CLMSourceMetadata([string]$Source,[string]$Cache,$Entry,[string]$Tag){
+ $dest=Join-Path $Cache $Entry.file
+ if(Test-Path -LiteralPath $Source){$null=Assert-CLMFile (Split-Path $Source -Parent) $Entry;if(-not (Test-Path -LiteralPath $dest)){[IO.File]::Copy($Source,$dest,$false)}}
+ if(-not (Test-Path -LiteralPath $dest)){Receive-CLMAsset ('https://github.com/resokol/castlink/releases/download/'+$Tag+'/'+$Entry.file) $dest $Entry.size}
+ return Assert-CLMFile $Cache $Entry
+}
 function Get-CLMSourcePackage($Ctx,$State){
- $cache=Join-Path (Get-CLMStorageRoot $Ctx.sourceRoot) ('lifecycle-cache\'+$State.releaseTag)
+ $cache=Join-Path (Get-CLMStorageRoot $Ctx.sourceRoot) ('lifecycle-cache\'+$State.releaseTag);$baseCache=$cache;Protect-CLMDirectory $baseCache;$provenancePath=Get-CLMProvenancePath $baseCache $State;$provenance=$null
+ if(Test-Path -LiteralPath $provenancePath){$acl=([IO.FileInfo]::new($provenancePath)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner');$allowed=@([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-18','S-1-5-32-544');if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $allowed -or @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|Where-Object {$_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowed}).Count){throw 'Independent source provenance is not private; preserved for inspection'};$provenance=Read-CLMJson $provenancePath;Assert-CLMProvenance $provenance $State}
  if($State.releaseTag -ceq $script:CLMLegacyTag){
   if($State.rootfsSha256 -cne $script:CLMLegacyRootfs){throw 'Legacy rootfs published pin mismatch'}
   $pins=@{'manifest.json'=$script:CLMLegacyManifest;'install-server-windows.ps1'=$script:CLMLegacyInstaller}
@@ -321,14 +343,33 @@ function Get-CLMSourcePackage($Ctx,$State){
    if($name -ceq 'manifest.json'){$Ctx.sourceManifest=$source}else{$Ctx.sourceInstaller=$source}
   }
  }else{
-  $Ctx.sourceManifest=Join-Path $Ctx.sourceRoot 'release\manifest.json';$Ctx.sourceInstaller=Join-Path $Ctx.sourceRoot 'install-server-windows.ps1'
-  if(-not $State.nativePanel -or (Get-CLMHash $Ctx.sourceManifest) -cne $State.nativePanel.manifestSha256){throw 'Source release manifest pin unavailable'}
-  $sm=Assert-CLMTarget (Split-Path $Ctx.sourceManifest -Parent) $State.nativePanel.manifestSha256 $script:CLMLegacyTag;$null=Stage-CLMInstaller (Split-Path $Ctx.sourceManifest -Parent) $sm $State.nativePanel.manifestSha256
-  if((Get-CLMHash $Ctx.sourceInstaller) -cne (Get-CLMHash (Join-Path (Split-Path $Ctx.sourceManifest -Parent) 'install-server-windows.ps1'))){throw 'Source installer checksum mismatch'}
+  $pin=if($State.releaseManifestSha256){$State.releaseManifestSha256}elseif($State.nativePanel){$State.nativePanel.manifestSha256}elseif($provenance){$provenance.manifestSha256}else{''}
+  if(-not $pin -and $Ctx.targetDirectory -and $Ctx.manifestSha256){
+   $supplied=Join-Path $Ctx.targetDirectory 'manifest.json'
+   if((Test-Path -LiteralPath $supplied) -and (Get-CLMHash $supplied) -ceq $Ctx.manifestSha256){$value=Read-CLMJson $supplied;if($value.releaseTag -ceq $State.releaseTag){Assert-CLMSourceManifest $value $State;$pin=$Ctx.manifestSha256}}
+  }
+  if(-not $pin){$choice=@(Get-CastlinkWslReleaseChoices|Where-Object {$_.releaseTag -ceq $State.releaseTag});if($choice.Count -ne 1){throw 'Exact installed release manifest digest unavailable; supply its verified package'};$pin=$choice[0].manifestSha256}
+  if($pin -cnotmatch '^[a-f0-9]{64}$' -or ($provenance -and $provenance.manifestSha256 -cne $pin)){throw 'Installed source manifest pin mismatch'}
+  $cache=Join-Path $baseCache $pin;Protect-CLMDirectory $cache;$cachedManifest=Join-Path $cache 'manifest.json';$installedManifest=Join-Path $Ctx.sourceRoot 'release\manifest.json'
+  if(Test-Path -LiteralPath $installedManifest){if((Get-CLMHash $installedManifest) -cne $pin){throw 'Installed source manifest checksum mismatch'};if(-not (Test-Path -LiteralPath $cachedManifest)){[IO.File]::Copy($installedManifest,$cachedManifest,$false)}}
+  if(-not (Test-Path -LiteralPath $cachedManifest)){Receive-CLMAsset ('https://github.com/resokol/castlink/releases/download/'+$State.releaseTag+'/manifest.json') $cachedManifest 1048576}
+  if((Get-CLMHash $cachedManifest) -cne $pin){throw 'Cached installed source manifest checksum mismatch'}
+  $sm=Read-CLMJson $cachedManifest;Assert-CLMSourceManifest $sm $State
+  $entry=@($sm.lifecycle.helpers|Where-Object {$_.file -ceq 'install-server-windows.template.ps1'})[0]
+  $null=Receive-CLMSourceMetadata (Join-Path $Ctx.sourceRoot ('release\'+$entry.file)) $cache $entry $State.releaseTag
+  $cachedInstaller=Stage-CLMInstaller $cache $sm $pin;$installedInstaller=Join-Path $Ctx.sourceRoot 'install-server-windows.ps1'
+  if((Test-Path -LiteralPath $installedInstaller) -and (Get-CLMHash $installedInstaller) -cne (Get-CLMHash $cachedInstaller)){throw 'Installed source installer checksum mismatch'}
+  $Ctx.sourceManifest=if(Test-Path -LiteralPath $installedManifest){$installedManifest}else{$cachedManifest};$Ctx.sourceInstaller=if(Test-Path -LiteralPath $installedInstaller){$installedInstaller}else{$cachedInstaller}
  }
+
  $m=Read-CLMJson $Ctx.sourceManifest
  if($m.schemaVersion -ne 1 -or $m.channel -cne 'server-wsl' -or $m.releaseTag -cne $State.releaseTag -or $m.repository -cne $State.repository -or $m.rootfs.sha256 -cne $State.rootfsSha256){throw 'Source manifest and receipt mismatch'}
- $Ctx.sourceCache=$cache
+ Protect-CLMDirectory $cache
+ foreach($pair in @(@($Ctx.sourceManifest,'manifest.json'),@($Ctx.sourceInstaller,'install-server-windows.ps1'))){$dest=Join-Path $cache $pair[1];if(-not (Test-Path -LiteralPath $dest)){[IO.File]::Copy($pair[0],$dest,$false)};if((Get-CLMHash $dest) -cne (Get-CLMHash $pair[0])){throw 'Cached source provenance payload checksum mismatch'}}
+ $record=[pscustomobject]@{schemaVersion=1;installationId=$State.installationId;rootPath=$State.rootPath;releaseTag=$State.releaseTag;rootfsSha256=$State.rootfsSha256;manifestSha256=(Get-CLMHash $Ctx.sourceManifest);installerSha256=(Get-CLMHash $Ctx.sourceInstaller);cache=$cache}
+ if($provenance){if($record.manifestSha256 -cne $provenance.manifestSha256 -or $record.installerSha256 -cne $provenance.installerSha256){throw 'Independent source provenance payload changed'}}else{Write-CLMJson $provenancePath $record}
+ $State|Add-Member NoteProperty releaseManifestSha256 $record.manifestSha256 -Force
+ $Ctx.sourceCache=$cache;$Ctx.sourceProvenance=$provenancePath;$Ctx.sourceProvenanceSha256=Get-CLMHash $provenancePath
 }
 function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
  switch($Name){
@@ -357,6 +398,7 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
   'ExportTransfer' {$null=Invoke-CLMGuest $Ctx $Ctx.source 'export' '' $Ctx.transfer}
   'ImportCandidate' {if(Test-Path -LiteralPath $Ctx.candidateRoot){throw 'Candidate directory already exists without verified marker; inspect manually'};Protect-CLMDirectory $Ctx.candidateRoot;Write-CLMJson (Join-Path $Ctx.candidateRoot 'installation.json') $Ctx.candidate;$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--import',$Ctx.candidate.distroName,(Join-Path $Ctx.candidateRoot 'distribution'),(Join-Path $Ctx.targetDirectory $Ctx.target.rootfs.file),'--version','2') '' '' 1048576 1800}
   'MarkCandidate' {$p=Join-Path $Ctx.directory 'marker.stdin';[IO.File]::WriteAllText($p,$Ctx.candidate.installationId,[Text.Encoding]::ASCII);$code='import os,sys; p="/var/lib/castlink-server-wsl-installation-id"; b=sys.stdin.buffer.read(33); assert len(b)==32; fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600); f=os.fdopen(fd,"wb"); f.write(b); f.flush(); os.fsync(f.fileno()); f.close()';$null=Invoke-CLMWsl $Ctx.candidate @('python3','-c',$code) $p;Remove-Item -LiteralPath $p}
+  'CandidateRegistered' {$names=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--list','--quiet');return (($names -replace "`0",'').Split("`n").Trim() -ccontains $Ctx.candidate.distroName)}
   'CandidateOwned' {
    $names=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--list','--quiet');if(($names -replace "`0",'').Split("`n").Trim() -cnotcontains $Ctx.candidate.distroName){return $false}
    $code='import os,stat,sys; p="/var/lib/castlink-server-wsl-installation-id"; s=os.lstat(p); assert stat.S_ISREG(s.st_mode) and s.st_uid==0 and s.st_nlink==1; assert open(p).read().strip()==sys.argv[1]'
@@ -515,7 +557,8 @@ function Open-CastlinkActivePanel([string]$SelectedRoot){
  Start-Process -FilePath $p.hostPath -ArgumentList ('--binding "'+$p.bindingPath+'"')|Out-Null
 }
 function Save-CLMBundleHelpers($Ctx,[string]$Directory){
- $manifest=Read-CLMJson $Ctx.sourceManifest;$entries=@($manifest.nativePanel.files)+@($manifest.lifecycle.helpers);$copied=@{}
+ $manifest=Read-CLMJson $Ctx.sourceManifest;$entries=@();$seen=@{};$copied=@{}
+ foreach($entry in @($manifest.nativePanel.files)+@($manifest.lifecycle.helpers)){if(-not $entry){continue};if($seen.ContainsKey($entry.file)){if($seen[$entry.file].sha256 -cne $entry.sha256 -or $seen[$entry.file].size -ne $entry.size){throw 'Conflicting same-release restore helper inventory'};continue};$seen[$entry.file]=$entry;$entries+=@($entry)}
  $names=@('manifest.json','install-server-windows.ps1')+@($entries|ForEach-Object {$_.file})
  foreach($name in $names){Assert-CLMAssetName $name;if($copied.ContainsKey($name)){continue};$source=Join-Path $Ctx.sourceRoot ('release\'+$name);if($name -ceq 'install-server-windows.ps1'){$source=$Ctx.sourceInstaller};if($name -ceq 'manifest.json'){$source=$Ctx.sourceManifest}
   if(-not (Test-Path -LiteralPath $source) -and $name -ne 'manifest.json'){$source=Join-Path $Ctx.sourceRoot ('native-panel\'+$name)}
@@ -534,8 +577,9 @@ function Save-CLMBundleHelpers($Ctx,[string]$Directory){
 function Assert-CLMRestoreHelpers($Ctx){
  $b=$Ctx.bundleDirectory;$s=$Ctx.originalSource;$manifest=Read-CLMJson (Join-Path $b 'manifest.json');$installer=Join-Path $b 'install-server-windows.ps1'
  if($s.releaseTag -ceq $script:CLMLegacyTag){if((Get-CLMHash $installer) -cne $script:CLMLegacyInstaller -or (Get-CLMHash (Join-Path $b 'manifest.json')) -cne $script:CLMLegacyManifest -or $s.rootfsSha256 -cne $script:CLMLegacyRootfs){throw 'Restore legacy release pins mismatch'}}else{
-  if(-not $s.nativePanel -or (Get-CLMHash (Join-Path $b 'manifest.json')) -cne $s.nativePanel.manifestSha256){throw 'Restore manifest release pin mismatch'}
-  foreach($e in @($manifest.lifecycle.helpers)){$null=Assert-CLMFile $b $e};$null=Stage-CLMInstaller $b $manifest $s.nativePanel.manifestSha256
+  $sourcePin=if($s.releaseManifestSha256){$s.releaseManifestSha256}elseif($s.nativePanel){$s.nativePanel.manifestSha256}else{''}
+  if($sourcePin -cnotmatch '^[a-f0-9]{64}$' -or (Get-CLMHash (Join-Path $b 'manifest.json')) -cne $sourcePin){throw 'Restore manifest release pin mismatch'}
+  foreach($e in @($manifest.lifecycle.helpers)){$null=Assert-CLMFile $b $e};$null=Stage-CLMInstaller $b $manifest $sourcePin
  }
  if($manifest.releaseTag -cne $s.releaseTag -or $manifest.channel -cne 'server-wsl' -or $manifest.rootfs.sha256 -cne $s.rootfsSha256){throw 'Restore same-release identity mismatch'}
  foreach($e in @($manifest.nativePanel.files)){$null=Assert-CLMFile $b $e}
@@ -559,7 +603,7 @@ function Complete-CLMRestore($Ctx){
 function Start-CLMRestore([string]$Root,[string]$BundleDirectory,[scriptblock]$Adapter,[scriptblock]$Progress){
  $bundle=Read-CLMBundle $BundleDirectory
  if(Test-Path -LiteralPath $Root){throw 'Restore destination must be new and empty'}
- $source=Copy-CLMObject $bundle.source;$source.rootPath=$Root;$source.phase='imported';$source.PSObject.Properties.Remove('nativePanel');$source.PSObject.Properties.Remove('keepalive');if(-not $source.logicalInstallationId){$source|Add-Member NoteProperty logicalInstallationId $source.installationId}
+ $source=Copy-CLMObject $bundle.source;$source.rootPath=$Root;$source.phase='imported';$source|Add-Member NoteProperty releaseManifestSha256 $(if($bundle.source.releaseManifestSha256){$bundle.source.releaseManifestSha256}elseif($bundle.source.nativePanel){$bundle.source.nativePanel.manifestSha256}elseif($bundle.source.releaseTag -ceq $script:CLMLegacyTag){$script:CLMLegacyManifest}else{Get-CLMHash (Join-Path $BundleDirectory 'manifest.json')}) -Force;$source.PSObject.Properties.Remove('nativePanel');$source.PSObject.Properties.Remove('keepalive');if(-not $source.logicalInstallationId){$source|Add-Member NoteProperty logicalInstallationId $source.installationId}
  $ctx=@{schemaVersion=1;kind='restore';id=[guid]::NewGuid().ToString('N');selectedRoot=$Root;sourceRoot=$Root;source=$source;originalSource=$bundle.source;candidate=$source;candidateRoot=$Root;task=$bundle.task;bundle=$bundle;bundleDirectory=(Assert-CLMPath $BundleDirectory);adapter=$Adapter;progress=$Progress;sourceModule=$null}
  Invoke-CLMAdapter $ctx 'VerifyRestoreBundle'|Out-Null;Invoke-CLMAdapter $ctx 'CheckIdentityConflict'|Out-Null
  if($Adapter){[void][IO.Directory]::CreateDirectory($Root)}else{Protect-CLMDirectory $Root}
@@ -581,6 +625,17 @@ function Complete-CLMUpdate($Ctx){
  # Only positively owned transfer/marker payloads; directories and unknown files remain.
  foreach($p in @($Ctx.transfer,$Ctx.nativeHostStage,(Join-Path $Ctx.directory 'marker.stdin'))|Where-Object {$_}){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath (Assert-CLMPath $p) -Force}}
  Save-CLMJournal $Ctx 'completed';return $Ctx
+}
+function Get-CLMCandidateLease($Ctx){
+ if($Ctx.kind -cne 'update'){return $null}
+ $root=Assert-CLMPath $Ctx.candidateRoot
+ if(-not (Test-Path -LiteralPath $root)){
+  if(Invoke-CLMAdapter $Ctx 'CandidateRegistered'){throw 'Registered candidate has no owned host root; manual inspection required'}
+  return $null
+ }
+ $s=Read-CLMReceipt $root
+ if($s.installationId -cne $Ctx.candidate.installationId -or $s.installationId -ceq $Ctx.source.installationId -or $s.distroName -cne $Ctx.candidate.distroName -or $s.releaseTag -cne $Ctx.candidate.releaseTag -or $s.rootfsSha256 -cne $Ctx.candidate.rootfsSha256 -or $Ctx.candidate.rootPath -cne $root){throw 'Candidate host identity differs; operation lease refused'}
+ try{return [IO.File]::Open((Join-Path $root 'operation.lock'),'OpenOrCreate','ReadWrite','None')}catch{throw 'Candidate operation lock is owned by another control; recovery preserved'}
 }
 function Recover-CLMTransaction($Ctx){
  if($Ctx.phase -in @('completed','removed','rolled-back','restored')){return $Ctx}
@@ -626,6 +681,7 @@ function Invoke-CastlinkMaintenance {
   if($Action -ceq 'Recover'){
    if($old.kind -cne 'restore' -and ($ctx.source.installationId -cne $old.source.installationId -or $ctx.source.releaseTag -cne $old.source.releaseTag -or $ctx.source.rootfsSha256 -cne $old.source.rootfsSha256)){throw 'Recovery source identity changed; preserved for manual inspection'}
    $module=$ctx.sourceModule;$ctx=@{};foreach($p in $old.PSObject.Properties){$ctx[$p.Name]=$p.Value};$ctx.adapter=$Adapter;$ctx.progress=$Progress;$ctx.sourceModule=$module
+   $candidateLease=Get-CLMCandidateLease $ctx;if($candidateLease){$locks.Add($candidateLease)}
    return Recover-CLMTransaction $ctx
   }
   if($Action -ceq 'Update' -or $Action -ceq 'Remove'){
@@ -644,7 +700,7 @@ function Invoke-CastlinkMaintenance {
   $ctx.directory=Join-Path (Get-CLMStorageRoot $root) ('lifecycle-transactions\'+$ctx.id);if($Adapter){[void][IO.Directory]::CreateDirectory($ctx.directory)}else{Protect-CLMDirectory $ctx.directory}
   $ctx.journal=Join-Path $ctx.directory 'journal.json';$ctx.transfer=Join-Path $ctx.directory 'transfer.tar';$ctx.bundleDirectory=$BundleDirectory
   if($BundleDirectory){$BundleDirectory=Assert-CLMPath $BundleDirectory;$ctx.bundleDirectory=$BundleDirectory;if($BundleDirectory -ieq $root -or $BundleDirectory.StartsWith($root+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Bundle must be outside selected installation'};if(Test-Path -LiteralPath $BundleDirectory){throw 'Bundle destination must be new'};if($Adapter){[void][IO.Directory]::CreateDirectory($BundleDirectory)}else{Protect-CLMDirectory $BundleDirectory}}
-  if($Action -ceq 'Update'){$cid=[guid]::NewGuid().ToString('N');$ctx.candidateRoot=Join-Path (Get-CLMStorageRoot $root) ('lifecycle-generations\'+$cid);$ctx.candidate=[pscustomobject]@{schemaVersion=1;installationId=$cid;distroName=('CastLink-Server-'+$cid.Substring(0,12));rootPath=$ctx.candidateRoot;releaseTag=$ctx.target.releaseTag;repository='resokol/castlink';rootfsSha256=$ctx.target.rootfs.sha256;phase='imported';logicalInstallationId=$(if($ctx.source.logicalInstallationId){$ctx.source.logicalInstallationId}else{$ctx.source.installationId});desiredRunning=[bool]$ctx.source.desiredRunning;autoStartAtLogon=[bool]$ctx.source.autoStartAtLogon}}
+  if($Action -ceq 'Update'){$cid=[guid]::NewGuid().ToString('N');$ctx.candidateRoot=Join-Path (Get-CLMStorageRoot $root) ('lifecycle-generations\'+$cid);$ctx.candidate=[pscustomobject]@{schemaVersion=1;installationId=$cid;distroName=('CastLink-Server-'+$cid.Substring(0,12));rootPath=$ctx.candidateRoot;releaseTag=$ctx.target.releaseTag;repository='resokol/castlink';rootfsSha256=$ctx.target.rootfs.sha256;releaseManifestSha256=$ctx.manifestSha256;phase='imported';logicalInstallationId=$(if($ctx.source.logicalInstallationId){$ctx.source.logicalInstallationId}else{$ctx.source.installationId});desiredRunning=[bool]$ctx.source.desiredRunning;autoStartAtLogon=[bool]$ctx.source.autoStartAtLogon}}
   if($ctx.candidate -and $ctx.source.PSObject.Properties['logonTaskMode']){$ctx.candidate|Add-Member NoteProperty logonTaskMode $ctx.source.logonTaskMode -Force}
   Invoke-CLMAdapter $ctx 'PreflightEntryPoint'|Out-Null
   Save-CLMJournal $ctx 'prepared';Write-CLMJson (Join-Path $selected 'maintenance-transaction.json') ([ordered]@{schemaVersion=1;selectedRoot=$selected;id=$ctx.id;journal=$ctx.journal})
@@ -656,7 +712,7 @@ function Invoke-CastlinkMaintenance {
   if($Action -ceq 'Remove'){return Complete-CLMRemove $ctx}
   Save-CLMJournal $ctx 'export-transfer';Invoke-CLMAdapter $ctx 'ExportTransfer'|Out-Null
   Save-CLMJournal $ctx 'import-candidate';Invoke-CLMAdapter $ctx 'ImportCandidate'|Out-Null
-  if(-not $Adapter){$locks.Add([IO.File]::Open((Join-Path $ctx.candidateRoot 'operation.lock'),'OpenOrCreate','ReadWrite','None'))}
+  $candidateLease=Get-CLMCandidateLease $ctx;if($candidateLease){$locks.Add($candidateLease)}
   Save-CLMJournal $ctx 'mark-candidate';Invoke-CLMAdapter $ctx 'MarkCandidate'|Out-Null
   Save-CLMJournal $ctx 'gate-close';Invoke-CLMAdapter $ctx 'GateClose'|Out-Null
   Save-CLMJournal $ctx 'import-transfer';Invoke-CLMAdapter $ctx 'ImportTransfer'|Out-Null

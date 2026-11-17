@@ -303,7 +303,7 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
           if($slot -ceq 'monitor'){$state.snapshot=$output[-1];$state.monitorFailed=$false}
           elseif($slot -ceq 'export'){$state.notice='exportReady'}
           elseif($job.mode -ceq 'Stop'){$state.lastStoppedAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds();if($state.closing){$state.canClose=$true;$window.Close()}}
-          elseif($job.mode -ceq 'Start'){$state.lastStoppedAt=$null;maintenance=$false}
+          elseif($job.mode -ceq 'Start'){$state.lastStoppedAt=$null}
         }catch{
           $failed=$true
           if($slot -ceq 'monitor'){$state.monitorFailed=$true}else{

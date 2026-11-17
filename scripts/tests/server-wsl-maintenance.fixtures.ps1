@@ -1,11 +1,11 @@
-﻿param([string]$ScratchRoot=$env:TEMP)
+﻿param([string]$ScratchRoot=$env:TEMP,[string]$Only='')
 $ErrorActionPreference='Stop'
 $manager=Join-Path (Split-Path $PSScriptRoot -Parent) 'server-wsl-maintenance.ps1'
 if(-not (Test-Path $manager)){throw 'Lifecycle coordinator is missing (expected RED)'}
 . $manager -FunctionsOnly
 function Assert($Condition,$Message){if(-not $Condition){throw $Message}}
 $script:passes=0
-function Test($Name,[scriptblock]$Body){& $Body;$script:passes++;Write-Output ('PASS '+$Name)}
+function Test($Name,[scriptblock]$Body){if($Only -and $Name -notlike $Only){return};& $Body;$script:passes++;Write-Output ('PASS '+$Name)}
 function Throws([scriptblock]$Body,[string]$Pattern){try{& $Body}catch{if($_.Exception.Message -match $Pattern){return};throw};throw ('Expected refusal '+$Pattern)}
 $testRoot=Join-Path $ScratchRoot ('castlink-lifecycle-fixtures-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($testRoot)
@@ -25,7 +25,8 @@ function Fixture {
    'SourceTask' {return [pscustomobject]@{exists=$true;enabled=$true}}
    'StopSource' {$world.sourceRunning=$false}
    'ExportTransfer' {[IO.File]::WriteAllBytes($ctx.transfer,[byte[]]@(0,255,13,10,128))}
-   'ImportCandidate' {$world.candidate=$true}
+   'ImportCandidate' {$world.candidate=$true;[void][IO.Directory]::CreateDirectory($ctx.candidateRoot);Write-CLMJson (Join-Path $ctx.candidateRoot 'installation.json') $ctx.candidate}
+   'CandidateRegistered' {return $world.candidate}
    'MarkCandidate' {$world.marked=$true}
    'CandidateOwned' {if($world.candidate -and -not $world.marked){throw 'Unmarked import requires manual inspection'};return $world.candidate}
    'StartCandidate' {$world.candidateRunning=$true}
@@ -42,6 +43,33 @@ function Fixture {
   if($world.after -ceq $name){throw ('Lost response '+$name)}
  }.GetNewClosure()
  return @{root=$root;world=$world;adapter=$a}
+}
+function InstalledSourceFixture([string]$Profile,[bool]$Incomplete){
+ $root=Join-Path $Profile 'CastLinkServer/installed';$public=Join-Path $Profile 'published';$target=Join-Path $Profile 'target';foreach($p in @($root,$public,$target,(Join-Path $root 'release'))){[void][IO.Directory]::CreateDirectory($p)}
+ $scripts=Split-Path $PSScriptRoot -Parent;$panelInventory=Read-CLMJson (Join-Path $scripts 'server-native-panel-files.json');$panelFiles=@();$helpers=@()
+ foreach($name in @('server-native-panel-files.json')+@($panelInventory.files)+@($panelInventory.buildFiles)+@('server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(Test-Path (Join-Path $public $name)){continue};$src=Join-Path $scripts $(if($name -ceq 'install-server-windows.template.ps1'){'install-server-windows.ps1'}else{$name});[IO.File]::Copy($src,(Join-Path $public $name),$false)}
+ foreach($name in @('server-native-panel-files.json')+@($panelInventory.files)+@($panelInventory.buildFiles)){$p=Join-Path $public $name;$panelFiles+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}}
+ foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){$p=Join-Path $public $name;$helpers+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}}
+ $payloads=@();foreach($name in @('rootfs.tar.gz','sources.tar.gz','upstream.tar.gz','packages.tsv')){$p=Join-Path $public $name;[IO.File]::WriteAllText($p,('synthetic '+$name));$payloads+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}};$payloads[0]|Add-Member NoteProperty expandedBytes 1024
+ $m=[pscustomobject]@{schemaVersion=1;channel='server-wsl';repository='resokol/castlink';architecture='amd64';version='1.0.6';sourceCommit=('c'*40);releaseTag='server-wsl-v1.0.6-cccccccccccc';rootfs=$payloads[0];sources=$payloads[1];upstreamSources=$payloads[2];inventory=$payloads[3];nativePanel=[pscustomobject]@{schemaVersion=1;host='CastLinkServer.exe';binding='server-native-binding.json';files=$panelFiles};lifecycle=[pscustomobject]@{schemaVersion=1;runtimeContract='castlink-wsl-pg16-v1';postgresMajor=16;supportedSources=@($script:CLMLegacyTag);helpers=$helpers}}
+ Write-CLMJson (Join-Path $public 'manifest.json') $m;$pin=Get-CLMHash (Join-Path $public 'manifest.json');[IO.File]::Copy((Join-Path $public 'manifest.json'),(Join-Path $root 'release/manifest.json'),$false);[IO.File]::Copy((Join-Path $public $m.rootfs.file),(Join-Path $root ('release/'+$m.rootfs.file)),$false)
+ $s=[pscustomobject]@{schemaVersion=1;installationId=('a'*32);distroName=('CastLink-Server-'+('a'*12));rootPath=$root;repository='resokol/castlink';releaseTag=$m.releaseTag;rootfsSha256=$m.rootfs.sha256;phase=$(if($Incomplete){'imported'}else{'ready'});desiredRunning=$false;autoStartAtLogon=$false}
+ if(-not $Incomplete){$installer=Stage-CLMInstaller $public $m $pin;[IO.File]::Copy($installer,(Join-Path $root 'install-server-windows.ps1'),$false);$native=Join-Path $root 'native-panel';[void][IO.Directory]::CreateDirectory($native);foreach($e in $panelFiles){[IO.File]::Copy((Join-Path $public $e.file),(Join-Path $native $e.file),$false)};$hostPath=Join-Path $native 'CastLinkServer.exe';[IO.File]::WriteAllText($hostPath,'synthetic host, never executed');$bindingPath=Join-Path $native 'server-native-binding.json';Write-CLMJson $bindingPath ([pscustomobject]@{installationId=$s.installationId;installRoot=$root;origin='https://fixture.invalid';expectedBuildId='1.0.6-cccccccccccc';sourceScriptPath=(Join-Path $root 'install-server-windows.ps1');expectedInstallerSha256=(Get-CLMHash (Join-Path $root 'install-server-windows.ps1'))});$s|Add-Member NoteProperty nativePanel ([pscustomobject]@{schemaVersion=1;hostPath=$hostPath;bindingPath=$bindingPath;hostSha256=(Get-CLMHash $hostPath);bindingSha256=(Get-CLMHash $bindingPath);manifestSha256=$pin})}
+ Write-CLMJson (Join-Path $root 'installation.json') $s
+ foreach($p in Get-ChildItem $public -File){[IO.File]::Copy($p.FullName,(Join-Path $target $p.Name),$false)};$next=Copy-CLMObject $m;$next.version='1.0.7';$next.sourceCommit=('e'*40);$next.releaseTag='server-wsl-v1.0.7-eeeeeeeeeeee';$next.lifecycle.supportedSources=@($m.releaseTag);Write-CLMJson (Join-Path $target 'manifest.json') $next
+ $world=@{registered=$true;imports=0;catalogCalls=0;state=$s;public=$public;pin=$pin}
+ $module=New-Module -ArgumentList $manager,$world -ScriptBlock {
+  param($manager,$world);. $manager -FunctionsOnly;$script:world=$world
+  function Receive-CLMAsset($Url,$Path,$Limit){[IO.File]::Copy((Join-Path $script:world.public ([IO.Path]::GetFileName($Path))),$Path,$false)}
+  function Get-CastlinkWslReleaseChoices {$script:world.catalogCalls++;return [pscustomobject]@{releaseTag=$script:world.state.releaseTag;manifestSha256=$script:world.pin;manifestSize=(Get-Item (Join-Path $script:world.public 'manifest.json')).Length}}
+  function Get-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction);return $null}
+  function Get-CimInstance {param($ClassName,$Filter);return @()}
+  function Invoke-CLMWsl($State,$Arguments,$InputFile,$OutputFile,$Limit,$Timeout){if($Arguments -contains 'inspect'){return '{"initialized":true,"complete":true,"postgresMajor":16,"dataBytes":128,"stopped":true}'};if($Arguments -contains 'status'){return '{"ready":true,"buildId":"1.0.6-cccccccccccc","origin":"https://fixture.invalid"}'};return ''}
+  function Invoke-CLMProcess($Exe,$Arguments,$InputFile,$OutputFile,$Limit,$Timeout){if($Arguments -contains '--list'){if($script:world.registered){return $script:world.state.distroName};return ''};if($Arguments -contains '--unregister'){$script:world.registered=$false};if($Arguments -contains '--import'){$script:world.registered=$true};if($Arguments -contains '--export'){[IO.File]::WriteAllBytes($Arguments[-1],[byte[]]@(0,255,128,13,10))};return ''}
+  function Import-CLMInstaller($Path){$script:world.imports++;New-Module -ArgumentList $Path -ScriptBlock {param($p);. $p;$script:WslExe=Join-Path $env:WINDIR 'System32/wsl.exe';function Start-CastlinkKeepalive($Root,$State){};function Stop-CastlinkKeepalive($Root,$State){};function Build-CastlinkNativePanelHost($Directory,$Output){[IO.File]::WriteAllText($Output,'synthetic compiled host, never executed')};Export-ModuleMember -Function *}}
+  Export-ModuleMember -Function *
+ }
+ return @{root=$root;public=$public;target=$target;targetPin=(Get-CLMHash (Join-Path $target 'manifest.json'));state=$s;world=$world;module=$module}
 }
 try {
  Test 'unimplemented host lifecycle API fails red' {Assert ([bool](Get-Command Invoke-CastlinkMaintenance -ErrorAction SilentlyContinue)) 'Missing API'}
@@ -152,6 +180,53 @@ try{
   $r=Set-CLMNativeBindings $ctx $s $status $cache $installer $pin $m;$binding=Read-CLMJson $r.nativePanel.bindingPath;Assert ($binding.installRoot -ceq $root -and $binding.installationId -ceq $s.installationId) 'binding root/identity';Assert ($binding.expectedInstallerSha256 -ceq (Get-CLMHash (Join-Path $root 'install-server-windows.ps1'))) 'installer pin';Assert (Test-Path $ctx.nativeHostStage) 'compiled stage missing'
   $s.PSObject.Properties.Remove('nativePanel');Write-CLMJson (Join-Path $root 'installation.json') $s;$r=Set-CLMNativeBindings $ctx $s $status $cache $installer $pin $m;Assert ($r.nativePanel.hostSha256 -ceq $ctx.nativeHostHash) 'ambiguous binding recovery failed'
   $s.PSObject.Properties.Remove('nativePanel');Write-CLMJson (Join-Path $root 'installation.json') $s;[IO.File]::AppendAllText((Join-Path $root 'native-panel/CastLinkServer.exe'),'unknown');Throws {Set-CLMNativeBindings $ctx $s $status $cache $installer $pin $m} 'differs|checksum'
+ }
+ Test 'installed and restored nonlegacy layouts remain maintainable without full release archives' {
+  $savedLocal=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot ('profile-'+[guid]::NewGuid().ToString('N'))
+  try{
+   $f=InstalledSourceFixture $env:LOCALAPPDATA $false
+   $check=& $f.module {param($f);Invoke-CastlinkMaintenance Check $f.root -TargetDirectory $f.target -ExpectedManifestSha256 $f.targetPin} $f
+   Assert ($check.source.releaseTag -ceq $f.state.releaseTag) 'installed Check source';Assert (-not (Test-Path (Join-Path $f.root 'release/sources.tar.gz'))) 'fixture has full source archive'
+   $bundle=Join-Path $testRoot ('modern-bundle-'+[guid]::NewGuid().ToString('N'));$removed=& $f.module {param($f,$bundle);Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -BundleDirectory $bundle} $f $bundle
+   Assert ($removed.phase -ceq 'removed') 'installed Remove failed'
+   $recovery=@{sourceRoot=$f.root;recovery=$true};$verified=& $f.module {param($c);Invoke-CLMDefaultAdapter VerifySource $c $null} $recovery
+   Assert ($verified.installationId -ceq $f.state.installationId -and (Test-Path $recovery.sourceProvenance)) 'cleanup lost source provenance'
+   Assert (-not (Test-Path (Join-Path $f.root 'release/manifest.json'))) 'owned manifest was not actually cleaned'
+   $destination=Join-Path $env:LOCALAPPDATA 'CastLinkServer/restored';$restored=& $f.module {param($destination,$bundle);Invoke-CastlinkMaintenance Restore $destination -BundleDirectory $bundle} $destination $bundle
+   Assert ($restored.phase -ceq 'restored') 'restore failed';Assert (-not (Test-Path (Join-Path $destination 'release/rootfs.tar.gz'))) 'restored fixture has rootfs package'
+   $check=& $f.module {param($root,$f);Invoke-CastlinkMaintenance Check $root -TargetDirectory $f.target -ExpectedManifestSha256 $f.targetPin} $destination $f
+   Assert ($check.source.rootPath -ceq $destination) 'restored Check failed';$removed=& $f.module {param($root,$name);Invoke-CastlinkMaintenance Remove $root -Confirmation $name -EraseData} $destination $f.state.distroName;Assert ($removed.phase -ceq 'removed') 'restored Remove failed'
+  }finally{$env:LOCALAPPDATA=$savedLocal}
+ }
+ Test 'incomplete nonlegacy sources archive and restore using independent release pins' {
+  $savedLocal=$env:LOCALAPPDATA;$profile=Join-Path $testRoot ('incomplete-profile-'+[guid]::NewGuid().ToString('N'))
+  try{foreach($mode in @('catalog','supplied')){
+   $env:LOCALAPPDATA=Join-Path $profile $mode;$f=InstalledSourceFixture $env:LOCALAPPDATA $true;Assert (-not $f.state.nativePanel -and -not (Test-Path (Join-Path $f.root 'install-server-windows.ps1'))) 'fixture is already bound';$bundle=Join-Path $env:LOCALAPPDATA 'archive'
+   $r=& $f.module {param($f,$mode,$bundle);$p=@{};if($mode -ceq 'supplied'){$p.TargetDirectory=$f.public;$p.ExpectedManifestSha256=$f.world.pin};Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -BundleDirectory $bundle @p} $f $mode $bundle;Assert ($r.phase -ceq 'removed') 'incomplete source removal'
+   $destination=Join-Path $env:LOCALAPPDATA 'CastLinkServer/restored-incomplete';$r=& $f.module {param($root,$bundle);Invoke-CastlinkMaintenance Restore $root -BundleDirectory $bundle} $destination $bundle;Assert ($r.phase -ceq 'restored' -and $r.source.phase -ceq 'imported' -and -not $r.source.nativePanel) 'incomplete restoration invented readiness'
+   $r=& $f.module {param($root,$name);Invoke-CastlinkMaintenance Remove $root -Confirmation $name -EraseData} $destination $f.state.distroName;Assert ($r.phase -ceq 'removed') 'restored incomplete source not maintainable';Assert ($f.world.catalogCalls -eq $(if($mode -ceq 'catalog'){1}else{0})) 'wrong exact release trust lookup'
+  }}finally{$env:LOCALAPPDATA=$savedLocal}
+ }
+ Test 'mutable incomplete source metadata is never its own trust anchor' {
+  $savedLocal=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot ('untrusted-profile-'+[guid]::NewGuid().ToString('N'))
+  try{$f=InstalledSourceFixture $env:LOCALAPPDATA $true;[IO.File]::AppendAllText((Join-Path $f.root 'release/manifest.json'),' ');Throws {& $f.module {param($f);Invoke-CastlinkMaintenance Remove $f.root -Confirmation $f.state.distroName -EraseData} $f} 'checksum|pin';Assert ($f.world.imports -eq 0) 'unverified installer was imported';Assert ($f.world.registered) 'untrusted source was removed'}finally{$env:LOCALAPPDATA=$savedLocal}
+ }
+ Test 'recovery holds the real candidate lease before rollback or postcommit effects' {
+  foreach($boundary in @('CandidateReady','GateOpen')){
+   $f=Fixture;$f.world.fail=$boundary;Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'Injected';$f.world.fail='';$j=Get-CLMJournal $f.root
+   if(-not (Test-Path $j.candidateRoot)){[void][IO.Directory]::CreateDirectory($j.candidateRoot);Write-CLMJson (Join-Path $j.candidateRoot 'installation.json') $j.candidate}
+   $lease=[IO.File]::Open((Join-Path $j.candidateRoot 'operation.lock'),'OpenOrCreate','ReadWrite','None');$before=$f.world.events.Count
+   try{Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter} 'candidate.*lock|candidate.*lease';$after=@($f.world.events|Select-Object -Skip $before);Assert (-not ($after|Where-Object {$_ -in @('StopCandidate','GateClose','ReleaseStoppedFirewall','TerminateCandidate','DiscardCandidate','PublishEntryPoint','PublishCandidateTask','GateOpen','CleanupSource')})) 'candidate effects ran while its lease was held'}finally{$lease.Dispose()}
+   $r=Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter;Assert ($r.phase -ceq $(if($boundary -ceq 'GateOpen'){'completed'}else{'rolled-back'})) 'recovery did not resume after lease release'
+  }
+ }
+ Test 'candidate recovery refuses a mismatched existing host receipt before guest effects' {
+  $f=Fixture;$f.world.fail='CandidateReady';Throws {Invoke-CastlinkMaintenance Update $f.root -TargetDirectory $testRoot -ExpectedManifestSha256 ('f'*64) -Confirmation $f.world.source.distroName -Adapter $f.adapter} 'Injected';$f.world.fail='';$j=Get-CLMJournal $f.root;$foreign=Read-CLMReceipt $j.candidateRoot;$foreign.installationId='f'*32;$foreign.distroName='CastLink-Server-'+('f'*12);Write-CLMJson (Join-Path $j.candidateRoot 'installation.json') $foreign;$before=$f.world.events.Count
+  Throws {Invoke-CastlinkMaintenance Recover $f.root -Adapter $f.adapter} 'Candidate host identity';$after=@($f.world.events|Select-Object -Skip $before);Assert (-not ($after|Where-Object {$_ -in @('CandidateOwned','StopCandidate','GateClose','GateOpen','CleanupSource')})) 'foreign candidate was operated on'
+ }
+ Test 'successful native Start completion clears stopped timestamp without reporting failure' {
+  $source=[IO.File]::ReadAllText((Join-Path (Split-Path $PSScriptRoot -Parent) 'server-native-control.ps1'));$match=[regex]::Match($source,"elseif\(\`$job\.mode -ceq 'Start'\)\{([^}]+)\}");Assert $match.Success 'Start completion branch absent';$state=[pscustomobject]@{lastStoppedAt=123;maintenance=$true;notice=''}
+  try{& ([scriptblock]::Create($match.Groups[1].Value))}catch{$state.notice='failure'};Assert ($null -eq $state.lastStoppedAt -and -not $state.notice) 'successful Start reported failure';Assert $state.maintenance 'Start completion overwrote authoritative maintenance state'
  }
  Write-Output ('Fixtures passed: '+$script:passes)
 } finally {Remove-Item -LiteralPath $testRoot -Recurse -Force}

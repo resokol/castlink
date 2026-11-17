@@ -184,7 +184,7 @@ function Get-CastlinkInstallation([string]$Root, [string]$Tag, [string]$Repo, [s
     }
     if ((Test-Path -LiteralPath $Root) -and @(Get-ChildItem -LiteralPath $Root -Force).Count -gt 0) { throw 'InstallRoot contains foreign files. Choose an empty CastLink directory.' }
     $id = [guid]::NewGuid().ToString('N')
-    return [pscustomobject]@{schemaVersion=1;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;phase='created'}
+    return [pscustomobject]@{schemaVersion=1;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;releaseManifestSha256=$script:PackagedManifestSha256;phase='created'}
 }
 
 function Assert-CastlinkPackage([string]$Directory, [string]$Tag, [string]$Repo, [string]$RootfsHash, [string]$ManifestHash) {
