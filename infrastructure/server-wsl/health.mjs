@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 const root='/opt/castlink/app';
 export function probeOrigin(r,port=443){
  return new Promise((resolve,reject)=>{
-  const request=https.get({hostname:'127.0.0.1',port,ALPNProtocols:['http/1.1'],path:'/api/version',headers:{Host:r.host},servername:net.isIP(r.host)?'':r.host,
+  const request=https.get({hostname:'127.0.0.1',port,ALPNProtocols:['http/1.1'],path:'/api/version',headers:{Host:r.host,...(r.maintenanceProbeToken?{'X-CastLink-Maintenance-Probe':r.maintenanceProbeToken}:{})},servername:net.isIP(r.host)?'':r.host,
     ca:r.publicHttps?undefined:r.caPem,checkServerIdentity:(_,cert)=>tls.checkServerIdentity(r.host,cert),timeout:10000},response=>{
     let body='';response.on('data',chunk=>{body+=chunk;if(body.length>65536)request.destroy(Error());});
     response.on('end',()=>{try{if(response.statusCode!==200||JSON.parse(body).buildId!==r.buildId)throw Error();resolve();}catch{reject(Error());}});
