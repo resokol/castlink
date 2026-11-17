@@ -26,7 +26,8 @@ spec = importlib.util.spec_from_loader('castlink_runtime', SourceFileLoader('cas
 runtime = importlib.util.module_from_spec(spec); spec.loader.exec_module(runtime)
 ACCOUNTS = ('root', 'postgres', 'castlink', 'castlink-caddy', 'castlink-livekit', 'castlink-converter', 'castlink-turn')
 CONTRACT = 'castlink-wsl-pg16-v1'
-SOURCE = 'server-wsl-v1.0.5-rc.1-085b087a2458'
+SUPPORTED_SOURCES = frozenset(('server-wsl-v1.0.5-rc.1-085b087a2458',
+                               'server-wsl-v1.0.5-rc.2-af3e309d0926'))
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4
@@ -269,7 +270,7 @@ class Maintenance:
         result=self.inspect(installation_id);self.require_stopped()
         if not result['initialized'] or not result.get('complete') or result['postgresMajor']!=16:
             raise ValueError('Only complete PostgreSQL 16 sources can be transferred')
-        if 'server-wsl-v'+result['release']['buildId']!=SOURCE:raise ValueError('Unsupported source release')
+        if 'server-wsl-v'+result['release']['buildId'] not in SUPPORTED_SOURCES:raise ValueError('Unsupported source release')
         state=load_state(self.state);credentials=bounded_json(self.state/'secrets.json')
         if bounded_json(self.release)!=state['release']:raise ValueError('Source runtime release differs from saved state')
         if bounded_text(self.state/'postgres/castlink-installation-id',128).strip()!=state['installationId']:
@@ -296,9 +297,10 @@ class Maintenance:
             raise ValueError('Incompatible transfer contract')
         if not isinstance(manifest.get('sourceRelease'),dict):raise ValueError('Invalid source release')
         runtime.validate_release(manifest['sourceRelease'])
-        if 'server-wsl-v'+manifest['sourceRelease']['buildId']!=SOURCE:raise ValueError('Unsupported transfer source')
+        source_tag='server-wsl-v'+manifest['sourceRelease']['buildId']
+        if source_tag not in SUPPORTED_SOURCES:raise ValueError('Unsupported transfer source')
         target=bounded_json(self.release);runtime.validate_release(target);compat=target.get('lifecycle',{})
-        if compat.get('schemaVersion')!=1 or compat.get('runtimeContract')!=CONTRACT or compat.get('postgresMajor')!=16 or SOURCE not in compat.get('supportedSources',[]):
+        if compat.get('schemaVersion')!=1 or compat.get('runtimeContract')!=CONTRACT or compat.get('postgresMajor')!=16 or not isinstance(compat.get('supportedSources'),list) or source_tag not in compat['supportedSources']:
             raise ValueError('Target does not explicitly support this source')
         entries=manifest.get('entries')
         if not isinstance(entries,list) or len(entries)>MAX_ENTRIES:raise ValueError('Invalid inventory')
