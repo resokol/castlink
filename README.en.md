@@ -8,8 +8,8 @@ Choose where to install your server:
 
 | System | Installer |
 | --- | --- |
-| Windows 11 | Full **1.0.5-rc.3** installer without Docker Desktop. Published prerelease. |
-| Ubuntu Linux / VPS | One `curl` command, stable **1.0.5**. |
+| Windows 11 | Full **1.0.6-rc.1** installer without Docker Desktop. Published prerelease. |
+| Ubuntu Linux / VPS | One `curl` command, stable **1.0.6**. |
 
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
 
@@ -46,7 +46,7 @@ Moving from Docker? Stop the old CastLink server and quit Docker Desktop. Keep t
 
 ### 1. Download
 
-**[Download install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/install-server-windows.ps1)**
+**[Download install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/install-server-windows.ps1)**
 
 It downloads the server files automatically. No separate hotfix or source archive is needed.
 
@@ -85,16 +85,16 @@ The **CastLink Server** panel opens after installation. Wait for its running sta
 
 The panel provides service controls, statistics and **Export ZIP for 24 hours**. Closing the window hides it in the tray; use **Stop services** to stop the server. Test from another device; use a phone on mobile data to verify internet access.
 
-**Release status:** **1.0.5-rc.3** is a published prerelease. Maintain an existing server through the tool below; do not install over its data. [Release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.3-95ec46463c82) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/SHA256SUMS).
+**Release status:** **1.0.6-rc.1** is a published prerelease. Maintain an existing server through the tool below; do not install over its data. [Release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS).
 
 ### Update, remove or restore a WSL server
 
-1. Download the [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/CastLink-Server-WSL-Maintenance.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
-2. Select the server by address and folder, then select target release **1.0.5-rc.3**. Click **Check**, review current/target versions and disk space, then **Update**. Updating interrupts service: do it outside a broadcast. Confirm the displayed server; no manual checksum or WSL ID entry is needed.
+1. Download the [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
+2. Select the server by address and folder, then select target release **1.0.6-rc.1**. Click **Check**, review current/target versions and disk space, then **Update**. Updating interrupts service: do it outside a broadcast. Confirm the displayed server; no manual checksum or WSL ID entry is needed.
 3. To remove it, choose **Keep a restorable archive before removing** or **Permanently erase server and data**, then **Remove**. The saved archive is a **folder** containing a full export and restore helpers, not a statistics ZIP. It contains credentials; keep the whole folder private.
 4. **Restore** uses that archive folder and a new installation folder that does not yet exist under `%LOCALAPPDATA%\CastLinkServer`. After an interruption, select the same server and **Recover transaction**. On success, use **Open server panel**.
 
-Supported upgrade sources are `server-wsl-v1.0.5-rc.1-085b087a2458` and `server-wsl-v1.0.5-rc.2-af3e309d0926`. Supported updates preserve rooms, history, passwords, address and certificates; successful updates leave no permanent automatic backup. Migration from Docker is unsupported. [Details](distribution/docs/en/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/SHA256SUMS).
+Supported upgrade sources are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926` and `server-wsl-v1.0.5-rc.3-95ec46463c82`. Supported updates preserve rooms, history, passwords, address and certificates; successful updates leave no permanent automatic backup. Migration from Docker is unsupported. [Details](distribution/docs/en/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS).
 
 ## Ubuntu Linux server
 
@@ -103,10 +103,10 @@ Supports **Ubuntu 22.04 / 24.04, x86-64/amd64**. Connect over SSH with a user wh
 ### 1. Run one command
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-This pinned **1.0.5** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.
+This pinned **1.0.6** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.
 
 If `curl` is missing, run this first, then repeat installation:
 
