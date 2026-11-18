@@ -31,7 +31,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 ## 无 Docker 的 Windows/WSL2 — 独立实验渠道
 
-完整 [1.0.5-rc.1 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.1-085b087a2458)已作为预发布版本发布。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
+[1.0.5-rc.3 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.5-rc.3-95ec46463c82)现已发布，仍为预发布版本。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。
@@ -40,7 +40,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 然后在 PowerShell 中运行：
 
 ```powershell
-& .\install-server-windows.ps1 -Action Install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1 -Action Install
 ```
 
 安装器询问地址和密码，验证 rootfs SHA256，仅创建其专属发行版。
@@ -62,6 +62,26 @@ HTTPS/数据库就绪不代表已验证外部媒体通话。
 
 后台进程在安装窗口关闭后保持专属 WSL 发行版运行。经明确同意可启用当前 Windows 用户
 登录时自动启动。明确执行 `Stop` 后保留停止状态。
+
+### 维护：更新、删除及恢复
+
+从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.5-rc.3-95ec46463c82/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
+
+**选择与更新。** 按地址和文件夹选择确切的服务器，不要默认选择多个安装中的第一个。不完整安装的地址可能未知，请核对文件夹。选择目标版本，点击**检查**，核对当前/目标版本及所需/可用空间。工具在停止服务前下载并验证所需文件。检查不会自动开始更新，预发布版本必须明确选择。正常窗口无需输入 SHA256 或不透明的 WSL 标识。
+
+请仅在非直播时点击**更新**：迁移和就绪检查期间服务器会停止。确认对话框显示所选地址、版本和文件夹，也可取消。支持的来源版本为 `server-wsl-v1.0.5-rc.1-085b087a2458` 和 `server-wsl-v1.0.5-rc.2-af3e309d0926`。不支持其他来源版本、迁移 Docker 或跨 PostgreSQL 主版本更新。不完整来源需用原版本修复，或通过此工具删除；更新不会将其假定为就绪。
+
+受支持的升级保留服务器 UUID、房间及历史、密码、域名、TLS 材料和网络设置。成功后删除临时迁移副本和旧的专属发行版，**不会保留永久自动备份**；失败时保留所需恢复依据。成功后点击**打开服务器面板**，并刷新导播及嘉宾页面。
+
+**删除。** 默认选择**删除前保留可恢复归档**。选择安装文件夹之外的位置并点击**删除**，工具会先创建并验证新的归档文件夹，再删除服务器。也可明确选择**永久删除服务器和数据**。确认对话框标明所选服务器及是否保留归档，取消不会开始操作。
+
+恢复归档是包含 `bundle.json`、完整 `distribution.tar` 导出和已保存版本辅助文件的**文件夹**，既不是维护 ZIP，也不是 24 小时统计导出。归档含有密码、密钥及其他凭据，请完整、私密地保存，不要作为普通诊断文件上传；所有文件应保持在一起。
+
+**恢复。** 在同一窗口选择归档文件夹并点击**恢复**。在 `%LOCALAPPDATA%\CastLinkServer` 内选择父文件夹，文件夹对话框会建议新的目标名称。目标文件夹必须尚不存在，不会与其他安装合并。恢复的是已保存版本及其身份、设置；如现有服务器或端口冲突，将拒绝操作。原本不完整的安装恢复后仍为不完整状态，不会声称应用已就绪。
+
+**中断后。** 重新打开同一工具，选择同一服务器并点击**恢复事务**。保留数据，不要手动运行旧快捷方式，也不要用 Install 代替恢复。切换到新版本后，恢复操作修复新版本，不会静默以旧数据替换可能已改变的新数据。无法确认归属的发行版会保留供人工检查。
+
+维护仅作用于所选服务器。其他安装、嵌套文件夹、未知文件和手动保存的导出保持不变，共享 WSL/防火墙设置予以保留。不要将手动删除 AppData、全局 `wsl --shutdown` 或 unregister 命令作为常规维护步骤。
 
 ## 图表及服务器所有者权限
 

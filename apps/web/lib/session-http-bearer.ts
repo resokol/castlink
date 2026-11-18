@@ -32,10 +32,14 @@ export function retainSessionHttpBearer(source: string) {
   const retained = entry;
   let closed = false;
   return {
-    update(token: string) {
+    update(token: string, previousToken?: string) {
       if (closed || !retained || sessions.get(source) !== retained) return false;
       const next = claims(token);
-      if (!next || next.scope !== retained.claims.scope || next.expiresAt <= retained.claims.expiresAt) return false;
+      if (previousToken !== undefined && previousToken !== retained.token) return false;
+      // Explicit route renewal can carry newer metadata within the same issuance second.
+      // Ordinary asynchronous renewals still require a strictly newer expiry.
+      if (!next || next.scope !== retained.claims.scope || next.expiresAt < retained.claims.expiresAt ||
+          next.expiresAt === retained.claims.expiresAt && previousToken === undefined) return false;
       retained.token = token; retained.claims = next;
       return true;
     },

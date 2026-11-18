@@ -1,3 +1,4 @@
+import { guestRouteCaptureConstraints } from "./guest-route-capture";
 import { guestCameraSource } from "./guest-camera-source";
 import { RoomEvent, Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
 import { applyGuestCaptureConstraints, applyPreferredGuestCameraCapture, effectiveGuestCameraCapture, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
@@ -27,6 +28,17 @@ export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, p
     videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: prior.videoEncoding?.maxFramerate || 30 } };
 }
 
+async function applyRoomCameraCapture(room: Room, track: MediaStreamTrack, preferences: GuestCameraPreferences | undefined, valid: () => boolean) {
+  const retained = guestRouteCaptureConstraints(room, preferences);
+  if (!retained) return applyPreferredGuestCameraCapture(track, room.localParticipant.metadata, preferences, valid);
+  try { await track.applyConstraints(retained); }
+  catch (cause) {
+    if (!valid()) throw cause;
+    const fallback = { ...retained }; delete (fallback as Record<string, unknown>).resizeMode;
+    await track.applyConstraints(fallback);
+  }
+}
+
 async function applyGuestCameraHeightNow(room: Room, participantSid: string, isCurrent: () => boolean, preferences?: GuestCameraPreferences): Promise<boolean> {
   const participant = room.localParticipant;
   const publication = participant.getTrackPublication(Track.Source.Camera);
@@ -34,7 +46,7 @@ async function applyGuestCameraHeightNow(room: Room, participantSid: string, isC
   const intent = JSON.stringify(staffGuestCameraCapture(participant.metadata));
   const valid = () => isCurrent() && room.state === "connected" && participant.sid === participantSid && participant.getTrackPublication(Track.Source.Camera)?.track === track && JSON.stringify(staffGuestCameraCapture(participant.metadata)) === intent;
   if (!valid() || !participant.isCameraEnabled || !track) return false;
-  await applyPreferredGuestCameraCapture(guestCameraSource(track), participant.metadata, preferences, valid);
+  await applyRoomCameraCapture(room, guestCameraSource(track), preferences, valid);
   return valid();
 }
 
@@ -112,10 +124,10 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === participantSid;
     if (enabled && codec !== "vp8") assertSupported(codec);
     const selected = effectiveGuestCameraCapture(room.localParticipant.metadata, current);
-    const base = guestCameraConstraints(selected);
+    const base = guestRouteCaptureConstraints(room, current) || guestCameraConstraints(selected);
     // LiveKit forwards the flattened resolution to getUserMedia. Supplying a
     // height-only object also overrides its default 16:9 capture preset.
-    const capture = { ...(current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: base } as unknown as VideoCaptureOptions;
+    const capture = { ...(base.deviceId ? { deviceId: base.deviceId } : current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: base } as unknown as VideoCaptureOptions;
     const publish = guestCameraPublishOptions(room, codec);
     const frameRate = typeof base.frameRate === "object" ? Number(base.frameRate.ideal) : 30;
     publish.videoEncoding = { ...publish.videoEncoding!, maxFramerate: frameRate || 30 };
@@ -128,7 +140,7 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     if (enabled) {
       try {
         if (track) {
-          await applyPreferredGuestCameraCapture(guestCameraSource(track), room.localParticipant.metadata, current, valid);
+          await applyRoomCameraCapture(room, guestCameraSource(track), current, valid);
         }
         if (!valid()) return false;
         assertPublished(track, codec);

@@ -30,6 +30,7 @@ COPY --from=web /app/ /opt/castlink/app/
 COPY --from=livekit /livekit-server /usr/local/bin/livekit-server
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
 COPY --chmod=0755 scripts/server-wsl-runtime.py /usr/local/bin/castlink-server
+COPY --chmod=0755 scripts/server-wsl-maintenance.py /usr/local/bin/castlink-server-maintenance
 COPY --chmod=0644 infrastructure/server-wsl/*.service infrastructure/server-wsl/*.target /etc/systemd/system/
 COPY --chmod=0644 infrastructure/server-wsl/castlink.sysusers /usr/lib/sysusers.d/castlink.conf
 COPY --chmod=0644 infrastructure/server-wsl/health.mjs infrastructure/server-wsl/setup-web.mjs infrastructure/server-wsl/castlink-private-ports.nft /usr/lib/castlink-server/
@@ -41,7 +42,7 @@ ARG CASTLINK_VERSION
 RUN test -n "$CASTLINK_VERSION" && test "${#CASTLINK_SOURCE_COMMIT}" = 40 \
  && systemd-sysusers && chmod -R a+rX /opt/castlink/app \
  && chmod 0755 /usr/lib/castlink-server \
- && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s"}\n' \
+ && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82"]}}\n' \
       "$CASTLINK_VERSION" "$CASTLINK_SOURCE_COMMIT" "$CASTLINK_VERSION" "$(printf %.12s "$CASTLINK_SOURCE_COMMIT")" > /opt/castlink/release.json \
  && printf '[boot]\nsystemd=true\n\n[user]\ndefault=root\n\n[automount]\nenabled=false\n\n[interop]\nenabled=false\nappendWindowsPath=false\n' > /etc/wsl.conf \
  && dpkg-query -W -f='${source:Package}\t${source:Version}\n' | sort -u > /opt/castlink/packages.tsv \

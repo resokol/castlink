@@ -1,4 +1,4 @@
-param([switch]$NetworkingOnly, [switch]$StateSharingOnly, [switch]$NativePanelOnly, [string]$InstallerPath)
+﻿param([switch]$NetworkingOnly, [switch]$StateSharingOnly, [switch]$NativePanelOnly, [string]$InstallerPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $installer = if ($InstallerPath) { [IO.Path]::GetFullPath($InstallerPath) } else { Join-Path $PSScriptRoot '../install-server-windows.ps1' }
@@ -269,9 +269,23 @@ try {
   Protect-CastlinkInstallationDirectory $aclRoot
   $privateAcl = ([IO.DirectoryInfo]::new($aclRoot)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
   $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-  Assert ($privateAcl.AreAccessRulesProtected -and $privateAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $currentSid) 'Installation directory owner/protection was not retained'
+  Assert ($privateAcl.AreAccessRulesProtected -and $privateAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $currentSid) ('Installation directory owner/protection was not retained: owner='+$privateAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value+'; expected='+$currentSid+'; protected='+$privateAcl.AreAccessRulesProtected)
   $privateRules = @($privateAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
   Assert ($privateRules.Count -eq 2 -and @($privateRules | Where-Object { $_.IdentityReference.Value -notin @($currentSid,'S-1-5-18') -or $_.IsInherited -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne 'FullControl' }).Count -eq 0) 'Installation directory permissions are not private'
+  # The current owner can initially have WRITE_DAC but lack WRITE_OWNER on a data volume.
+  $modifyRoot = Join-Path $testDir 'modify-only-installation'
+  [void][IO.Directory]::CreateDirectory($modifyRoot)
+  $modifyDirectory = [IO.DirectoryInfo]::new($modifyRoot)
+  $modifyAcl = $modifyDirectory.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+  $modifyAcl.SetAccessRuleProtection($true,$false)
+  foreach ($rule in @($modifyAcl.Access)) { [void]$modifyAcl.RemoveAccessRuleSpecific($rule) }
+  $modifyAcl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($currentSid),'Modify','ContainerInherit,ObjectInherit','None','Allow'))
+  $modifyDirectory.SetAccessControl($modifyAcl)
+  Protect-CastlinkInstallationDirectory $modifyRoot
+  Protect-CastlinkInstallationDirectory $modifyRoot
+  $secured = $modifyDirectory.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+  $securedRules = @($secured.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+  Assert ($secured.AreAccessRulesProtected -and $secured.GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq $currentSid -and $securedRules.Count -eq 2 -and @($securedRules | Where-Object { $_.IdentityReference.Value -notin @($currentSid,'S-1-5-18') -or $_.IsInherited -or $_.AccessControlType -ne 'Allow' -or $_.FileSystemRights -ne 'FullControl' }).Count -eq 0) 'Modify-only installation did not retain a private current-user-owned ACL'
   Assert-Throws { Assert-CastlinkAddress 'https://example.com' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress 'host;touch /tmp/x' } 'hostname|IPv4'
   Assert-Throws { Assert-CastlinkAddress '-option' } 'hostname|IPv4'

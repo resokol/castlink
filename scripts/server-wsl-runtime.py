@@ -158,7 +158,7 @@ def init_state(folder, host, media_ip, release, creation_hash, turn_host=None, p
     return state
 
 
-def configs(state, credentials, local_ipv4s):
+def configs(state, credentials, local_ipv4s, gate=None):
     c, s = credentials, state
     env = {'NODE_ENV': 'production', 'NEXT_TELEMETRY_DISABLED': '1', 'NEXT_BUILD_DIR': '.next', 'HOSTNAME': '127.0.0.1', 'PORT': '3000',
       'CASTLINK_DEPLOYMENT_MODEL': 'self-hosted', 'CASTLINK_STORAGE_BACKEND': 'json',
@@ -192,7 +192,15 @@ def configs(state, credentials, local_ipv4s):
             lines += [' tls {', '  issuer acme {', '   ' + challenge]
             if re.fullmatch(r'[0-9.]+', host): lines += ['   dir https://acme-v02.api.letsencrypt.org/directory', '   profile shortlived']
             lines += ['  }', ' }']
-        if host == s['address']:
+        if gate and gate['phase'] == 'closed':
+            # Exact authenticated read-only origin probe. No localhost/proxy exemption.
+            if host == s['address']:
+                lines += [' @maintenance_probe {', '  method GET', '  path /api/version',
+                    '  header X-CastLink-Maintenance-Probe ' + gate['probeToken'], ' }',
+                    ' handle @maintenance_probe {', '  reverse_proxy 127.0.0.1:3000 {',
+                    '   header_up -X-CastLink-Maintenance-Probe', '   header_up Host ' + host, '  }', ' }']
+            lines += [' handle {', '  respond "Maintenance" 503', ' }']
+        elif host == s['address']:
             lines += [' @rtc path /rtc /rtc/*', ' route @rtc {', '  forward_auth 127.0.0.1:3000 {', '   uri /api/media-admission',
                 '   header_up -Upgrade', '   header_up -Connection', '   header_up Host ' + host, '   header_up X-Forwarded-Host ' + host,
                 '   header_up X-Forwarded-Proto https', '  }', '  reverse_proxy 127.0.0.1:7880 {', '   header_up Host ' + host,
@@ -238,7 +246,7 @@ def local_ipv4_addresses():
 def materialize(state):
     local_ipv4s = local_ipv4_addresses()
     CONFIG.mkdir(mode=0o755, parents=True, exist_ok=True)
-    values = configs(state, json.loads((STATE / 'secrets.json').read_text()), local_ipv4s)
+    values = configs(state, json.loads((STATE / 'secrets.json').read_text()), local_ipv4s, gate=maintenance_gate())
     owners = {'web.env': 'root', 'livekit.json': 'castlink-livekit', 'Caddyfile': 'castlink-caddy'}
     for name, value in values.items():
         target = CONFIG / name
@@ -322,6 +330,8 @@ def health(state):
         if not target.exists() or target.read_text() != request['caPem']:
             write_private(target, request['caPem'])
             account = pwd.getpwnam('castlink'); os.chown(target, account.pw_uid, account.pw_gid)
+    gate = maintenance_gate()
+    if gate and gate['phase'] == 'closed': request['maintenanceProbeToken'] = gate['probeToken']
     raw = node(ASSETS / 'health.mjs', json.dumps(request, separators=(',', ':')), timeout=35)
     if raw.strip() != 'CASTLINK_SERVER_READY': raise ValueError('Server readiness acknowledgement missing')
     if not Path('/run/castlink-turn-tls/ready').is_file(): raise ValueError('TURN TLS certificate is not ready')
@@ -349,7 +359,7 @@ def certificate(state, runtime):
     return None
 
 
-def haproxy_config(state, pem):
+def haproxy_config(state, pem, gated=False):
     host = state['turnHost']
     config = '''global
   log stdout format raw local0
@@ -387,6 +397,8 @@ backend turn_entry
 backend livekit_turn
   server livekit 127.0.0.1:5349 send-proxy-v2 check
 '''
+    if gated:
+        config = config.replace('  server livekit 127.0.0.1:5349 send-proxy-v2 check\n', '')
     return config
 
 
@@ -394,7 +406,7 @@ def turn_daemon():
     state = load_state(); runtime = Path('/run/castlink-turn-tls'); runtime.mkdir(mode=0o700, exist_ok=True)
     ready = runtime / 'ready'; ready.unlink(missing_ok=True)
     previous = certificate(state, runtime)
-    config = runtime / 'haproxy.cfg'; write_private(config, haproxy_config(state, previous))
+    config = runtime / 'haproxy.cfg'; write_private(config, haproxy_config(state, previous, gated=bool((maintenance_gate() or {}).get('phase') == 'closed')))
     run(['/usr/sbin/haproxy', '-c', '-f', str(config)])
     process = subprocess.Popen(['/usr/sbin/haproxy', '-W', '-db', '-f', str(config)])
     stopping = False
@@ -412,7 +424,7 @@ def turn_daemon():
             selected = certificate(state, runtime)
             if selected:
                 if selected != previous:
-                    candidate = runtime / 'haproxy.new'; write_private(candidate, haproxy_config(state, selected))
+                    candidate = runtime / 'haproxy.new'; write_private(candidate, haproxy_config(state, selected, gated=bool((maintenance_gate() or {}).get('phase') == 'closed')))
                     run(['/usr/sbin/haproxy', '-c', '-f', str(candidate)])
                     os.replace(candidate, config); process.send_signal(signal.SIGUSR2); previous = selected
                 write_private(ready, 'ready\n')
@@ -467,7 +479,36 @@ def owner_access(state):
     return {'ownerAccessFile': str(destination), 'expiresInSeconds': 900}
 
 
+def maintenance_gate():
+    path = CONFIG / 'maintenance.json'
+    if not path.exists() and not path.is_symlink(): return None
+    info = path.lstat()
+    if path.is_symlink() or info.st_uid != 0 or info.st_nlink != 1 or info.st_mode & 0o777 != 0o600 or info.st_size > 65536:
+        raise ValueError('Invalid maintenance gate file')
+    gate = json.loads(path.read_text())
+    if not isinstance(gate, dict) or gate.get('schemaVersion') != 1 or gate.get('phase') not in ('closed', 'committed') or not re.fullmatch('[a-f0-9]{64}', gate.get('probeToken', '')) or not re.fullmatch('[a-f0-9]{32}', gate.get('hostInstallationId', '')):
+        raise ValueError('Invalid maintenance gate')
+    return gate
+
+
+def prepare_maintenance_gate():
+    gate = maintenance_gate()
+    if not gate: return
+    # Validate/reconcile guest configuration without mutating shared networking.
+    import importlib.util
+    from importlib.machinery import SourceFileLoader
+    path = Path(__file__).with_name('server-wsl-maintenance.py')
+    if not path.exists(): path = Path('/usr/local/bin/castlink-server-maintenance')
+    spec = importlib.util.spec_from_loader('guest_maintenance', SourceFileLoader('guest_maintenance', str(path)))
+    helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+    manager = helper.Maintenance()
+    manager.owned(gate['hostInstallationId'])
+    manager.reconcile_config()
+    return manager, gate
+
+
 def preflight_ports():
+    maintenance = prepare_maintenance_gate()
     try:
         nftables = json.loads(run(['/usr/sbin/nft', '-j', 'list', 'tables']))['nftables']
         if not isinstance(nftables, list): raise ValueError()
@@ -494,6 +535,11 @@ def preflight_ports():
                     except OSError as error:
                         if family == socket.AF_INET6 and error.errno == errno.EADDRNOTAVAIL: continue
                         raise ValueError('Required CastLink port is already in use or unavailable: ' + str(port) + ('/tcp' if kind == socket.SOCK_STREAM else '/udp')) from None
+        # All required sockets are reserved before any media-drop table mutation.
+        # Keep them held until the gate is restored, before service listeners start.
+        if maintenance:
+            manager, gate = maintenance
+            manager.firewall(gate['hostInstallationId'], closed=gate['phase'] == 'closed')
     finally:
         for listener in held: listener.close()
 

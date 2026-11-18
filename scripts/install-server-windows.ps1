@@ -1,4 +1,4 @@
-# CastLink Server for Windows 11 x64. No Docker; an isolated WSL 2 distribution.
+﻿# CastLink Server for Windows 11 x64. No Docker; an isolated WSL 2 distribution.
 # Release tooling replaces these four constants. Unpackaged source cannot install.
 [CmdletBinding()]
 param(
@@ -184,7 +184,7 @@ function Get-CastlinkInstallation([string]$Root, [string]$Tag, [string]$Repo, [s
     }
     if ((Test-Path -LiteralPath $Root) -and @(Get-ChildItem -LiteralPath $Root -Force).Count -gt 0) { throw 'InstallRoot contains foreign files. Choose an empty CastLink directory.' }
     $id = [guid]::NewGuid().ToString('N')
-    return [pscustomobject]@{schemaVersion=1;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;phase='created'}
+    return [pscustomobject]@{schemaVersion=1;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;releaseManifestSha256=$script:PackagedManifestSha256;phase='created'}
 }
 
 function Assert-CastlinkPackage([string]$Directory, [string]$Tag, [string]$Repo, [string]$RootfsHash, [string]$ManifestHash) {
@@ -362,6 +362,7 @@ function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Di
     if (-not $manifest.PSObject.Properties['nativePanel']) { return $null }
     $bundle = $manifest.nativePanel
     $names = @('server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1')
+    if ($manifest.PSObject.Properties['lifecycle']) { $names += @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1') }
     if ($bundle.schemaVersion -ne 1 -or $bundle.host -cne 'CastLinkServer.exe' -or $bundle.binding -cne 'server-native-binding.json' -or @($bundle.files).Count -ne $names.Count) { throw 'Native panel helper inventory is invalid.' }
     $seen = @{}
     foreach ($entry in $bundle.files) {
@@ -487,15 +488,28 @@ function Wait-CastlinkScheduledKeepalive {
 function Protect-CastlinkInstallationDirectory([string]$Root) {
     # Only the proven owned installation directory is changed; never its ancestors.
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-    $acl = New-Object Security.AccessControl.DirectorySecurity
-    $acl.SetOwner($sid)
+    # Grant the private DACL first: an existing owner may have WRITE_DAC without WRITE_OWNER.
+    $acl = ([IO.DirectoryInfo]::new($Root)).GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
     $acl.SetAccessRuleProtection($true, $false)
+    foreach ($existingRule in @($acl.Access)) { [void]$acl.RemoveAccessRuleSpecific($existingRule) }
     $inheritance = [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
     foreach ($principal in @($sid, [Security.Principal.SecurityIdentifier]::new('S-1-5-18'))) {
         $rule = [Security.AccessControl.FileSystemAccessRule]::new($principal, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, [Security.AccessControl.PropagationFlags]::None, [Security.AccessControl.AccessControlType]::Allow)
         [void]$acl.AddAccessRule($rule)
     }
-    ([IO.DirectoryInfo]::new($Root)).SetAccessControl($acl)
+    $directory = [IO.DirectoryInfo]::new($Root)
+    $directory.SetAccessControl($acl)
+    $ownerAcl = $directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+    if ($ownerAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value) {
+        # Elevated Windows tokens can create directories owned by Administrators.
+        # The preceding DACL grant makes a necessary take-ownership-to-self legal.
+        $ownerAcl.SetOwner($sid)
+        $directory.SetAccessControl($ownerAcl)
+    }
+    $verified = $directory.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+    if (-not $verified.AreAccessRulesProtected -or $verified.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value) {
+        throw 'The owned installation directory could not be secured for the current Windows user.'
+    }
 }
 
 function Write-CastlinkPrivateFile([string]$Path, [string]$Content) {
@@ -624,7 +638,7 @@ try {
 
 function Invoke-CastlinkWindowsInstaller {
     if ($Help) {
-        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Updates are not implemented. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
+        Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Use CastLink-Maintenance.cmd or the native Maintenance button for explicit WSL update/removal/restore. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
         return
     }
     if ($NonInteractive -and $Action -notin @('Start','Stop','Status')) { throw 'NonInteractive is supported only for Start, Stop and Status.' }
