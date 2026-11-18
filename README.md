@@ -9,7 +9,7 @@
 | Где устанавливаем | Что использовать |
 | --- | --- |
 | [Windows 11](#сервер-на-windows-11) | Полный установщик без Docker Desktop. **1.0.6-rc.1** — опубликованный предварительный выпуск. |
-| [Ubuntu Linux / VPS](#сервер-на-linux-ubuntu) | Одна команда `curl`. Версия **1.0.5** — стабильный выпуск. |
+| [Ubuntu Linux / VPS](#сервер-на-linux-ubuntu) | Одна команда `curl`. Версия **1.0.6** — стабильный выпуск. |
 
 Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) — отдельное приложение, он не устанавливает сервер.
 
@@ -109,7 +109,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-Команда скачивает закреплённый установщик **1.0.5**. Он проверяет серверный архив, устанавливает необходимые Docker Engine/Compose и Python, сохраняет установку в **`/opt/castlink-server`**.
+Команда скачивает закреплённый установщик **1.0.6**. Он проверяет серверный архив, устанавливает необходимые Docker Engine/Compose и Python, сохраняет установку в **`/opt/castlink-server`**.
 
 Если получаете `curl: command not found`, сначала выполните:
 

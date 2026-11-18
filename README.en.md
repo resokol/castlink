@@ -9,7 +9,7 @@ Choose where to install your server:
 | System | Installer |
 | --- | --- |
 | Windows 11 | Full **1.0.6-rc.1** installer without Docker Desktop. Published prerelease. |
-| Ubuntu Linux / VPS | One `curl` command, stable **1.0.5**. |
+| Ubuntu Linux / VPS | One `curl` command, stable **1.0.6**. |
 
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
 
@@ -106,7 +106,7 @@ Supports **Ubuntu 22.04 / 24.04, x86-64/amd64**. Connect over SSH with a user wh
 curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-This pinned **1.0.5** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.
+This pinned **1.0.6** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.
 
 If `curl` is missing, run this first, then repeat installation:
 

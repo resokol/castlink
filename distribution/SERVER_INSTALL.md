@@ -2,7 +2,7 @@
 
 [Русский](SERVER_INSTALL.md) · [English](docs/en/SERVER_INSTALL.md) · [简体中文](docs/zh-CN/SERVER_INSTALL.md)
 
-Руководство для Windows Server Setup и standalone Linux **1.0.5**; Windows Client — **1.0.1**. Версия пакета исходников — **1.0.5**. Доступные выпуски, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Изменения 1.0.5](RELEASE_NOTES_1_0_5.md).
+Руководство для Linux **1.0.6** и Windows/WSL **1.0.6-rc.1**; прежний Docker Server Setup остаётся отдельным направлением. Windows Client — **1.0.1**. Доступные пакеты, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Изменения 1.0.6](RELEASE_NOTES_1_0_6.md).
 
 В серверном выпуске **1.0.2** впервые появились [Linux одной командой, история показателей и журнал за 24 часа](RELEASE_NOTES_1_0_2.md). Обычный локальный Windows Server Setup использует Docker Desktop. Windows/WSL2 без Docker остаётся отдельным экспериментальным каналом и не входит в эти стабильные серверные пакеты.
 
@@ -10,10 +10,10 @@
 
 ## Linux Ubuntu
 
-Ниже приведена команда для стабильного выпуска **1.0.5**. Пошаговая установка Windows и Linux: [главная инструкция](../README.md).
+Ниже приведена команда для стабильного выпуска **1.0.6**. Пошаговая установка Windows и Linux: [главная инструкция](../README.md).
 
 Поддерживаются Ubuntu22.04/24.04 amd64. В Linux-выпуск добавлен самостоятельный
-`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.5 (не общий `releases/latest`) и выполните:
+`install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.6 (не общий `releases/latest`) и выполните:
 
 ```bash
 curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang ru
@@ -34,7 +34,7 @@ curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc
 
 ## Windows/WSL2 без Docker — отдельный экспериментальный канал
 
-Доступен [установщик предварительного выпуска 1.0.5-rc.3](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53). [Шаги установки и ограничения](../README.md#сервер-на-windows-11).
+Доступен [установщик предварительного выпуска 1.0.6-rc.1](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53). [Шаги установки и ограничения](../README.md#сервер-на-windows-11).
 
 Нужны Windows11 x64, build22621+, WSL2 версии2.4.13+ и поддержка виртуализации.
 Установщик `install-server-windows.ps1` из отдельного канала `server-wsl-v…`

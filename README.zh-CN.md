@@ -9,7 +9,7 @@
 | 系统 | 安装方式 |
 | --- | --- |
 | Windows 11 | 完整 **1.0.6-rc.1** 安装程序，无需 Docker Desktop。已发布，仍为预发布版本。 |
-| Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.5**。 |
+| Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.6**。 |
 
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
 
@@ -106,7 +106,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-固定版本 **1.0.5** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。
+固定版本 **1.0.6** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。
 
 如果提示没有 `curl`，先运行以下命令，再重新安装：
 
