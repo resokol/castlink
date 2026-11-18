@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6 — 2026-11-18
+
+- RU: в статистике студии добавлена «Диагностика видео → JSON» с историей отправки/приёма, кадрами и зависаниями. Фильтры и время сохраняются; неполные выгрузки отмечаются. Обновите сервер вне эфира и страницы обеих сторон. Client 1.0.1 сохранён; Windows/WSL остаётся отдельным prerelease. [Примечания](distribution/RELEASE_NOTES_1_0_6.md).
+- EN: studio statistics adds Video diagnostics → JSON with send/receive history, frame and freeze counters. Filters and timestamps are preserved; partial exports are marked. Update the server off air and reload both sides. Client 1.0.1 remains unchanged; Windows/WSL remains a separate prerelease. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_6.md).
+- 简体中文：演播室统计新增视频诊断 → JSON，包含发送/接收历史、帧与卡顿计数。保留筛选和时间，明确标记部分导出。请在停播时更新服务器并刷新双方页面。Client 仍为 1.0.1；Windows/WSL 仍是独立预发布通道。[说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_6.md)。
+
 ## Unreleased — диагностика аудио / Audio diagnostics / 音频诊断
 
 - RU: аудиоистория различает mute публикации, SDK-трека и плеера; записывает доступные фактические параметры захвата и обработки, подстановку тишины и коррекцию темпа декодером. Новые поля требуют обновлённых страниц отправителя/получателя; старые замеры остаются неизвестными. Это улучшение диагностики, а не автоматическое исправление искажённого звука.

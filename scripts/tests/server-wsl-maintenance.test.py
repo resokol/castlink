@@ -24,6 +24,11 @@ RC2 = {'schemaVersion': 1, 'version': '1.0.5-rc.2', 'commit': 'af3e309d09265412d
 RC3 = {**TARGET, 'version': '1.0.5-rc.3', 'buildId': '1.0.5-rc.3-'+'b'*12,
        'lifecycle': {**TARGET['lifecycle'], 'supportedSources': ['server-wsl-v'+r['buildId'] for r in (SOURCE, RC2)]}}
 
+PUBLISHED_RC3 = {**RC3, 'commit': '95ec46463c8209746d272d8a12cb7f959d3b5cdd',
+                 'buildId': '1.0.5-rc.3-95ec46463c82'}
+NEXT = {**TARGET, 'lifecycle': {**TARGET['lifecycle'], 'supportedSources':
+        ['server-wsl-v'+r['buildId'] for r in (SOURCE, RC2, PUBLISHED_RC3)]}}
+
 class TransferTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -104,8 +109,23 @@ class TransferTest(unittest.TestCase):
             self.assertEqual((target/name).stat().st_mode&0o777,(source/name).stat().st_mode&0o777)
         self.assertEqual(new['release'],RC3);self.assertEqual(state_path.read_bytes(),before)
 
+    def test_exact_published_rc3_upgrades_to_next_release_preserving_state(self):
+        self.source=self.fixture('published-rc3',PUBLISHED_RC3)
+        (self.target/'opt/castlink/release.json').write_text(json.dumps(NEXT))
+        before=(self.source/'var/lib/castlink-server/state.json').read_bytes()
+        data=self.export()
+        self.helper(self.target).import_(HOST,io.BytesIO(data))
+        old=json.loads(before);new=json.loads((self.target/'var/lib/castlink-server/state.json').read_text())
+        for key in ('installationId','nodeId','address','origin','mediaIp','turnHost','publicHttps','roomCreationPasswordHash'):
+            self.assertEqual(new[key],old[key])
+        for name in ('secrets.json','data/rooms.json','caddy/private.key'):
+            self.assertEqual((self.target/'var/lib/castlink-server'/name).read_bytes(),
+                             (self.source/'var/lib/castlink-server'/name).read_bytes())
+        self.assertEqual(new['release'],NEXT)
+        self.assertEqual((self.source/'var/lib/castlink-server/state.json').read_bytes(),before)
+
     def test_target_must_explicitly_list_actual_transfer_source(self):
-        for number,(source,allowed) in enumerate(((RC2,SOURCE),(SOURCE,RC2))):
+        for number,(source,allowed) in enumerate(((RC2,SOURCE),(SOURCE,RC2),(PUBLISHED_RC3,RC2))):
             with self.subTest(source=source['buildId']):
                 self.source=self.fixture('membership-source-'+str(number),source)
                 target=self.fixture('membership-target-'+str(number),{**RC3,'lifecycle':{
@@ -117,7 +137,7 @@ class TransferTest(unittest.TestCase):
     def test_unknown_transfer_sources_refused_even_when_target_lists_them(self):
         with tarfile.open(fileobj=io.BytesIO(self.export()),mode='r:') as archive:
             manifest=json.load(archive.extractfile('manifest.json'))
-        for number,version in enumerate(('1.0.5-rc.2','1.0.7')):
+        for number,version in enumerate(('1.0.5-rc.2','1.0.5-rc.3','1.0.7')):
             with self.subTest(version=version):
                 unknown={'schemaVersion':1,'version':version,'commit':'d'*40,'buildId':version+'-'+'d'*12}
                 source=self.fixture('unknown-source-'+str(number),unknown)

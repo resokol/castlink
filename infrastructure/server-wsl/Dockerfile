@@ -42,7 +42,7 @@ ARG CASTLINK_VERSION
 RUN test -n "$CASTLINK_VERSION" && test "${#CASTLINK_SOURCE_COMMIT}" = 40 \
  && systemd-sysusers && chmod -R a+rX /opt/castlink/app \
  && chmod 0755 /usr/lib/castlink-server \
- && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926"]}}\n' \
+ && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82"]}}\n' \
       "$CASTLINK_VERSION" "$CASTLINK_SOURCE_COMMIT" "$CASTLINK_VERSION" "$(printf %.12s "$CASTLINK_SOURCE_COMMIT")" > /opt/castlink/release.json \
  && printf '[boot]\nsystemd=true\n\n[user]\ndefault=root\n\n[automount]\nenabled=false\n\n[interop]\nenabled=false\nappendWindowsPath=false\n' > /etc/wsl.conf \
  && dpkg-query -W -f='${source:Package}\t${source:Version}\n' | sort -u > /opt/castlink/packages.tsv \

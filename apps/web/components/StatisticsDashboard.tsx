@@ -17,37 +17,48 @@ const formatTime = (at: number, locale = "ru") => new Date(at).toLocaleTimeStrin
 type Line = { key: keyof Omit<MetricPoint, "at">; label: string; color: string };
 
 /** Keep one time window across pages and cap the actual UTF-8 download, including its envelope. */
-export async function runtimeHistoryJson(statsUrl: string, fetchPage: typeof fetch = fetch) {
+async function diagnosticHistoryJson(statsUrl: string, mode: "runtime" | "video", fetchPage: typeof fetch) {
   const samples: string[] = [], cursors = new Set<string>();
   const encoder = new TextEncoder();
   const maxBytes = 20 * 1024 * 1024, maxSamples = 50000;
-  let cursor: string | null = null, from = 0, to: number | undefined, bytes = 0, partial = false, pages = 0;
+  const requestedTo = new URL(statsUrl, "http://localhost").searchParams.get("to");
+  let cursor: string | null = null, from = 0, to = requestedTo === null ? undefined : Number(requestedTo), bytes = 0, partial = false, pages = 0;
   do {
     const url = new URL(statsUrl, "http://localhost");
-    url.searchParams.set("diagnostics", "runtime"); url.searchParams.set("limit", "2000");
+    url.searchParams.set("diagnostics", mode); url.searchParams.set("limit", "2000");
     if (cursor) url.searchParams.set("cursor", cursor);
     if (to !== undefined) url.searchParams.set("to", String(to));
     const response = await fetchPage(url.pathname + url.search, { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw Error("Не удалось выгрузить диагностику студии. Повторите после обновления статистики.");
+    if (!response.ok) throw Error(mode === "video" ? "Не удалось выгрузить диагностику видео. Повторите после обновления статистики." : "Не удалось выгрузить диагностику студии. Повторите после обновления статистики.");
     const page: RuntimeHistoryResponse = await response.json();
-    if (!Array.isArray(page.samples) || !Number.isFinite(page.from) || !Number.isFinite(page.to) || to !== undefined && page.to !== to)
-      throw Error("Сервер вернул некорректную страницу диагностики студии.");
-    if (to === undefined) { from = page.from; to = page.to; }
+    if (!Array.isArray(page.samples) || !Number.isFinite(page.from) || !Number.isFinite(page.to) || page.from > page.to ||
+      typeof page.limited !== "boolean" || !(page.nextCursor === null || typeof page.nextCursor === "string" && page.nextCursor.length > 0 && page.nextCursor.length <= 160) ||
+      to !== undefined && (page.to !== to || pages > 0 && page.from !== from))
+      throw Error(mode === "video" ? "Сервер вернул некорректную страницу диагностики видео." : "Сервер вернул некорректную страницу диагностики студии.");
+    if (pages === 0) { from = page.from; to = page.to; }
     // Reserve room for all metadata, including the longer false literal.
-    const envelopeBytes = encoder.encode(JSON.stringify({ schemaVersion: 1, from, to, partial: false, samples: [] })).length;
+    const envelopeBytes = encoder.encode(JSON.stringify({ schemaVersion: 1, diagnostics: mode, from, to, partial: false, samples: [] })).length;
     for (const sample of page.samples) {
       const content = JSON.stringify(sample), size = encoder.encode(content).length + (samples.length ? 1 : 0);
       if (samples.length >= maxSamples || envelopeBytes + bytes + size > maxBytes) { partial = true; break; }
       samples.push(content); bytes += size;
     }
     pages++;
-    if (page.nextCursor && cursors.has(page.nextCursor)) throw Error("Сервер не продолжил диагностику студии.");
+    if (page.nextCursor && cursors.has(page.nextCursor)) throw Error(mode === "video" ? "Сервер не продолжил диагностику видео." : "Сервер не продолжил диагностику студии.");
     cursor = page.nextCursor;
     if (cursor) cursors.add(cursor);
     if (page.limited && !cursor || cursor && (samples.length >= maxSamples || pages >= 100)) partial = true;
   } while (cursor && !partial);
-  const metadata = JSON.stringify({ schemaVersion: 1, from, to, partial });
+  const metadata = JSON.stringify({ schemaVersion: 1, diagnostics: mode, from, to, partial });
   return { content: metadata.slice(0, -1) + ',"samples":[' + samples.join(",") + "]}", count: samples.length, partial };
+}
+
+export function runtimeHistoryJson(statsUrl: string, fetchPage: typeof fetch = fetch) {
+  return diagnosticHistoryJson(statsUrl, "runtime", fetchPage);
+}
+
+export function videoHistoryJson(statsUrl: string, fetchPage: typeof fetch = fetch) {
+  return diagnosticHistoryJson(statsUrl, "video", fetchPage);
 }
 
 export function statisticsTokenRefreshUrl(roomName: string, studioRole: "primary" | "moderator", studioClientId: string, studioEpoch: number, studioId = "studio-default") {
@@ -134,7 +145,7 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
     (!roleFilter || connection.role === roleFilter) &&
     (!participantFilter || connection.identity === participantFilter) &&
     (!session || connection.session === session));
-  const download = async (kind: "history" | "connections" | "participants" | "report" | "audio" | "chat" | "runtime") => {
+  const download = async (kind: "history" | "connections" | "participants" | "report" | "audio" | "chat" | "runtime" | "video") => {
     if (exporting || kind !== "chat" && !history) return;
     setExporting(true);
     setExportNote("");
@@ -151,13 +162,14 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         return;
       }
       if (!history) return;
-      if (kind === "runtime") {
-        const report = await runtimeHistoryJson(statsUrl());
+      if (kind === "runtime" || kind === "video") {
+        const report = await (kind === "video" ? videoHistoryJson : runtimeHistoryJson)(statsUrl());
         const url = URL.createObjectURL(new Blob([report.content], { type: "application/json;charset=utf-8" }));
         const anchor = document.createElement("a"); anchor.href = url;
-        anchor.download = `castlink-studio-runtime-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min${report.partial ? "-partial" : ""}.json`;
+        anchor.download = `castlink-${kind === "video" ? "video" : "studio-runtime"}-${roomName.replace(/[^a-zа-яё0-9_-]/gi, "_")}-${historyDay || "live"}-${minutes}min${report.partial ? "-partial" : ""}.json`;
         document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setExportNote(t(report.partial ? "Выгружена часть диагностики студии: {count} замеров. Выберите более короткий период или отдельную сессию для полной выгрузки." :
+        setExportNote(t(kind === "video" ? report.partial ? "Выгружена часть диагностики видео: {count} замеров. Выберите более короткий период или отдельную сессию для полной выгрузки." :
+          "Диагностика видео выгружена: {count} замеров за выбранный период и фильтры." : report.partial ? "Выгружена часть диагностики студии: {count} замеров. Выберите более короткий период или отдельную сессию для полной выгрузки." :
           "Диагностика студии выгружена: {count} замеров за выбранный период и фильтры.", { count: report.count.toLocaleString(locale) }));
         return;
       }
@@ -295,11 +307,13 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
         <button disabled={!history || exporting} onClick={() => void download("participants")}>{t("Участники → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("connections")}>{t("Сессии и потоки → CSV")}</button>
         <button disabled={!history || exporting} onClick={() => void download("audio")}>{t("История аудио → CSV")}</button>
+        <button disabled={!history || exporting} onClick={() => void download("video")}>{t("Диагностика видео → JSON")}</button>
         <button disabled={!history || exporting} onClick={() => void download("runtime")}>{t("Диагностика студии → JSON")}</button>
         <button onClick={() => void downloadLocalRuntime()}>{t("Журнал этой вкладки → JSON")}</button>
         {!platformNodeId && <button disabled={exporting} onClick={() => void download("chat")}>{t("Скачать чат · 24 часа")}</button>}
       </div>
       {exportNote && <p className="muted" role="status">{translateWorkspaceMessage(t, exportNote)}</p>}
+      <p className="muted">{t("Диагностика видео содержит историю отправки и приёма в выбранных фильтрах, без записи видео. Это журнал CastLink, а не внутренний дамп Chrome. Новые счётчики кадров и зависаний появляются после обновления клиентов; отсутствующие значения означают нет данных. Для сравнения студии и кастеров выберите всех участников.")}</p>
       <p className="muted">{t("Сброс очищает список завершённых подключений. Активные участники и история графиков сохраняются. CSV открывается в Excel. Наглядный HTML-отчёт с графиками открывается в браузере без интернета. Старые замеры не дополняются вымышленными значениями.")}</p>
       <p className="muted">{t("Входящие — от сервера к клиентам. Исходящие — от клиентов к серверу. Для всех соединений битрейты суммируются, RTT, jitter и потери усредняются. Пропуски — нет замеров.")}</p>
       <p className="muted">{t("История аудио содержит каждый сохранённый замер с точным временем UTC, потерями, concealment, jitter buffer и состоянием воспроизведения выхода. По умолчанию история хранится 30 дней: прошедшие часы сжимаются без потери двухсекундных замеров, без записи аудио и видео. Общий лимит диска может сократить доступный период; уже удалённые старые дни восстановить невозможно. Старые клиенты не передают новые поля. Отсутствие прироста samples и нулевой уровень не доказывают обрыв: возможны тишина и DTX.")}</p>

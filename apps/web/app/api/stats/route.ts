@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TokenVerifier } from "livekit-server-sdk";
-import { clearDisconnected, readAudioHistory, readRuntimeHistory, readHistory, saveSample } from "@/lib/telemetry-store";
+import { clearDisconnected, readAudioHistory, readRuntimeHistory, readVideoHistory, readHistory, saveSample } from "@/lib/telemetry-store";
 import { sanitizeAudioPlayback, sanitizeAudioReceive, sanitizeAudioTrack } from "@/lib/audio-diagnostics";
 import { sanitizeRuntimeDiagnostic } from "@/lib/runtime-diagnostics";
+import { sanitizeVideoDiagnostic } from "@/lib/video-diagnostics";
 import { isStudio, sameOrigin } from "@/lib/access";
 import { isRoomAdmin } from "@/lib/room-admin";
 import { canHostNamedRoom } from "@/lib/room-studio-access";
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         candidateType: text(s.candidateType, 30) || null, qualityLimitation: text(s.qualityLimitation, 40) || null,
         ...(s.kind === "audio" && s.direction === "in" ? { audio: sanitizeAudioReceive(s.audio) } : {}),
         ...(s.kind === "audio" ? { audioTrack: sanitizeAudioTrack(s.audioTrack, s.direction === "out") } : {}),
+        ...(s.kind === "video" ? { video: sanitizeVideoDiagnostic(s.video) } : {}),
       }));
     const accessRole = typeof auth.metadata.accessRole === "string" ? auth.metadata.accessRole : "";
     const role: TelemetrySample["role"] = auth.identity.startsWith("studio-panel-") ? "studio" :
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
       role, state: text(data.state, 30), quality: text(data.quality, 30), reconnects: metric(data.reconnects, 100000) ?? 0,
       uptimeSec: metric(data.uptimeSec) ?? 0, streams, clientAt: metric(data.at, 1e15) ?? undefined,
       audioPlayback: sanitizeAudioPlayback(data.audioPlayback),
+      ...(data.videoDiagnosticsLimited === true ? { videoDiagnosticsLimited: true } : {}),
       ...(role === "studio" && auth.identity.startsWith("studio-panel-") ? { runtime: sanitizeRuntimeDiagnostic(data.runtime) } : {}) });
     return new NextResponse(null, { status: 204 });
   } catch {
@@ -110,17 +113,19 @@ export async function GET(request: NextRequest) {
   if (selectedIdentity && selectedIdentity.length > 160) return NextResponse.json({ error: "Некорректный участник" }, { status: 400 });
   if (rawRole && !allowedRoles.includes(rawRole as TelemetryRole)) return NextResponse.json({ error: "Некорректная роль" }, { status: 400 });
   const diagnostics = request.nextUrl.searchParams.get("diagnostics");
-  if (diagnostics === "audio" || diagnostics === "runtime") {
+  if (diagnostics === "audio" || diagnostics === "runtime" || diagnostics === "video") {
     const params = request.nextUrl.searchParams;
     try {
-      const readDiagnostics = diagnostics === "runtime" ? readRuntimeHistory : readAudioHistory;
+      const readDiagnostics = diagnostics === "video" ? readVideoHistory : diagnostics === "runtime" ? readRuntimeHistory : readAudioHistory;
       const detail = await readDiagnostics(mediaRoom, minutes, { session: selectedSession, identity: selectedIdentity,
         role: rawRole ? rawRole as TelemetryRole : undefined, limit: Number(params.get("limit") || 1000),
         cursor: params.get("cursor") || undefined, to: params.has("to") ? Number(params.get("to")) : undefined });
       return NextResponse.json(detail, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
-      const invalid = error instanceof Error && /^invalid_(audio|runtime)_/.test(error.message);
-      const errorMessage = diagnostics === "runtime"
+      const invalid = error instanceof Error && /^invalid_(audio|runtime|video)_/.test(error.message);
+      const errorMessage = diagnostics === "video"
+        ? invalid ? "Некорректные параметры диагностики видео" : "Не удалось прочитать диагностику видео"
+        : diagnostics === "runtime"
         ? invalid ? "Некорректные параметры диагностики студии" : "Не удалось прочитать диагностику студии"
         : invalid ? "Некорректные параметры аудиоистории" : "Не удалось прочитать аудиоисторию";
       return NextResponse.json({ error: errorMessage }, { status: invalid ? 400 : 500 });
