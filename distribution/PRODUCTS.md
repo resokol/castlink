@@ -5,8 +5,9 @@
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
 | Windows Client | Приложение Windows: студия и кастер | [1.0.1](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
-| Windows Server | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.4](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
-| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.4](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Windows Server / WSL2 | Windows 11 / WSL2 без Docker Desktop; предварительный выпуск | [1.0.6-rc.1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/install-server-windows.ps1) · [ZIP обслуживания](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS) |
+| Windows Server / Docker | Мастер Windows: свой сервер локально или на Linux Ubuntu по SSH | [1.0.4](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Linux Ubuntu | Самостоятельная установка сервера на Linux Ubuntu | [1.0.6](https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/SHA256SUMS) |
 
 **[Мануал по установке](LINUX_MANUAL.md)** — Из коробки и расширенный режим.
 
@@ -14,9 +15,15 @@
 
 Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Linux build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+Windows/WSL build: `1.0.6-rc.1-dad063393b53` · source: `dad063393b5308638d99383669617e41c9e163fc`
+
+Linux build: `1.0.6-bc0679d83df8` · source: `bc0679d83df87c48adb029656c9b10c3b5556205`
 
 Client build: `1.0.1-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+
+**1.0.6:** В статистике студии добавлена «Диагностика видео → JSON»: история отправки и приёма с доступными счётчиками кадров и зависаний. [Примечания](RELEASE_NOTES_1_0_6.md).
+
+Исходники 1.0.6: [web / Windows](https://github.com/resokol/castlink/tree/dad063393b5308638d99383669617e41c9e163fc) · [ZIP](https://github.com/resokol/castlink/archive/dad063393b5308638d99383669617e41c9e163fc.zip) · [Linux](https://github.com/resokol/castlink/tree/bc0679d83df87c48adb029656c9b10c3b5556205).
 
 **1.0.4:** памятка о качестве сети в карточке кастера; Windows Client обновлён до 1.0.1. [1.0.4](RELEASE_NOTES_1_0_4.md).
 
@@ -24,7 +31,7 @@ Client build: `1.0.1-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e
 
 **Сервер 1.0.2:** история показателей и журнал событий за 24 часа в Super Admin; данные сохраняются после перезапуска. Linux также включает [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh) для установки одной командой. [Инструкции](SERVER_INSTALL.md) · [Примечания к 1.0.2](RELEASE_NOTES_1_0_2.md).
 
-Локальный Windows-сервер в обычном Server Setup требует Docker Desktop с Linux-контейнерами. Windows/WSL2 без Docker — отдельный кандидат; установка и внешний медиазвонок ещё не подтверждены, стабильный WSL-пакет в этой таблице не предлагается.
+Windows/WSL2 остаётся отдельным предварительным каналом. Для обновления существующей WSL-установки используйте ZIP обслуживания этого же выпуска; обновляйте вне эфира, затем страницы студии и кастеров. Обычный Windows Server Setup по-прежнему требует Docker Desktop.
 
 **Обновление серверов до 1.0.4:** обновите Server Setup или Linux вне эфира, выбрав прежнюю установку. Восстановление связи требует 1.0.1 или новее на обоих серверах. Windows Client остаётся на 1.0.1; используйте его встроенную проверку обновлений. Если старый клиент не находит выпуск, один раз скачайте установщик 1.0.1 вручную по ссылке выше и проверьте SHA256SUMS. [Восстановление связи](README.md#server-pair-recovery) · [История изменений](../CHANGELOG.md).
 

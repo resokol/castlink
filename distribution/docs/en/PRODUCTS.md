@@ -5,8 +5,9 @@
 | CastLink | Purpose | Download |
 | --- | --- | --- |
 | Windows Client | Windows app: studio and caster | [1.0.1](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
-| Windows Server | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.4](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
-| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.4](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Windows Server / WSL2 | Windows 11 / WSL2 without Docker Desktop; prerelease | [1.0.6-rc.1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/install-server-windows.ps1) · [Maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS) |
+| Windows Server / Docker | Windows wizard: own server locally or on Linux Ubuntu over SSH | [1.0.4](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Linux Ubuntu | Standalone server installation on Linux Ubuntu | [1.0.6](https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/SHA256SUMS) |
 
 **[Installation manual](LINUX_MANUAL.md)** — Out of the box and advanced.
 
@@ -14,9 +15,15 @@ Verify the selected release’s SHA256SUMS before running it. EXEs are unsigned.
 
 Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Linux build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+Windows/WSL build: `1.0.6-rc.1-dad063393b53` · source: `dad063393b5308638d99383669617e41c9e163fc`
+
+Linux build: `1.0.6-bc0679d83df8` · source: `bc0679d83df87c48adb029656c9b10c3b5556205`
 
 Client build: `1.0.1-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+
+**1.0.6:** Studio statistics adds Video diagnostics → JSON: sender and receiver history with available frame and freeze counters. [Release notes](RELEASE_NOTES_1_0_6.md).
+
+Source 1.0.6: [web / Windows](https://github.com/resokol/castlink/tree/dad063393b5308638d99383669617e41c9e163fc) · [ZIP](https://github.com/resokol/castlink/archive/dad063393b5308638d99383669617e41c9e163fc.zip) · [Linux](https://github.com/resokol/castlink/tree/bc0679d83df87c48adb029656c9b10c3b5556205).
 
 **1.0.4:** network quality guide in caster cards; Windows Client updated to 1.0.1. [1.0.4](RELEASE_NOTES_1_0_4.md).
 
@@ -24,7 +31,7 @@ Client build: `1.0.1-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e
 
 **Server 1.0.2:** 24-hour metric history and an event journal in Super Admin survive restarts. Linux also includes [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/install-server.sh) for one-command installation. [Instructions](SERVER_INSTALL.md) · [1.0.2 release notes](RELEASE_NOTES_1_0_2.md).
 
-The ordinary local Windows Server Setup requires Docker Desktop with Linux containers. Docker-free Windows/WSL2 is a separate candidate without verified installation and external media-call tests; this table does not offer a stable WSL package.
+Windows/WSL2 remains an independent prerelease channel. Update existing WSL installations with the maintenance ZIP from this release, off air, then reload studio and caster pages. Ordinary Windows Server Setup still requires Docker Desktop.
 
 **Upgrading servers to 1.0.4:** update Server Setup or Linux off air, selecting the existing installation. Connection recovery requires 1.0.1 or later on both servers. Windows Client is 1.0.1; use its built-in update check. If an older Client cannot find the release, download the 1.0.1 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
 
