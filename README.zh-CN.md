@@ -89,7 +89,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 ### 更新、删除或恢复 WSL 服务器
 
-1. 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
+1. 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance-fix1.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
 2. 按地址和文件夹选择服务器，再选择目标版本 **1.0.6-rc.1**。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
 3. 删除时选择**删除前保留可恢复归档**或**永久删除服务器和数据**，再点击**删除**。保存的归档是包含完整导出和恢复辅助文件的**文件夹**，不是统计 ZIP。它含有凭据，请完整、私密地保存。
 4. **恢复**使用此归档文件夹，以及 `%LOCALAPPDATA%\CastLinkServer` 下尚不存在的新安装文件夹。操作中断后，选择同一服务器并点击**恢复事务**。成功后使用**打开服务器面板**。

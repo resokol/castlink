@@ -81,7 +81,7 @@ TURN hostname (`turn.<domain>`), направленный на тот же IP. �
 
 ### Обслуживание: обновление, удаление, восстановление
 
-Скачайте [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip) из **этого же выпуска** и распакуйте ZIP целиком. [Контрольные суммы SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS). Дважды нажмите **CastLink-Maintenance.cmd**. Новая панель открывает тот же инструмент кнопкой **«Обслуживание»**. Для старой 1.0.5-rc.1 это отдельный инструмент: её установщик не обновляется сам.
+Скачайте [CastLink-Server-WSL-Maintenance-fix1.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance-fix1.zip) из **этого же выпуска** и распакуйте ZIP целиком. [Контрольные суммы SHA256 (fix1)](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance-fix1.zip.sha256). Дважды нажмите **CastLink-Maintenance.cmd**. Новая панель открывает тот же инструмент кнопкой **«Обслуживание»**. Для старой 1.0.5-rc.1 это отдельный инструмент: её установщик не обновляется сам.
 
 **Выбор и обновление.** Выберите точный сервер по адресу и папке; не выбирайте автоматически первый из нескольких. В неполной установке адрес может быть неизвестен — сверяйте папку. Выберите целевую версию, нажмите **«Проверить»** и сверьте текущую/целевую версии и требуемое/свободное место. Инструмент загрузит и проверит нужные файлы до остановки сервера. Проверка сама ничего не обновляет; RC выбирается явно. В обычном окне не требуется вводить SHA256 или непрозрачное имя WSL.
 
