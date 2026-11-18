@@ -159,3 +159,30 @@ test('lifecycle package contract and standalone ZIP pin helpers without circular
 test('embedded lifecycle contract mismatch is refused before output',async()=>{
  for(const lifecycle of [null,{schemaVersion:1,runtimeContract:'wrong',postgresMajor:16,supportedSources:[]},{schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:17,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82']}]){const f=await fixture();try{await fs.writeFile(path.join(f.tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12),lifecycle}));f.pack();await assert.rejects(assembleWslPackage(f),/lifecycle|contract|major/i);await assert.rejects(fs.stat(f.output),{code:'ENOENT'});}finally{await fs.rm(f.dir,{recursive:true,force:true});}}
 });
+
+// The packaged launcher runs the UI in a child script scope. GetNewClosure
+// callbacks must still resolve UI helpers, as they do in a direct -File launch.
+test('maintenance bootstrap launches scoped UI callbacks in Windows PowerShell', {skip:process.platform!=='win32'}, async()=>{
+ const f=await fixture();try{
+  await fs.writeFile(path.join(f.root,'scripts/server-wsl-maintenance-ui.ps1'), `param([string]$TargetDirectory,[string]$ExpectedManifestSha256)
+$ErrorActionPreference='Stop'
+function Get-CLMText { 'callback resolved' }
+$callback={ Get-CLMText }.GetNewClosure()
+if((& $callback) -cne 'callback resolved'){throw 'UI callback failed'}
+if(-not (Test-Path (Join-Path $TargetDirectory 'manifest.json'))){throw 'Lost target directory'}
+if($ExpectedManifestSha256 -cne (Get-FileHash (Join-Path $TargetDirectory 'manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()){throw 'Lost manifest pin'}
+`);
+  await assembleWslPackage(f);
+  execFileSync('powershell.exe',['-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',path.join(f.output,'maintenance-bootstrap.ps1')],{encoding:'utf8',timeout:20000});
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
+
+test('maintenance bootstrap VerifyOnly skips UI and propagates child failure', {skip:process.platform!=='win32'}, async()=>{
+ const f=await fixture();try{
+  await fs.writeFile(path.join(f.root,'scripts/server-wsl-maintenance-ui.ps1'), 'exit 7');
+  await assembleWslPackage(f);
+  const args=['-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',path.join(f.output,'maintenance-bootstrap.ps1')];
+  execFileSync('powershell.exe',[...args,'-VerifyOnly'],{encoding:'utf8',timeout:20000});
+  assert.throws(()=>execFileSync('powershell.exe',args,{encoding:'utf8',timeout:20000,stdio:'pipe'}), e=>e.status!==0 && /Maintenance window failed \(exit 7\)/.test(e.stderr));
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});

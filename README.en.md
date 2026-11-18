@@ -89,7 +89,7 @@ The panel provides service controls, statistics and **Export ZIP for 24 hours**.
 
 ### Update, remove or restore a WSL server
 
-1. Download the [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
+1. Download the [maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance-fix1.zip), extract it and double-click **CastLink-Maintenance.cmd**. The new panel's **Maintenance** button opens the same tool; version 1.0.5-rc.1 needs the separate ZIP.
 2. Select the server by address and folder, then select target release **1.0.6-rc.1**. Click **Check**, review current/target versions and disk space, then **Update**. Updating interrupts service: do it outside a broadcast. Confirm the displayed server; no manual checksum or WSL ID entry is needed.
 3. To remove it, choose **Keep a restorable archive before removing** or **Permanently erase server and data**, then **Remove**. The saved archive is a **folder** containing a full export and restore helpers, not a statistics ZIP. It contains credentials; keep the whole folder private.
 4. **Restore** uses that archive folder and a new installation folder that does not yet exist under `%LOCALAPPDATA%\CastLinkServer`. After an interruption, select the same server and **Recover transaction**. On success, use **Open server panel**.

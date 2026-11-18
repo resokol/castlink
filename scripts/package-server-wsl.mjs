@@ -151,7 +151,12 @@ $m=[IO.File]::ReadAllText($manifestPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
 if($m.channel -cne 'server-wsl' -or $m.lifecycle.schemaVersion -ne 1){throw 'Unsupported maintenance contract'}
 $seen=@{};foreach($e in $m.lifecycle.helpers){if($e.file -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $seen.ContainsKey($e.file)){throw 'Invalid helper inventory'};$seen[$e.file]=$true;$p=Join-Path $root $e.file;$s=Get-Item -LiteralPath $p -Force;if($s.PSIsContainer -or ($s.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $s.Length -ne $e.size -or $e.sha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne $e.sha256){throw 'Maintenance helper checksum mismatch'}}
 foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(-not $seen.ContainsKey($name)){throw 'Missing maintenance helper'}}
-if(-not $VerifyOnly){& (Join-Path $root 'server-wsl-maintenance-ui.ps1') -TargetDirectory $root -ExpectedManifestSha256 '${pin}'}
+# A fresh -File session keeps UI helpers visible to GetNewClosure event callbacks.
+# Calling the UI with & here puts its helpers in an inaccessible child script scope.
+if(-not $VerifyOnly){
+ & (Join-Path $PSHOME 'powershell.exe') -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File (Join-Path $root 'server-wsl-maintenance-ui.ps1') -TargetDirectory $root -ExpectedManifestSha256 '${pin}'
+ if($LASTEXITCODE -ne 0){throw ('Maintenance window failed (exit '+$LASTEXITCODE+')')}
+}
 `;}
 
 export async function assembleWslPackage({root=process.cwd(),output,rootfs,sources,upstreamSources,inventory,commit,version,repository='resokol/castlink',python=process.env.CASTLINK_PYTHON||'python3'}){
