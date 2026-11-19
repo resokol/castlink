@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2028**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2029**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -10042,7 +10042,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Библиотеки/Node: `node:fs/promises`, `node:url`.
 
-## apps/web/tests · 489 файлов
+## apps/web/tests · 490 файлов
 
 ### apps/web/tests/access-secrets.cjs
 
@@ -14976,6 +14976,16 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:module`, `node:path`, `typescript`.
 
+### apps/web/tests/watch-compat.browser.cjs
+
+[`apps/web/tests/watch-compat.browser.cjs`](../../apps/web/tests/watch-compat.browser.cjs)
+
+Проверка/тестовый инструмент. PASS built /watch API access and retry; missing AbortSignal methods: ${missing.join(
+
+Библиотеки/Node: `node:assert/strict`.
+
+Переменные окружения (только имена): `CASTLINK_QA_BASE_URL`, `CASTLINK_QA_CHROMIUM_BINARY`, `CASTLINK_QA_PLAYWRIGHT`.
+
 ### apps/web/tests/watch-subscriptions.cjs
 
 [`apps/web/tests/watch-subscriptions.cjs`](../../apps/web/tests/watch-subscriptions.cjs)
@@ -14990,7 +15000,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 [`apps/web/tests/watch-transfer.cjs`](../../apps/web/tests/watch-transfer.cjs)
 
-Проверка/тестовый инструмент. PASS: actual watch hook preserves RTC/media attachments through network/502/429/408 and SDK reconnect, recovers polling in place, closes/clears 403, retains handoff/retry cleanup and playback intent
+Проверка/тестовый инструмент. PASS: watch connects without AbortSignal.any/timeout, preserves RTC/media and renewal through transient outages, revokes 403, and cancels headers/body on timeout or cleanup
 
 Читает/импортирует: [`apps/web/app/watch/page.tsx`](../../apps/web/app/watch/page.tsx), [`apps/web/tests/i18n-fixture.cjs`](../../apps/web/tests/i18n-fixture.cjs).
 
@@ -16002,7 +16012,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — каналы установки и исправление CI, 19.11.2026
+Текущее состояние — совместимость потока студии с vMix, 19.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 

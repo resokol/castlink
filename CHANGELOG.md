@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — совместимость потока студии с vMix / vMix studio stream compatibility / vMix 演播室流兼容性
+
+- RU: исправлена ошибка `AbortSignal.any is not a function` при открытии потока студии во встроенных браузерах, включая затронутую конфигурацию vMix 28. После установки исправленного web-сервера обновите браузерный источник в vMix. Переустановка Windows Client не требуется; реальный эфир в vMix отдельно не проверялся.
+- EN: fixed `AbortSignal.any is not a function` when opening the studio stream in embedded browsers, including the affected vMix 28 configuration. After installing the corrected web server, refresh the vMix browser input. Reinstalling Windows Client is unnecessary; a live vMix broadcast has not been independently verified.
+- 简体中文：修复在嵌入式浏览器（包括受影响的 vMix 28 配置）中打开演播室流时出现的 `AbortSignal.any is not a function` 错误。部署修复后的 Web 服务器后，请刷新 vMix 浏览器输入，无需重新安装 Windows Client。尚未单独验证真实 vMix 直播。
+
 ## 1.0.6 — 2026-11-18
 
 - RU: в статистике студии добавлена «Диагностика видео → JSON» с историей отправки/приёма, кадрами и зависаниями. Фильтры и время сохраняются; неполные выгрузки отмечаются. Обновите сервер вне эфира и страницы обеих сторон. Client 1.0.1 сохранён; Windows/WSL остаётся отдельным prerelease. [Примечания](distribution/RELEASE_NOTES_1_0_6.md).

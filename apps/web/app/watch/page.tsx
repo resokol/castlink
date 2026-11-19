@@ -111,11 +111,18 @@ export default function WatchPage() {
     room.on(RoomEvent.Reconnecting, () => setStatus("Восстанавливаем соединение…"));
     room.on(RoomEvent.Disconnected, () => { if (!stopped) { setHasVideo(false); setFailed(true); setStatus("Соединение прервано. Повторите подключение."); } });
     const request = async (action: string) => {
-      const response = await fetch("/api/studio-viewer", { method: "POST", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]), headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) });
-      // An authoritative rejection ends preparation; an outage retains direct-reserve polling.
-      if (!stopped && (response.status === 401 || response.status === 403 || response.status === 404)) setTransferToken(undefined);
-      try { return await readControlResponse(response, "Не удалось открыть поток студии"); }
-      catch (error) { throw Object.assign(error instanceof Error ? error : new Error("Не удалось открыть поток студии"), { status: response.status }); }
+      // vMix/CEF may support AbortController without AbortSignal.any or timeout.
+      const cancellation = new AbortController();
+      const cancel = () => cancellation.abort();
+      const deadline = setTimeout(cancel, 8000);
+      if (controller.signal.aborted) cancel(); else controller.signal.addEventListener("abort", cancel, { once: true });
+      try {
+        const response = await fetch("/api/studio-viewer", { method: "POST", signal: cancellation.signal, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ action, studioId, room: roomName, invite: inviteRef.current }) });
+        // An authoritative rejection ends preparation; an outage retains direct-reserve polling.
+        if (!stopped && (response.status === 401 || response.status === 403 || response.status === 404)) setTransferToken(undefined);
+        try { return await readControlResponse(response, "Не удалось открыть поток студии"); }
+        catch (error) { throw Object.assign(error instanceof Error ? error : new Error("Не удалось открыть поток студии"), { status: response.status }); }
+      } finally { clearTimeout(deadline); controller.signal.removeEventListener("abort", cancel); }
     };
     const poll = async () => {
       try {

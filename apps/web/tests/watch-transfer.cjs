@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
 Module._extensions['.ts'] = Module._extensions['.tsx'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, f);
 const originalLoad = Module._load, originalSetTimeout = global.setTimeout, originalClearTimeout = global.clearTimeout;
+const originalAny=AbortSignal.any, originalTimeout=AbortSignal.timeout;
+// vMix/CEF may provide AbortController without the newer static AbortSignal APIs.
+AbortSignal.any=undefined; AbortSignal.timeout=undefined;
 let slots = [], cursor = 0, pending = [], queued = false, tree, transfer, clears = 0, timers = [], rooms = [], sourceUp = true, revoked = false, blockAudio = false;
 const snapshot = {role:'studio-viewer',studioId:'studio-default',room:'a',settings:{sound:false,videoEnabled:false}};
 const rerender = () => { cursor = 0; tree = WatchPage(); for (const element of all(tree)) if (element.props?.ref && !element.props.ref.current) element.props.ref.current = {srcObject:null,muted:false,play:async()=>{if(blockAudio)throw Error("browser blocks autoplay");},pause:()=>{}}; for (const run of pending.splice(0)) run(); };
@@ -59,6 +62,7 @@ const all = node => !node || typeof node !== 'object' ? [] : [node,...[node.prop
  assert.deepEqual((await transfer.snapshot()).settings,{sound:false,videoEnabled:false},'verified handoff restores muted/video-off preferences');
  assert.equal(clears,1);
  assert.equal(rooms[0].connected.options.autoSubscribe,false);
+ assert.equal(timers.filter(timer=>timer.delay===8000).length,0,'completed requests release their deadlines');
  const buttons=all(tree).filter(x=>x.type==='button');
  assert.equal(buttons.find(b=>b.props['aria-label']==='Включить звук').props['aria-pressed'],false);
  assert.equal(buttons.find(b=>b.props['aria-label']==='Включить видео').props['aria-pressed'],false);
@@ -119,5 +123,29 @@ const all = node => !node || typeof node !== 'object' ? [] : [node,...[node.prop
  assert.equal(attaches,attachedBeforeCleanup,'denied retry cannot reattach old tracks');
  assert.equal(rooms.length,2,'only explicit retry creates a replacement room');
  for(const slot of slots)slot?.cleanup?.();
- console.log('PASS: actual watch hook preserves RTC/media attachments through network/502/429/408 and SDK reconnect, recovers polling in place, closes/clears 403, retains handoff/retry cleanup and playback intent');
-})().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{Module._load=originalLoad;global.setTimeout=originalSetTimeout;global.clearTimeout=originalClearTimeout;});
+ for(const phase of ['headers','body']) for(const reason of ['timeout','cleanup']){
+  slots=[];cursor=0;pending=[];timers=[];rooms=[];clears=0;
+  let signal;
+  global.fetch=async(_url,options)=>{
+   signal=options.signal;
+   const stalled=()=>new Promise((_resolve,reject)=>{
+    const abort=()=>reject(new DOMException('Aborted','AbortError'));
+    if(signal.aborted)abort();else signal.addEventListener('abort',abort,{once:true});
+   });
+   return phase==='headers'?stalled():{ok:true,status:200,text:stalled};
+  };
+  rerender();await flush();
+  assert.ok(signal,`${phase}: compatible join reaches fetch`);
+  assert.equal(signal.aborted,false);
+  const deadline=timers.find(timer=>timer.delay===8000);
+  assert.ok(deadline,`${phase}: request is bounded through response parsing`);
+  if(reason==='timeout')deadline.callback();else for(const slot of slots)slot?.cleanup?.();
+  await flush();
+  assert.equal(signal.aborted,true,`${phase}: ${reason} cancels the pending request`);
+  assert.equal(rooms[0].connected,undefined,'cancelled join cannot establish media');
+  assert.equal(timers.filter(timer=>timer.delay===8000).length,0,'cancelled requests release their deadlines');
+  if(reason==='timeout')assert.equal(all(tree).find(x=>x.type==='main').props['data-playback-failed'],true,'timeout remains retryable');
+  for(const slot of slots)slot?.cleanup?.();
+ }
+ console.log('PASS: watch connects without AbortSignal.any/timeout, preserves RTC/media and renewal through transient outages, revokes 403, and cancels headers/body on timeout or cleanup');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{Module._load=originalLoad;global.setTimeout=originalSetTimeout;global.clearTimeout=originalClearTimeout;AbortSignal.any=originalAny;AbortSignal.timeout=originalTimeout;});
