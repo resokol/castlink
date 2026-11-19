@@ -16,7 +16,7 @@
 
 | CastLink | Для кого | Архив |
 | --- | --- | --- |
-| Windows Server Setup / Docker | Только существующие Docker/SSH-установки и безопасное обслуживание; **не рекомендуется новым Windows-серверам** | [Последний опубликованный 1.0.4](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
+| Windows Server Setup / Docker | Только существующие Docker/SSH-установки и безопасное обслуживание; **не рекомендуется новым Windows-серверам** | [Последний опубликованный 1.0.4](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1) · [Исторический ZIP](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) |
 
 Автоматический перенос действующего Windows/Docker-сервера в WSL2 не поддерживается. Старые пакеты и их SHA256 сохраняются; **новый релиз `server-setup` не формируется** из штатного workflow. Внешний Ubuntu/VPS устанавливайте через Linux-инсталлятор; прежний Windows/SSH-мастер остаётся Legacy до появления полноценной замены.
 
