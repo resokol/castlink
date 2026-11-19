@@ -24,7 +24,7 @@
 
 运行前验证所选发行版本的 SHA256SUMS。EXE 无数字签名。Client 会在安装前验证更新，并单独请求同意；如果旧版 Client 无法找到发行版，请手动安装。服务器更新需要用户操作，可能中断直播。请自行备份所需数据；Windows Client、WSL2 与 Linux 分别发布，Windows/Docker 归为 Legacy。
 
-Legacy Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
+Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
 Windows/WSL build: `1.0.6-rc.1-dad063393b53` · source: `dad063393b5308638d99383669617e41c9e163fc`
 
