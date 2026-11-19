@@ -48,6 +48,15 @@ test('localized READMEs refer users to WSL2 as primary without silently promotin
   assert.match(policy, /no supported automatic migration|автоматическая миграция/i);
 });
 
+test('server guides stay consistent about WSL2 primary and legacy Docker', () => {
+  for (const file of ['distribution/SERVER_INSTALL.md', 'distribution/docs/en/SERVER_INSTALL.md', 'distribution/docs/zh-CN/SERVER_INSTALL.md']) {
+    const content = read(file);
+    assert.ok(content.includes('SUPPORTED_INSTALLERS.md'), file);
+    assert.ok(content.includes('1.0.6-rc.1'), file);
+    assert.ok(content.includes('Legacy'), file);
+  }
+});
+
 test('historic release metadata and the client are preserved for compatibility', () => {
   const manifest = read('distribution/release-tracks.json');
   assert.ok(manifest.includes('server-setup'));
