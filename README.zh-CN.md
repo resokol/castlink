@@ -11,6 +11,8 @@
 | Windows 11 | 完整 **1.0.6-rc.1** 安装程序，无需 Docker Desktop。已发布，仍为预发布版本。 |
 | Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.6**。 |
 
+**主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。当前公开的 WSL2 **1.0.6-rc.1 仍是预发布版本**，转为正式版本需要另行验证和发布。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
+
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
 
 ## 安装前
@@ -174,7 +176,7 @@ sudo docker compose -f /opt/castlink-server/compose.json logs --tail 100
 ## 更多
 
 - [网站](https://castlink.ru) · [用户手册](distribution/docs/zh-CN/GUIDE.md) · [发布版本](https://github.com/resokol/castlink/releases) · [更新记录](CHANGELOG.md)。
-- 旧版 Docker/SSH 工具 `EasySetup.exe` 是[另一种安装方式](distribution/docs/zh-CN/INSTALL.md)，以上 Windows 安装不需要它。
+- **Legacy：**旧版 Windows/Docker/SSH 工具 `EasySetup.exe` [仅供现有安装使用](distribution/docs/zh-CN/INSTALL.md)。新 Windows 服务器使用 WSL2，远程 Ubuntu/VPS 使用 Linux 安装程序经 SSH 部署。[迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
 - 开发资料：[CONTRIBUTING](CONTRIBUTING.md)、[项目指南](docs/PROJECT_GUIDE_RU.md)、[技术约束](docs/CRITICAL_INVARIANTS_RU.md)。安装已打包服务器无需克隆 Git 或编译源码。
 - [报告问题](https://github.com/resokol/castlink/issues) · [安全](SECURITY.md) · [联系或支持作者](https://t.me/sklvmax)。
 
