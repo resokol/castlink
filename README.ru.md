@@ -11,6 +11,8 @@
 | [Windows 11](#сервер-на-windows-11) | Полный установщик без Docker Desktop. **1.0.6-rc.1** — опубликованный предварительный выпуск. |
 | [Ubuntu Linux / VPS](#сервер-на-linux-ubuntu) | Одна команда `curl`. Версия **1.0.6** — стабильный выпуск. |
 
+**Поддерживаемые направления:** для нового Windows-сервера рекомендую **WSL2 без Docker Desktop**; для Ubuntu/VPS — Linux Server. Старый Windows/Docker EasySetup переведён в **Legacy** и сохранён для существующих установок. При этом опубликованная WSL2-сборка **1.0.6-rc.1 пока официально prerelease** — новое стабильное название получит только новый проверенный выпуск. [Статусы и ограничения](distribution/SUPPORTED_INSTALLERS.md).
+
 Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) — отдельное приложение, он не устанавливает сервер.
 
 ## Перед установкой
@@ -179,7 +181,7 @@ sudo docker compose -f /opt/castlink-server/compose.json logs --tail 100
 ## Дополнительно
 
 - [Сайт](https://castlink.ru) · [Руководство пользователя](distribution/README.md) · [Все выпуски](https://github.com/resokol/castlink/releases) · [Что нового](CHANGELOG.md).
-- Старый Docker/SSH-мастер `EasySetup.exe` — [отдельный вариант установки](distribution/INSTALL.md). Для нового Windows-сервера по инструкции выше он не требуется.
+- **Legacy:** прежний Windows/Docker/SSH-мастер `EasySetup.exe` сохранён [только для существующих установок](distribution/INSTALL.md). Для нового Windows-сервера используйте WSL2; для внешнего Ubuntu/VPS — официальный Linux-установщик по SSH. [Подробности и границы миграции](distribution/SUPPORTED_INSTALLERS.md).
 - Разработка: [CONTRIBUTING](CONTRIBUTING.md), [карта проекта](docs/PROJECT_GUIDE_RU.md), [технические инварианты](docs/CRITICAL_INVARIANTS_RU.md). Для установки готового сервера клонировать Git и собирать исходники не нужно.
 - [Сообщить о проблеме](https://github.com/resokol/castlink/issues) · [Безопасность](SECURITY.md) · [Связаться с автором / поддержать проект](https://t.me/sklvmax).
 
