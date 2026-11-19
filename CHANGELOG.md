@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — совместимость потока студии с vMix / vMix studio stream compatibility / vMix 演播室流兼容性
+## Web — 2026-11-19 — совместимость потока студии с vMix / vMix studio stream compatibility / vMix 演播室流兼容性
 
 - RU: исправлена ошибка `AbortSignal.any is not a function` при открытии потока студии во встроенных браузерах, включая затронутую конфигурацию vMix 28. После установки исправленного web-сервера обновите браузерный источник в vMix. Переустановка Windows Client не требуется; реальный эфир в vMix отдельно не проверялся.
 - EN: fixed `AbortSignal.any is not a function` when opening the studio stream in embedded browsers, including the affected vMix 28 configuration. After installing the corrected web server, refresh the vMix browser input. Reinstalling Windows Client is unnecessary; a live vMix broadcast has not been independently verified.
