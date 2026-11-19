@@ -4,7 +4,9 @@
 
 This guide covers Linux **1.0.6** and Windows/WSL **1.0.6-rc.1**; legacy Docker Server Setup remains a separate track. Windows Client remains **1.0.1**. Available packages, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.6 changes](RELEASE_NOTES_1_0_6.md).
 
-Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](RELEASE_NOTES_1_0_2.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
+**Primary Windows server route:** WSL2 without Docker Desktop. The published Windows/WSL2 1.0.6-rc.1 is still a **prerelease** until a new verified stable build is published. The former Windows/Docker/SSH EasySetup is **Legacy** for existing deployments; Linux/VPS retains its independent stable Docker Engine/Compose installer. [Supported installers and migration limits](../../SUPPORTED_INSTALLERS.md).
+
+Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](RELEASE_NOTES_1_0_2.md). Historical Windows/Docker packages are retained unchanged; automatic Docker → WSL2 migration is not supported.
 
 Update the server off air through an explicit update action, selecting the existing installation and retaining its data and configuration; keep the same Linux `--state-dir`. Publishing a package does not update a running server. After readiness checks, manually reload **both studio and caster pages**, including pages in Windows Client: the client displays its selected server interface.
 
@@ -32,7 +34,7 @@ saved helper's `status` command. Keep the same absolute `--state-dir` for custom
 locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
-## Docker-free Windows/WSL2 — separate experimental channel
+## Docker-free Windows/WSL2 — primary Windows server route
 
 The [1.0.6-rc.1 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53) is available as a prerelease. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2025**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2028**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -170,7 +170,7 @@ GitHub Actions: CI. Выполняется runner-ом, а не в браузе�
 
 [`.github/workflows/easy-setup-packages.yml`](../../.github/workflows/easy-setup-packages.yml)
 
-GitHub Actions: Server setup or standalone Linux release. Выполняется runner-ом, а не в браузере.
+GitHub Actions: Standalone Linux release (Windows Docker Setup is legacy). Выполняется runner-ом, а не в браузере.
 
 ### .github/workflows/easy-setup-vps-release.yml
 
@@ -15412,7 +15412,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 51 файлов
+## distribution · 52 файлов
 
 ### distribution/INSTALL.md
 
@@ -15503,6 +15503,12 @@ CastLink 1.0.0-rc.9
 [`distribution/STUDIO_DIAGNOSTICS.md`](../../distribution/STUDIO_DIAGNOSTICS.md)
 
 Диагностика основной студии
+
+### distribution/SUPPORTED_INSTALLERS.md
+
+[`distribution/SUPPORTED_INSTALLERS.md`](../../distribution/SUPPORTED_INSTALLERS.md)
+
+Каналы установки CastLink / Supported install channels
 
 ### distribution/TURN_TLS.md
 
@@ -15996,7 +16002,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — видеодиагностика на castlink.ru, 18.11.2026
+Текущее состояние — каналы установки и исправление CI, 19.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -16870,7 +16876,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 279 файлов
+## scripts · 281 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -18077,6 +18083,14 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Переменные окружения (только имена): `PATH`.
 
+### scripts/tests/installer-channel-policy.test.mjs
+
+[`scripts/tests/installer-channel-policy.test.mjs`](../../scripts/tests/installer-channel-policy.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:path`, `node:test`, `node:url`.
+
 ### scripts/tests/linux-compose-setup.test.py
 
 [`scripts/tests/linux-compose-setup.test.py`](../../scripts/tests/linux-compose-setup.test.py)
@@ -18554,6 +18568,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-export.test.py
 
 [`scripts/tests/server-wsl-export.test.py`](../../scripts/tests/server-wsl-export.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-maintenance-launch.windows.ps1
+
+[`scripts/tests/server-wsl-maintenance-launch.windows.ps1`](../../scripts/tests/server-wsl-maintenance-launch.windows.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

@@ -58,8 +58,8 @@ jobs:
       - name: Stable tests
         run: pnpm test:ci
 
-      - name: Release channels and publication destinations
-        run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs scripts/tests/release-draft-id.test.cjs scripts/tests/package-simple-easy-setup.test.mjs
+      - name: Release channels, install policy and publication destinations
+        run: node --test scripts/tests/installer-channel-policy.test.mjs scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs scripts/tests/release-draft-id.test.cjs scripts/tests/package-simple-easy-setup.test.mjs
 
       - name: Local public asset preparation
         run: node --test scripts/tests/prepare-public-assets.test.mjs

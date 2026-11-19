@@ -25,6 +25,11 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.deepEqual(release.thirdPartySources.supplements,[{asset:'CastLink-ThirdParty-Office-Sources.tar.gz',sha256:createHash('sha256').update('fixture Office source sidecar').digest('hex')}]);
   assert.equal(release.commit,'a'.repeat(40));
   const product=releaseTracks.resolveTrack('server-setup','a'.repeat(40));
+  const policyPath='distribution/SUPPORTED_INSTALLERS.md';
+  const policyBytes=await fs.readFile(policyPath);
+  assert.equal(release.documentationFiles[policyPath],createHash('sha256').update(policyBytes).digest('hex'),'linked installer policy is included in the package manifest');
+  assert.deepEqual(execFileSync('tar',['-xOzf',path.join(output,'CastLink-Linux.tar.gz'),policyPath]),policyBytes);
+  assert.deepEqual(readZip(path.join(output,'CastLink-Windows.zip'),policyPath),policyBytes);
   assert.equal(release.version,product.version);
   assert.equal(release.buildNumber,product.buildNumber);
   assert.deepEqual(release.images,tags);
@@ -93,6 +98,8 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(linux.track,'linux');assert.equal(linux.tag,releaseTracks.resolveTrack('linux','a'.repeat(40)).tag);assert.equal(linux.sourceCommit,'a'.repeat(40));
   await assert.rejects(fs.stat(path.join(linuxOutput,'CastLink-Windows.zip')),/ENOENT/);
   assert.ok((await fs.stat(path.join(linuxOutput,'CastLink-Linux.tar.gz'))).size>0);
+  assert.equal(linux.documentationFiles[policyPath],createHash('sha256').update(policyBytes).digest('hex'),'standalone Linux includes the linked installer policy');
+  assert.deepEqual(execFileSync('tar',['-xOzf',path.join(linuxOutput,'CastLink-Linux.tar.gz'),policyPath]),policyBytes);
   const bootstrap=await fs.readFile(path.join(linuxOutput,'install-server.sh'),'utf8');
   assert.ok(bootstrap.includes(linux.tag));
   assert.ok(!bootstrap.includes('@@CASTLINK_'));
