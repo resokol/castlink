@@ -4,7 +4,9 @@
 
 本指南适用于 Linux **1.0.6** 和 Windows/WSL **1.0.6-rc.1**；旧 Docker Server Setup 保留为独立通道。Windows Client 仍为 **1.0.1**。可用软件包、准确的源代码与构建编号及校验值见[产品目录](PRODUCTS.md)。[1.0.6 变更](RELEASE_NOTES_1_0_6.md)。
 
-服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](RELEASE_NOTES_1_0_2.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
+**Windows 服务器主要方向：** WSL2，无需 Docker Desktop。公开的 Windows/WSL2 1.0.6-rc.1 **仍为预发布版**，需通过验证并另行发布稳定包。旧版 Windows/Docker/SSH EasySetup 归为 **Legacy**，仅用于现有部署；Linux/VPS 继续使用独立的稳定 Docker Engine/Compose 安装程序。[渠道和迁移限制](../../SUPPORTED_INSTALLERS.md)。
+
+服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](RELEASE_NOTES_1_0_2.md)。保留旧版 Windows/Docker 包，不支持 Docker → WSL2 自动迁移。
 
 请在停播时通过明确的更新操作选择原有安装，保留数据与配置；Linux 继续使用原有 `--state-dir`。发布软件包不会自动更新运行中的服务器。就绪检查通过后，手动刷新**演播室和参与者双方的页面**，包括 Windows Client 中的页面：客户端显示所选服务器的界面。
 
