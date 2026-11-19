@@ -2,6 +2,8 @@
 
 [Русский](INSTALL.md) · [English](docs/en/INSTALL.md) · [简体中文](docs/zh-CN/INSTALL.md)
 
+> **Legacy Windows/Docker/SSH EasySetup.** Новые серверы Windows устанавливайте через [Windows 11 / WSL2](../README.md#сервер-на-windows-11), а Ubuntu/VPS — через [актуальный Linux-инсталлятор](SERVER_INSTALL.md#linux-ubuntu). Старые EasySetup-пакеты оставлены для действующих установок. Не удаляйте данные при переходе: автоматической миграции Windows/Docker → WSL2 нет. [Политика каналов](SUPPORTED_INSTALLERS.md). Сведения ниже о Windows/Docker описывают исторический вариант, а не рекомендованную новую установку.
+
 Руководство для Windows Server Setup и standalone Linux **1.0.5**; Windows Client — **1.0.1**. Версия пакета исходников — **1.0.5**. Доступные выпуски, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Изменения 1.0.5](RELEASE_NOTES_1_0_5.md).
 
 В серверном выпуске **1.0.2** впервые появились [Linux одной командой, история показателей и журнал за 24 часа](SERVER_INSTALL.md). Обычный локальный Windows Server Setup использует Docker Desktop. Windows/WSL2 без Docker остаётся отдельным экспериментальным каналом и не входит в эти стабильные серверные пакеты.
