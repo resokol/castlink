@@ -11,6 +11,8 @@ Choose where to install your server:
 | Windows 11 | Full **1.0.6-rc.1** installer without Docker Desktop. Published prerelease. |
 | Ubuntu Linux / VPS | One `curl` command, stable **1.0.6**. |
 
+**Primary install paths:** Windows 11 servers use **WSL2 without Docker Desktop**; Ubuntu/VPS servers use the separate Linux package. The former Windows/Docker EasySetup is **Legacy**, retained for existing installations only. The currently published WSL2 **1.0.6-rc.1 is still tagged as a prerelease**, even though WSL2 is the primary Windows direction. [Installer policy and migration limits](distribution/SUPPORTED_INSTALLERS.md).
+
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
 
 ## Before installation
@@ -174,7 +176,7 @@ sudo docker compose -f /opt/castlink-server/compose.json logs --tail 100
 ## More
 
 - [Website](https://castlink.ru) · [User guide](distribution/docs/en/GUIDE.md) · [Releases](https://github.com/resokol/castlink/releases) · [Changelog](CHANGELOG.md).
-- The older Docker/SSH `EasySetup.exe` is an [alternative installation method](distribution/docs/en/INSTALL.md); it is not required for the Windows instructions above.
+- **Legacy:** the old Windows/Docker/SSH `EasySetup.exe` is [retained for existing deployments only](distribution/docs/en/INSTALL.md). New Windows servers use WSL2; remote Ubuntu/VPS installations use the Linux installer over SSH. [Migration limits](distribution/SUPPORTED_INSTALLERS.md).
 - Development: [CONTRIBUTING](CONTRIBUTING.md), [project guide](docs/PROJECT_GUIDE_RU.md), [technical invariants](docs/CRITICAL_INVARIANTS_RU.md). Installing a packaged server does not require Git or a source build.
 - [Report an issue](https://github.com/resokol/castlink/issues) · [Security](SECURITY.md) · [Contact / support the author](https://t.me/sklvmax).
 
