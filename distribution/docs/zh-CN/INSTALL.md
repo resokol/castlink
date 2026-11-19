@@ -2,7 +2,7 @@
 
 [Русский](../../INSTALL.md) · [English](../en/INSTALL.md) · [简体中文](INSTALL.md)
 
-> **Legacy Windows/Docker/SSH EasySetup。** 新的 Windows 服务器请使用 [Windows 11 / WSL2](../../../README.zh-CN.md)，Ubuntu/VPS 使用[当前 Linux 安装程序](../../SERVER_INSTALL.md)。旧版 EasySetup 仅供现有部署维护。**不支持自动从 Docker 迁移至 WSL2**，请保留现有数据。[渠道说明](../../SUPPORTED_INSTALLERS.md)。以下 Windows/Docker 步骤为旧版说明，并非新安装的推荐方式。
+> **Legacy Windows/Docker/SSH EasySetup。** 新的 Windows 服务器请使用 [Windows 11 / WSL2](../../../README.zh-CN.md)，Ubuntu/VPS 使用[当前 Linux 安装程序](SERVER_INSTALL.md)。旧版 EasySetup 仅供现有部署维护。**不支持自动从 Docker 迁移至 WSL2**，请保留现有数据。[渠道说明](../../SUPPORTED_INSTALLERS.md)。以下 Windows/Docker 步骤为旧版说明，并非新安装的推荐方式。
 
 本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。
 

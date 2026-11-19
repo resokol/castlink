@@ -34,7 +34,7 @@ saved helper's `status` command. Keep the same absolute `--state-dir` for custom
 locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
-## Docker-free Windows/WSL2 — separate experimental channel
+## Docker-free Windows/WSL2 — primary Windows server route
 
 The [1.0.6-rc.1 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53) is available as a prerelease. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 

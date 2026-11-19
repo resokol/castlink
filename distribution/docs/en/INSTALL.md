@@ -2,7 +2,7 @@
 
 [Русский](../../INSTALL.md) · [English](INSTALL.md) · [简体中文](../zh-CN/INSTALL.md)
 
-> **Legacy Windows/Docker/SSH EasySetup.** For new Windows servers use [Windows 11 / WSL2](../../../README.en.md); for Ubuntu/VPS use the [current Linux installer](../../SERVER_INSTALL.md). Old EasySetup packages remain for existing deployments. There is **no supported automatic Docker → WSL2 migration**: never discard Docker data as part of a new installation. [Installer policy](../../SUPPORTED_INSTALLERS.md). Windows/Docker steps below are historical, not the recommended path.
+> **Legacy Windows/Docker/SSH EasySetup.** For new Windows servers use [Windows 11 / WSL2](../../../README.en.md); for Ubuntu/VPS use the [current Linux installer](SERVER_INSTALL.md). Old EasySetup packages remain for existing deployments. There is **no supported automatic Docker → WSL2 migration**: never discard Docker data as part of a new installation. [Installer policy](../../SUPPORTED_INSTALLERS.md). Windows/Docker steps below are historical, not the recommended path.
 
 This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md).
 

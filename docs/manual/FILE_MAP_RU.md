@@ -16002,7 +16002,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — видеодиагностика на castlink.ru, 18.11.2026
+Текущее состояние — каналы установки и исправление CI, 19.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 

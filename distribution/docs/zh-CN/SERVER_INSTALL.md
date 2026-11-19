@@ -31,7 +31,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 自定义目录须每次使用相同的绝对 `--state-dir`。无人值守安装支持 `--config` 和
 `--room-creation-password-file`（UTF-8，末尾不换行）。
 
-## 无 Docker 的 Windows/WSL2 — 独立实验渠道
+## 无 Docker 的 Windows/WSL2 — 主要 Windows 服务器方案
 
 [1.0.6-rc.1 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53)现已发布，仍为预发布版本。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
 

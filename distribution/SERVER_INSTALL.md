@@ -34,7 +34,7 @@ curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc
 Для автоматизированной установки существуют `--config` и
 `--room-creation-password-file` (UTF-8 без завершающего перевода строки).
 
-## Windows/WSL2 без Docker — отдельный экспериментальный канал
+## Windows/WSL2 без Docker — основной вариант для Windows
 
 Доступен [установщик предварительного выпуска 1.0.6-rc.1](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53). [Шаги установки и ограничения](../README.md#сервер-на-windows-11).
 
