@@ -1,13 +1,13 @@
-name: Server setup or standalone Linux release
+name: Standalone Linux release (Windows Docker Setup is legacy)
 on:
   workflow_dispatch:
     inputs:
       track:
-        description: Product to build independently
+        description: Only the supported Linux server product (Windows Docker Setup is legacy)
         type: choice
         required: true
-        default: server-setup
-        options: [server-setup, linux]
+        default: linux
+        options: [linux]
       publish:
         description: Publish verified artifacts to the canonical CastLink repository
         type: boolean
@@ -27,7 +27,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   windows-powershell:
-    if: ${{ inputs.track == 'server-setup' }}
+    # Legacy Docker/SSH EasySetup builds are intentionally disabled. Do not resume public Windows Docker releases here.
+    if: ${{ false }}
     runs-on: ${{ (inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
@@ -118,7 +119,7 @@ jobs:
   packages:
     permissions:
       contents: write
-    if: ${{ always() && !inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
+    if: ${{ inputs.track == 'linux' && always() && !inputs.self_hosted && needs.windows-powershell.result == 'skipped' }}
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
@@ -204,7 +205,7 @@ jobs:
   packages-windows:
     permissions:
       contents: write
-    if: ${{ always() && inputs.self_hosted && (needs.windows-powershell.result == 'success' || (inputs.track == 'linux' && needs.windows-powershell.result == 'skipped')) }}
+    if: ${{ inputs.track == 'linux' && always() && inputs.self_hosted && needs.windows-powershell.result == 'skipped' }}
     needs: windows-powershell
     runs-on: [self-hosted, Windows, castlink]
     steps:
