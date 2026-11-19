@@ -2,6 +2,8 @@
 
 [Русский](SERVER_INSTALL.md) · [English](docs/en/SERVER_INSTALL.md) · [简体中文](docs/zh-CN/SERVER_INSTALL.md)
 
+**Основная линейка:** Windows 11 / WSL2 без Docker Desktop, Linux Ubuntu / VPS через Docker/Compose и отдельный Windows Client. Windows/Docker EasySetup — **Legacy**, только для существующих установок. WSL2 выбран как основной Windows-вариант, но опубликованный 1.0.6-rc.1 остаётся prerelease до нового полноценного стабильного выпуска. [Каналы и ограничения перехода](SUPPORTED_INSTALLERS.md).
+
 Руководство для Linux **1.0.6** и Windows/WSL **1.0.6-rc.1**; прежний Docker Server Setup остаётся отдельным направлением. Windows Client — **1.0.1**. Доступные пакеты, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Изменения 1.0.6](RELEASE_NOTES_1_0_6.md).
 
 В серверном выпуске **1.0.2** впервые появились [Linux одной командой, история показателей и журнал за 24 часа](RELEASE_NOTES_1_0_2.md). Обычный локальный Windows Server Setup использует Docker Desktop. Windows/WSL2 без Docker остаётся отдельным экспериментальным каналом и не входит в эти стабильные серверные пакеты.
