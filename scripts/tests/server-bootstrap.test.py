@@ -40,7 +40,7 @@ class Bootstrap(unittest.TestCase):
                 tar.addfile(member, io.BytesIO(data) if kind == tarfile.REGTYPE else None)
         return archive
 
-    def package(self, fail=False, interactive=False):
+    def package(self, fail=False, interactive=False, updater=None):
         helper = '''import sys,json,pathlib
 args=sys.argv[1:]; command=args[0]; folder=pathlib.Path(args[args.index('--state-dir')+1])
 with open(folder/'calls','a') as out: out.write(command+'\\n')
@@ -60,7 +60,11 @@ else:
         release = {'track': 'linux', 'tag': self.pin['tag'], 'version': self.pin['version'],
                    'commit': self.pin['sourceCommit'], 'distributionRepository': self.pin['repository'],
                    'bundleFiles': {'scripts/linux-compose-setup.py': hashlib.sha256(helper.encode()).hexdigest()}}
-        archive = self.archive([('scripts/linux-compose-setup.py', helper, tarfile.REGTYPE),
+        extras = []
+        if updater is not None:
+            release['bundleFiles']['scripts/castlink-updater.py'] = hashlib.sha256(updater.encode()).hexdigest()
+            extras.append(('scripts/castlink-updater.py', updater, tarfile.REGTYPE))
+        archive = self.archive(extras + [('scripts/linux-compose-setup.py', helper, tarfile.REGTYPE),
                                 ('payload/release.json', json.dumps(release), tarfile.REGTYPE),
                                 ('payload/images.tar.gz', 'image-fixture', tarfile.REGTYPE)])
         self.pin.update(archiveSha256=hashlib.sha256(archive.read_bytes()).hexdigest(), archiveBytes=archive.stat().st_size)
@@ -94,6 +98,34 @@ else:
         result, urls, runtime = self.run_install(['--state-dir', str(state)], archive)
         self.assertEqual(result, 0); self.assertEqual(urls, []); runtime.assert_not_called()
         self.assertEqual(before, {str(p.relative_to(state)): p.read_bytes() for p in state.rglob('*') if p.is_file()})
+
+    def test_new_install_registers_updater_once_with_actual_state_directory(self):
+        updater = "import sys,pathlib,json\na=sys.argv[1:]\nassert a[0]=='install'\np=pathlib.Path(a[a.index('--state-dir')+1])\nassert json.loads((p/'.castlink-install.json').read_text())['completed']\n(p/'updater-calls').write_text(json.dumps(a))\n"
+        archive = self.package(updater=updater); state = self.root / 'actual server path'
+        args = ['--state-dir', str(state), '--config', str(self.root / 'config'), '--room-creation-password-file', str(self.root / 'password'), '--lang', 'zh-CN']
+        self.assertEqual(self.run_install(args, archive)[0], 0)
+        self.assertEqual(json.loads((state/'updater-calls').read_text()), ['install','--state-dir',str(state),'--lang','zh-CN'])
+        before = {str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file()}
+        self.assertEqual(self.run_install(['--state-dir',str(state)],archive)[0],0)
+        self.assertEqual(before,{str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file()})
+
+    def test_registration_failure_preserves_successful_server_and_warns(self):
+        archive=self.package(updater='import sys\nsys.exit(9)\n');state=self.root/'server'
+        args=['--state-dir',str(state),'--config',str(self.root/'config'),'--room-creation-password-file',str(self.root/'password'),'--lang','en']
+        with patch('sys.stderr',new_callable=io.StringIO) as errors:
+            self.assertEqual(self.run_install(args,archive)[0],0)
+            self.assertIn('updater',errors.getvalue())
+        self.assertTrue(json.loads((state/'.castlink-install.json').read_text())['completed'])
+        self.assertEqual((state/'calls').read_text(),'init\nstart\n')
+        self.assertEqual((state/'secrets.json').read_text(),'retained-secrets')
+
+    def test_registration_checks_packaged_bootstrap_digest_before_execution(self):
+        archive=self.package(updater='raise RuntimeError("must never run")\n')
+        package=self.root/'package';package.mkdir();self.m.safe_extract(archive,package)
+        (package/'scripts/castlink-updater.py').write_text('tampered')
+        with patch.object(self.m.subprocess,'run') as run, patch('sys.stderr',new_callable=io.StringIO):
+            self.m.register_updater(package,self.root,type('Args',(),{'lang':'en'})())
+        run.assert_not_called()
 
     def test_helper_failure_propagates_and_retry_reuses_secrets_and_package(self):
         archive = self.package(fail=True); state = self.root / 'server'

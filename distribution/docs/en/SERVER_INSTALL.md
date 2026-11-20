@@ -10,6 +10,8 @@ Server **1.0.2** introduced [one-command Linux installation, 24-hour metric hist
 
 Update the server off air through an explicit update action, selecting the existing installation and retaining its data and configuration; keep the same Linux `--state-dir`. Publishing a package does not update a running server. After readiness checks, manually reload **both studio and caster pages**, including pages in Windows Client: the client displays its selected server interface.
 
+**Updates without downloading another tool each time:** connect the [persistent updater](UPDATER.md) once on each computer. Use **Update CastLink** for Client and WSL2 on Windows, or `castlink check-updates` and `castlink update` on Linux. Applying an update requires your confirmation.
+
 ## Ubuntu Linux
 
 The command below installs stable **1.0.7**. For step-by-step Windows and Linux installation, see the [main guide](../../../README.en.md).

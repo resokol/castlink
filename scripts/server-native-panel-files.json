@@ -15,6 +15,7 @@
     "simple-easy-setup-network.ps1",
     "simple-easy-setup-control.ico",
     "server-wsl-maintenance.ps1",
-    "server-wsl-maintenance-ui.ps1"
+    "server-wsl-maintenance-ui.ps1",
+    "castlink-updater.ps1"
   ]
 }

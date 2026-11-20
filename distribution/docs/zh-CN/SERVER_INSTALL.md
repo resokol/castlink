@@ -10,6 +10,8 @@
 
 请在停播时通过明确的更新操作选择原有安装，保留数据与配置；Linux 继续使用原有 `--state-dir`。发布软件包不会自动更新运行中的服务器。就绪检查通过后，手动刷新**演播室和参与者双方的页面**，包括 Windows Client 中的页面：客户端显示所选服务器的界面。
 
+**更新时无需反复下载工具：**在每台电脑上连接一次[永久更新工具](UPDATER.md)。Windows 的 Client 与 WSL2 使用 **Update CastLink** 快捷方式，Linux 使用 `castlink check-updates` 与 `castlink update`。应用更新需要确认。
+
 ## Ubuntu Linux
 
 以下命令安装稳定版 **1.0.7**。Windows 和 Linux 的分步安装请见[主页指南](../../../README.zh-CN.md)。

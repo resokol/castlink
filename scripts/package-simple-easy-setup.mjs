@@ -49,7 +49,8 @@ export async function assemble({root=process.cwd(),output,image,commit,imageId,o
  await fs.mkdir(output,{recursive:true});
  const stage=path.join(output,'stage'); await fs.mkdir(path.join(stage,'scripts'),{recursive:true}); await fs.mkdir(path.join(stage,'payload'),{recursive:true});
  const scripts=['windows-simple-easy-setup.ps1','simple-easy-setup-deploy.ps1','simple-easy-setup-network.ps1','linux-compose-setup.py','simple-easy-setup-runtime.ps1','simple-easy-setup-ssh.ps1','simple-easy-setup-cleanup.ps1','simple-easy-setup-trust.ps1','simple-easy-setup-download.ps1','simple-easy-setup-gui.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-control.ico','simple-easy-setup-window.xaml','simple-easy-setup-release.json','simple-easy-setup-reserves.ps1','server-ssh-authorize-key.py','ubuntu-easy-setup-bootstrap.sh','simple-easy-setup-retention.py'];
- for(const name of scripts){let bytes=await fs.readFile(path.join(root,'scripts',name));if(name.endsWith('.ps1'))bytes=Buffer.from('\ufeff'+bytes.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'));await fs.writeFile(path.join(stage,'scripts',name),bytes);}
+ if(track==='linux')scripts.push('castlink-updater.py');
+ for(const name of scripts){let bytes=await fs.readFile(path.join(root,'scripts',...(name==='castlink-updater.py'?['updater',name]:[name])));if(name.endsWith('.ps1'))bytes=Buffer.from('\ufeff'+bytes.toString('utf8').replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'));await fs.writeFile(path.join(stage,'scripts',name),bytes);}
  await fs.copyFile(image,path.join(stage,'payload','images.tar.gz'));
  const distribution=JSON.parse(await fs.readFile(path.join(root,'scripts','simple-easy-setup-release.json'),'utf8'));
  if(!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$/.test(distribution.repository??'')) throw new Error('valid distribution repository required');

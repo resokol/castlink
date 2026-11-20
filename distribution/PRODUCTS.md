@@ -14,6 +14,13 @@
 | Linux Ubuntu | Отдельный сервер Linux, Docker Engine/Compose (не Docker Desktop на Windows) | [1.0.7](https://github.com/resokol/castlink/releases/tag/linux-v1.0.7-ac9c234c72b0) · [Установщик](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/SHA256SUMS) |
 | Windows Client | Отдельное приложение для студии и кастера; сервер не устанавливает | [1.0.1](https://github.com/resokol/castlink/releases/tag/client-v1.0.1-079fd0f9d4b1) · [Установщик](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
 
+<a id="updater"></a>
+## Постоянный обновлятор 1.0.0
+
+Отдельный инструмент для поддерживаемых Client, Windows/WSL2 и Linux. Установите его **один раз на каждом компьютере**, затем используйте постоянный ярлык или команду; версии продуктов остаются Client **1.0.1** и Server **1.0.7**. Проверка не применяет обновление; перед применением требуется подтверждение.
+
+[Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Точный тег канала `updater`, manifest и `SHA256SUMS` версии 1.0.0 выбирайте в [официальных выпусках](https://github.com/resokol/castlink/releases); канал обновлятора независим от серверного и клиентского.
+
 ## Legacy: Windows Server с Docker Desktop
 
 | CastLink | Для кого | Архив |

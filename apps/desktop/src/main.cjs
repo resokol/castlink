@@ -81,6 +81,7 @@ function createUpdates() {
   const roots=['D:\\CastLink',path.join(require('node:os').homedir(),'CastLink')];
   const downloads=path.join(app.getPath('userData'),'update-downloads');updates.cleanupDownloads(downloads);
   return updates.createUpdateController({userData:app.getPath('userData'),current,getLocale:()=>settings.locale,
+    launchPersistent:require('./persistent-updater.cjs').launchPersistentUpdater,
     getServers:()=>updates.discoverServerBuilds({roots,indexPath:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'AppData','Local'),'CastLink','managed-servers.json')}),
     showMessage:options=>{const owner=client||launcher;return owner&&!owner.isDestroyed()?dialog.showMessageBox(owner,options):dialog.showMessageBox(options);},
     updateServer:build=>setupController.launch('update',settings.locale,build.folder),

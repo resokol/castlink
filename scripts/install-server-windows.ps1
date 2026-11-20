@@ -363,6 +363,7 @@ function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Di
     $bundle = $manifest.nativePanel
     $names = @('server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1')
     if ($manifest.PSObject.Properties['lifecycle']) { $names += @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1') }
+    if ('castlink-updater.ps1' -cin @($bundle.files|ForEach-Object {$_.file})) { $names += @('castlink-updater.ps1') }
     if ($bundle.schemaVersion -ne 1 -or $bundle.host -cne 'CastLinkServer.exe' -or $bundle.binding -cne 'server-native-binding.json' -or @($bundle.files).Count -ne $names.Count) { throw 'Native panel helper inventory is invalid.' }
     $seen = @{}
     foreach ($entry in $bundle.files) {
@@ -636,6 +637,26 @@ try {
     } finally { Remove-Item -LiteralPath $helper -ErrorAction SilentlyContinue }
 }
 
+function Invoke-CastlinkUpdaterRegistration([string]$File,[string]$Language){
+    & (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File $File -Install -Language $Language
+    if($LASTEXITCODE -ne 0){throw 'Permanent updater registration failed'}
+}
+function Register-CastlinkPersistentUpdater($State,$Status,[string]$Directory,[bool]$NewInstallation,[string]$Language){
+    # Only newly completed installations opt in. Repeated installer/control runs never execute another updater.
+    if(-not $NewInstallation){return $false}
+    if($State.phase -cne 'ready' -or $Status.ready -ne $true -or $Status.buildId -cne ($State.releaseTag -creplace '^server-wsl-v','')){throw 'Updater registration requires a newly ready exact server'}
+    $path=Join-Path $Directory 'manifest.json'
+    if(-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -gt 1048576 -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $script:PackagedManifestSha256){throw 'Updater manifest checksum mismatch'}
+    $manifest=[IO.File]::ReadAllText($path,[Text.Encoding]::UTF8)|ConvertFrom-Json
+    if($manifest.schemaVersion -ne 1 -or $manifest.channel -cne 'server-wsl' -or $manifest.repository -cne 'resokol/castlink' -or $manifest.releaseTag -cne $State.releaseTag -or $manifest.rootfs.sha256 -cne $State.rootfsSha256){throw 'Updater manifest installation identity mismatch'}
+    if(-not $manifest.PSObject.Properties['nativePanel']){return $false}
+    $entries=@($manifest.nativePanel.files|Where-Object {$_.file -ceq 'castlink-updater.ps1'});if(-not $entries.Count){return $false};if($entries.Count -ne 1){throw 'Updater helper inventory is duplicated'}
+    $entry=$entries[0];$file=Join-Path $Directory 'castlink-updater.ps1';$ancestor=[IO.Path]::GetFullPath($file)
+    while($ancestor){if((Test-Path -LiteralPath $ancestor) -and ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Updater helper cannot use reparse points'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+    if($entry.size -le 0 -or $entry.size -gt 4194304 -or $entry.sha256 -cnotmatch '^[a-f0-9]{64}$' -or -not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -ne $entry.size -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256){throw 'Updater helper checksum or size mismatch'}
+    Invoke-CastlinkUpdaterRegistration $file $Language;return $true
+}
+
 function Invoke-CastlinkWindowsInstaller {
     if ($Help) {
         Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Use CastLink-Maintenance.cmd or the native Maintenance button for explicit WSL update/removal/restore. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
@@ -664,6 +685,7 @@ function Invoke-CastlinkWindowsInstaller {
     try {
         # Re-read after acquiring the lease; another invocation may have finished.
         if (Test-Path -LiteralPath (Join-Path $InstallRoot 'installation.json')) { $state = Get-CastlinkInstallation $InstallRoot $ReleaseTag $Repository $script:PackagedRootfsSha256 }
+        $newInstallation = $state.phase -cne 'ready'
         Protect-CastlinkInstallationDirectory $InstallRoot
         Save-CastlinkInstallation $InstallRoot $state
         Initialize-CastlinkWsl
@@ -742,6 +764,10 @@ function Invoke-CastlinkWindowsInstaller {
         }
         Assert-CastlinkKeepaliveAlive $state
         $state.phase = 'ready'; Save-CastlinkInstallation $InstallRoot $state
+        if($newInstallation -and $panelReady){
+            try{$null=Register-CastlinkPersistentUpdater $state $status $cache $true $Lang}
+            catch{$notice=@{ru='Сервер работает. Постоянный обновлятор не зарегистрирован; запустите install-updater-windows.cmd отдельно.';en='Server is running. The permanent updater was not registered; run install-updater-windows.cmd separately.';'zh-CN'='服务器正在运行。永久更新程序未注册；请单独运行 install-updater-windows.cmd。'};Write-Warning ($notice[$Lang]+' '+$_.Exception.Message)}
+        }
         Write-Host ('CastLink is running in '+$state.distroName+'. Open https://'+$Address+'/ after DNS and router forwarding are configured. Internet access and remote WebRTC still require an external client check.')
     } finally { $lock.Dispose() }
     if ($panelFailure) { throw ('Server services are verified running, but native panel setup failed: '+$panelFailure) }

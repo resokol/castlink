@@ -8,7 +8,7 @@ const scripts=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 test('native panel stage inventory includes every directly sourced helper and actual icon',async()=>{
   const inventory=JSON.parse(await fs.readFile(path.join(scripts,'server-native-panel-files.json'),'utf8'));
   const files=new Set(inventory.files);
-  for(const file of files) assert.ok((await fs.stat(path.join(scripts,file))).isFile(),file);
+  for(const file of files) assert.ok((await fs.stat(path.join(scripts,file==='castlink-updater.ps1'?'updater/castlink-updater.ps1':file))).isFile(),file);
   for(const file of ['server-native-control.ps1','simple-easy-setup-control.ps1']){
     let source=await fs.readFile(path.join(scripts,file),'utf8');
     // FunctionsOnly loads this helper's language/network dependencies, not its old Docker entry point.

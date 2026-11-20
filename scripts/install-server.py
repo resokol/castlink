@@ -305,6 +305,28 @@ def run_helper(package, folder, action, args):
     if result.returncode: raise BootstrapError('Linux setup ' + action + ' failed (exit ' + str(result.returncode) + '). Existing state and secrets were retained; rerun the same command after fixing the reported error.')
 
 
+def register_updater(package, folder, args):
+    """Attach the new server without changing its state or making setup depend on GitHub."""
+    helper = package / 'scripts/castlink-updater.py'
+    try:
+        release = read_json(package / 'payload/release.json')
+        expected = release.get('bundleFiles', {}).get('scripts/castlink-updater.py')
+        # Historical immutable packages do not carry the independent updater.
+        if expected is None: return
+        if helper.is_symlink() or not helper.is_file() or not re.fullmatch(r'[a-f0-9]{64}', expected) or digest(helper) != expected:
+            raise BootstrapError('Packaged updater checksum mismatch.')
+        result = subprocess.run([sys.executable, '-I', '-B', str(helper), 'install', '--state-dir', str(folder), '--lang', args.lang],
+                                stdin=subprocess.DEVNULL, check=False)
+        if result.returncode: raise BootstrapError('Updater registration failed (exit ' + str(result.returncode) + ').')
+    except (BootstrapError, OSError, ValueError, TypeError) as error:
+        messages = {
+            'ru': 'Сервер готов. Постоянный обновлятор не подключён. Повторите подключение официальным install-updater-linux.sh --state-dir с каталогом этой установки:',
+            'en': 'The server is ready. The persistent updater was not registered. Retry the official install-updater-linux.sh --state-dir with this installation directory:',
+            'zh-CN': '服务器已就绪。永久更新工具未注册。请使用官方 install-updater-linux.sh --state-dir 和此安装目录重试：'
+        }
+        print(messages[args.lang] + ' ' + str(folder) + ' (' + str(error) + ')', file=sys.stderr)
+
+
 def install(args, current_pin):
     validate_pin(current_pin)
     validate_platform()
@@ -350,6 +372,7 @@ def install(args, current_pin):
         if not state or state.get('completed') is not True:
             raise BootstrapError('Linux setup did not confirm completed database and origin checks; installation is not ready.')
         if args.owner_access_file: run_helper(package, folder, 'owner-access', args)
+        register_updater(package, folder, args)
         print('CastLink setup completed: ' + str(state['network']['publicOrigin']))
         print('Installation: ' + str(folder))
 

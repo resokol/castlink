@@ -1,4 +1,4 @@
-; Visual layer only: electron-builder owns installation and launch semantics.
+; electron-builder owns client installation; register its bundled local updater afterwards.
 !include "LogicLib.nsh"
 !define MUI_BGCOLOR "191C20"
 !define MUI_TEXTCOLOR "EEF0F2"
@@ -18,6 +18,23 @@
 !define MUI_FINISHPAGE_TEXT "$(CastLinkFinish)"
 BrandingText "CastLink Client"
 InstallColors EEF0F2 191C20
+
+LangString CastLinkUpdaterWarning 1049 "Клиент установлен. Обновлятор не удалось подключить; запустите его установщик отдельно с сайта castlink.ru."
+LangString CastLinkUpdaterWarning 1033 "The client is installed. Updater registration failed; run its installer separately from castlink.ru."
+LangString CastLinkUpdaterWarning 2052 "客户端已安装。更新工具注册失败；请从 castlink.ru 单独运行其安装程序。"
+!macro customInstall
+  StrCpy $0 "en"
+  ${If} $LANGUAGE == 1049
+    StrCpy $0 "ru"
+  ${ElseIf} $LANGUAGE == 2052
+    StrCpy $0 "zh-CN"
+  ${EndIf}
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File "$INSTDIR\resources\updater\castlink-updater.ps1" -Install -Language $0'
+  Pop $1
+  ${If} $1 != 0
+    DetailPrint "$(CastLinkUpdaterWarning)"
+  ${EndIf}
+!macroend
 
 LangString CastLinkWelcome 1049 "Установите приложение для участия в трансляциях.$\r$\n$\r$\nЯрлыки CastLink Client появятся на рабочем столе и в меню «Пуск».$\r$\n$\r$\nНажмите «Далее», чтобы выбрать папку."
 LangString CastLinkWelcome 1033 "Install the app to join broadcasts.$\r$\n$\r$\nCastLink Client shortcuts will appear on your desktop and in the Start menu.$\r$\n$\r$\nChoose Next to select a folder."

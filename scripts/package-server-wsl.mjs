@@ -127,13 +127,13 @@ async function readNativePanelPackage(root){
  const inventory=JSON.parse(await fs.readFile(path.join(root,'scripts',inventoryFile),'utf8'));
  const names=[inventoryFile,...(inventory.files??[]),...(inventory.buildFiles??[])];
  if(inventory.schemaVersion!==1||inventory.host!=='CastLinkServer.exe'||inventory.binding!=='server-native-binding.json'||
-    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==8||inventory.buildFiles.length!==2||
+    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==9||inventory.buildFiles.length!==2||
     new Set(names).size!==names.length||names.some(name=>typeof name!=='string'||!/^[A-Za-z0-9][A-Za-z0-9.-]{0,127}$/.test(name)))throw Error('Invalid native panel helper inventory');
- for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1'])
+ for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','castlink-updater.ps1'])
   if(!names.includes(required))throw Error('Missing native panel helper: '+required);
  const files=[];
  for(const file of names){
-  const source=path.join(root,'scripts',file),stat=await fs.lstat(source);
+  const source=path.join(root,'scripts',file==='castlink-updater.ps1'?'updater/castlink-updater.ps1':file),stat=await fs.lstat(source);
   if(!stat.isFile()||stat.isSymbolicLink()||stat.size===0||stat.size>4194304)throw Error('Invalid native panel helper: '+file);
   files.push({file,sha256:await hashFile(source),size:stat.size});
  }
@@ -196,7 +196,7 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  await fs.copyFile(inventory,path.join(output,'packages.tsv'));
  await fs.writeFile(path.join(output,'manifest.json'),bytes,{flag:'wx'});
  await fs.writeFile(path.join(output,'install-server-windows.ps1'),'\ufeff'+script.replace(/^\ufeff/,'').replace(/\r?\n/g,'\r\n'),{flag:'wx'});
- for(const entry of nativePanel.files)await fs.copyFile(path.join(root,'scripts',entry.file),path.join(output,entry.file));
+ for(const entry of nativePanel.files)await fs.copyFile(path.join(root,'scripts',entry.file==='castlink-updater.ps1'?'updater/castlink-updater.ps1':entry.file),path.join(output,entry.file));
  for(const entry of helpers)if(!nativePanel.files.some(e=>e.file===entry.file))await fs.copyFile(path.join(root,'scripts',entry.file==='install-server-windows.template.ps1'?'install-server-windows.ps1':entry.file),path.join(output,entry.file));
  for(const name of ['LICENSE','THIRD_PARTY_NOTICES'])await fs.copyFile(path.join(root,name),path.join(output,name));
  const bootstrap=maintenanceBootstrap(createHash('sha256').update(bytes).digest('hex'));
