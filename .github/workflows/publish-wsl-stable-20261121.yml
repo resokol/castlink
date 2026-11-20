@@ -1,0 +1,70 @@
+name: Publish verified WSL 1.0.7 artifact
+on:
+  push:
+    branches: [ops/publish-wsl-stable-20261121]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-wsl-stable-20261121
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact factory artifact and download its original ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/resokol/castlink/actions/artifacts/14672099063 > "$RUNNER_TEMP/artifact.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          a=json.loads((Path(os.environ['RUNNER_TEMP'])/'artifact.json').read_text())
+          assert a['id']==14672099063 and a['expired'] is False
+          assert a['name']=='castlink-server-wsl-candidate-0d16de2e782cd2e847e9824024c5b788a080a59b'
+          assert a['size_in_bytes']==3694503676
+          assert a['digest']=='sha256:848aae49ee00c1b035a0eeeece3125e3d9d82576f35547dee7ae3c4c7006fe57'
+          assert a['workflow_run']['id']==44820441013
+          assert a['workflow_run']['head_sha']=='0d16de2e782cd2e847e9824024c5b788a080a59b'
+          print('Exact original factory artifact metadata verified')
+          PY
+          gh api repos/resokol/castlink/actions/artifacts/14672099063/zip > "$RUNNER_TEMP/wsl-factory.zip"
+          test "$(stat -c %s "$RUNNER_TEMP/wsl-factory.zip")" -eq 3694503676
+          printf '%s  %s\n' '848aae49ee00c1b035a0eeeece3125e3d9d82576f35547dee7ae3c4c7006fe57' "$RUNNER_TEMP/wsl-factory.zip" | sha256sum --check --strict
+      - name: Extract only the 26 expected package files
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os, shutil, zipfile
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('publisher','ops/release-20261121/publish-wsl.py')
+          p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)
+          root=Path(os.environ['RUNNER_TEMP']);destination=root/'wsl-package';destination.mkdir(mode=0o700)
+          with zipfile.ZipFile(root/'wsl-factory.zip') as archive:
+              items=archive.infolist()
+              assert len(items)==26 and {i.filename for i in items}==p.NAMES
+              assert sum(i.file_size for i in items)<5_000_000_000
+              for item in items:
+                  with archive.open(item) as source,(destination/item.filename).open('xb') as output:
+                      shutil.copyfileobj(source,output,4*1024*1024)
+          (root/'wsl-factory.zip').unlink()
+          print('Only exact factory package files extracted')
+          PY
+      - name: Verify, upload draft, and publish the immutable stable release
+        run: |
+          set -euo pipefail
+          for mode in verify draft publish; do
+            python3 ops/release-20261121/publish-wsl.py "$mode" "$RUNNER_TEMP/wsl-package" ops/release-20261121/notes.md "$RUNNER_TEMP/wsl-publication-receipt.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wsl-stable-1.0.7-publication-receipt
+          path: ${{ runner.temp }}/wsl-publication-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
