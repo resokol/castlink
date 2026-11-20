@@ -55,6 +55,22 @@ jobs:
           (root/'wsl-factory.zip').unlink()
           print('Only exact factory package files extracted')
           PY
+      - name: Resume the exact draft from its prior durable receipt
+        run: |
+          set -euo pipefail
+          gh api repos/resokol/castlink/actions/artifacts/14674405261/zip > "$RUNNER_TEMP/prior-receipt.zip"
+          printf '%s  %s\n' '6100598b55e380784409abcc18e2a4d5607421b6117016c26549d050e5d17242' "$RUNNER_TEMP/prior-receipt.zip" | sha256sum --check --strict
+          python3 - <<'PY'
+          import json,os,zipfile
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(root/'prior-receipt.zip') as z:
+              assert z.namelist()==['wsl-publication-receipt.json']
+              data=z.read('wsl-publication-receipt.json');r=json.loads(data)
+              assert r['releaseId']==453219791 and r['sourceCommit']=='0d16de2e782cd2e847e9824024c5b788a080a59b'
+              assert r['tag']=='server-wsl-v1.0.7-0d16de2e782c' and r['creationAttempted'] is True
+              (root/'wsl-publication-receipt.json').write_bytes(data)
+          PY
       - name: Verify, upload draft, and publish the immutable stable release
         run: |
           set -euo pipefail

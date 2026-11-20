@@ -280,6 +280,16 @@ def operate(mode, folder, notes_file, receipt_path, gh):
         def find_release():
             matches = [r for r in gh.listing('releases?per_page=100') if r.get('tag_name') == TAG]
             require(len(matches) <= 1, 'Multiple releases use exact tag')
+            # Drafts may be omitted from collection reads for an installation token.
+            # Once creation returned a numeric ID, retain that identity across retries.
+            known_id = receipt.get('releaseId')
+            if known_id:
+                require(type(known_id) is int and known_id > 0, 'Invalid receipt release ID')
+                require(not matches or matches[0].get('id') == known_id, 'Exact release selection changed')
+                value = gh.api('releases/'+str(known_id))
+                require(value.get('id') == known_id and value.get('tag_name') == TAG,
+                        'Pinned release identity changed')
+                return value
             return matches[0] if matches else None
 
         release = find_release()
