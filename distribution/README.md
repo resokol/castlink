@@ -2,7 +2,7 @@
 
 # CastLink: установка и работа
 
-Руководство по работе с CastLink. Для новой установки выберите Windows 11/WSL2 или Ubuntu/Linux; Windows/Docker Server Setup сохранён как Legacy для действующих установок. Windows Client — отдельный продукт версии **1.0.1**. Точные выпуски, source/build ID и SHA256 указаны в [каталоге](PRODUCTS.md); [1.0.7 готовится](RELEASE_NOTES_1_0_7.md).
+Руководство по работе с CastLink. Для новой установки выберите Windows 11/WSL2 или Ubuntu/Linux; Windows/Docker Server Setup сохранён как Legacy для действующих установок. Windows Client — отдельный продукт версии **1.0.1**. Точные выпуски, source/build ID и SHA256 указаны в [каталоге](PRODUCTS.md); [изменения 1.0.7](RELEASE_NOTES_1_0_7.md).
 
 Сервер хранит историю показателей и журнал за 24 часа; Linux поддерживает установку одной командой. WSL2 — основное Windows-направление без Docker Desktop; опубликованный RC остаётся prerelease до отдельного стабильного выпуска. Не переносите Docker-данные автоматически в WSL2. [Каналы и ограничения](SUPPORTED_INSTALLERS.md).
 

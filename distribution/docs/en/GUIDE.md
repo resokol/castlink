@@ -2,7 +2,7 @@
 
 # CastLink: installation and operation
 
-This is the CastLink operation guide. Choose Windows 11/WSL2 or Ubuntu/Linux for a new server; Windows/Docker Server Setup is retained as Legacy for existing installations. Windows Client is a separate product at **1.0.1**. Exact releases, source/build IDs and SHA256 are listed in the [catalog](PRODUCTS.md); [1.0.7 is in preparation](RELEASE_NOTES_1_0_7.md).
+This is the CastLink operation guide. Choose Windows 11/WSL2 or Ubuntu/Linux for a new server; Windows/Docker Server Setup is retained as Legacy for existing installations. Windows Client is a separate product at **1.0.1**. Exact releases, source/build IDs and SHA256 are listed in the [catalog](PRODUCTS.md); [1.0.7 changes](RELEASE_NOTES_1_0_7.md).
 
 The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the published RC remains prerelease until a separate stable release. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
 

@@ -84,7 +84,7 @@ Download [CastLink-Server-WSL-Maintenance-fix1.zip](https://github.com/resokol/c
 
 Click **Update** only outside a broadcast: the server stops during transfer and readiness checks. The confirmation displays the selected address, version and folder and can be cancelled. Supported source releases are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926` and `server-wsl-v1.0.5-rc.3-95ec46463c82`. Other source versions, Docker migration and a different PostgreSQL major are unsupported. Repair an incomplete source with its original release, or remove it through this tool; Update does not pretend it is ready.
 
-**Upgrading 1.0.6-rc.1 → 1.0.7:** the new 1.0.7 maintenance tool supports source tag `server-wsl-v1.0.6-rc.1-dad063393b53`. The 1.0.7 files are not published yet; the ZIP currently linked above belongs to 1.0.6-rc.1. After publication, use 1.0.7 maintenance, select the existing installation and update off air.
+**Upgrading 1.0.6-rc.1 → 1.0.7:** the new 1.0.7 maintenance tool supports source tag `server-wsl-v1.0.6-rc.1-dad063393b53`. For this transition, choose 1.0.7 maintenance for your channel in the catalog and match its version to `manifest.json`; the 1.0.6-rc.1 maintenance tool does not replace version 1.0.7. Select the existing installation and update off air.
 
 A supported upgrade preserves server UUID, rooms/history, passwords, domain, TLS material and network settings. Successful updates remove the temporary transfer and the old owned distribution: **no permanent automatic backup remains**. Failures retain needed recovery evidence. On success, click **Open server panel**, then reload both studio and caster pages.
 

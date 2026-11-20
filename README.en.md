@@ -2,7 +2,7 @@
 
 # CastLink
 
-**1.0.7 is in preparation:** server and web based on the accepted castlink.ru version, including video/audio diagnostics, rolling 10-second network quality, vMix stream compatibility and WSL2 server management. Publication of new packages is not yet confirmed; the links below select existing releases. Client remains 1.0.1. [Changes and updating](distribution/docs/en/RELEASE_NOTES_1_0_7.md).
+**1.0.7:** server and web based on the accepted castlink.ru version, including video/audio diagnostics, rolling 10-second network quality, vMix stream compatibility and WSL2 server management. Choose the exact 1.0.7 server package for your channel in the catalog; match its version and source/build ID to `manifest.json` and files to `SHA256SUMS`. Client remains 1.0.1. [Changes and updating](distribution/docs/en/RELEASE_NOTES_1_0_7.md).
 
 Connect remote guests in a browser and receive separate audio/video feeds for OBS or vMix.
 
@@ -100,7 +100,7 @@ The panel provides service controls, statistics and **Export ZIP for 24 hours**.
 
 Supported upgrade sources are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926` and `server-wsl-v1.0.5-rc.3-95ec46463c82`. Supported updates preserve rooms, history, passwords, address and certificates; successful updates leave no permanent automatic backup. Migration from Docker is unsupported. [Details](distribution/docs/en/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS).
 
-**Upgrading 1.0.6-rc.1 → 1.0.7:** the new 1.0.7 maintenance tool supports source tag `server-wsl-v1.0.6-rc.1-dad063393b53`. The 1.0.7 files are not published yet; the ZIP currently linked above belongs to 1.0.6-rc.1. After publication, use 1.0.7 maintenance, select the existing installation and update off air.
+**Upgrading 1.0.6-rc.1 → 1.0.7:** the new 1.0.7 maintenance tool supports source tag `server-wsl-v1.0.6-rc.1-dad063393b53`. For this transition, choose 1.0.7 maintenance for your channel in the catalog and match its version to `manifest.json`; the 1.0.6-rc.1 maintenance tool does not replace version 1.0.7. Select the existing installation and update off air.
 
 ## Ubuntu Linux server
 

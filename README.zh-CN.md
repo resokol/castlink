@@ -2,7 +2,7 @@
 
 # CastLink
 
-**1.0.7 准备中：**服务器与 Web 以已认可的 castlink.ru 版本为基准，包含音视频诊断、最近 10 秒网络质量、vMix 流兼容性及 WSL2 服务器管理。新软件包尚未确认发布，下方链接指向现有发行版。Client 保持 1.0.1。[变更与更新](distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md)。
+**1.0.7：**服务器与 Web 以已认可的 castlink.ru 版本为基准，包含音视频诊断、最近 10 秒网络质量、vMix 流兼容性及 WSL2 服务器管理。请在目录中选择对应渠道的准确 1.0.7 服务器软件包；将版本及源代码/构建编号与 `manifest.json` 核对，并将文件与 `SHA256SUMS` 核对。Client 保持 1.0.1。[变更与更新](distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md)。
 
 让远程嘉宾通过浏览器接入，为 OBS 或 vMix 提供独立的音视频流。
 
@@ -100,7 +100,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926` 和 `server-wsl-v1.0.5-rc.3-95ec46463c82`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS)。
 
-**1.0.6-rc.1 → 1.0.7 更新：**新版 1.0.7 维护工具支持来源标签 `server-wsl-v1.0.6-rc.1-dad063393b53`。1.0.7 文件尚未发布；上方当前 ZIP 链接属于 1.0.6-rc.1。发布后请使用 1.0.7 维护工具，选择原安装并在停播时更新。
+**1.0.6-rc.1 → 1.0.7 更新：**新版 1.0.7 维护工具支持来源标签 `server-wsl-v1.0.6-rc.1-dad063393b53`。此次更新请在目录中选择对应渠道的 1.0.7 维护工具，并与 `manifest.json` 核对版本；1.0.6-rc.1 维护工具不能代替 1.0.7。选择原安装并在停播时更新。
 
 ## Ubuntu Linux 服务器
 
