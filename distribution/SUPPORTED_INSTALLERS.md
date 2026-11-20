@@ -1,18 +1,18 @@
 # Каналы установки CastLink / Supported install channels
 
-**Решение по продукту (19.11.2026):** для новых серверов Windows основное направление — **Windows 11 + WSL2 без Docker Desktop**. Для Ubuntu/VPS — **отдельный Linux Server на Docker Engine/Compose**. Для участников — самостоятельный **Windows Client**. Их установщики **не идентичны**: форматы пакетов, зависимости, инструменты обслуживания и циклы выпуска различаются.
+**Решение по продукту (21.11.2026):** для новых серверов Windows основное направление — **Windows 11 + WSL2 без Docker Desktop**. Для Ubuntu/VPS — **отдельный Linux Server на Docker Engine/Compose**. Для участников — самостоятельный **Windows Client**. Их установщики **не идентичны**: форматы пакетов, зависимости, инструменты обслуживания и циклы выпуска различаются.
 
 ## Основные направления
 
 | Назначение | Рекомендуемый пакет | Текущий публичный выпуск | Статус самого артефакта |
 | --- | --- | --- | --- |
-| Windows 11 server | `server-wsl`: `install-server-windows.ps1` + средства обслуживания | [1.0.6-rc.1](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53) | опубликованный **prerelease**; WSL2 — выбранное основное направление Windows |
-| Ubuntu Linux/VPS server | `linux`: `install-server.sh` + Docker/Compose | [1.0.6](https://github.com/resokol/castlink/releases/tag/linux-v1.0.6-bc0679d83df8) | стабильный выпуск |
+| Windows 11 server | `server-wsl`: `install-server-windows.ps1` + средства обслуживания | [1.0.7](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.7-0d16de2e782c) | стабильный выпуск; WSL2 — основное направление Windows |
+| Ubuntu Linux/VPS server | `linux`: `install-server.sh` + Docker/Compose | [1.0.7](https://github.com/resokol/castlink/releases/tag/linux-v1.0.7-ac9c234c72b0) | стабильный выпуск |
 | Windows caster/studio client | `client`: отдельный `setup.exe` | [1.0.1](https://github.com/resokol/castlink/releases/tag/client-v1.0.1-079fd0f9d4b1) | стабильный выпуск; **не** устанавливает сервер |
 
 См. [каталог пакетов](PRODUCTS.md), [установку Windows/Ubuntu](../README.md), [обслуживание сервера](SERVER_INSTALL.md). Все версии и хеши берите из **своего** конкретного релиза, а не общего `releases/latest`.
 
-**Статус WSL2:** подтверждённая владельцем стабильная работа существующей установки сама по себе не переименовывает опубликованный `1.0.6-rc.1` в стабильный релиз. Переход на версию без `-rc` требует отдельной проверенной сборки, контрольных сумм, полного теста на Windows 11 и публикации. Не менять задним числом существующие архивы или теги.
+**Статус WSL2:** стабильный выпуск **1.0.7** имеет собственные тег, пакет и SHA256. Исторический `1.0.6-rc.1` сохраняет статус prerelease; его архивы и теги не меняются. Обслуживание 1.0.7 поддерживает исходный `server-wsl-v1.0.6-rc.1-dad063393b53`; используйте новый инструмент 1.0.7 и прежнюю установку.
 
 ## Windows/Docker Server Setup — Legacy
 
@@ -27,16 +27,18 @@
 - Обновления `server-wsl` проводите только средствами WSL того же выпуска. `linux` обновляйте штатным Linux-инсталлятором с **тем же `--state-dir`**. Windows Client обновляется **отдельно**.
 - Сначала резервная копия и проверка отката, затем обновление вне эфира, перезагрузка страниц студии и кастеров, контроль камеры, микрофона, TURN и отдельных ссылок OBS/vMix.
 
-## Требования к продвижению Windows/WSL2 в stable
+## Выпуск и границы проверки Windows/WSL2
 
-1. Отдельный полный тест на чистой Windows 11: установка, перезагрузка, автозапуск и остановка, повторный запуск и удаление с архивом.
-2. Внешний HTTPS/TURN, реальное аудио/видео с физическими устройствами и полный маршрут кастер → сервер → студия → OBS/vMix; проверка VPN, CGNAT/портов и поведения при потере сети.
-3. Обновление текущего WSL RC без потери UUID, комнат, паролей, слотов и сертификата; восстановление после отказа и верификация контрольных сумм.
-4. Сверка функций и API с Linux 1.0.6; в двух независимых установщиках **общие возможности**, но различная инфраструктура. Не заявлять побайтовую или функциональную идентичность без тестов.
-5. Опубликовать **новый** стабильный WSL тег и пакеты, инструкции и SHA256; после подтверждения обновить каталог. Никаких изменений старых релизов.
+WSL2 собирается отдельной фабрикой `server-wsl-package.yml` с закреплённым source SHA. Полный набор пакетов и соответствующих исходников, manifests, SHA256 и результаты нативных Windows CI-проверок сверяются перед ручной публикацией нового стабильного тега. Linux 1.0.7 имеет отдельную сборку, тег и инфраструктуру.
+
+Нативные CI-проверки и проверки точного пакета не заменяют физическую проверку перезагрузки чистой Windows 11, внешнего HTTPS/TURN и живого эфира OBS/vMix с камерами и микрофонами. Выпуск не заявляет новую проверку этих сценариев. При обновлении проверьте собственное подключение и медиа вне эфира; прежние архивы не заменяются.
 
 ---
 
 ## English summary
 
-**Primary Windows Server:** Windows 11 / WSL2 without Docker Desktop. **Primary Linux/VPS Server:** Ubuntu using Docker Engine/Compose. **Windows Client:** separate application. The installers are different. Windows/Docker Server Setup is **Legacy**, retained for existing installations only. The currently published WSL package is still **1.0.6-rc.1 (prerelease)**, regardless of the owner's successful operational tests. A stable WSL release needs its own fully tested and newly published artifacts. There is **no supported automatic migration from Docker to WSL2**; do not overwrite or delete existing Docker data.
+**Primary Windows Server:** stable **Windows 11 / WSL2 1.0.7** without Docker Desktop. **Primary Linux/VPS Server:** stable **Ubuntu/Linux 1.0.7** using Docker Engine/Compose. **Windows Client:** separate **1.0.1** application. Their installers and build pipelines differ. Windows/Docker Server Setup remains **Legacy 1.0.4** for existing installations; new legacy builds are disabled. Historical WSL 1.0.6-rc.1 remains a prerelease, while its exact source tag is supported by 1.0.7 maintenance. WSL packages use a separate source-pinned factory and manual publication after checking exact assets, manifests, SHA256 and native Windows CI results. These checks do not establish a fresh physical Windows reboot or live OBS/vMix acceptance test. There is **no supported automatic Docker → WSL2 migration**; preserve existing data.
+
+## 简体中文摘要
+
+**主要 Windows 服务器：Windows 11 / WSL2 稳定版 1.0.7**，无需 Docker Desktop。**主要 Linux/VPS 服务器：Ubuntu/Linux 稳定版 1.0.7**，使用 Docker Engine/Compose。**Windows Client：**独立版本 **1.0.1**。安装程序及构建流程各不相同。Windows/Docker Server Setup 保持 **Legacy 1.0.4**，仅供现有安装使用，禁用新构建。历史 WSL 1.0.6-rc.1 仍为预发布版，其准确来源标签受 1.0.7 维护工具支持。WSL 使用固定源码的独立构建流程，核对准确归档、manifest、SHA256 及原生 Windows CI 结果后手动发布；这些检查不代表新完成的实体 Windows 重启或真实 OBS/vMix 直播验收。不支持自动 Docker → WSL2 迁移，请保留原数据。

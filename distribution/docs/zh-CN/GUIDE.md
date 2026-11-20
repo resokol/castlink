@@ -4,7 +4,7 @@
 
 本指南介绍 CastLink 的使用。新服务器请选择 Windows 11/WSL2 或 Ubuntu/Linux；Windows/Docker Server Setup 作为 Legacy 保留给现有安装。Windows Client 是独立产品，版本为 **1.0.1**。准确发行版、源代码/构建编号及 SHA256 见[目录](PRODUCTS.md)；[1.0.7 变更](RELEASE_NOTES_1_0_7.md)。
 
-服务器保存 24 小时指标历史与事件日志，Linux 支持单命令安装。WSL2 是无需 Docker Desktop 的主要 Windows 方案；现有 RC 保持预发布状态，直至单独发布稳定版本。不支持自动 Docker → WSL2 迁移。[渠道与限制](../../SUPPORTED_INSTALLERS.md)。
+服务器保存 24 小时指标历史与事件日志，Linux 支持单命令安装。WSL2 是无需 Docker Desktop 的主要 Windows 方案；当前稳定服务器版本为 1.0.7。不支持自动 Docker → WSL2 迁移。[渠道与限制](../../SUPPORTED_INSTALLERS.md)。
 
 普通参与者需要受支持的浏览器与 HTTPS。Windows Client 加入现有服务器；WSL2 和 Linux 用于安装服务器。
 

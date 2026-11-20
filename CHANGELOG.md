@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.7 — стабильный сервер и web / Stable server and web / 稳定服务器与 Web
+## 1.0.7 — 2026-11-21 — стабильный сервер и web / Stable server and web / 稳定服务器与 Web
 
 - RU: принятая версия castlink.ru включена в общий серверный/web-выпуск: видео JSON, расширенная аудиодиагностика, текущая сеть за 10 секунд и исправление `AbortSignal.any` для потока vMix. Windows/WSL2 получает отдельный стабильный пакет с родной панелью и обслуживанием; точные версии и source/build ID проверяйте по каталогу и manifest выбранного пакета. Client остаётся 1.0.1, Windows/Docker — Legacy 1.0.4. [Примечания](distribution/RELEASE_NOTES_1_0_7.md).
 - EN: the accepted castlink.ru version forms the server/web release: video JSON, extended audio diagnostics, rolling 10-second network quality and the vMix stream `AbortSignal.any` fix. Windows/WSL2 gets a separate stable package with its native panel and maintenance; check exact versions and source/build IDs against the catalog and selected package manifest. Client remains 1.0.1; Windows/Docker remains Legacy 1.0.4. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_7.md).
@@ -18,7 +18,7 @@
 - EN: studio statistics adds Video diagnostics → JSON with send/receive history, frame and freeze counters. Filters and timestamps are preserved; partial exports are marked. Update the server off air and reload both sides. Client 1.0.1 remains unchanged; Windows/WSL remains a separate prerelease. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_6.md).
 - 简体中文：演播室统计新增视频诊断 → JSON，包含发送/接收历史、帧与卡顿计数。保留筛选和时间，明确标记部分导出。请在停播时更新服务器并刷新双方页面。Client 仍为 1.0.1；Windows/WSL 仍是独立预发布通道。[说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_6.md)。
 
-## Unreleased — диагностика аудио / Audio diagnostics / 音频诊断
+## Включено в 1.0.7 — диагностика аудио / Included in 1.0.7 — Audio diagnostics / 已包含在 1.0.7 — 音频诊断
 
 - RU: аудиоистория различает mute публикации, SDK-трека и плеера; записывает доступные фактические параметры захвата и обработки, подстановку тишины и коррекцию темпа декодером. Новые поля требуют обновлённых страниц отправителя/получателя; старые замеры остаются неизвестными. Это улучшение диагностики, а не автоматическое исправление искажённого звука.
 - EN: audio history distinguishes publication, SDK-track and player mute, and records available actual capture/processing settings, silent concealment and decoder rate correction. New fields require refreshed sender/receiver pages; older samples remain unknown. This improves diagnosis without automatically repairing distorted audio.
