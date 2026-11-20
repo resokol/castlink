@@ -10,10 +10,10 @@
 
 | 系统 | 安装方式 |
 | --- | --- |
-| Windows 11 | 完整 **1.0.6-rc.1** 安装程序，无需 Docker Desktop。已发布，仍为预发布版本。 |
-| Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.6**。 |
+| Windows 11 | 完整稳定版 **1.0.7** 安装程序，无需 Docker Desktop。 |
+| Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.7**。 |
 
-**主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。当前公开的 WSL2 **1.0.6-rc.1 仍是预发布版本**，转为正式版本需要另行验证和发布。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
+**主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。Windows/WSL2 与 Linux 使用稳定服务器版本 **1.0.7**，安装程序分别提供。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
 
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
 
@@ -50,7 +50,7 @@ wsl --version
 
 ### 1. 下载
 
-**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/install-server-windows.ps1)**
+**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.7-0d16de2e782c/install-server-windows.ps1)**
 
 安装程序会自动下载服务器文件，无需单独下载补丁或源码压缩包。
 
@@ -89,16 +89,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 面板提供启动、停止、统计信息和 **24 小时 ZIP 导出**。关闭窗口会隐藏到系统托盘；停止服务器请点击 **Stop services**。请用另一台设备测试；验证公网访问时，可用手机移动网络。
 
-**版本状态：** **1.0.6-rc.1** 现已发布，仍为预发布版本。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.6-rc.1-dad063393b53) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS)。
+**服务器版本：**稳定版 **1.0.7**。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.7-0d16de2e782c) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.7-0d16de2e782c/SHA256SUMS)。
 
 ### 更新、删除或恢复 WSL 服务器
 
-1. 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/CastLink-Server-WSL-Maintenance-fix1.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
-2. 按地址和文件夹选择服务器，再选择目标版本 **1.0.6-rc.1**。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
+1. 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.7-0d16de2e782c/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
+2. 按地址和文件夹选择服务器，再选择目标版本 **1.0.7**。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
 3. 删除时选择**删除前保留可恢复归档**或**永久删除服务器和数据**，再点击**删除**。保存的归档是包含完整导出和恢复辅助文件的**文件夹**，不是统计 ZIP。它含有凭据，请完整、私密地保存。
 4. **恢复**使用此归档文件夹，以及 `%LOCALAPPDATA%\CastLinkServer` 下尚不存在的新安装文件夹。操作中断后，选择同一服务器并点击**恢复事务**。成功后使用**打开服务器面板**。
 
-支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926` 和 `server-wsl-v1.0.5-rc.3-95ec46463c82`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.6-rc.1-dad063393b53/SHA256SUMS)。
+支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82` 及 `server-wsl-v1.0.6-rc.1-dad063393b53`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.7-0d16de2e782c/SHA256SUMS)。
 
 **1.0.6-rc.1 → 1.0.7 更新：**新版 1.0.7 维护工具支持来源标签 `server-wsl-v1.0.6-rc.1-dad063393b53`。此次更新请在目录中选择对应渠道的 1.0.7 维护工具，并与 `manifest.json` 核对版本；1.0.6-rc.1 维护工具不能代替 1.0.7。选择原安装并在停播时更新。
 
@@ -109,10 +109,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 ### 1. 执行一条命令
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-固定版本 **1.0.6** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。
+固定版本 **1.0.7** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。
 
 如果提示没有 `curl`，先运行以下命令，再重新安装：
 

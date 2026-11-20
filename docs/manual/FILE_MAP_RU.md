@@ -16030,7 +16030,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Подготовка стабильного выпуска 1.0.7 — 21.11.2026
+Стабильный выпуск 1.0.7 — 21.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
