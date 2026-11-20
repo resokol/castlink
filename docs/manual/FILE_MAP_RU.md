@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2033**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2034**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15754,7 +15754,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 86 файлов
+## docs · 87 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -16030,7 +16030,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Стабильный выпуск 1.0.7 — 21.11.2026
+Постоянный обновлятор всей линейки — проект, 21.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -16241,6 +16241,12 @@ Guest statistics and network reminder
 [`docs/superpowers/specs/2026-11-17-video-diagnostics-export-design.md`](../superpowers/specs/2026-11-17-video-diagnostics-export-design.md)
 
 Диагностика видео из студии
+
+### docs/superpowers/specs/2026-11-21-persistent-updater-design.md
+
+[`docs/superpowers/specs/2026-11-21-persistent-updater-design.md`](../superpowers/specs/2026-11-21-persistent-updater-design.md)
+
+Постоянный обновлятор CastLink
 
 ### docs/testing/CASTER_MEDIA_MENUS_20261109_RU.md
 
