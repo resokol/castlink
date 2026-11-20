@@ -86,7 +86,7 @@ function Start-CLUEngine([string]$Directory,[string]$Root,[string]$SelectedRoot,
  $runLease=Enter-CLUVersionLease $Directory;try{& (Join-Path $PSHOME 'powershell.exe') @args;if($LASTEXITCODE -ne 0){throw 'Updater engine activation failed'}}finally{$runLease.Dispose()}
 }
 function Update-CLUTool([string]$Root,[string]$SelectedRoot,[string]$Language){
- Assert-CLUPrivate $Root;$lease=Enter-CLULock $Root 'self-update'
+ $Root=Assert-CLUPath $Root;Assert-CLUPrivate $Root;$lease=Enter-CLULock $Root 'self-update'
  try{
   $latest=Select-CLURelease @(Get-CLUReleases) updater;if(-not $latest){throw 'No stable updater release is available'};$exact=Get-CLURelease ([long]$latest.id);if($exact.id -ne $latest.id -or $exact.tag_name -cne $latest.tag_name){throw 'Release numeric identity changed'}
   $a=Get-CLUAsset $exact 'manifest.json' 1048576;$versions=Join-Path $Root 'versions';Protect-CLUDirectory $versions;$dir=Join-Path $versions ($exact.tag_name+'-'+$a.digest.Substring(7,12));if(-not (Test-Path -LiteralPath $dir)){Protect-CLUDirectory $dir}else{Assert-CLUPrivate $dir}
@@ -108,7 +108,7 @@ function Clear-CLUVersionCache([string]$Root){
  $pointer=Join-Path $Root 'active.json';if(-not (Test-Path -LiteralPath $pointer)){return}
  $active=Read-CLUJson $pointer;$keep=@($active.current.directory,$active.previous.directory);$versions=Join-Path $Root 'versions'
  foreach($dir in Get-ChildItem -LiteralPath $versions -Directory -Force){
-  if($dir.FullName -cin $keep){continue};$lease=$null
+  if($dir.FullName -in $keep){continue};$lease=$null
   try{
    $m=Assert-CLUCache $dir.FullName;$known=@('manifest.json','verified-release.json','engine.lock')+@($m.platforms.windows.files|ForEach-Object {$_.file})
    $files=@(Get-ChildItem -LiteralPath $dir.FullName -Force)

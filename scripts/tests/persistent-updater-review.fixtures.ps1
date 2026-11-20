@@ -5,7 +5,7 @@ $script:failures=@();$script:passes=0
 function Assert($Condition,$Message){if(-not $Condition){throw $Message}}
 function Throws([scriptblock]$Body,[string]$Pattern){try{& $Body}catch{if($_.Exception.Message -match $Pattern){return};throw};throw ('Expected refusal: '+$Pattern)}
 function Test($Name,[scriptblock]$Body){try{&{. $SourcePath -FunctionsOnly;& $Body};$script:passes++;Write-Output ('PASS '+$Name)}catch{$script:failures+=@($Name+': '+$_.Exception.Message);Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}
-$base=Join-Path $env:TEMP ('castlink-review-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($base)
+$base=Join-Path $env:TEMP ('castlink-review-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($base);$originalBase=$base;$base=[IO.Path]::GetFullPath($base);Write-Output ('Fixture path: '+$originalBase+' -> '+$base)
 function Bytes($Value){return [Text.Encoding]::UTF8.GetBytes($Value)}
 function Hash([byte[]]$Value){$sha=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($sha.ComputeHash($Value))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}}
 function AddAsset($Release,$Name,[byte[]]$Data){$asset=[pscustomobject]@{id=(100+$Release.assets.Count);name=$Name;state='uploaded';size=$Data.Length;digest=('sha256:'+(Hash $Data));browser_download_url=('https://github.com/resokol/castlink/releases/download/'+$Release.tag_name+'/'+$Name)};$Release.assets+=@($asset);$script:payload[$asset.browser_download_url]=$Data;return $asset}
@@ -48,7 +48,7 @@ try{
   $foreign=Join-Path $base 'foreign';[void][IO.Directory]::CreateDirectory($foreign);[IO.File]::WriteAllText((Join-Path $foreign 'castlink-updater.ps1'),'unowned');Throws {Install-CLUUpdater $SourcePath $foreign en} 'belongs|ownership|registration'
  }
  Test 'obsolete tool cleanup preserves current previous active users and foreign bytes' {
-  $script:payload=@{};$root=Join-Path $base 'cleanup';Protect-CLUDirectory $root;function Get-CLUReleases{return $script:r};function Get-CLURelease($Id){return $script:r};function Receive-CLUUrl($Url,$Destination,$Limit){[IO.File]::WriteAllBytes($Destination,$script:payload[$Url])};function Start-CLUEngine{}
+  $script:payload=@{};$root=Join-Path $base 'cleanup/.';Protect-CLUDirectory $root;function Get-CLUReleases{return $script:r};function Get-CLURelease($Id){return $script:r};function Receive-CLUUrl($Url,$Destination,$Limit){[IO.File]::WriteAllBytes($Destination,$script:payload[$Url])};function Start-CLUEngine{}
   $script:r=Tool '1.0.0' 1;$one=Update-CLUTool $root '' en;$script:r=Tool '1.0.1' 2;$two=Update-CLUTool $root '' en
   $lease=Enter-CLUVersionLease $one.directory
   try{$script:r=Tool '1.0.2' 3;$three=Update-CLUTool $root '' en;Clear-CLUVersionCache $root;Assert (Test-Path $one.directory) 'in-use version retained'}finally{$lease.Dispose()}
