@@ -4,9 +4,9 @@
 
 > **Legacy Windows/Docker/SSH EasySetup。** 新的 Windows 服务器请使用 [Windows 11 / WSL2](../../../README.zh-CN.md)，Ubuntu/VPS 使用[当前 Linux 安装程序](SERVER_INSTALL.md)。旧版 EasySetup 仅供现有部署维护。**不支持自动从 Docker 迁移至 WSL2**，请保留现有数据。[渠道说明](../../SUPPORTED_INSTALLERS.md)。以下 Windows/Docker 步骤为旧版说明，并非新安装的推荐方式。
 
-本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。
+本页保留旧版 Windows/Docker/SSH EasySetup 说明。新服务器请使用[当前 Windows/Ubuntu 安装指南](../../../README.zh-CN.md)及[准确软件包目录](PRODUCTS.md)。Windows/Docker 保持 Legacy 1.0.4；Client 保持 1.0.1。
 
-服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
+服务器保存 24 小时指标历史与事件日志，Linux 支持单命令安装。WSL2 是无需 Docker Desktop 的主要 Windows 方案；现有 RC 保持预发布状态，直至单独发布稳定版本。不支持自动 Docker → WSL2 迁移。[渠道与限制](../../SUPPORTED_INSTALLERS.md)。
 
 CastLink 唯一的公开仓库是 [resokol/castlink](https://github.com/resokol/castlink)，包含采用 MIT许可的自有源代码、发行版和说明。下载归档及 `SHA256SUMS` 无需单独授予访问权限。旧名称 `resokol/castlink-releases` 会重定向到此仓库，以兼容旧链接和安装程序，并不是独立镜像。统一的 `releases/latest` 不能代表三个产品的当前版本。
 

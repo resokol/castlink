@@ -6,12 +6,12 @@ Choose [Out of the box](#out-of-box) or [Advanced](#advanced) from an SSH termin
 
 The new interactive steps below describe CLI **1.0.4**: `init` defaults to quick setup; `--advanced` explicitly enables advanced setup. Check `--help` for that flag. [Choose a published Linux release](PRODUCTS.md). The package selected below uses CLI 1.0.4. The [historical CLI1472 section](#legacy-1472) applies only to older packages.
 
-## One-command installation — 1.0.5
+## One-command installation — 1.0.6
 
 A new installation can use this release’s standalone bootstrap:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.5-732ad5fe7006/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.6-bc0679d83df8/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
 It verifies the pinned archive, asks for the address and a separate room creation password, and keeps its package and data in `/opt/castlink-server`. `--install-runtime` permits Python/Docker/Compose preparation; otherwise prerequisites must be ready. Rerunning does not update or restart a completed installation. Use the normal `update` command and original data directory for an existing server. [Details and 24-hour charts](SERVER_INSTALL.md).

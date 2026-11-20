@@ -28,7 +28,8 @@ ACCOUNTS = ('root', 'postgres', 'castlink', 'castlink-caddy', 'castlink-livekit'
 CONTRACT = 'castlink-wsl-pg16-v1'
 SUPPORTED_SOURCES = frozenset(('server-wsl-v1.0.5-rc.1-085b087a2458',
                                'server-wsl-v1.0.5-rc.2-af3e309d0926',
-                               'server-wsl-v1.0.5-rc.3-95ec46463c82'))
+                               'server-wsl-v1.0.5-rc.3-95ec46463c82',
+                               'server-wsl-v1.0.6-rc.1-dad063393b53'))
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4

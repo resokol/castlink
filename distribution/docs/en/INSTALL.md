@@ -4,9 +4,9 @@
 
 > **Legacy Windows/Docker/SSH EasySetup.** For new Windows servers use [Windows 11 / WSL2](../../../README.en.md); for Ubuntu/VPS use the [current Linux installer](SERVER_INSTALL.md). Old EasySetup packages remain for existing deployments. There is **no supported automatic Docker → WSL2 migration**: never discard Docker data as part of a new installation. [Installer policy](../../SUPPORTED_INSTALLERS.md). Windows/Docker steps below are historical, not the recommended path.
 
-This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md).
+This page retains instructions for the former Windows/Docker/SSH EasySetup. For a new server, use the [current Windows/Ubuntu installation guide](../../../README.en.md) and [exact package catalog](PRODUCTS.md). Windows/Docker remains Legacy 1.0.4; Client remains 1.0.1.
 
-Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
+The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the published RC remains prerelease until a separate stable release. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
 
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 

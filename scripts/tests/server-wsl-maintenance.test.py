@@ -28,6 +28,12 @@ PUBLISHED_RC3 = {**RC3, 'commit': '95ec46463c8209746d272d8a12cb7f959d3b5cdd',
                  'buildId': '1.0.5-rc.3-95ec46463c82'}
 NEXT = {**TARGET, 'lifecycle': {**TARGET['lifecycle'], 'supportedSources':
         ['server-wsl-v'+r['buildId'] for r in (SOURCE, RC2, PUBLISHED_RC3)]}}
+PUBLISHED_106_RC1 = {'schemaVersion': 1, 'version': '1.0.6-rc.1',
+                     'commit': 'dad063393b5308638d99383669617e41c9e163fc',
+                     'buildId': '1.0.6-rc.1-dad063393b53', 'lifecycle': dict(NEXT['lifecycle'])}
+STABLE_107 = {**NEXT, 'version': '1.0.7', 'buildId': '1.0.7-'+'b'*12,
+              'lifecycle': {**NEXT['lifecycle'], 'supportedSources':
+                  [*NEXT['lifecycle']['supportedSources'], 'server-wsl-v1.0.6-rc.1-dad063393b53']}}
 
 class TransferTest(unittest.TestCase):
     @classmethod
@@ -125,7 +131,7 @@ class TransferTest(unittest.TestCase):
         self.assertEqual((self.source/'var/lib/castlink-server/state.json').read_bytes(),before)
 
     def test_target_must_explicitly_list_actual_transfer_source(self):
-        for number,(source,allowed) in enumerate(((RC2,SOURCE),(SOURCE,RC2),(PUBLISHED_RC3,RC2))):
+        for number,(source,allowed) in enumerate(((RC2,SOURCE),(SOURCE,RC2),(PUBLISHED_RC3,RC2),(PUBLISHED_106_RC1,PUBLISHED_RC3))):
             with self.subTest(source=source['buildId']):
                 self.source=self.fixture('membership-source-'+str(number),source)
                 target=self.fixture('membership-target-'+str(number),{**RC3,'lifecycle':{
@@ -137,7 +143,7 @@ class TransferTest(unittest.TestCase):
     def test_unknown_transfer_sources_refused_even_when_target_lists_them(self):
         with tarfile.open(fileobj=io.BytesIO(self.export()),mode='r:') as archive:
             manifest=json.load(archive.extractfile('manifest.json'))
-        for number,version in enumerate(('1.0.5-rc.2','1.0.5-rc.3','1.0.7')):
+        for number,version in enumerate(('1.0.5-rc.2','1.0.5-rc.3','1.0.6-rc.1','1.0.7')):
             with self.subTest(version=version):
                 unknown={'schemaVersion':1,'version':version,'commit':'d'*40,'buildId':version+'-'+'d'*12}
                 source=self.fixture('unknown-source-'+str(number),unknown)
@@ -147,6 +153,30 @@ class TransferTest(unittest.TestCase):
                     **RC3['lifecycle'],'supportedSources':['server-wsl-v'+unknown['buildId']]}}))
                 with self.assertRaisesRegex(ValueError,'Unsupported transfer source'):
                     self.helper(self.target).validate_manifest({**manifest,'sourceRelease':unknown})
+
+    def test_exact_published_106_rc1_upgrades_to_stable_preserving_all_data_and_identity(self):
+        self.source=self.fixture('published-106-rc1',PUBLISHED_106_RC1)
+        (self.target/'opt/castlink/release.json').write_text(json.dumps(STABLE_107))
+        source=self.source/'var/lib/castlink-server'
+        before={str(p.relative_to(source)):(p.read_bytes(),p.stat().st_mode&0o777)
+                for p in source.rglob('*') if p.is_file()}
+        target_host='e'*32
+        (self.target/'var/lib/castlink-server-wsl-installation-id').write_text(target_host+'\n')
+        data=self.export()
+        with tarfile.open(fileobj=io.BytesIO(data),mode='r:') as archive:
+            self.assertEqual(json.load(archive.extractfile('manifest.json'))['sourceRelease'],PUBLISHED_106_RC1)
+        self.helper(self.target).import_(target_host,io.BytesIO(data))
+        target=self.target/'var/lib/castlink-server'
+        old=json.loads(before['state.json'][0]);new=json.loads((target/'state.json').read_text())
+        self.assertEqual({k:v for k,v in new.items() if k not in ('release','completed')},
+                         {k:v for k,v in old.items() if k not in ('release','completed')})
+        self.assertFalse(new['completed'])  # Candidate must complete its own gated startup before admission.
+        self.assertEqual(new['release'],STABLE_107)
+        for name,(contents,mode) in before.items():
+            if name!='state.json':self.assertEqual((target/name).read_bytes(),contents,name)
+            self.assertEqual((target/name).stat().st_mode&0o777,mode,name)
+            self.assertEqual((source/name).read_bytes(),contents,name)
+        self.assertEqual((self.target/'var/lib/castlink-server-wsl-installation-id').read_text(),target_host+'\n')
 
     def test_inspect_is_bounded_and_contains_no_secrets(self):
         result=self.helper(self.source).inspect(HOST)

@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2029**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2033**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15422,7 +15422,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 52 файлов
+## distribution · 55 файлов
 
 ### distribution/INSTALL.md
 
@@ -15489,6 +15489,12 @@ CastLink Server Setup и Linux 1.0.5 · исходники 1.0.5
 [`distribution/RELEASE_NOTES_1_0_6.md`](../../distribution/RELEASE_NOTES_1_0_6.md)
 
 CastLink 1.0.6 — диагностика видео
+
+### distribution/RELEASE_NOTES_1_0_7.md
+
+[`distribution/RELEASE_NOTES_1_0_7.md`](../../distribution/RELEASE_NOTES_1_0_7.md)
+
+CastLink 1.0.7 — стабильная версия сервера и web
 
 ### distribution/RELEASE_NOTES_RC9.md
 
@@ -15592,6 +15598,12 @@ CastLink Server Setup and Linux 1.0.5 · source 1.0.5
 
 CastLink 1.0.6 — video diagnostics
 
+### distribution/docs/en/RELEASE_NOTES_1_0_7.md
+
+[`distribution/docs/en/RELEASE_NOTES_1_0_7.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_7.md)
+
+CastLink 1.0.7 — stable server and web release
+
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/en/RELEASE_NOTES_RC9.md`](../../distribution/docs/en/RELEASE_NOTES_RC9.md)
@@ -15688,6 +15700,12 @@ CastLink Server Setup 与 Linux 1.0.5 · 源代码 1.0.5
 
 CastLink 1.0.6 — 视频诊断
 
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md)
+
+CastLink 1.0.7 — 稳定服务器与 Web 版本
+
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/zh-CN/RELEASE_NOTES_RC9.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_RC9.md)
@@ -15736,7 +15754,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 85 файлов
+## docs · 86 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -16012,7 +16030,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Текущее состояние — совместимость потока студии с vMix, 19.11.2026
+Подготовка стабильного выпуска 1.0.7 — 21.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -16175,6 +16193,12 @@ Guest network reminder and distribution implementation plan
 [`docs/superpowers/plans/2026-11-17-video-diagnostics-export.md`](../superpowers/plans/2026-11-17-video-diagnostics-export.md)
 
 Video Diagnostics Export Implementation Plan
+
+### docs/superpowers/plans/2026-11-21-stable-release.md
+
+[`docs/superpowers/plans/2026-11-21-stable-release.md`](../superpowers/plans/2026-11-21-stable-release.md)
+
+CastLink 1.0.7 stable release plan
 
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 

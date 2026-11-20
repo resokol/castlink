@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.7 — подготовка стабильного выпуска / Stable release preparation / 稳定版准备中
+
+- RU: принятую версию castlink.ru готовим как общий серверный/web-выпуск: видео JSON, расширенная аудиодиагностика, текущая сеть за 10 секунд и исправление `AbortSignal.any` для потока vMix. Windows/WSL2 получает отдельный стабильный пакет с родной панелью и обслуживанием; публикация и проверки пакетов пока не подтверждены. Client остаётся 1.0.1, Windows/Docker — Legacy 1.0.4. [Примечания](distribution/RELEASE_NOTES_1_0_7.md).
+- EN: preparing the accepted castlink.ru version as the server/web release: video JSON, extended audio diagnostics, rolling 10-second network quality and the vMix stream `AbortSignal.any` fix. Windows/WSL2 gets a separate stable package with its native panel and maintenance; package publication and checks are not yet confirmed. Client remains 1.0.1; Windows/Docker remains Legacy 1.0.4. [Notes](distribution/docs/en/RELEASE_NOTES_1_0_7.md).
+- 简体中文：将已认可的 castlink.ru 版本准备为服务器/Web 发行版：视频 JSON、扩展音频诊断、最近 10 秒网络质量及 vMix 流 `AbortSignal.any` 修复。Windows/WSL2 将提供含原生面板与维护的独立稳定包；软件包发布与检查尚未确认。Client 保持 1.0.1，Windows/Docker 保持 Legacy 1.0.4。[说明](distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md)。
+
 ## Web — 2026-11-19 — совместимость потока студии с vMix / vMix studio stream compatibility / vMix 演播室流兼容性
 
 - RU: исправлена ошибка `AbortSignal.any is not a function` при открытии потока студии во встроенных браузерах, включая затронутую конфигурацию vMix 28. После установки исправленного web-сервера обновите браузерный источник в vMix. Переустановка Windows Client не требуется; реальный эфир в vMix отдельно не проверялся.

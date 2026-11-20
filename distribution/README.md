@@ -2,11 +2,11 @@
 
 # CastLink: установка и работа
 
-Руководство для Windows Server Setup и standalone Linux **1.0.5**; Windows Client — **1.0.1**. Версия пакета исходников — **1.0.5**. Доступные выпуски, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Изменения 1.0.5](RELEASE_NOTES_1_0_5.md). [История изменений](../CHANGELOG.md) · [Восстановление связи](#server-pair-recovery).
+Руководство по работе с CastLink. Для новой установки выберите Windows 11/WSL2 или Ubuntu/Linux; Windows/Docker Server Setup сохранён как Legacy для действующих установок. Windows Client — отдельный продукт версии **1.0.1**. Точные выпуски, source/build ID и SHA256 указаны в [каталоге](PRODUCTS.md); [1.0.7 готовится](RELEASE_NOTES_1_0_7.md).
 
-В серверном выпуске **1.0.2** впервые появились [Linux одной командой, история показателей и журнал за 24 часа](SERVER_INSTALL.md). Обычный локальный Windows Server Setup использует Docker Desktop. Windows/WSL2 без Docker остаётся отдельным экспериментальным каналом и не входит в эти стабильные серверные пакеты.
+Сервер хранит историю показателей и журнал за 24 часа; Linux поддерживает установку одной командой. WSL2 — основное Windows-направление без Docker Desktop; опубликованный RC остаётся prerelease до отдельного стабильного выпуска. Не переносите Docker-данные автоматически в WSL2. [Каналы и ограничения](SUPPORTED_INSTALLERS.md).
 
-Выберите [пакет и суммы своего направления](PRODUCTS.md). Windows Client подключается к существующему серверу; Windows Server Setup и Linux устанавливают сервер. Для обычного входа участнику достаточно поддерживаемого браузера и HTTPS.
+Для обычного подключения участнику достаточно поддерживаемого браузера и HTTPS. Windows Client подключается к существующему серверу; WSL2 и Linux устанавливают сервер.
 
 [Установка и сеть](INSTALL.md) · [Linux без Windows](LINUX_MANUAL.md) · [PDF/PPTX](PRESENTATIONS.md) · [TURN/TLS](TURN_TLS.md) · [История изменений](../CHANGELOG.md)
 
