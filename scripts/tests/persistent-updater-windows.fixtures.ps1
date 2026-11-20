@@ -1,5 +1,6 @@
 ﻿[CmdletBinding()]param([string]$SourcePath,[string]$NativeControlPath,[string]$InstallerPath)
 $ErrorActionPreference='Stop'
+trap {Write-Output $_.ScriptStackTrace;throw}
 if(-not $SourcePath){$SourcePath=Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'}
 if(-not $NativeControlPath){$NativeControlPath=Join-Path $PSScriptRoot '../server-native-control.ps1'}
 if(-not $InstallerPath){$InstallerPath=Join-Path $PSScriptRoot '../install-server-windows.ps1'}

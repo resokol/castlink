@@ -23,9 +23,12 @@ function Assert-CLUPrivate([string]$Path){
  if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid){throw 'Updater owner differs from the current user'}
  foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($sid,'S-1-5-18','S-1-5-32-544')){throw 'Updater cache is writable/readable by another account'}}
 }
+function Set-CLUCreatedFileOwner([string]$Path){
+ $path=Assert-CLUPath $Path;$acl=Get-Acl -LiteralPath $path;$acl.SetOwner([Security.Principal.WindowsIdentity]::GetCurrent().User);([IO.FileInfo]::new($path)).SetAccessControl($acl)
+}
 function Write-CLUJson([string]$Path,$Value){
  $p=Assert-CLUPath $Path;$tmp=$p+'.'+[guid]::NewGuid().ToString('N')+'.new';$bytes=[Text.UTF8Encoding]::new($false).GetBytes(($Value|ConvertTo-Json -Depth 48))
- try{$f=[IO.File]::Open($tmp,'CreateNew','Write','None');try{$f.Write($bytes,0,$bytes.Length);$f.Flush($true)}finally{$f.Dispose()};if(Test-Path -LiteralPath $p){[IO.File]::Replace($tmp,$p,[NullString]::Value)}else{[IO.File]::Move($tmp,$p)}}finally{if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}}
+ try{$f=[IO.File]::Open($tmp,'CreateNew','Write','None');try{$f.Write($bytes,0,$bytes.Length);$f.Flush($true)}finally{$f.Dispose()};Set-CLUCreatedFileOwner $tmp;if(Test-Path -LiteralPath $p){[IO.File]::Replace($tmp,$p,[NullString]::Value)}else{[IO.File]::Move($tmp,$p)}}finally{if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}}
 }
 function Enter-CLULock([string]$Root,[string]$Identity){
  $dir=Join-Path (Assert-CLUPath $Root) 'locks';Protect-CLUDirectory $dir;$sha=[Security.Cryptography.SHA256]::Create();try{$key=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Identity)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
@@ -63,7 +66,7 @@ function Assert-CLUFile([string]$Directory,$Entry){
 }
 function Receive-CLUAsset([string]$Directory,$Release,[string]$Name,[long]$Limit=4194304){
  $a=Get-CLUAsset $Release $Name $Limit;$entry=[pscustomobject]@{file=$Name;size=$a.size;sha256=$a.digest.Substring(7)};$p=Join-Path (Assert-CLUPath $Directory) $Name
- if(-not (Test-Path -LiteralPath $p)){$tmp=$p+'.'+[guid]::NewGuid().ToString('N')+'.part';try{Receive-CLUUrl $a.browser_download_url $tmp $a.size;if((Get-Item -LiteralPath $tmp).Length -ne $a.size -or (Get-CLUHash $tmp) -cne $entry.sha256){throw 'Downloaded asset checksum or size mismatch'};[IO.File]::Move($tmp,$p)}finally{if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}}};$null=Assert-CLUFile $Directory $entry;return $p
+ if(-not (Test-Path -LiteralPath $p)){$tmp=$p+'.'+[guid]::NewGuid().ToString('N')+'.part';try{Receive-CLUUrl $a.browser_download_url $tmp $a.size;Set-CLUCreatedFileOwner $tmp;if((Get-Item -LiteralPath $tmp).Length -ne $a.size -or (Get-CLUHash $tmp) -cne $entry.sha256){throw 'Downloaded asset checksum or size mismatch'};[IO.File]::Move($tmp,$p)}finally{if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force}}};$null=Assert-CLUFile $Directory $entry;return $p
 }
 function Assert-CLUManifest($Manifest,$Release,[string]$Platform='windows'){
  if($Manifest.protocolVersion -ne 1){throw 'Unsupported updater protocol; installed products were retained'}
@@ -267,7 +270,7 @@ function Install-CLUUpdater([string]$Source,[string]$Root,[string]$Language){
  if(Test-Path -LiteralPath $Root){if(@(Get-ChildItem -LiteralPath $Root -Force).Count -and -not (Test-Path -LiteralPath $registration)){if(-not (Test-Path -LiteralPath $intentPath)){throw 'Updater directory already belongs to another installation'};Assert-CLUPrivate $Root;$intent=Read-CLUJson $intentPath;if($intent.schemaVersion -ne 1 -or $intent.ownerSid -cne $sid -or $intent.bootstrapSha256 -cne $sourceHash -or ((Test-Path -LiteralPath $bootstrap) -and (Get-CLUHash $bootstrap) -cne $sourceHash)){throw 'Interrupted updater registration ownership differs'}};if(Test-Path -LiteralPath $registration){Assert-CLUPrivate $Root;$old=Read-CLUJson $registration;if($old.schemaVersion -ne 1 -or $old.ownerSid -cne $sid -or $old.bootstrapSha256 -cne (Get-CLUHash $bootstrap)){throw 'Existing updater registration or bootstrap differs'}}}
  Protect-CLUDirectory $Root
  if(-not (Test-Path -LiteralPath $registration)){Write-CLUJson $intentPath ([pscustomobject]@{schemaVersion=1;ownerSid=$sid;bootstrapSha256=$sourceHash})}
- if(-not (Test-Path -LiteralPath $bootstrap)){[IO.File]::Copy((Assert-CLUPath $Source),$bootstrap,$false)}
+ if(-not (Test-Path -LiteralPath $bootstrap)){[IO.File]::Copy((Assert-CLUPath $Source),$bootstrap,$false);Set-CLUCreatedFileOwner $bootstrap}
  Write-CLUJson $registration ([pscustomobject]@{schemaVersion=1;repository='resokol/castlink';ownerSid=$sid;bootstrapSha256=(Get-CLUHash $bootstrap)})
  Register-CLUShortcut $Root $Language
  if(-not (Test-Path -LiteralPath (Join-Path $Root 'preferences.json'))){$p=Get-CLUPreferences $Root;Set-CLUPreferences $Root $p.automatic $Language}
