@@ -2,6 +2,8 @@
 
 # CastLink packages
 
+**1.0.7:** server and web based on the accepted castlink.ru version, including video/audio diagnostics, rolling 10-second network quality, vMix stream compatibility and WSL2 server management. Choose the exact 1.0.7 server package for your channel in the catalog; match its version and source/build ID to `manifest.json` and files to `SHA256SUMS`. Client remains 1.0.1. [Changes and updating](RELEASE_NOTES_1_0_7.md).
+
 Primary products: **Windows Server on WSL2 (no Docker Desktop)**, **Ubuntu/Linux Server** and a separate **Windows Client**. See [supported installation channels and migration limitations](../../SUPPORTED_INSTALLERS.md).
 
 ## Primary download channels

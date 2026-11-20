@@ -2,11 +2,11 @@
 
 # CastLink：安装与使用
 
-本指南适用于 Windows Server Setup 与独立 Linux **1.0.5**；Windows Client 保持 **1.0.1**。源代码包版本为 **1.0.5**。可下载的发行版、准确的源代码与构建编号及校验和以[产品目录](PRODUCTS.md)为准。[1.0.5 变更](RELEASE_NOTES_1_0_5.md)。 [更新日志](../../../CHANGELOG.md) · [连接恢复](#server-pair-recovery)。
+本指南介绍 CastLink 的使用。新服务器请选择 Windows 11/WSL2 或 Ubuntu/Linux；Windows/Docker Server Setup 作为 Legacy 保留给现有安装。Windows Client 是独立产品，版本为 **1.0.1**。准确发行版、源代码/构建编号及 SHA256 见[目录](PRODUCTS.md)；[1.0.7 变更](RELEASE_NOTES_1_0_7.md)。
 
-服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](SERVER_INSTALL.md)。普通 Windows 本地 Server Setup 使用 Docker Desktop。无 Docker 的 Windows/WSL2 仍是独立实验渠道，不属于这些稳定服务器包。
+服务器保存 24 小时指标历史与事件日志，Linux 支持单命令安装。WSL2 是无需 Docker Desktop 的主要 Windows 方案；现有 RC 保持预发布状态，直至单独发布稳定版本。不支持自动 Docker → WSL2 迁移。[渠道与限制](../../SUPPORTED_INSTALLERS.md)。
 
-请选择[对应产品的软件包与校验和](PRODUCTS.md)。Windows Client 用于加入现有服务器；Windows Server Setup 与 Linux 用于安装服务器。普通参与者需要受支持的浏览器与 HTTPS。
+普通参与者需要受支持的浏览器与 HTTPS。Windows Client 加入现有服务器；WSL2 和 Linux 用于安装服务器。
 
 [安装与网络](INSTALL.md) · [无需 Windows 的 Linux 安装](LINUX_MANUAL.md) · [PDF/PPTX](PRESENTATIONS.md) · [TURN/TLS](TURN_TLS.md) · [更新日志](../../../CHANGELOG.md)
 

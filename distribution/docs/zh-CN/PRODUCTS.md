@@ -2,6 +2,8 @@
 
 # CastLink 软件包
 
+**1.0.7：**服务器与 Web 以已认可的 castlink.ru 版本为基准，包含音视频诊断、最近 10 秒网络质量、vMix 流兼容性及 WSL2 服务器管理。请在目录中选择对应渠道的准确 1.0.7 服务器软件包；将版本及源代码/构建编号与 `manifest.json` 核对，并将文件与 `SHA256SUMS` 核对。Client 保持 1.0.1。[变更与更新](RELEASE_NOTES_1_0_7.md)。
+
 主要方向：**Windows 11 服务器使用 WSL2（无需 Docker Desktop）**、**Ubuntu/Linux 服务器**和单独的 **Windows 客户端**。[安装渠道及迁移限制](../../SUPPORTED_INSTALLERS.md)。
 
 ## 主要产品

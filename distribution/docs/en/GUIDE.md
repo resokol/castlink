@@ -2,11 +2,11 @@
 
 # CastLink: installation and operation
 
-This guide applies to Windows Server Setup and standalone Linux **1.0.5**; Windows Client remains **1.0.1**. The source package version is **1.0.5**. Available releases, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [1.0.5 changes](RELEASE_NOTES_1_0_5.md). [Changelog](../../../CHANGELOG.md) · [Connection recovery](#server-pair-recovery).
+This is the CastLink operation guide. Choose Windows 11/WSL2 or Ubuntu/Linux for a new server; Windows/Docker Server Setup is retained as Legacy for existing installations. Windows Client is a separate product at **1.0.1**. Exact releases, source/build IDs and SHA256 are listed in the [catalog](PRODUCTS.md); [1.0.7 changes](RELEASE_NOTES_1_0_7.md).
 
-Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](SERVER_INSTALL.md). The ordinary local Windows Server Setup uses Docker Desktop. Docker-free Windows/WSL2 remains a separate experimental channel and is not part of these stable server packages.
+The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the published RC remains prerelease until a separate stable release. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
 
-Choose the [package and checksums for your track](PRODUCTS.md). Windows Client joins an existing server; Windows Server Setup and Linux install a server. Ordinary participants need a supported browser and HTTPS.
+Ordinary participants need a supported browser and HTTPS. Windows Client joins an existing server; WSL2 and Linux install a server.
 
 [Installation and networking](INSTALL.md) · [Linux without Windows](LINUX_MANUAL.md) · [PDF/PPTX](PRESENTATIONS.md) · [TURN/TLS](TURN_TLS.md) · [Changelog](../../../CHANGELOG.md)
 
