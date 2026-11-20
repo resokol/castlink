@@ -1,6 +1,6 @@
 # Changelog
 
-## Updater 1.0.0 — постоянная точка обновления / Persistent update entry point / 永久更新入口
+## Updater 1.0.0 — 2026-11-21 — постоянная точка обновления / Persistent update entry point / 永久更新入口
 
 - RU: отдельный обновлятор подключается один раз на каждом компьютере: ярлык **Update CastLink** для Windows Client/WSL2 и команды `castlink check-updates`, `castlink update`, `castlink updates` для Linux. Инструмент обновляет собственный проверяемый код и выбирает стабильный совместимый выпуск продукта. Проверка и подключение не перезапускают сервер; применение требует подтверждения. Client остаётся 1.0.1, серверы — 1.0.7; Legacy Docker не мигрирует автоматически. [Инструкция](distribution/UPDATER.md).
 - EN: onboard the separate updater once on each computer: **Update CastLink** for Windows Client/WSL2 and `castlink check-updates`, `castlink update`, `castlink updates` for Linux. It refreshes its verified tool code and selects compatible stable product releases. Checking and onboarding do not restart the server; applying requires confirmation. Client remains 1.0.1 and servers 1.0.7; Legacy Docker is not migrated automatically. [Guide](distribution/docs/en/UPDATER.md).

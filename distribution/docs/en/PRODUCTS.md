@@ -19,7 +19,7 @@ Primary products: **Windows Server on WSL2 (no Docker Desktop)**, **Ubuntu/Linux
 
 A separate tool for supported Client, Windows/WSL2 and Linux installations. Install it **once on each computer**, then use the permanent shortcut or command; product versions remain Client **1.0.1** and Server **1.0.7**. Checking does not apply an update; applying requires confirmation.
 
-[Windows installer](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux installer](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Step-by-step guide](UPDATER.md). Select the exact `updater` channel tag, manifest and `SHA256SUMS` for version 1.0.0 from [official releases](https://github.com/resokol/castlink/releases); the updater channel is independent of server and Client channels.
+[Windows installer](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux installer](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Step-by-step guide](UPDATER.md). Stable release: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). The updater channel is independent of server and Client channels.
 
 ## Legacy: Windows Server / Docker Desktop
 
