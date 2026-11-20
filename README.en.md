@@ -17,6 +17,8 @@ Choose where to install your server:
 
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
 
+**Updates without downloading another tool each time:** connect the [persistent updater](distribution/docs/en/UPDATER.md) once on each computer. Use **Update CastLink** for Client and WSL2 on Windows, or `castlink check-updates` and `castlink update` on Linux. Applying an update requires your confirmation.
+
 ## Before installation
 
 - Keep the server computer powered on while using CastLink.

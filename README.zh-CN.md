@@ -17,6 +17,8 @@
 
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
 
+**更新时无需反复下载工具：**在每台电脑上连接一次[永久更新工具](distribution/docs/zh-CN/UPDATER.md)。Windows 的 Client 与 WSL2 使用 **Update CastLink** 快捷方式，Linux 使用 `castlink check-updates` 与 `castlink update`。应用更新需要确认。
+
 ## 安装前
 
 - 使用 CastLink 时，服务器电脑必须保持开机。

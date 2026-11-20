@@ -35,9 +35,10 @@ async function fixture(){
  const pack=()=>execFileSync('tar',['-czf',rootfs,'-C',tree,'.']);pack();
  const sources=path.join(dir,'sources.tar.gz');
  await fs.writeFile(sources,'corresponding source archive fixture');
- const panelInventory={schemaVersion:1,host:'CastLinkServer.exe',binding:'server-native-binding.json',buildFiles:['server-native-panel-host.cs','build-server-native-panel-host.ps1'],files:['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1']};
+ const panelInventory={schemaVersion:1,host:'CastLinkServer.exe',binding:'server-native-binding.json',buildFiles:['server-native-panel-host.cs','build-server-native-panel-host.ps1'],files:['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','castlink-updater.ps1']};
  await fs.writeFile(path.join(root,'scripts/server-native-panel-files.json'),JSON.stringify(panelInventory));
- for(const name of [...panelInventory.files,...panelInventory.buildFiles])await fs.writeFile(path.join(root,'scripts',name),'panel fixture '+name);
+ await fs.mkdir(path.join(root,'scripts/updater'),{recursive:true});
+ for(const name of [...panelInventory.files,...panelInventory.buildFiles])await fs.writeFile(path.join(root,'scripts',name==='castlink-updater.ps1'?'updater/castlink-updater.ps1':name),'panel fixture '+name);
  for(const name of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py'])await fs.writeFile(path.join(root,'scripts',name),'lifecycle fixture '+name);
  await fs.writeFile(path.join(tree,'usr/local/bin/castlink-server'),'lifecycle fixture server-wsl-runtime.py');await fs.writeFile(path.join(tree,'usr/local/bin/castlink-server-maintenance'),'lifecycle fixture server-wsl-maintenance.py');
  const inventory=path.join(dir,'packages.tsv');await fs.writeFile(inventory,'base-files\t13ubuntu10.3\n');
@@ -63,8 +64,8 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   assert.equal(m.sourceCommit,commit);assert.equal(m.architecture,'amd64');
   assert.equal(m.requirements.hostAddressLoopback,true);
   assert.equal(m.nativePanel.host,'CastLinkServer.exe');
-  assert.equal(m.nativePanel.files.length,11);
-  for(const entry of m.nativePanel.files){const original=await fs.readFile(path.join(f.root,'scripts',entry.file));assert.equal(entry.sha256,hash(original));assert.equal(entry.size,original.length);assert.deepEqual(await fs.readFile(path.join(f.output,entry.file)),original);}
+  assert.equal(m.nativePanel.files.length,12);
+  for(const entry of m.nativePanel.files){const original=await fs.readFile(path.join(f.root,'scripts',entry.file==='castlink-updater.ps1'?'updater/castlink-updater.ps1':entry.file));assert.equal(entry.sha256,hash(original));assert.equal(entry.size,original.length);assert.deepEqual(await fs.readFile(path.join(f.output,entry.file)),original);}
   const rootfsBytes=await fs.readFile(f.rootfs);
   assert.equal(m.rootfs.sha256,hash(rootfsBytes));assert.equal(m.rootfs.size,rootfsBytes.length);
   assert.deepEqual(await fs.readFile(path.join(f.output,m.rootfs.file)),rootfsBytes);
@@ -200,5 +201,19 @@ test('maintenance bootstrap VerifyOnly skips UI and propagates child failure', {
   const args=['-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',path.join(f.output,'maintenance-bootstrap.ps1')];
   execFileSync('powershell.exe',[...args,'-VerifyOnly'],{encoding:'utf8',timeout:20000});
   assert.throws(()=>execFileSync('powershell.exe',args,{encoding:'utf8',timeout:20000,stdio:'pipe'}), e=>e.status!==0 && /Maintenance window failed \(exit 7\)/.test(e.stderr));
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
+
+test('future WSL packages pin the exact persistent Windows updater source in the native panel',async()=>{
+ const f=await fixture();try{
+  const inventoryFile=path.join(f.root,'scripts/server-native-panel-files.json'),inventory=JSON.parse(await fs.readFile(inventoryFile,'utf8'));
+  if(!inventory.files.includes('castlink-updater.ps1'))inventory.files.push('castlink-updater.ps1');
+  await fs.writeFile(inventoryFile,JSON.stringify(inventory));await fs.mkdir(path.join(f.root,'scripts/updater'),{recursive:true});
+  const bytes=await fs.readFile(new URL('../updater/castlink-updater.ps1',import.meta.url));
+  await fs.writeFile(path.join(f.root,'scripts/updater/castlink-updater.ps1'),bytes);
+  const m=await assembleWslPackage(f),entry=m.nativePanel.files.find(e=>e.file==='castlink-updater.ps1');
+  assert.equal(entry.sha256,hash(bytes));assert.equal(entry.size,bytes.length);
+  assert.deepEqual(await fs.readFile(path.join(f.output,'castlink-updater.ps1')),bytes);
+  assert.deepEqual(bytes.subarray(0,3),Buffer.from([0xef,0xbb,0xbf]));
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
 });

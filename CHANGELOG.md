@@ -1,5 +1,11 @@
 # Changelog
 
+## Updater 1.0.0 — постоянная точка обновления / Persistent update entry point / 永久更新入口
+
+- RU: отдельный обновлятор подключается один раз на каждом компьютере: ярлык **Update CastLink** для Windows Client/WSL2 и команды `castlink check-updates`, `castlink update`, `castlink updates` для Linux. Инструмент обновляет собственный проверяемый код и выбирает стабильный совместимый выпуск продукта. Проверка и подключение не перезапускают сервер; применение требует подтверждения. Client остаётся 1.0.1, серверы — 1.0.7; Legacy Docker не мигрирует автоматически. [Инструкция](distribution/UPDATER.md).
+- EN: onboard the separate updater once on each computer: **Update CastLink** for Windows Client/WSL2 and `castlink check-updates`, `castlink update`, `castlink updates` for Linux. It refreshes its verified tool code and selects compatible stable product releases. Checking and onboarding do not restart the server; applying requires confirmation. Client remains 1.0.1 and servers 1.0.7; Legacy Docker is not migrated automatically. [Guide](distribution/docs/en/UPDATER.md).
+- 简体中文：在每台电脑上连接一次独立更新工具：Windows Client/WSL2 使用 **Update CastLink**，Linux 使用 `castlink check-updates`、`castlink update`、`castlink updates`。它获取经验证的工具代码并选择兼容稳定产品版本。检查及连接不会重启服务器，应用需要确认。Client 保持 1.0.1，服务器保持 1.0.7；不会自动迁移 Legacy Docker。[指南](distribution/docs/zh-CN/UPDATER.md)。
+
 ## 1.0.7 — 2026-11-21 — стабильный сервер и web / Stable server and web / 稳定服务器与 Web
 
 - RU: принятая версия castlink.ru включена в общий серверный/web-выпуск: видео JSON, расширенная аудиодиагностика, текущая сеть за 10 секунд и исправление `AbortSignal.any` для потока vMix. Windows/WSL2 получает отдельный стабильный пакет с родной панелью и обслуживанием; точные версии и source/build ID проверяйте по каталогу и manifest выбранного пакета. Client остаётся 1.0.1, Windows/Docker — Legacy 1.0.4. [Примечания](distribution/RELEASE_NOTES_1_0_7.md).

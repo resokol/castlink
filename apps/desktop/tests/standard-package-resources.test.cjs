@@ -8,6 +8,7 @@ test('the standard package builds and ships its existing PDF navigation helper a
   'node:fs':fs,'node:path':path,'node:os':os,'node:crypto':require('node:crypto'),
   'node:child_process':{execFileSync:(_exe,args)=>args[0]==='rev-parse'?commit:''},
   './setup-resources.cjs':{stageSetupResources:(_root,resources)=>{const directory=path.join(resources,'setup');fs.mkdirSync(directory,{recursive:true});return{directory};}},
+  './updater-resources.cjs':{stageUpdaterResources:(_root,resources)=>{const file=path.join(resources,'updater/castlink-updater.ps1');fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'fixture');return {file};}},
   './build-process-audio.cjs':{buildProcessAudio:(_root,output)=>native('audio',output)},
   './build-remote-pc-input.cjs':{buildRemotePcInput:(_root,output)=>native('remote-input',output)},
   './build-window-slides.cjs':{buildWindowSlides:(_root,output)=>native('window-slides',output)},
@@ -23,5 +24,6 @@ test('the standard package builds and ships its existing PDF navigation helper a
   assert.ok(configuration.extraResources.some(resource=>resource.to==='window-slides/CastLink.WindowSlides.exe'&&resource.from.endsWith(path.join('window-slides','CastLink.WindowSlides.exe'))),'the compiled helper is part of standard extraResources');
   assert.ok(configuration.extraResources.some(resource=>resource.to==='powerpoint/Control.ps1'));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='process-audio/CastLink.ProcessAudio.exe'));
+  assert.ok(configuration.extraResources.some(resource=>resource.to==='updater/castlink-updater.ps1'),'persistent updater must ship in the future standard client installer');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

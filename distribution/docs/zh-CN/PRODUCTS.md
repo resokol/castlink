@@ -14,6 +14,13 @@
 | Linux Ubuntu | Ubuntu/VPS 独立服务器，使用 Docker Engine/Compose | [1.0.7](https://github.com/resokol/castlink/releases/tag/linux-v1.0.7-ac9c234c72b0) · [安装脚本](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.7-ac9c234c72b0/SHA256SUMS) |
 | Windows Client | 单独的主播/演播室应用，不安装服务器 | [1.0.1](https://github.com/resokol/castlink/releases/tag/client-v1.0.1-079fd0f9d4b1) · [安装程序](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
 
+<a id="updater"></a>
+## 永久更新工具 1.0.0
+
+适用于受支持 Client、Windows/WSL2 与 Linux 安装的独立工具。在**每台电脑上安装一次**，然后使用固定快捷方式或命令。产品版本保持 Client **1.0.1** 与 Server **1.0.7**。检查不会应用更新，应用需要确认。
+
+[Windows 安装程序](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux 安装程序](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [分步指南](UPDATER.md)。请从[官方发行版](https://github.com/resokol/castlink/releases)选择 1.0.0 版本的准确 `updater` 渠道标签、manifest 及 `SHA256SUMS`；更新工具渠道独立于服务器和 Client 渠道。
+
 ## Legacy：Windows Server / Docker Desktop
 
 | CastLink | 状态 | 历史版本 |

@@ -14,6 +14,28 @@ function Test-CastlinkNativeMaintenance([string]$Root){
  }catch{return $true}
 }
 
+function Get-CastlinkPersistentUpdater([string]$Directory=(Join-Path $env:LOCALAPPDATA 'CastLinkUpdater')){
+  $root=[IO.Path]::GetFullPath($Directory);$scriptPath=Join-Path $root 'castlink-updater.ps1';$receiptPath=Join-Path $root 'registration.json'
+  if(-not (Test-Path -LiteralPath $scriptPath) -and -not (Test-Path -LiteralPath $receiptPath)){return $null}
+  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  foreach($p in @($root,$scriptPath,$receiptPath)){
+    $ancestor=$p;while($ancestor){if((Test-Path -LiteralPath $ancestor) -and ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Persistent updater registration cannot use reparse points'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+    if(-not (Test-Path -LiteralPath $p)){throw 'Persistent updater registration is incomplete'};$acl=Get-Acl -LiteralPath $p
+    if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid -or ($p -ceq $root -and -not $acl.AreAccessRulesProtected)){throw 'Persistent updater registration ownership or ACL differs'}
+    foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($sid,'S-1-5-18','S-1-5-32-544')){throw 'Persistent updater registration permissions are unsafe'}}
+  }
+  if((Get-Item -LiteralPath $receiptPath).Length -gt 65536 -or (Get-Item -LiteralPath $scriptPath).Length -gt 4194304){throw 'Persistent updater registration exceeds bound'}
+  $receipt=[IO.File]::ReadAllText($receiptPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
+  if($receipt.schemaVersion -ne 1 -or $receipt.repository -cne 'resokol/castlink' -or $receipt.ownerSid -cne $sid -or $receipt.bootstrapSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $receipt.bootstrapSha256){throw 'Persistent updater registration checksum mismatch'}
+  return $scriptPath
+}
+function Open-CastlinkNativeMaintenance([string]$InstallRoot,[string]$Language,[string]$Fallback){
+  if($Language -cnotin @('ru','en','zh-CN')){throw 'Unsupported updater language'}
+  $updater=Get-CastlinkPersistentUpdater;$quote={param($v) "'"+$v.Replace("'","''")+"'"}
+  if($updater){$code='& '+(& $quote $updater)+' -InstallRoot '+(& $quote $InstallRoot)+' -Language '+(& $quote $Language)}else{$code='& '+(& $quote $Fallback)+' -InstallRoot '+(& $quote $InstallRoot)+' -Lang '+(& $quote $Language)}
+  $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code));Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList ('-NoLogo -NoProfile -STA -ExecutionPolicy Bypass -EncodedCommand '+$encoded)|Out-Null
+}
+
 function Get-CastlinkNativePanelText([string]$Key,[string]$Language='ru') {
   $catalog=@{
     statistics=@('Статистика сервера','Server statistics','服务器统计'); export=@('Экспорт ZIP за 24 часа','Export 24-hour ZIP','导出24小时 ZIP');
@@ -238,7 +260,7 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
     $source=$script:NativePanelSource
     $helpers=New-Module -AsCustomObject -ArgumentList $source -ScriptBlock {
       param($Source);. $Source -FunctionsOnly
-      Export-ModuleMember -Function Test-CastlinkNativeMaintenance,Start-CastlinkNativePanelWork,Get-CastlinkNativePanelScheduledWork,Request-CastlinkNativePanelControl,Update-CastlinkNativePanelView,Update-SimpleControlLanguage,ConvertTo-SimpleControlText,Set-SimpleGuiLanguage
+      Export-ModuleMember -Function Open-CastlinkNativeMaintenance,Test-CastlinkNativeMaintenance,Start-CastlinkNativePanelWork,Get-CastlinkNativePanelScheduledWork,Request-CastlinkNativePanelControl,Update-CastlinkNativePanelView,Update-SimpleControlLanguage,ConvertTo-SimpleControlText,Set-SimpleGuiLanguage
     }
     $tray=New-Object Windows.Forms.NotifyIcon;$icon=New-Object Drawing.Icon((Join-Path $PSScriptRoot 'simple-easy-setup-control.ico'));$tray.Icon=$icon;$tray.Text='CastLink Server'
     $menu=New-Object Windows.Forms.ContextMenuStrip;$trayOpen=$menu.Items.Add('Открыть панель');$trayExit=$menu.Items.Add('Остановить и выйти');$tray.ContextMenuStrip=$menu;$tray.Visible=$true
@@ -249,8 +271,7 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
       $maintenanceScript=Join-Path $PSScriptRoot 'server-wsl-maintenance-ui.ps1'
       $maintenanceButton.Add_Click({
         if($state.control -or $state.export -or $state.monitor){return}
-        $quote={param($v) "'"+$v.Replace("'","''")+"'"};$code='& '+(& $quote $maintenanceScript)+' -InstallRoot '+(& $quote $binding.installRoot)+' -Lang '+(& $quote $state.language)
-        $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code));Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList ('-NoLogo -NoProfile -STA -ExecutionPolicy Bypass -EncodedCommand '+$encoded)|Out-Null
+        try{$helpers.'Open-CastlinkNativeMaintenance'($binding.installRoot,$state.language,$maintenanceScript)}catch{$state.notice=$_.Exception.Message}
       }.GetNewClosure())
     }
     $restore={$window.Show();$window.WindowState='Normal';$null=$window.Activate();$handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle;$null=[CastLinkControl.Native]::SetForegroundWindow($handle)}.GetNewClosure()

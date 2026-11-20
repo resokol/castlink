@@ -1,0 +1,150 @@
+name: Persistent updater package
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Independent stable updater version
+        type: string
+        default: 1.0.0
+        required: true
+      publish:
+        description: Publish verified updater only after exact-source main CI passes
+        type: boolean
+        default: false
+      release_notes:
+        description: Concrete updater changes and one-time onboarding instructions
+        type: string
+        default: ''
+      resume_run_id:
+        description: Prior workflow run ID containing a publication recovery receipt
+        type: string
+        default: ''
+      resume_release_id:
+        description: Exact numeric release ID for recovery after a lost create response
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: updater-package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      UPDATER_VERSION: ${{ inputs.version || '1.0.0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Package and publication API boundaries
+        run: node --test scripts/tests/package-updater.test.mjs scripts/tests/publish-updater.test.mjs
+      - name: Linux persistent updater and existing product update preservation
+        run: |
+          python3 -B scripts/tests/persistent-updater-linux.test.py
+          python3 -B scripts/tests/linux-updates.test.py
+      - name: Client updater integration and preserved automatic checks
+        run: node --test apps/desktop/tests/updates.test.cjs apps/desktop/tests/persistent-updater.test.cjs apps/desktop/tests/updater-resources.test.cjs
+      - name: Assemble and verify all eight exact-source assets
+        run: node scripts/package-updater.mjs "$RUNNER_TEMP/updater-package" "$GITHUB_SHA" "$UPDATER_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: castlink-updater-package-${{ github.sha }}
+          path: ${{ runner.temp }}/updater-package/*
+          if-no-files-found: error
+          retention-days: 14
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    env:
+      UPDATER_VERSION: ${{ inputs.version || '1.0.0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Windows PowerShell 5.1 parser and synthetic local installations
+        run: |
+          $ErrorActionPreference='Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'Windows PowerShell 5.1 is required' }
+          $tokens=$null; $parseErrors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/scripts/updater/castlink-updater.ps1",[ref]$tokens,[ref]$parseErrors)
+          if ($parseErrors.Count) { throw 'Persistent updater parser failed' }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/persistent-updater-windows.fixtures.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/persistent-updater-review.fixtures.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify native fixture also accepts the packaged exact bytes
+        run: |
+          node scripts/package-updater.mjs "$env:RUNNER_TEMP/updater-package" "$env:GITHUB_SHA" "$env:UPDATER_VERSION"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/persistent-updater-windows.fixtures.ps1 -SourcePath "$env:RUNNER_TEMP/updater-package/castlink-updater.ps1"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Client native registration and packaged resource boundaries
+        run: |
+          node --test apps/desktop/tests/persistent-updater.test.cjs apps/desktop/tests/updater-resources.test.cjs apps/desktop/tests/standard-package-resources.test.cjs apps/desktop/tests/remote-pc-input-package.test.cjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      UPDATER_VERSION: ${{ inputs.version }}
+      CASTLINK_RELEASE_NOTES: ${{ inputs.release_notes }}
+      CASTLINK_UPDATER_RESUME_RELEASE_ID: ${{ inputs.resume_release_id }}
+      RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: castlink-updater-package-${{ github.sha }}
+          path: ${{ runner.temp }}/updater-package
+      - name: Validate recovery run identity
+        run: |
+          if [ -n "$RESUME_RUN_ID" ]; then [[ "$RESUME_RUN_ID" =~ ^[1-9][0-9]*$ ]]; fi
+          if [ -n "$CASTLINK_UPDATER_RESUME_RELEASE_ID" ]; then [[ "$CASTLINK_UPDATER_RESUME_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; fi
+      # A rerun must recover its prior intent instead of blindly POSTing again.
+      # Missing recovery artifacts fail closed; a new run can explicitly name
+      # the previous run and/or the independently verified numeric release ID.
+      - name: Recover durable publication intent
+        if: ${{ github.run_attempt > 1 || inputs.resume_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: castlink-updater-publication-receipt-${{ inputs.resume_run_id || github.run_id }}
+          run-id: ${{ inputs.resume_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/updater-publication
+      - name: Publish complete verified stable updater without changing Latest
+        run: node scripts/publish-updater.mjs "$RUNNER_TEMP/updater-package" "$GITHUB_SHA" "$UPDATER_VERSION" "$RUNNER_TEMP/updater-publication/publication-receipt.json"
+      - name: Retain recovery intent even after an uncertain API result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: castlink-updater-publication-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/updater-publication/publication-receipt.json
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 30

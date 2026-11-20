@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2034**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2054**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -120,7 +120,7 @@ CastLink
 
 Настройки редактора и задач разработчика; не production service.
 
-## .github · 14 файлов
+## .github · 15 файлов
 
 ### .github/ISSUE_TEMPLATE/bug_report.md
 
@@ -198,6 +198,12 @@ GitHub Actions: Reserve outbound test branch. Выполняется runner-ом
 
 GitHub Actions: Docker-free WSL server candidate package. Выполняется runner-ом, а не в браузере.
 
+### .github/workflows/updater-package.yml
+
+[`.github/workflows/updater-package.yml`](../../.github/workflows/updater-package.yml)
+
+GitHub Actions: Persistent updater package. Выполняется runner-ом, а не в браузере.
+
 ### .github/workflows/windows-desktop-client.yml
 
 [`.github/workflows/windows-desktop-client.yml`](../../.github/workflows/windows-desktop-client.yml)
@@ -224,7 +230,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 434 файлов
+## apps · 438 файлов
 
 ### apps/cli/.gitignore
 
@@ -3040,7 +3046,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/build-remote-pc-input.cjs`](../../apps/desktop/scripts/build-remote-pc-input.cjs), [`apps/desktop/scripts/build-window-slides.cjs`](../../apps/desktop/scripts/build-window-slides.cjs), [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs).
+Читает/импортирует: [`apps/desktop/scripts/build-process-audio.cjs`](../../apps/desktop/scripts/build-process-audio.cjs), [`apps/desktop/scripts/build-remote-pc-input.cjs`](../../apps/desktop/scripts/build-remote-pc-input.cjs), [`apps/desktop/scripts/build-window-slides.cjs`](../../apps/desktop/scripts/build-window-slides.cjs), [`apps/desktop/scripts/package-files.cjs`](../../apps/desktop/scripts/package-files.cjs), [`apps/desktop/scripts/setup-resources.cjs`](../../apps/desktop/scripts/setup-resources.cjs), [`apps/desktop/scripts/updater-resources.cjs`](../../apps/desktop/scripts/updater-resources.cjs).
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
@@ -3069,6 +3075,16 @@ CastLink Client для Windows
 Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`.
 
 Используют: [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs), [`apps/desktop/tests/setup-resources.test.cjs`](../../apps/desktop/tests/setup-resources.test.cjs).
+
+### apps/desktop/scripts/updater-resources.cjs
+
+[`apps/desktop/scripts/updater-resources.cjs`](../../apps/desktop/scripts/updater-resources.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:crypto`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/scripts/package.cjs`](../../apps/desktop/scripts/package.cjs).
 
 ### apps/desktop/scripts/verify-pptx-test.cjs
 
@@ -3114,7 +3130,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/persistent-updater.cjs`](../../apps/desktop/src/persistent-updater.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
@@ -3149,6 +3165,18 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/permissions.test.cjs`](../../apps/desktop/tests/permissions.test.cjs), [`apps/desktop/tests/remote-pc-launch-permission.test.cjs`](../../apps/desktop/tests/remote-pc-launch-permission.test.cjs).
+
+### apps/desktop/src/persistent-updater.cjs
+
+[`apps/desktop/src/persistent-updater.cjs`](../../apps/desktop/src/persistent-updater.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:child_process`, `node:fs`, `node:path`.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs).
+
+Переменные окружения (только имена): `LOCALAPPDATA`, `WINDIR`.
 
 ### apps/desktop/src/powerpoint.cjs
 
@@ -3523,6 +3551,16 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:test`.
+
+### apps/desktop/tests/persistent-updater.test.cjs
+
+[`apps/desktop/tests/persistent-updater.test.cjs`](../../apps/desktop/tests/persistent-updater.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:child_process`, `node:events`, `node:fs`, `node:os`, `node:path`, `node:test`.
+
+Переменные окружения (только имена): `WINDIR`.
 
 ### apps/desktop/tests/powerpoint-core.tests.ps1
 
@@ -3927,6 +3965,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/stop-session.cjs`](../../apps/desktop/src/stop-session.cjs).
 
 Библиотеки/Node: `node:assert/strict`, `node:events`, `node:test`.
+
+### apps/desktop/tests/updater-resources.test.cjs
+
+[`apps/desktop/tests/updater-resources.test.cjs`](../../apps/desktop/tests/updater-resources.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:test`.
 
 ### apps/desktop/tests/updates.test.cjs
 
@@ -15422,7 +15468,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 55 файлов
+## distribution · 58 файлов
 
 ### distribution/INSTALL.md
 
@@ -15532,6 +15578,12 @@ CastLink 1.0.0-rc.9
 
 TURN через TLS на TCP 443
 
+### distribution/UPDATER.md
+
+[`distribution/UPDATER.md`](../../distribution/UPDATER.md)
+
+Постоянный обновлятор CastLink 1.0.0
+
 ### distribution/docs/en/GUIDE.md
 
 [`distribution/docs/en/GUIDE.md`](../../distribution/docs/en/GUIDE.md)
@@ -15633,6 +15685,12 @@ Primary studio diagnostics
 [`distribution/docs/en/TURN_TLS.md`](../../distribution/docs/en/TURN_TLS.md)
 
 TURN over TLS on TCP 443
+
+### distribution/docs/en/UPDATER.md
+
+[`distribution/docs/en/UPDATER.md`](../../distribution/docs/en/UPDATER.md)
+
+Persistent CastLink Updater 1.0.0
 
 ### distribution/docs/zh-CN/GUIDE.md
 
@@ -15736,6 +15794,12 @@ CastLink 发布规则
 
 通过 TCP 443 使用 TURN over TLS
 
+### distribution/docs/zh-CN/UPDATER.md
+
+[`distribution/docs/zh-CN/UPDATER.md`](../../distribution/docs/zh-CN/UPDATER.md)
+
+CastLink 永久更新工具 1.0.0
+
 ### distribution/release-tracks.json
 
 [`distribution/release-tracks.json`](../../distribution/release-tracks.json)
@@ -15754,7 +15818,7 @@ CastLink 发布规则
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 87 файлов
+## docs · 88 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -16030,7 +16094,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Постоянный обновлятор всей линейки — проект, 21.11.2026
+Постоянный обновлятор всей линейки — реализация, 21.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -16193,6 +16257,12 @@ Guest network reminder and distribution implementation plan
 [`docs/superpowers/plans/2026-11-17-video-diagnostics-export.md`](../superpowers/plans/2026-11-17-video-diagnostics-export.md)
 
 Video Diagnostics Export Implementation Plan
+
+### docs/superpowers/plans/2026-11-21-persistent-updater.md
+
+[`docs/superpowers/plans/2026-11-21-persistent-updater.md`](../superpowers/plans/2026-11-21-persistent-updater.md)
+
+Persistent CastLink Updater Implementation Plan
 
 ### docs/superpowers/plans/2026-11-21-stable-release.md
 
@@ -16916,7 +16986,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 281 файлов
+## scripts · 292 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17326,6 +17396,18 @@ Bootstrap Windows/Docker-установки; не нативный media-кли�
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/package-updater.mjs
+
+[`scripts/package-updater.mjs`](../../scripts/package-updater.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `UPDATER_FILES`, `assembleUpdaterPackage`, `verifyUpdaterPackage`.
+
+Библиотеки/Node: `node:crypto`, `node:fs/promises`, `node:path`, `node:url`.
+
+Используют: [`scripts/publish-updater.mjs`](../../scripts/publish-updater.mjs), [`scripts/tests/publish-updater.test.mjs`](../../scripts/tests/publish-updater.test.mjs).
+
 ### scripts/postgres-backup.sh
 
 [`scripts/postgres-backup.sh`](../../scripts/postgres-backup.sh)
@@ -17462,6 +17544,20 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 Используют: [`scripts/tests/release-destination.test.cjs`](../../scripts/tests/release-destination.test.cjs), [`scripts/tests/release-draft-id.test.cjs`](../../scripts/tests/release-draft-id.test.cjs), [`scripts/tests/release-tracks.test.cjs`](../../scripts/tests/release-tracks.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_RELEASE_DESTINATION`, `CASTLINK_RELEASE_NOTES`, `GITHUB_ACTIONS`, `GITHUB_EVENT_NAME`, `GITHUB_REF`, `GITHUB_REPOSITORY`, `GITHUB_SHA`.
+
+### scripts/publish-updater.mjs
+
+[`scripts/publish-updater.mjs`](../../scripts/publish-updater.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Экспортируемые символы: `githubApi`, `publishUpdater`.
+
+Читает/импортирует: [`scripts/package-updater.mjs`](../../scripts/package-updater.mjs).
+
+Библиотеки/Node: `node:child_process`, `node:crypto`, `node:fs/promises`, `node:module`, `node:os`, `node:path`, `node:url`.
+
+Переменные окружения (только имена): `CASTLINK_RELEASE_NOTES`, `CASTLINK_UPDATER_RESUME_RELEASE_ID`, `GITHUB_REF`.
 
 ### scripts/qa-node2-public-media.mjs
 
@@ -18237,6 +18333,32 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Переменные окружения (только имена): `CASTLINK_PYTHON`.
 
+### scripts/tests/package-updater.test.mjs
+
+[`scripts/tests/package-updater.test.mjs`](../../scripts/tests/package-updater.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
+
+### scripts/tests/persistent-updater-linux.test.py
+
+[`scripts/tests/persistent-updater-linux.test.py`](../../scripts/tests/persistent-updater-linux.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/persistent-updater-review.fixtures.ps1
+
+[`scripts/tests/persistent-updater-review.fixtures.ps1`](../../scripts/tests/persistent-updater-review.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/persistent-updater-windows.fixtures.ps1
+
+[`scripts/tests/persistent-updater-windows.fixtures.ps1`](../../scripts/tests/persistent-updater-windows.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/prepare-public-assets.test.mjs
 
 [`scripts/tests/prepare-public-assets.test.mjs`](../../scripts/tests/prepare-public-assets.test.mjs)
@@ -18356,6 +18478,16 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 [`scripts/tests/production-update.test.py`](../../scripts/tests/production-update.test.py)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/publish-updater.test.mjs
+
+[`scripts/tests/publish-updater.test.mjs`](../../scripts/tests/publish-updater.test.mjs)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+Читает/импортирует: [`scripts/package-updater.mjs`](../../scripts/package-updater.mjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### scripts/tests/release-artifact-audit.test.mjs
 
@@ -19170,6 +19302,30 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/ubuntu-easy-setup-bootstrap.sh
 
 [`scripts/ubuntu-easy-setup-bootstrap.sh`](../../scripts/ubuntu-easy-setup-bootstrap.sh)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/updater/castlink-updater.ps1
+
+[`scripts/updater/castlink-updater.ps1`](../../scripts/updater/castlink-updater.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/updater/castlink-updater.py
+
+[`scripts/updater/castlink-updater.py`](../../scripts/updater/castlink-updater.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/updater/install-updater-linux.sh
+
+[`scripts/updater/install-updater-linux.sh`](../../scripts/updater/install-updater-linux.sh)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/updater/install-updater-windows.cmd
+
+[`scripts/updater/install-updater-windows.cmd`](../../scripts/updater/install-updater-windows.cmd)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

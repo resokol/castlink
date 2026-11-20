@@ -7,6 +7,21 @@ function release(track,version,commit,date='2026-10-21T00:00:00Z'){
   return {tag_name:tag,published_at:date,draft:false,prerelease:version.includes('-'),assets:(track==='client'?[name,'SHA256SUMS']:['CastLink-Windows.zip','CastLink-Linux.tar.gz','CastLink-Provisioning.json','manifest.json','SHA256SUMS','CastLink-ThirdParty-Sources.tar.gz','CastLink-ThirdParty-Office-Sources.tar.gz']).map(name=>({name,state:'uploaded',size:128,browser_download_url:`https://github.com/resokol/castlink-releases/releases/download/${tag}/${name}`}))};
 }
 function temporary(){return fs.mkdtempSync(path.join(os.tmpdir(),'castlink-updates-test-'));}
+test('manual check delegates to installed persistent updater without starting another update or closing client',async()=>{
+ const directory=temporary();try{
+  const events=[];
+  const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.1'},getLocale:()=> 'en',launchPersistent:async options=>{events.push(['persistent',options.locale]);return true;},fetchReleases:async()=>{events.push(['legacy']);return [];},showMessage:async()=>{events.push(['dialog']);},install:async()=>events.push(['install'])});
+  await controller.check({manual:true});assert.deepEqual(events,[['persistent','en']]);
+ }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+test('absent persistent updater retains existing manual behavior and automatic checks do not launch it',async()=>{
+ const directory=temporary();try{
+  const events=[];
+  const controller=updates.createUpdateController({userData:directory,current:{track:'client',version:'1.0.1'},launchPersistent:async()=>{events.push('persistent');return false;},fetchReleases:async()=>{events.push('legacy');return [];},showMessage:async()=>({response:0,checkboxChecked:false})});
+  await controller.check({manual:true});assert.deepEqual(events,['persistent','legacy']);events.length=0;
+  await controller.check();assert.deepEqual(events,['legacy']);
+ }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
 test('channel selection orders semantic versions and same-version builds by known public release time',()=>{
   const current={track:'client',version:'1.0.0-rc.8',sourceCommit:hash+'a'.repeat(28)};
   const old=release('client',current.version,hash,'2026-10-20T00:00:00Z'),next=release('client',current.version,later);

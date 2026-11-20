@@ -95,6 +95,9 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   for(const name of ['simple-easy-setup-gui.ps1','simple-easy-setup-download.ps1'])assert.equal(readZip(path.join(output,'CastLink-Windows.zip'),'scripts/'+name).subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(cmd,/Prepare-VPS|Owner-access|castlink\.exe/);
   const linuxOutput=path.join(tmp,'linux-only');
   const linux=await assemble({output:linuxOutput,image,track:'linux',commit:'a'.repeat(40),imageId:'sha256:'+'b'.repeat(64),officialImageIds:{postgres:'sha256:'+'c'.repeat(64),livekit:'sha256:'+'d'.repeat(64),caddy:'sha256:'+'e'.repeat(64),turntls:'sha256:'+'f'.repeat(64)}});
+  const updaterBytes=await fs.readFile('scripts/updater/castlink-updater.py');
+  assert.equal(linux.bundleFiles['scripts/castlink-updater.py'],createHash('sha256').update(updaterBytes).digest('hex'));
+  assert.deepEqual(execFileSync('tar',['-xOzf',path.join(linuxOutput,'CastLink-Linux.tar.gz'),'scripts/castlink-updater.py']),updaterBytes);
   assert.equal(linux.track,'linux');assert.equal(linux.tag,releaseTracks.resolveTrack('linux','a'.repeat(40)).tag);assert.equal(linux.sourceCommit,'a'.repeat(40));
   await assert.rejects(fs.stat(path.join(linuxOutput,'CastLink-Windows.zip')),/ENOENT/);
   assert.ok((await fs.stat(path.join(linuxOutput,'CastLink-Linux.tar.gz'))).size>0);
