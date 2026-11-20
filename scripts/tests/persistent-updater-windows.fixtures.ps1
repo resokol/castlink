@@ -1,5 +1,8 @@
-﻿[CmdletBinding()]param([string]$SourcePath=(Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'),[string]$NativeControlPath=(Join-Path $PSScriptRoot '../server-native-control.ps1'),[string]$InstallerPath=(Join-Path $PSScriptRoot '../install-server-windows.ps1'))
+﻿[CmdletBinding()]param([string]$SourcePath,[string]$NativeControlPath,[string]$InstallerPath)
 $ErrorActionPreference='Stop'
+if(-not $SourcePath){$SourcePath=Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'}
+if(-not $NativeControlPath){$NativeControlPath=Join-Path $PSScriptRoot '../server-native-control.ps1'}
+if(-not $InstallerPath){$InstallerPath=Join-Path $PSScriptRoot '../install-server-windows.ps1'}
 function Assert($Condition,[string]$Message){if(-not $Condition){throw $Message}}
 function Throws([scriptblock]$Code,[string]$Pattern){try{& $Code;throw 'Expected failure was not raised'}catch{if($_.Exception.Message -notmatch $Pattern){throw}}}
 if(-not (Test-Path -LiteralPath $SourcePath)){throw 'RED: Windows persistent updater is not implemented'}

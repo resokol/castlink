@@ -1,4 +1,5 @@
-[CmdletBinding()]param([string]$SourcePath=(Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'))
+[CmdletBinding()]param([string]$SourcePath)
+if(-not $SourcePath){$SourcePath=Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'}
 $ErrorActionPreference='Stop'
 $script:failures=@();$script:passes=0
 function Assert($Condition,$Message){if(-not $Condition){throw $Message}}
