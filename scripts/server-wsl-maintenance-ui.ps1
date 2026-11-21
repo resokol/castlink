@@ -5,6 +5,7 @@ $maintenanceUiRequest=[pscustomobject]@{functionsOnly=[bool]$FunctionsOnly;root=
 function Get-CLMText([string]$Key,[string]$Language='ru'){
  $c=@{
  title=@('Обслуживание CastLink','CastLink maintenance','CastLink 维护');select=@('Выберите сервер','Select server','选择服务器');
+ cancelmove=@('Отменить перенос','Cancel move','取消移动');cancelMoveAdvice=@('Отменить перенос и восстановить исходное состояние сервера? Отмена возможна только после проверки, что диск WSL ещё находится в исходной папке.','Cancel this move and restore the original server state? Cancellation proceeds only after verifying that the WSL disk is still in its original folder.','是否取消移动并恢复服务器原始状态？只有确认 WSL 磁盘仍在原始目录后，才会执行取消。');
  move=@('Перенести сервер…','Move server…','移动服务器…');moveInterruption=@('Перенос временно прервёт работу сервера. Версия и данные сохранятся.','Moving interrupts server availability. The version and data are preserved.','移动期间服务器将暂时不可用。版本和数据将保留。');sourceFolder=@('Текущая папка сервера','Current server folder','当前服务器目录');unavailable=@('Диск или папка сервера недоступны. Подключите диск и откройте обслуживание снова.','The server disk or folder is unavailable. Reconnect it and reopen maintenance.','服务器磁盘或目录不可用。请重新连接磁盘并再次打开维护。');conflict=@('Обнаружен конфликт установки. Управление заблокировано; проверьте папку и журнал.','Installation conflict. Management is blocked; inspect the folder and journal.','安装存在冲突。管理已禁用；请检查目录和日志。');pending=@('Перенос не завершён. Используйте «Завершить / восстановить операцию».','The move is unfinished. Use Recover transaction.','移动尚未完成。请使用恢复事务。');
  check=@('Проверить','Check','检查');update=@('Обновить','Update','更新');remove=@('Удалить','Remove','删除');restore=@('Восстановить','Restore','恢复');recover=@('Завершить / восстановить операцию','Recover transaction','恢复事务');
  keep=@('Сохранить архив перед удалением','Keep a restorable archive before removing','删除前保留可恢复归档');erase=@('Безвозвратно удалить сервер и данные','Permanently erase server and data','永久删除服务器和数据');browse=@('Выбрать…','Choose…','选择…');open=@('Открыть панель сервера','Open server panel','打开服务器面板');chooseRelease=@('Выберите опубликованную версию; RC выбирается явно','Choose a published release; prereleases require explicit selection','选择已发布版本；预发布版本须明确选择');committed=@('Новая версия выбрана. Не запускайте старый сервер. Завершите восстановление операции.','The new generation is selected. Keep the old server stopped and recover this transaction.','已选择新版本。请保持旧服务器停止并恢复此事务。');
@@ -36,7 +37,7 @@ function New-CLMWindow([string]$Language){
   <TextBlock x:Name="ConfirmLabel" Visibility="Collapsed"/><TextBox x:Name="Confirm" Visibility="Collapsed" IsReadOnly="True"/>
   <TextBlock x:Name="BundleLabel"/><DockPanel Margin="0,4,0,8"><Button x:Name="BundleBrowse" DockPanel.Dock="Right" Width="46" Content="…"/><TextBox x:Name="Bundle" MinHeight="30"/></DockPanel><RadioButton x:Name="KeepArchive" GroupName="RemovalData" IsChecked="True" Margin="0,4"/><RadioButton x:Name="EraseData" GroupName="RemovalData" Margin="0,4,0,12"/>
   <TextBlock x:Name="DestinationLabel"/><DockPanel Margin="0,4,0,8"><Button x:Name="DestinationBrowse" DockPanel.Dock="Right" Width="46" Content="…"/><TextBox x:Name="Destination" MinHeight="30"/></DockPanel>
-  <WrapPanel Margin="0,12"><Button x:Name="Check" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Update" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Move" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Remove" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Restore" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Recover" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/></WrapPanel>
+  <WrapPanel Margin="0,12"><Button x:Name="Check" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Update" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Move" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Remove" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Restore" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="Recover" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/><Button x:Name="CancelMove" MinHeight="36" Margin="0,0,8,8" Padding="12,5"/></WrapPanel>
   <Button x:Name="OpenPanel" MinHeight="36" HorizontalAlignment="Left" Padding="12,5" Margin="0,0,0,12"/><ProgressBar x:Name="Progress" Height="5" IsIndeterminate="False"/><TextBlock x:Name="Result" TextWrapping="Wrap" Margin="0,12" AutomationProperties.LiveSetting="Polite"/>
  </StackPanel></ScrollViewer>
 </Window>
@@ -57,8 +58,9 @@ function Get-CLMUiRows([string]$SelectedRoot){
     # Resolve the owned recovery pointer directly: Get-CLMRoot intentionally refuses
     # an unfinished move, including the period after the VHD has changed locations.
     $j=Read-CLMMoveJournal $row.root $false
-    if($j.phase -cne 'completed'){
-     foreach($entry in @{state='recovery';logicalId=$j.logicalId;distroName=$j.source.distroName;version=$j.source.releaseTag;message='Recover the pending move before managing this server'}.GetEnumerator()){$row|Add-Member NoteProperty $entry.Key $entry.Value -Force}
+    if($j.phase -ceq 'cancelled' -and $row.root -ceq $j.destinationRoot){$row|Add-Member NoteProperty state 'unavailable' -Force;continue}
+    if($j.phase -notin @('completed','cancelled')){
+     foreach($entry in @{state='recovery';canCancelMove=($j.phase -in @('move-prepared','move-quiesce','move-copy','move-wsl'));logicalId=$j.logicalId;distroName=$j.source.distroName;version=$j.source.releaseTag;message='Recover the pending move before managing this server'}.GetEnumerator()){$row|Add-Member NoteProperty $entry.Key $entry.Value -Force}
     }
    }
   }catch{$row|Add-Member NoteProperty state 'conflict' -Force;$row|Add-Member NoteProperty message $_.Exception.Message -Force}
@@ -69,14 +71,15 @@ function Test-CLMUiRowAction($Row,[string]$Action){
  if($Action -ceq 'Restore'){return $true};if(-not $Row){return $false}
  $status=if($Row.PSObject.Properties['state']){[string]$Row.state}else{'ready'}
  if($status -in @('unavailable','conflict')){return $false}
- if($status -in @('recovery','maintenance')){return $Action -ceq 'Recover'}
- return $true
+ if($status -in @('recovery','maintenance')){return ($Action -ceq 'Recover' -or ($Action -ceq 'CancelMove' -and $Row.PSObject.Properties['canCancelMove'] -and $Row.canCancelMove))}
+ return $Action -cne 'CancelMove'
 }
 function Update-CLMUiAvailability($Window,$State){
  $idle=-not [bool]$State.job;$index=$Window.FindName('Server').SelectedIndex
  $row=if($index -ge 0 -and $index -lt $State.rows.Count){$State.rows[$index]}else{$null}
- foreach($name in @('Check','Update','Remove','Restore','Recover','Move','OpenPanel')){$Window.FindName($name).IsEnabled=$idle -and (Test-CLMUiRowAction $row $name)}
+ foreach($name in @('Check','Update','Remove','Restore','Recover','CancelMove','Move','OpenPanel')){$Window.FindName($name).IsEnabled=$idle -and (Test-CLMUiRowAction $row $name)}
  foreach($name in @('Server','Target','Pin','Bundle','Destination','Confirm','Browse','KeepArchive','EraseData','BundleBrowse','DestinationBrowse')){$Window.FindName($name).IsEnabled=$idle}
+ $Window.FindName('Browse').IsEnabled=$idle -and (Test-CLMUiRowAction $row 'Check')
 }
 function Get-CLMUiDestinationFromParent([string]$Parent,[string]$Action){
  $parentPath=Assert-CLMPath $Parent
@@ -90,6 +93,7 @@ function Get-CLMUiResultSelection([object[]]$Rows,$State,$Result){
  $destination='';$logical=$State.operationLogicalId
  $kind=if($Result -is [Collections.IDictionary]){$Result['kind']}elseif($Result -and $Result.PSObject.Properties['kind']){$Result.kind}else{''}
  if($kind -ceq 'move' -and $Result.phase -ceq 'completed'){$destination=[string]$Result.destinationRoot;$logical=[string]$Result.logicalId}
+ if($kind -ceq 'move' -and $Result.phase -ceq 'cancelled'){$destination=[string]$Result.selectedRoot;$logical=[string]$Result.logicalId}
  for($i=0;$i -lt $Rows.Count;$i++){if($destination -and $Rows[$i].root -ieq $destination){return $i}}
  for($i=0;$i -lt $Rows.Count;$i++){if($logical -and $Rows[$i].PSObject.Properties['logicalId'] -and $Rows[$i].logicalId -ceq $logical){return $i}}
  for($i=0;$i -lt $Rows.Count;$i++){if($Rows[$i].root -ieq $State.operationRoot){return $i}}
@@ -97,9 +101,13 @@ function Get-CLMUiResultSelection([object[]]$Rows,$State,$Result){
 }
 
 function Get-CLMUiActionArguments($Window,$State,[string]$Action,[bool]$Confirmed){
- if($Action -in @('Update','Remove','Move') -and -not $Confirmed){return $null}
+ if($Action -in @('Update','Remove','Move','CancelMove') -and -not $Confirmed){return $null}
  $row=$null;$root=if($Action -ceq 'Restore'){$Window.FindName('Destination').Text}else{$row=Get-CLMSelection $State.rows $Window.FindName('Server').SelectedIndex;$row.root}
  if(-not (Test-CLMUiRowAction $row $Action)){$key=if($row.state -ceq 'unavailable'){'unavailable'}elseif($row.state -ceq 'conflict'){'conflict'}else{'pending'};throw (Get-CLMText $key $State.lang)}
+ if($Action -ceq 'CancelMove'){
+  $argsMap=@{Action='CancelMove';InstallRoot=$root;Confirmation=$row.distroName;BundleDirectory='';EraseData=$false}
+  if($State.adapter){$argsMap.Adapter=$State.adapter};return $argsMap
+ }
  if($Action -ceq 'Move'){
   $destination=$Window.FindName('Destination').Text.Trim()
   if(-not $destination){throw (Get-CLMText destination $State.lang)}
@@ -114,21 +122,28 @@ function Get-CLMUiActionArguments($Window,$State,[string]$Action,[bool]$Confirme
  $argsMap=@{Action=$Action;InstallRoot=$root;TargetDirectory=$State.targetDirectory;ExpectedManifestSha256=$State.targetPin;Confirmation=$(if($row){$row.distroName}else{''});BundleDirectory=$bundlePath;EraseData=[bool]$erase}
  if($State.adapter){$argsMap.Adapter=$State.adapter};return $argsMap
 }
-function Get-CLMUiConfirmationText($Window,$Row,$Arguments,[string]$Language){
+function Get-CLMUiConfirmationText($Window,$Row,$Arguments,[string]$Language,$Estimate=$null){
  $actionText=Get-CLMText $Arguments.Action.ToLowerInvariant() $Language
  if($Arguments.Action -ceq 'Remove'){$actionText+=': '+(Get-CLMText $(if($Arguments.EraseData){'erase'}else{'keep'}) $Language)}
  $text=$actionText+"`n`n"+$Row.domain+"`n"+$Row.version+"`n"+$Row.root+"`n"+$Row.distroName
+ if($Arguments.Action -ceq 'CancelMove'){$text+="`n`n"+(Get-CLMText cancelMoveAdvice $Language)}
  if($Arguments.Action -ceq 'Update'){$text+="`n"+(Get-CLMText target $Language)+': '+$Window.FindName('Target').Text}
  if($Arguments.Action -ceq 'Move'){
   $source=if($Row.PSObject.Properties['activeRoot']){$Row.activeRoot}else{$Row.root}
   $text+="`n`n"+(Get-CLMText sourceFolder $Language)+': '+$source+"`n"+(Get-CLMText destination $Language)+': '+$Arguments.DestinationRoot+"`n`n"+(Get-CLMText moveInterruption $Language)
  }
+ if($Arguments.Action -ceq 'Move' -and $Estimate){$text+="`n"+(Get-CLMText space $Language)+': '+$Estimate.requiredBytes+' / '+$Estimate.freeBytes}
  if($Arguments.BundleDirectory){$text+="`n`n"+$Arguments.BundleDirectory}
  return $text
 }
-function Confirm-CLMUiAction($Window,$Row,$Arguments,[string]$Language){
- $text=Get-CLMUiConfirmationText $Window $Row $Arguments $Language
+function Confirm-CLMUiAction($Window,$Row,$Arguments,[string]$Language,$Estimate=$null){
+ $text=Get-CLMUiConfirmationText $Window $Row $Arguments $Language $Estimate
  return [Windows.MessageBox]::Show($Window,$text,(Get-CLMText title $Language),'YesNo','Warning','No') -eq 'Yes'
+}
+function Receive-CLMUiRelease($Choice,$Window,$State){
+ $row=Get-CLMSelection $State.rows $Window.FindName('Server').SelectedIndex
+ if(-not (Test-CLMUiRowAction $row 'Check')){throw (Get-CLMText unavailable $State.lang)}
+ return Receive-CastlinkWslReleaseManifest $Choice $row.root
 }
 function Show-CLMReleasePicker([object[]]$Choices,[string]$Language){
  if(-not $Choices.Count){throw 'No server-wsl release with a verified manifest digest is available. Open the maintenance launcher supplied with the chosen release.'}
@@ -145,7 +160,7 @@ function Show-CastlinkMaintenance([string]$SelectedRoot,[string]$Language,[strin
  $translate={
   foreach($pair in @(@('Heading','title'),@('Advice','interruption'),@('SelectLabel','select'),@('TargetLabel','target'),@('PinLabel','pin'),@('ConfirmLabel','confirm'),@('BundleLabel','bundle'),@('DestinationLabel','destination'))){$window.FindName($pair[0]).Text=Get-CLMText $pair[1] $state.lang}
   $window.FindName('KeepArchive').Content=Get-CLMText keep $state.lang;$window.FindName('EraseData').Content=Get-CLMText erase $state.lang;$window.FindName('OpenPanel').Content=Get-CLMText open $state.lang;$window.FindName('Browse').Content='…'
-  $window.Title=Get-CLMText title $state.lang;foreach($a in @('Check','Update','Move','Remove','Restore','Recover')){$window.FindName($a).Content=Get-CLMText $a.ToLowerInvariant() $state.lang}
+  $window.Title=Get-CLMText title $state.lang;foreach($a in @('Check','Update','Move','Remove','Restore','Recover','CancelMove')){$window.FindName($a).Content=Get-CLMText $a.ToLowerInvariant() $state.lang}
  };& $translate
  $window.FindName('Language').SelectedIndex=if($Language -ceq 'en'){1}elseif($Language -ceq 'zh-CN'){2}else{0}
  $window.FindName('Language').Add_SelectionChanged({$state.lang=@('ru','en','zh-CN')[$window.FindName('Language').SelectedIndex];& $translate})
@@ -167,7 +182,7 @@ function Show-CastlinkMaintenance([string]$SelectedRoot,[string]$Language,[strin
   try{if($d.ShowDialog() -eq 'OK'){$window.FindName('Destination').Text=Get-CLMUiDestinationFromParent $d.SelectedPath $state.actionMode}}catch{$window.FindName('Result').Text=$_.Exception.Message}finally{$d.Dispose()}
  })
  $window.FindName('OpenPanel').Add_Click({try{$r=Get-CLMSelection $state.rows $window.FindName('Server').SelectedIndex;if(-not (Test-CLMUiRowAction $r 'OpenPanel')){throw (Get-CLMText unavailable $state.lang)};Open-CastlinkActivePanel $r.root}catch{$window.FindName('Result').Text=$_.Exception.Message}})
- foreach($actionName in @('Check','Update','Move','Remove','Restore','Recover')){
+ foreach($actionName in @('Check','Update','Move','Remove','Restore','Recover','CancelMove')){
   $chosenAction=$actionName
   $window.FindName($actionName).Add_Click({param($sender,$event)
    $chosenAction=[string]$sender.Name
@@ -176,7 +191,8 @@ function Show-CastlinkMaintenance([string]$SelectedRoot,[string]$Language,[strin
     if($chosenAction -in @('Move','Restore')){$state.actionMode=$chosenAction}
     $argsMap=Get-CLMUiActionArguments $window $state $chosenAction $true
     $root=$argsMap.InstallRoot
-    if($chosenAction -in @('Update','Remove','Move')){$row=Get-CLMSelection $state.rows $window.FindName('Server').SelectedIndex;if(-not (Confirm-CLMUiAction $window $row $argsMap $state.lang)){return}}
+    $estimate=$null;if($chosenAction -ceq 'Move'){$estimate=Get-CastlinkMoveEstimate -InstallRoot $argsMap.InstallRoot -DestinationRoot $argsMap.DestinationRoot}
+    if($chosenAction -in @('Update','Remove','Move','CancelMove')){$row=Get-CLMSelection $state.rows $window.FindName('Server').SelectedIndex;if(-not (Confirm-CLMUiAction $window $row $argsMap $state.lang $estimate)){return}}
     $state.operationRoot=$root;$state.operationLogicalId='';if($chosenAction -cne 'Restore'){$selectedRow=Get-CLMSelection $state.rows $window.FindName('Server').SelectedIndex;if($selectedRow.PSObject.Properties['logicalId']){$state.operationLogicalId=$selectedRow.logicalId}}
     $pipeline=[PowerShell]::Create();$null=$pipeline.AddScript('param($source,$argsMap,$progressState);$ErrorActionPreference="Stop";. $source -FunctionsOnly;$progress={param($phase);$progressState.phase=$phase}.GetNewClosure();Invoke-CastlinkMaintenance @argsMap -Progress $progress').AddArgument($state.source).AddArgument($argsMap).AddArgument($state.progress)
     $state.job=@{pipeline=$pipeline;handle=$pipeline.BeginInvoke();action=$chosenAction};$window.FindName('Progress').IsIndeterminate=$true;$window.FindName('Result').Text=Get-CLMText busy $state.lang
@@ -189,16 +205,16 @@ function Show-CastlinkMaintenance([string]$SelectedRoot,[string]$Language,[strin
   try{$result=@($job.pipeline.EndInvoke($job.handle));if($job.pipeline.HadErrors){throw [string]$job.pipeline.Streams.Error[0]};$r=$result[-1];$text=Get-CLMText done $state.lang
    if($job.action -ceq 'ChooseRelease'){
     $choice=Show-CLMReleasePicker $result $state.lang
-    if($choice){$selected=Receive-CastlinkWslReleaseManifest $choice;$state.targetDirectory=$selected.directory;$state.targetPin=$selected.manifestSha256;$state.checkedRoot='';$window.FindName('Target').Text=$selected.releaseTag;$window.FindName('Pin').Text=$selected.manifestSha256;$text=$selected.releaseTag}else{$text=''}
+    if($choice){$selected=Receive-CLMUiRelease $choice $window $state;$state.targetDirectory=$selected.directory;$state.targetPin=$selected.manifestSha256;$state.checkedRoot='';$window.FindName('Target').Text=$selected.releaseTag;$window.FindName('Pin').Text=$selected.manifestSha256;$text=$selected.releaseTag}else{$text=''}
    }elseif($job.action -ceq 'Check'){$state.checkedRoot=$state.operationRoot;$state.checkedTarget=$state.targetPin;$text=(Get-CLMText current $state.lang)+': '+$r.source.releaseTag+"`n"+(Get-CLMText target $state.lang)+': '+$r.target.releaseTag+"`n"+(Get-CLMText space $state.lang)+': '+$r.requiredBytes+' / '+$r.freeBytes}else{$text+=': '+$r.phase};$window.FindName('Result').Text=$text
-   if($job.action -in @('Update','Move','Remove','Restore','Recover')){
+   if($job.action -in @('Update','Move','Remove','Restore','Recover','CancelMove')){
     $state.rows=@(Get-CLMUiRows);$index=Get-CLMUiResultSelection $state.rows $state $r
     $window.FindName('Server').Items.Clear();foreach($row in $state.rows){$null=$window.FindName('Server').Items.Add(($row.domain+' | '+$row.version+' | '+$row.state+' | '+$row.root))};$window.FindName('Server').SelectedIndex=$index
    }
   }catch{
    $message=$_.Exception.Message;$key='failed'
    try{$j=Get-CLMJournal $state.operationRoot;if($j.phase -in @('commit-decided','gate-open-attempted','committed')){$key='committed'}}catch{}
-   if($job.action -in @('Update','Move','Remove','Restore','Recover')){
+   if($job.action -in @('Update','Move','Remove','Restore','Recover','CancelMove')){
     try{
      $state.rows=@(Get-CLMUiRows $state.operationRoot);$index=Get-CLMUiResultSelection $state.rows $state $null
      $window.FindName('Server').Items.Clear();foreach($row in $state.rows){$null=$window.FindName('Server').Items.Add(($row.domain+' | '+$row.version+' | '+$row.state+' | '+$row.root))};$window.FindName('Server').SelectedIndex=$index

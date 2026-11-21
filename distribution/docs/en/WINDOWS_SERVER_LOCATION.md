@@ -1,8 +1,8 @@
 [Русский](../../WINDOWS_SERVER_LOCATION.md) · [English](WINDOWS_SERVER_LOCATION.md) · [简体中文](../zh-CN/WINDOWS_SERVER_LOCATION.md)
 
-# Windows/WSL2 server folder — next release draft
+# Windows/WSL2 server folder
 
-**Draft for the next release, not instructions for published version 1.0.7.** Proposed versions are Windows/WSL2 Server **1.0.8** and CastLink Updater **1.0.1**; neither has been published yet. Folder selection and relocation require a release that explicitly supports them. Check the official release notes for availability. See the [CastLink Updater guide](UPDATER.md) for onboarding and normal updates.
+Folder selection and managed relocation require Windows/WSL2 Server **1.0.8** or a compatible later release supporting these features. Moving through CastLink Updater requires Updater **1.0.1** or a compatible later release. Explicitly update Server **1.0.7** in its current location first. Check the [product catalog](PRODUCTS.md) for available published packages; see the [CastLink Updater guide](UPDATER.md) for onboarding and normal updates.
 
 ## Choose a location
 
@@ -20,7 +20,7 @@ Installation requires **WSL 2.4.13 or newer**; relocation requires **WSL 3.0.1 o
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows.ps1 -Address meet.example.com -InstallRoot 'D:\CastLink\Server 2' -Lang en
    ```
 
-4. Complete normal network and server setup using the [installation guide](SERVER_INSTALL.md). Open `CastLinkServer.lnk` in the selected folder to launch the panel.
+4. Complete normal network and server setup using the [installation guide](SERVER_INSTALL.md). The installer opens the panel automatically; after a fresh installation, reopen it using `native-panel\CastLinkServer.exe` inside the selected folder. The managed move described below creates `CastLinkServer.lnk` at the root of the new folder.
 
 With `-NonInteractive` and no `-InstallRoot`, the default folder is retained. Changing `-InstallRoot` on a later run does not move an existing server; use the separate action below.
 
@@ -30,7 +30,7 @@ With `-NonInteractive` and no `-InstallRoot`, the default folder is retained. Ch
 2. For Server **1.0.7, first explicitly update in its current location** to a release supporting relocation. Also update CastLink Updater to a release supporting this feature. **Move server…** does not update the product version. Do not edit the old pinned installer.
 3. Open **Maintenance** in the server panel, or select the intended WSL server in CastLink Updater and choose **Move server…**. Check the address and current folder, especially when several servers are installed.
 4. Enter the full path of a **new folder that does not yet exist**, such as `D:\CastLink\Server 2`. Browsing for a parent folder proposes a new name, which you can change. The destination must neither be inside the source folder nor contain it.
-5. Click **Move server…**, review both folders in the confirmation and confirm the interruption. Keep the window open and the disk connected. WSL support, installation ownership and free space are checked before the server is stopped.
+5. Click **Move server…**, review the address, both folders and the **Required / free bytes** estimate in the confirmation, then confirm the interruption. Declining confirmation does not start a move. Keep the window open and the disk connected. WSL support, installation ownership and free space are checked before the server is stopped; the displayed estimate does not replace the space check repeated during the operation.
 6. Wait for completion. Open `CastLinkServer.lnk` in the new folder, verify the server address and status, and refresh the Updater list. A previously running server should resume; a stopped server should remain stopped.
 
 The WSL virtual disk (VHDX), server data, panel and installation-owned files move together. The version, server identity, URL, rooms, history, passwords, certificates, network settings and sign-in autostart preference are preserved. Moving is not an independent backup. Future update generations and WSL server working archives use the selected volume; a backup archive destination you choose manually remains your choice.
@@ -39,7 +39,9 @@ A small installation registry and operation journal remain in `%LOCALAPPDATA%\Ca
 
 ## After power loss or a disconnected disk
 
-Reconnect the disk with the same drive letter and reopen maintenance. For an unfinished move, select **Recover transaction**; Updater also offers **Recover transaction…**. Normal start, update and another move are blocked until recovery. The tool checks the journal against the actual WSL location and proceeds only when data ownership is verified. Do not start a second copy or delete either folder, the VHD or the WSL registration.
+Reconnect the disk with the same drive letter and reopen maintenance. For an unfinished move, select **Recover transaction**; Updater also offers **Recover transaction…**. Normal start, update and another move are blocked until recovery or confirmed cancellation. The tool checks the journal against the actual WSL location and proceeds only when data ownership is verified. Do not start a second copy or delete either folder, the VHD or the WSL registration.
+
+If Maintenance offers **Cancel move** for the pending move, select it and confirm returning to the source state. The tool rechecks that the VHD is still in its original folder, bindings have not switched and the disk move has left no uncertain residue. Safe cancellation restores the server's previous running or stopped state. If the VHD has already moved or the state is ambiguous, cancellation is refused: recover the operation instead. Cancellation does not roll back a completed move; do not cancel an active operation by closing its window or killing its process.
 
 A disconnected external disk appears as an unavailable installation, not a deleted server. Reconnect it and refresh the list; do not create a replacement in the same folder. If recovery reports a conflict, keep the journal and error message for investigation. Installing over existing data is not recovery.
 

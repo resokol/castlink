@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2054**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2068**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15468,7 +15468,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 58 файлов
+## distribution · 64 файлов
 
 ### distribution/INSTALL.md
 
@@ -15542,6 +15542,12 @@ CastLink 1.0.6 — диагностика видео
 
 CastLink 1.0.7 — стабильная версия сервера и web
 
+### distribution/RELEASE_NOTES_1_0_8.md
+
+[`distribution/RELEASE_NOTES_1_0_8.md`](../../distribution/RELEASE_NOTES_1_0_8.md)
+
+Windows/WSL2 Server 1.0.8 и CastLink Updater 1.0.1
+
 ### distribution/RELEASE_NOTES_RC9.md
 
 [`distribution/RELEASE_NOTES_RC9.md`](../../distribution/RELEASE_NOTES_RC9.md)
@@ -15582,7 +15588,13 @@ TURN через TLS на TCP 443
 
 [`distribution/UPDATER.md`](../../distribution/UPDATER.md)
 
-Постоянный обновлятор CastLink 1.0.0
+CastLink Updater 1.0.0
+
+### distribution/WINDOWS_SERVER_LOCATION.md
+
+[`distribution/WINDOWS_SERVER_LOCATION.md`](../../distribution/WINDOWS_SERVER_LOCATION.md)
+
+Папка Windows/WSL2-сервера
 
 ### distribution/docs/en/GUIDE.md
 
@@ -15656,6 +15668,12 @@ CastLink 1.0.6 — video diagnostics
 
 CastLink 1.0.7 — stable server and web release
 
+### distribution/docs/en/RELEASE_NOTES_1_0_8.md
+
+[`distribution/docs/en/RELEASE_NOTES_1_0_8.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_8.md)
+
+Windows/WSL2 Server 1.0.8 and CastLink Updater 1.0.1
+
 ### distribution/docs/en/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/en/RELEASE_NOTES_RC9.md`](../../distribution/docs/en/RELEASE_NOTES_RC9.md)
@@ -15691,6 +15709,12 @@ TURN over TLS on TCP 443
 [`distribution/docs/en/UPDATER.md`](../../distribution/docs/en/UPDATER.md)
 
 Persistent CastLink Updater 1.0.0
+
+### distribution/docs/en/WINDOWS_SERVER_LOCATION.md
+
+[`distribution/docs/en/WINDOWS_SERVER_LOCATION.md`](../../distribution/docs/en/WINDOWS_SERVER_LOCATION.md)
+
+Windows/WSL2 server folder
 
 ### distribution/docs/zh-CN/GUIDE.md
 
@@ -15764,6 +15788,12 @@ CastLink 1.0.6 — 视频诊断
 
 CastLink 1.0.7 — 稳定服务器与 Web 版本
 
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_8.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_8.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_8.md)
+
+Windows/WSL2 Server 1.0.8 与 CastLink Updater 1.0.1
+
 ### distribution/docs/zh-CN/RELEASE_NOTES_RC9.md
 
 [`distribution/docs/zh-CN/RELEASE_NOTES_RC9.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_RC9.md)
@@ -15800,6 +15830,12 @@ CastLink 发布规则
 
 CastLink 永久更新工具 1.0.0
 
+### distribution/docs/zh-CN/WINDOWS_SERVER_LOCATION.md
+
+[`distribution/docs/zh-CN/WINDOWS_SERVER_LOCATION.md`](../../distribution/docs/zh-CN/WINDOWS_SERVER_LOCATION.md)
+
+Windows/WSL2 服务器目录
+
 ### distribution/release-tracks.json
 
 [`distribution/release-tracks.json`](../../distribution/release-tracks.json)
@@ -15818,7 +15854,7 @@ CastLink 永久更新工具 1.0.0
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 88 файлов
+## docs · 90 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -16270,6 +16306,12 @@ Persistent CastLink Updater Implementation Plan
 
 CastLink 1.0.7 stable release plan
 
+### docs/superpowers/plans/2026-11-21-wsl-install-locations.md
+
+[`docs/superpowers/plans/2026-11-21-wsl-install-locations.md`](../superpowers/plans/2026-11-21-wsl-install-locations.md)
+
+CastLink WSL installation locations implementation plan
+
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 
 [`docs/superpowers/specs/2026-11-02-studio-runtime-design.md`](../superpowers/specs/2026-11-02-studio-runtime-design.md)
@@ -16317,6 +16359,12 @@ Guest statistics and network reminder
 [`docs/superpowers/specs/2026-11-21-persistent-updater-design.md`](../superpowers/specs/2026-11-21-persistent-updater-design.md)
 
 Постоянный обновлятор CastLink
+
+### docs/superpowers/specs/2026-11-21-wsl-install-locations-design.md
+
+[`docs/superpowers/specs/2026-11-21-wsl-install-locations-design.md`](../superpowers/specs/2026-11-21-wsl-install-locations-design.md)
+
+CastLink WSL2: выбор папки и перенос сервера
 
 ### docs/testing/CASTER_MEDIA_MENUS_20261109_RU.md
 
@@ -16986,7 +17034,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 292 файлов
+## scripts · 298 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -17807,6 +17855,12 @@ Backup данных и PostgreSQL, замена web, health gate и попытк
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/server-wsl-location.ps1
+
+[`scripts/server-wsl-location.ps1`](../../scripts/server-wsl-location.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/server-wsl-maintenance-ui.ps1
 
 [`scripts/server-wsl-maintenance-ui.ps1`](../../scripts/server-wsl-maintenance-ui.ps1)
@@ -18347,6 +18401,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/persistent-updater-locations.fixtures.ps1
+
+[`scripts/tests/persistent-updater-locations.fixtures.ps1`](../../scripts/tests/persistent-updater-locations.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/persistent-updater-review.fixtures.ps1
 
 [`scripts/tests/persistent-updater-review.fixtures.ps1`](../../scripts/tests/persistent-updater-review.fixtures.ps1)
@@ -18557,6 +18617,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/server-native-location-guard.fixtures.ps1
+
+[`scripts/tests/server-native-location-guard.fixtures.ps1`](../../scripts/tests/server-native-location-guard.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/server-native-monitor.fixtures.ps1
 
 [`scripts/tests/server-native-monitor.fixtures.ps1`](../../scripts/tests/server-native-monitor.fixtures.ps1)
@@ -18711,6 +18777,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
+### scripts/tests/server-windows-locations.fixtures.ps1
+
+[`scripts/tests/server-windows-locations.fixtures.ps1`](../../scripts/tests/server-windows-locations.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
 ### scripts/tests/server-windows.test.mjs
 
 [`scripts/tests/server-windows.test.mjs`](../../scripts/tests/server-windows.test.mjs)
@@ -18740,6 +18812,18 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-export.test.py
 
 [`scripts/tests/server-wsl-export.test.py`](../../scripts/tests/server-wsl-export.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-location-ui.fixtures.ps1
+
+[`scripts/tests/server-wsl-location-ui.fixtures.ps1`](../../scripts/tests/server-wsl-location-ui.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-location.fixtures.ps1
+
+[`scripts/tests/server-wsl-location.fixtures.ps1`](../../scripts/tests/server-wsl-location.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
