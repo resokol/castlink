@@ -28,6 +28,15 @@ export function githubApi(){return {async request(method,endpoint,{body,file,acc
   return accept==='application/octet-stream'?result:JSON.parse(result.toString('utf8'));
  }finally{if(temporary)await fs.rm(temporary,{force:true});}
 }};}
+function validAssetUrl(asset,release,manifest){
+ const prefix=`https://github.com/${REPOSITORY}/releases/download/`,url=asset.browser_download_url;
+ if(url===`${prefix}${manifest.releaseTag}/${asset.name}`)return true;
+ // GitHub gives unpublished draft assets an internal tag. Downloads below use
+ // numeric asset IDs, and public readback still requires the canonical tag URL.
+ if(release.draft!==true||typeof url!=='string'||!url.startsWith(prefix))return false;
+ const temporaryTag=url.slice(prefix.length).split('/')[0];
+ return /^untagged-[a-f0-9]+$/.test(temporaryTag)&&url===`${prefix}${temporaryTag}/${asset.name}`;
+}
 function validateRelease(release,id,manifest,assets,complete=false){
  need(positive(release.id)&&release.id===id&&release.tag_name===manifest.releaseTag,'Wrong numeric release identity');
  need(release.target_commitish===manifest.sourceCommit,'Release source differs');
@@ -36,7 +45,7 @@ function validateRelease(release,id,manifest,assets,complete=false){
  const seen=new Set();
  for(const a of release.assets){
   const expected=assets.find(e=>e.name===a.name);
-  need(expected&&!seen.has(a.name)&&positive(a.id)&&a.state==='uploaded'&&a.size===expected.size&&a.digest==='sha256:'+expected.sha256&&a.browser_download_url===`https://github.com/${REPOSITORY}/releases/download/${manifest.releaseTag}/${a.name}`,'Existing draft asset inventory or digest differs');seen.add(a.name);
+  need(expected&&!seen.has(a.name)&&positive(a.id)&&a.state==='uploaded'&&a.size===expected.size&&a.digest==='sha256:'+expected.sha256&&validAssetUrl(a,release,manifest),'Existing draft asset inventory or digest differs');seen.add(a.name);
  }
  if(complete)need(seen.size===assets.length,'Incomplete remote updater asset inventory');
  return release;
