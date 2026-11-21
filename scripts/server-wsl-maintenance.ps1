@@ -1,6 +1,6 @@
 ﻿# CastLink WSL lifecycle schema 1. Dot-source with -FunctionsOnly for embedding/tests.
 [CmdletBinding()]
-param([ValidateSet('List','Check','Update','Remove','Restore','Recover')][string]$Action='List', [string]$InstallRoot, [string]$TargetDirectory, [string]$ExpectedManifestSha256, [string]$Confirmation, [string]$BundleDirectory, [switch]$EraseData, [switch]$FunctionsOnly)
+param([ValidateSet('List','Check','Update','Remove','Restore','Recover','Move')][string]$Action='List', [string]$InstallRoot, [string]$TargetDirectory, [string]$ExpectedManifestSha256, [string]$Confirmation, [string]$BundleDirectory,[string]$DestinationRoot, [switch]$EraseData, [switch]$FunctionsOnly)
 $script:CLMLegacyTag='server-wsl-v1.0.5-rc.1-085b087a2458'
 $script:CLMLegacyInstaller='768a217a0544fb66bf5aca3786a7c0b88308d7c360345be5bd8923c9f77ce361'
 $script:CLMLegacyManifest='60454ddf54f01815e6446a2199b30b2bdec2df97c0615b6b319cf36b98912e7c'
@@ -16,8 +16,8 @@ function Read-CLMJson([string]$Path,[long]$Limit=1048576){$p=Assert-CLMPath $Pat
 function Protect-CLMDirectory([string]$Path){
  [void][IO.Directory]::CreateDirectory((Assert-CLMPath $Path))
  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
- $acl=Get-Acl -LiteralPath $Path;$acl.SetAccessRuleProtection($true,$false);foreach($rule in @($acl.Access)){$null=$acl.RemoveAccessRuleSpecific($rule)}
- foreach($id in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'),[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($id,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
+ $acl=Get-Acl -LiteralPath $Path;$acl.SetOwner($sid);$acl.SetAccessRuleProtection($true,$false);foreach($rule in @($acl.Access)){$null=$acl.RemoveAccessRuleSpecific($rule)}
+ foreach($id in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($id,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
  ([IO.DirectoryInfo]::new($Path)).SetAccessControl($acl)
 }
 function Write-CLMJson([string]$Path,$Value){
@@ -27,9 +27,9 @@ function Write-CLMJson([string]$Path,$Value){
 }
 function Copy-CLMObject($Value){return ($Value|ConvertTo-Json -Depth 32|ConvertFrom-Json)}
 function Assert-CLMFile([string]$Directory,$Entry){Assert-CLMAssetName $Entry.file;$p=Assert-CLMPath (Join-Path $Directory $Entry.file);if($Entry.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $Entry.size -le 0 -or -not (Test-Path -LiteralPath $p -PathType Leaf) -or (Get-Item -LiteralPath $p).Length -ne $Entry.size -or (Get-CLMHash $p) -cne $Entry.sha256){throw 'Lifecycle asset checksum or size mismatch'};return $p}
-function Get-CLMStorageRoot([string]$Root){$base=Assert-CLMPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer');if($Root -ieq $base -or $Root.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)){return $base};return Split-Path $Root -Parent}
+function Get-CLMStorageRoot([string]$Root){if(Test-Path -LiteralPath (Join-Path $Root 'installation.json')){$s=Read-CLMReceipt $Root -AllowRemoved;if($s.locationContract -ceq 'castlink-wsl-location-v1'){foreach($row in @(Get-CLMLocationRecords)){if($row.activeRoot -ceq $Root){return $row.selectedRoot}};return $Root}};$base=Assert-CLMPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer');if($Root -ieq $base -or $Root.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)){return $base};return Split-Path $Root -Parent}
 function Get-CLMRoot([string]$Root){
- $rootPath=Assert-CLMPath $Root;$pointer=Join-Path $rootPath 'active-generation.json'
+ $rootPath=Assert-CLMPath $Root;if(Test-Path -LiteralPath (Join-Path $rootPath 'relocated-to.json')){throw 'This server was relocated; select its registered destination'};$movePointer=Join-Path $rootPath 'maintenance-transaction.json';if(Test-Path -LiteralPath $movePointer){$mp=Read-CLMJson $movePointer;if($mp.kind -ceq 'move'){$mj=Read-CLMJson $mp.journal;if($mj.id -cne $mp.id -or $mj.kind -cne 'move' -or $mj.phase -cne 'completed'){throw 'Pending move; Recover before using this server'}}};$pointer=Join-Path $rootPath 'active-generation.json'
  if(Test-Path -LiteralPath $pointer){$v=Read-CLMJson $pointer;if($v.schemaVersion -ne 1 -or $v.selectedRoot -cne $rootPath -or $v.installationId -cnotmatch '^[a-f0-9]{32}$'){throw 'Active generation identity mismatch'};$rootPath=Assert-CLMPath $v.activeRoot;$s=Read-CLMJson (Join-Path $rootPath 'installation.json');if($s.installationId -cne $v.installationId){throw 'Active generation receipt mismatch'}}
  return $rootPath
 }
@@ -38,11 +38,11 @@ function Read-CLMReceipt([string]$Root,[switch]$AllowRemoved){
  if($s.schemaVersion -ne 1 -or $s.installationId -cnotmatch '^[a-f0-9]{32}$' -or $s.distroName -cne ('CastLink-Server-'+$s.installationId.Substring(0,12)) -or $s.rootPath -cne $r -or $s.repository -cne 'resokol/castlink' -or $s.releaseTag -cnotmatch '^server-wsl-v[0-9][A-Za-z0-9.+-]*$' -or $s.rootfsSha256 -cnotmatch '^[a-f0-9]{64}$' -or $s.phase -cnotin (@('imported','ready','maintenance')+$(if($AllowRemoved){@('removed')}else{@()}))){throw 'Installation ownership receipt mismatch'}
  return $s
 }
-function Get-CastlinkMaintenanceInstallations([string]$Base=(Join-Path $env:LOCALAPPDATA 'CastLinkServer')){
+function Get-CLMLegacyInstallations([string]$Base=(Join-Path $env:LOCALAPPDATA 'CastLinkServer')){
  # Host receipts only: never launch a distribution while populating the picker.
  if(-not (Test-Path -LiteralPath $Base)){return @()};$pending=New-Object Collections.Generic.Queue[string];$pending.Enqueue((Assert-CLMPath $Base));$seen=@{}
  while($pending.Count){$r=$pending.Dequeue();if(Test-Path -LiteralPath (Join-Path $r 'installation.json')){try{$actual=Get-CLMRoot $r;$s=Read-CLMReceipt $actual;if(-not $seen.ContainsKey($s.installationId)){$seen[$s.installationId]=$true;$domain='?';if($s.nativePanel -and (Test-Path -LiteralPath $s.nativePanel.bindingPath)){if((Get-CLMHash $s.nativePanel.bindingPath) -ceq $s.nativePanel.bindingSha256){$domain=(Read-CLMJson $s.nativePanel.bindingPath).origin}};[pscustomobject]@{root=$r;activeRoot=$actual;domain=$domain;version=$s.releaseTag;state=$s.phase;distroName=$s.distroName}}}catch{}}
-  foreach($d in Get-ChildItem -LiteralPath $r -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$pending.Enqueue($d.FullName)}
+  foreach($d in Get-ChildItem -LiteralPath $r -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','lifecycle-updater') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$pending.Enqueue($d.FullName)}
  }
 }
 function Initialize-CLMTransport {
@@ -247,6 +247,7 @@ function Assert-CLMTarget([string]$Directory,[string]$Pin,[string]$SourceTag){
  if($m.schemaVersion -ne 1 -or $m.channel -cne 'server-wsl' -or $m.repository -cne 'resokol/castlink' -or $m.architecture -cne 'amd64' -or $m.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $m.version -cnotmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?(?:\+[0-9A-Za-z.-]+)?$' -or $m.releaseTag -cnotmatch '^server-wsl-v[0-9][A-Za-z0-9.+-]*$' -or $m.releaseTag -cne ('server-wsl-v'+$m.version+'-'+$m.sourceCommit.Substring(0,12)) -or $l.schemaVersion -ne 1 -or $l.runtimeContract -cne 'castlink-wsl-pg16-v1' -or $l.postgresMajor -ne 16 -or $SourceTag -cnotin @($l.supportedSources) -or $m.rootfs.expandedBytes -le 0){throw 'Target release lifecycle compatibility or expanded disk inventory is invalid'}
  $entries=@($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)+@($m.nativePanel.files)+@($l.helpers);$seen=@{}
  foreach($entry in $entries){if($seen.ContainsKey($entry.file)){if($seen[$entry.file] -cne $entry.sha256){throw 'Conflicting target inventory'};continue};$seen[$entry.file]=$entry.sha256;$null=Assert-CLMFile $Directory $entry}
+ if($l.locationContract -ceq 'castlink-wsl-location-v1' -and -not $seen.ContainsKey('server-wsl-location.ps1')){throw 'Missing verified location helper'}
  foreach($n in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(-not $seen.ContainsKey($n)){throw 'Missing lifecycle helper inventory'}}
  return $m
 }
@@ -311,7 +312,7 @@ function Assert-CLMSourceManifest($Manifest,$State){
  # Installed provenance does not require redistributing rootfs/corresponding sources.
  $m=$Manifest;$l=$m.lifecycle
  if($m.schemaVersion -ne 1 -or $m.channel -cne 'server-wsl' -or $m.repository -cne $State.repository -or $m.architecture -cne 'amd64' -or $m.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $m.releaseTag -cne $State.releaseTag -or $m.releaseTag -cne ('server-wsl-v'+$m.version+'-'+$m.sourceCommit.Substring(0,12)) -or $m.rootfs.sha256 -cne $State.rootfsSha256 -or $l.schemaVersion -ne 1 -or $l.runtimeContract -cne 'castlink-wsl-pg16-v1' -or $l.postgresMajor -ne 16){throw 'Installed source lifecycle provenance mismatch'}
- $required=@('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1');$seen=@{}
+ $required=@('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1');if($l.locationContract -ceq 'castlink-wsl-location-v1'){$required+=@('server-wsl-location.ps1')};$seen=@{}
  foreach($e in @($l.helpers)){Assert-CLMAssetName $e.file;if($e.file -cnotin $required -or $seen.ContainsKey($e.file) -or $e.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $e.size -le 0 -or $e.size -gt 4194304){throw 'Installed source helper inventory mismatch'};$seen[$e.file]=$true}
  if($seen.Count -ne $required.Count){throw 'Installed source helper inventory incomplete'}
 }
@@ -436,6 +437,7 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
    Write-CLMJson (Join-Path $Ctx.candidateRoot 'installation.json') $Ctx.candidate
    return $Ctx.candidate
   }
+  'PublishLocation' {$m=Import-CLMInstaller (Join-Path $Ctx.candidateRoot 'install-server-windows.ps1');Invoke-CLMInstaller $m {param($d);Set-CastlinkLocation $d.selectedRoot $d.candidate $d.selectedRoot $d.sourceRoot} $Ctx}
   'PublishCandidateTask' {
    if($Ctx.task.exists){
     $s=Read-CLMReceipt $Ctx.candidateRoot;$p=Join-Path $Ctx.candidateRoot 'install-server-windows.ps1';$m=Import-CLMInstaller $p
@@ -461,6 +463,7 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
   'PrepareEntryPoint' {Prepare-CLMEntryPoint $Ctx}
   'PublishEntryPoint' {Publish-CLMEntryPoint $Ctx}
   'RemoveOwnedFiles' {Remove-CLMOwnedFiles $Ctx}
+  'RemoveLocation' {Invoke-CLMInstaller $Ctx.sourceModule {param($d);$id=if($d.source.logicalInstallationId){$d.source.logicalInstallationId}else{$d.source.installationId};Remove-CastlinkLocation $id $d.selectedRoot} $Ctx}
   'CloseSourcePanel' {Close-CLMSourcePanel $Ctx}
   'UnregisterSource' {
    # Reverify complete task evidence immediately before deletion, ownership before unregister.
@@ -495,6 +498,7 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
     Invoke-CLMDefaultAdapter 'PublishCandidateTask' $Ctx $null
    }
    Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $s
+   if($s.locationContract -ceq 'castlink-wsl-location-v1'){Invoke-CLMInstaller $m {param($d);Register-CastlinkLocation $d.root $d.state} @{root=$Ctx.sourceRoot;state=$s}}
   }
   default {throw ('Unknown lifecycle adapter operation '+$Name)}
  }
@@ -628,7 +632,7 @@ function Assert-CLMRestoreHelpers($Ctx){
  }
  if($manifest.releaseTag -cne $s.releaseTag -or $manifest.channel -cne 'server-wsl' -or $manifest.rootfs.sha256 -cne $s.rootfsSha256){throw 'Restore same-release identity mismatch'}
  foreach($e in @($manifest.nativePanel.files)){$null=Assert-CLMFile $b $e}
- $base=Assert-CLMPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer');if(-not $Ctx.sourceRoot.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Restore destination must be a new directory under LocalAppData\CastLinkServer'}
+ $base=Assert-CLMPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer');if($manifest.lifecycle.locationContract -ceq 'castlink-wsl-location-v1'){$module=Import-CLMInstaller (Join-Path $b 'install-server-windows.ps1');$null=Invoke-CLMInstaller $module {param($r);Assert-CastlinkInstallRoot $r} $Ctx.sourceRoot}elseif(-not $Ctx.sourceRoot.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'This archive uses an older pinned installer. Restore under LocalAppData\CastLinkServer, explicitly upgrade, then Move.'}
  $free=([IO.DriveInfo]::new([IO.Path]::GetPathRoot($Ctx.sourceRoot))).AvailableFreeSpace;$archive=(Get-Item -LiteralPath (Join-Path $b 'distribution.tar')).Length;if($free -lt ($archive*2+2147483648L)){throw 'Insufficient restore disk space'}
 }
 function Complete-CLMRestore($Ctx){
@@ -666,6 +670,7 @@ function Complete-CLMUpdate($Ctx){
  # Commit intent is durable BEFORE any entry point/task or gate can expose candidate.
  Save-CLMJournal $Ctx 'commit-decided'
  Write-CLMJson (Join-Path $Ctx.selectedRoot 'active-generation.json') ([ordered]@{schemaVersion=1;selectedRoot=$Ctx.selectedRoot;activeRoot=$Ctx.candidateRoot;installationId=$Ctx.candidate.installationId;transactionId=$Ctx.id;entryPointHash=$Ctx.entryPointHash})
+ if($Ctx.candidate.locationContract -ceq 'castlink-wsl-location-v1'){Invoke-CLMAdapter $Ctx 'PublishLocation'|Out-Null}
  Invoke-CLMAdapter $Ctx 'PublishEntryPoint'|Out-Null
  Invoke-CLMAdapter $Ctx 'PublishCandidateTask'|Out-Null
  Save-CLMJournal $Ctx 'gate-open-attempted';Invoke-CLMAdapter $Ctx 'GateOpen'|Out-Null
@@ -725,14 +730,16 @@ function Complete-CLMRemove($Ctx){
   Write-CLMJson (Join-Path $Ctx.bundleDirectory 'bundle.json') $b;$null=Read-CLMBundle $Ctx.bundleDirectory;$Ctx.bundleManifestHash=Get-CLMHash (Join-Path $Ctx.bundleDirectory 'bundle.json');Save-CLMJournal $Ctx 'bundle-validated'
  }
  if($Ctx.bundleDirectory){if((Get-CLMHash (Join-Path $Ctx.bundleDirectory 'bundle.json')) -cne $Ctx.bundleManifestHash){throw 'Validated removal bundle changed; source preserved'};$null=Read-CLMBundle $Ctx.bundleDirectory}
- Save-CLMJournal $Ctx 'unregister-source';Invoke-CLMAdapter $Ctx 'UnregisterSource'|Out-Null;Invoke-CLMAdapter $Ctx 'RemoveOwnedFiles'|Out-Null;$removed=Copy-CLMObject $Ctx.source;$removed.phase='removed';Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $removed;Save-CLMJournal $Ctx 'removed';return $Ctx
+ Save-CLMJournal $Ctx 'unregister-source';Invoke-CLMAdapter $Ctx 'UnregisterSource'|Out-Null;Invoke-CLMAdapter $Ctx 'RemoveOwnedFiles'|Out-Null;$removed=Copy-CLMObject $Ctx.source;$removed.phase='removed';Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $removed;if($Ctx.source.locationContract -ceq 'castlink-wsl-location-v1'){Invoke-CLMAdapter $Ctx 'RemoveLocation'|Out-Null};Save-CLMJournal $Ctx 'removed';return $Ctx
 }
 function Invoke-CastlinkMaintenance {
- [CmdletBinding()]param([Parameter(Position=0)][ValidateSet('List','Check','Update','Remove','Restore','Recover')][string]$Action='List',[Parameter(Position=1)][string]$InstallRoot,[string]$TargetDirectory,[string]$ExpectedManifestSha256,[string]$Confirmation,[string]$BundleDirectory,[switch]$EraseData,[scriptblock]$Adapter,[scriptblock]$Progress)
+ [CmdletBinding()]param([Parameter(Position=0)][ValidateSet('List','Check','Update','Remove','Restore','Recover','Move')][string]$Action='List',[Parameter(Position=1)][string]$InstallRoot,[string]$TargetDirectory,[string]$ExpectedManifestSha256,[string]$Confirmation,[string]$BundleDirectory,[string]$DestinationRoot,[switch]$EraseData,[scriptblock]$Adapter,[scriptblock]$Progress)
  if($Action -ceq 'Remove' -and -not $BundleDirectory -and -not $EraseData){throw 'Choose an archive directory or explicit -EraseData'}
  if($Action -ceq 'Remove' -and $BundleDirectory -and $EraseData){throw 'Choose archive or erase, not both'}
  if($Action -ceq 'List'){return Get-CastlinkMaintenanceInstallations}
  if(-not $InstallRoot){throw 'Select an exact installation root'};$selected=Assert-CLMPath $InstallRoot
+ if($Action -ceq 'Move'){return Invoke-CastlinkMove -InstallRoot $selected -DestinationRoot $DestinationRoot -Confirmation $Confirmation -Adapter $Adapter -Progress $Progress}
+ if($Action -ceq 'Recover' -and (Read-CLMJson (Join-Path $selected 'maintenance-transaction.json')).kind -ceq 'move'){return Invoke-CastlinkMove -InstallRoot $selected -Recover -Adapter $Adapter -Progress $Progress}
  if($Action -ceq 'Restore'){return Start-CLMRestore -Root $selected -BundleDirectory $BundleDirectory -Adapter $Adapter -Progress $Progress}
  if($Action -ceq 'Recover'){$old=Get-CLMJournal $selected;if($old.phase -in @('completed','removed','rolled-back','restored') -and -not ($old.kind -ceq 'update' -and $old.phase -ceq 'rolled-back' -and (Test-Path -LiteralPath $old.candidateRoot))){return $old};$root=$old.sourceRoot}else{$root=Get-CLMRoot $selected}
  $ctx=@{schemaVersion=1;selectedRoot=$selected;sourceRoot=$root;targetDirectory=$TargetDirectory;manifestSha256=$ExpectedManifestSha256;adapter=$Adapter;progress=$Progress;sourceModule=$null;stagingId=[guid]::NewGuid().ToString('N');recovery=($Action -ceq 'Recover')}
@@ -765,6 +772,7 @@ function Invoke-CastlinkMaintenance {
   $ctx.journal=Join-Path $ctx.directory 'journal.json';$ctx.transfer=Join-Path $ctx.directory 'transfer.tar';$ctx.bundleDirectory=$BundleDirectory
   if($BundleDirectory){$BundleDirectory=Assert-CLMPath $BundleDirectory;$ctx.bundleDirectory=$BundleDirectory;if($BundleDirectory -ieq $root -or $BundleDirectory.StartsWith($root+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Bundle must be outside selected installation'};if(Test-Path -LiteralPath $BundleDirectory){throw 'Bundle destination must be new'};if($Adapter){[void][IO.Directory]::CreateDirectory($BundleDirectory)}else{Protect-CLMDirectory $BundleDirectory}}
   if($Action -ceq 'Update'){$cid=[guid]::NewGuid().ToString('N');$ctx.candidateRoot=Join-Path (Get-CLMStorageRoot $root) ('lifecycle-generations\'+$cid);$ctx.candidate=[pscustomobject]@{schemaVersion=1;installationId=$cid;distroName=('CastLink-Server-'+$cid.Substring(0,12));rootPath=$ctx.candidateRoot;releaseTag=$ctx.target.releaseTag;repository='resokol/castlink';rootfsSha256=$ctx.target.rootfs.sha256;releaseManifestSha256=$ctx.manifestSha256;phase='imported';logicalInstallationId=$(if($ctx.source.logicalInstallationId){$ctx.source.logicalInstallationId}else{$ctx.source.installationId});desiredRunning=[bool]$ctx.source.desiredRunning;autoStartAtLogon=[bool]$ctx.source.autoStartAtLogon}}
+  if($ctx.candidate -and $ctx.target.lifecycle.locationContract -ceq 'castlink-wsl-location-v1'){$ctx.candidate|Add-Member NoteProperty locationContract 'castlink-wsl-location-v1' -Force}
   if($ctx.candidate -and $ctx.source.PSObject.Properties['logonTaskMode']){$ctx.candidate|Add-Member NoteProperty logonTaskMode $ctx.source.logonTaskMode -Force}
   Invoke-CLMAdapter $ctx 'PreflightEntryPoint'|Out-Null
   Save-CLMJournal $ctx 'prepared';Write-CLMJson (Join-Path $selected 'maintenance-transaction.json') ([ordered]@{schemaVersion=1;selectedRoot=$selected;id=$ctx.id;journal=$ctx.journal})
@@ -788,4 +796,5 @@ function Invoke-CastlinkMaintenance {
   return Complete-CLMUpdate $ctx
  }finally{foreach($l in $locks){$l.Dispose()}}
 }
-if(-not $FunctionsOnly -and $MyInvocation.InvocationName -ne '.'){$ErrorActionPreference='Stop';try{Invoke-CastlinkMaintenance -Action $Action -InstallRoot $InstallRoot -TargetDirectory $TargetDirectory -ExpectedManifestSha256 $ExpectedManifestSha256 -Confirmation $Confirmation -BundleDirectory $BundleDirectory -EraseData:$EraseData|Select-Object -Property * -ExcludeProperty adapter,progress,sourceModule}catch{Write-Error $_;exit 1}}
+$locationHelper=Join-Path $PSScriptRoot 'server-wsl-location.ps1';if(Test-Path -LiteralPath $locationHelper){. $locationHelper}
+if(-not $FunctionsOnly -and $MyInvocation.InvocationName -ne '.'){$ErrorActionPreference='Stop';try{Invoke-CastlinkMaintenance -Action $Action -InstallRoot $InstallRoot -TargetDirectory $TargetDirectory -ExpectedManifestSha256 $ExpectedManifestSha256 -Confirmation $Confirmation -BundleDirectory $BundleDirectory -DestinationRoot $DestinationRoot -EraseData:$EraseData|Select-Object -Property * -ExcludeProperty adapter,progress,sourceModule}catch{Write-Error $_;exit 1}}

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Windows11, existing WSL minimum retained unless real command support requires a documented increase. NTFS local volumes, spaces/Cyrillic supported; no UNC, reparse points or drive-root installation.
+- Windows11, WSL install minimum2.4.13 retained; Move minimum3.0.1 after upstream cross-volume ownership/rollback fixes. NTFS local volumes, spaces/Cyrillic supported; no UNC, reparse points or drive-root installation.
 - Current published release files and hashes remain immutable. No patching an old pinned installer. No Node2 action.
 - No global WSL shutdown, unregister for moving, broad directory deletion or changes to parent-directory ACL.
 - Move preserves one WSL registration, current product version and data, plus prior running/stopped and task preference.

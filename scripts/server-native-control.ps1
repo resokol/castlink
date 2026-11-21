@@ -7,6 +7,17 @@ $nativeRequestedStartup=[bool]$Startup
 
 function Test-CastlinkNativeMaintenance([string]$Root){
  try{
+  if(Test-Path -LiteralPath (Join-Path $Root 'relocated-to.json')){return $true}
+  $pointer=Join-Path $Root 'maintenance-transaction.json'
+  if(Test-Path -LiteralPath $pointer){
+   if((Get-Item -LiteralPath $pointer).Length -gt 1048576){return $true}
+   $p=[IO.File]::ReadAllText($pointer,[Text.Encoding]::UTF8)|ConvertFrom-Json
+   if($p.kind -ceq 'move'){
+    if($p.schemaVersion -ne 1 -or $p.selectedRoot -cne $Root -or -not $p.id -or -not $p.journal -or (Get-Item -LiteralPath $p.journal).Length -gt 1048576){return $true}
+    $j=[IO.File]::ReadAllText($p.journal,[Text.Encoding]::UTF8)|ConvertFrom-Json
+    if($j.schemaVersion -ne 1 -or $j.kind -cne 'move' -or $j.id -cne $p.id -or $j.selectedRoot -cne $p.journalSelectedRoot -or $j.phase -cne 'completed' -or $j.destinationRoot -cne $Root){return $true}
+   }
+  }
   $s=[IO.File]::ReadAllText((Join-Path $Root 'installation.json'))|ConvertFrom-Json
   if($s.phase -ceq 'maintenance' -or (Test-Path -LiteralPath (Join-Path $Root 'active-generation.json'))){return $true}
   $lease=$null;try{$lease=[IO.File]::Open((Join-Path $Root 'operation.lock'),'OpenOrCreate','ReadWrite','None')}catch{return $true}finally{if($lease){$lease.Dispose()}}

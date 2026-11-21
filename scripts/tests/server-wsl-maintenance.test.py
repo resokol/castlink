@@ -140,6 +140,23 @@ class TransferTest(unittest.TestCase):
                     self.helper(target).import_(HOST,io.BytesIO(self.export()))
                 self.assertFalse((target/'var/lib/castlink-server').exists())
 
+    def test_published_stable_107_upgrades_without_changing_identity_or_user_data(self):
+        published={**STABLE_107,'commit':'0d16de2e782cd2e847e9824024c5b788a080a59b','buildId':'1.0.7-0d16de2e782c'}
+        target={**STABLE_107,'version':'1.0.8','buildId':'1.0.8-'+'b'*12,
+                'lifecycle':{**STABLE_107['lifecycle'],'locationContract':'castlink-wsl-location-v1',
+                             'supportedSources':['server-wsl-v1.0.7-0d16de2e782c']}}
+        self.source=self.fixture('published-stable-107',published)
+        (self.target/'opt/castlink/release.json').write_text(json.dumps(target))
+        before=(self.source/'var/lib/castlink-server/state.json').read_bytes()
+        self.helper(self.target).import_(HOST,io.BytesIO(self.export()))
+        after=json.loads((self.target/'var/lib/castlink-server/state.json').read_text())
+        for key in ('installationId','nodeId','address','origin','mediaIp','turnHost','publicHttps','roomCreationPasswordHash'):
+            self.assertEqual(after[key],json.loads(before)[key])
+        for name in ('secrets.json','data/rooms.json','caddy/private.key'):
+            self.assertEqual((self.source/'var/lib/castlink-server'/name).read_bytes(),(self.target/'var/lib/castlink-server'/name).read_bytes())
+        self.assertEqual(after['release'],target)
+        self.assertEqual((self.source/'var/lib/castlink-server/state.json').read_bytes(),before)
+
     def test_unknown_transfer_sources_refused_even_when_target_lists_them(self):
         with tarfile.open(fileobj=io.BytesIO(self.export()),mode='r:') as archive:
             manifest=json.load(archive.extractfile('manifest.json'))
@@ -284,6 +301,29 @@ class TransferTest(unittest.TestCase):
         self.assertEqual(helper.gate()['phase'],'committed')
         helper.gate_open(HOST,'interrupted')
         self.assertNotIn('Maintenance', (self.source/'etc/castlink-server/Caddyfile').read_text())
+
+    def test_stopped_committed_generation_can_enter_a_new_move_transaction(self):
+        helper=self.helper(self.source)
+        helper.gate_close(HOST,'previous-upgrade');helper.gate_open(HOST,'previous-upgrade')
+        old_token=helper.gate()['probeToken']
+        helper.gate_close(HOST,'new-move')
+        self.assertEqual(helper.gate()['transactionId'],'new-move')
+        self.assertEqual(helper.gate()['phase'],'closed')
+        self.assertNotEqual(helper.gate()['probeToken'],old_token)
+        self.assertIn('Maintenance',(self.source/'etc/castlink-server/Caddyfile').read_text())
+        with self.assertRaises(ValueError):helper.gate_open(HOST,'previous-upgrade')
+        helper.gate_open(HOST,'new-move')
+        helper.gate_close(HOST,'second-move')
+        self.assertEqual(helper.gate()['transactionId'],'second-move')
+
+    def test_new_move_reconciles_interrupted_prior_commit_before_rotating_gate(self):
+        helper=self.helper(self.source);helper.gate_close(HOST,'previous-upgrade')
+        with patch.object(helper,'reconfigure',side_effect=OSError('interrupted')):
+            with self.assertRaises(OSError):helper.gate_open(HOST,'previous-upgrade')
+        helper.gate_close(HOST,'new-move')
+        self.assertEqual(helper.gate()['transactionId'],'new-move')
+        helper.reconcile_config()
+        self.assertIn('Maintenance',(self.source/'etc/castlink-server/Caddyfile').read_text())
 
     def test_firewall_rejects_foreign_table_and_changes_only_its_owned_table(self):
         class Result:

@@ -26,6 +26,12 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & scripts/tests/server-windows.test.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($fixture in @('server-windows-locations','server-wsl-location','persistent-updater-locations','server-wsl-location-ui')) {
+            & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File "scripts/tests/$fixture.fixtures.ps1"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-native-location-guard.fixtures.ps1 -ControlPath scripts/server-native-control.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-native-control.fixtures.ps1 -Visual
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/tests/server-native-monitor.fixtures.ps1 -BridgePath scripts/server-native-monitor.ps1

@@ -29,7 +29,8 @@ CONTRACT = 'castlink-wsl-pg16-v1'
 SUPPORTED_SOURCES = frozenset(('server-wsl-v1.0.5-rc.1-085b087a2458',
                                'server-wsl-v1.0.5-rc.2-af3e309d0926',
                                'server-wsl-v1.0.5-rc.3-95ec46463c82',
-                               'server-wsl-v1.0.6-rc.1-dad063393b53'))
+                               'server-wsl-v1.0.6-rc.1-dad063393b53',
+                               'server-wsl-v1.0.7-0d16de2e782c'))
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4
@@ -410,10 +411,16 @@ class Maintenance:
         if not re.fullmatch('[A-Za-z0-9-]{1,80}',transaction_id):raise ValueError('Invalid maintenance transaction')
         current=self.gate()
         if current:
-            if current['transactionId']!=transaction_id or current['phase']!='closed':raise ValueError('Another or committed transaction owns gate')
-            self.reconcile_config()
-            self.firewall(installation_id,closed=not release_stopped_firewall)
-            return
+            if current['phase']=='committed' and current['transactionId']!=transaction_id and not release_stopped_firewall:
+                # A completed upgrade/move may be followed by another move of
+                # this same stopped generation. Finish any interrupted config
+                # publication using its old token before rotating the gate.
+                self.gate_open(installation_id,current['transactionId'])
+            else:
+                if current['transactionId']!=transaction_id or current['phase']!='closed':raise ValueError('Another or committed transaction owns gate')
+                self.reconcile_config()
+                self.firewall(installation_id,closed=not release_stopped_firewall)
+                return
         if release_stopped_firewall:raise ValueError('Existing closed transaction required for stopped firewall release')
         self.persist_gate({'schemaVersion':1,'phase':'closed','transactionId':transaction_id,
                            'hostInstallationId':installation_id,'probeToken':secrets.token_hex(32)})
