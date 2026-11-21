@@ -4,7 +4,8 @@ $ErrorActionPreference='Stop'
 function Assert($v,$m){if(-not $v){throw $m}}
 function Throws([scriptblock]$b,[string]$p){try{& $b}catch{if($_.Exception.Message -match $p){return};throw};throw "Expected refusal $p"}
 if(-not (Get-Command Invoke-CastlinkMove -ErrorAction SilentlyContinue)){throw 'Expected RED: durable Move API is missing'}
-$testRoot=Join-Path $ScratchRoot ('castlink-move-fixtures-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($testRoot)
+# Receipts bind canonical paths; CI TEMP may use an existing 8.3 user-profile alias.
+$testRoot=Assert-CLMPath (Join-Path $ScratchRoot ('castlink-move-fixtures-'+[guid]::NewGuid().ToString('N')));[void][IO.Directory]::CreateDirectory($testRoot)
 $priorAppData=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot 'profile';[void][IO.Directory]::CreateDirectory($env:LOCALAPPDATA)
 $script:passes=0
 function Test($n,[scriptblock]$b){if($Only -and $n -notlike $Only){return};& $b;$script:passes++;Write-Output ('PASS '+$n)}
