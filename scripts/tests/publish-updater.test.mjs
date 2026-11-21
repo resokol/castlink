@@ -165,3 +165,24 @@ test('conflicting version appearing during upload prevents promotion',using(asyn
  await assert.rejects(publishUpdater(f.options),/version.*source|version.*identity/i);
  assert.ok(!f.fake.calls.some(c=>c.method==='PATCH'));
 }));
+test('GitHub temporary untagged draft URLs are allowed while every byte stays pinned by numeric asset ID',using(async(f,{publishUpdater})=>{
+ const request=f.fake.request.bind(f.fake);f.fake.request=async(method,endpoint,options)=>{
+  const result=await request(method,endpoint,options);
+  if(result?.draft===true&&Array.isArray(result.assets))for(const a of result.assets)a.browser_download_url=`https://github.com/resokol/castlink/releases/download/untagged-bc89425ef41668029521/${a.name}`;
+  return result;
+ };
+ assert.equal((await publishUpdater(f.options)).phase,'published');
+ assert.equal(f.fake.calls.filter(c=>c.endpoint.includes('/releases/assets/')).length,16);
+}));
+test('temporary draft URLs never permit another host or a noncanonical public URL',using(async(f,{publishUpdater})=>{
+ const request=f.fake.request.bind(f.fake);let foreign=true;
+ f.fake.request=async(method,endpoint,options)=>{
+  const result=await request(method,endpoint,options);
+  if(Array.isArray(result?.assets))for(const a of result.assets)a.browser_download_url=foreign?`https://foreign.invalid/${a.name}`:`https://github.com/resokol/castlink/releases/download/untagged-bc89425ef41668029521/${a.name}`;
+  return result;
+ };
+ await assert.rejects(publishUpdater(f.options),/asset|inventory|digest/i);
+ assert.ok(!f.fake.calls.some(c=>c.method==='PATCH'));
+ foreign=false;await assert.rejects(publishUpdater(f.options),/asset|inventory|digest/i);
+ assert.equal(f.fake.releases[0].draft,false,'public readback must reject a temporary URL even after promotion');
+}));

@@ -19,7 +19,7 @@
 
 Отдельный инструмент для поддерживаемых Client, Windows/WSL2 и Linux. Установите его **один раз на каждом компьютере**, затем используйте постоянный ярлык или команду; версии продуктов остаются Client **1.0.1** и Server **1.0.7**. Проверка не применяет обновление; перед применением требуется подтверждение.
 
-[Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Точный тег канала `updater`, manifest и `SHA256SUMS` версии 1.0.0 выбирайте в [официальных выпусках](https://github.com/resokol/castlink/releases); канал обновлятора независим от серверного и клиентского.
+[Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Стабильный выпуск: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). Канал обновлятора независим от серверного и клиентского.
 
 ## Legacy: Windows Server с Docker Desktop
 

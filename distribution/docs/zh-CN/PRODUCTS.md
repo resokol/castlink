@@ -19,7 +19,7 @@
 
 适用于受支持 Client、Windows/WSL2 与 Linux 安装的独立工具。在**每台电脑上安装一次**，然后使用固定快捷方式或命令。产品版本保持 Client **1.0.1** 与 Server **1.0.7**。检查不会应用更新，应用需要确认。
 
-[Windows 安装程序](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux 安装程序](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [分步指南](UPDATER.md)。请从[官方发行版](https://github.com/resokol/castlink/releases)选择 1.0.0 版本的准确 `updater` 渠道标签、manifest 及 `SHA256SUMS`；更新工具渠道独立于服务器和 Client 渠道。
+[Windows 安装程序](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux 安装程序](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [分步指南](UPDATER.md)。稳定发行版：[`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836)，源代码 `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`。[Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS)。更新工具渠道独立于服务器和 Client 渠道。
 
 ## Legacy：Windows Server / Docker Desktop
 

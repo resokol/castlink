@@ -77,8 +77,8 @@ Permanent scripts invoke the newly verified script with an internal engine mode 
 - [x] Synchronize user docs: one-time onboarding, exact commands, stable/manual apply behavior, data paths, recovery limits, Legacy separation.
 - [x] Run relevant suites plus repository CI, inspect actual Windows UI and Linux fixture installs. Explicitly distinguish tests from live server upgrades.
 - [x] Fresh independent whole-branch review; fix consequential findings with reproductions and rerun affected suites.
-- [ ] Create/attach PR, merge after checks; build/publish immutable updater assets from verified source. Verify complete inventory and every digest publicly.
-- [ ] Deploy only reviewed website links/download files with exact before-hashes and backups; no app restart or Node2 update. Read back public bytes and links. Record results and remaining limitations.
+- [x] Create/attach PR, merge after checks; build/publish immutable updater assets from verified source. Verify complete inventory and every digest publicly.
+- [x] Deploy only reviewed website links/download files with exact before-hashes and backups; no app restart or Node2 update. Read back public bytes and links. Record results and remaining limitations.
 
 ## Execution record
 
