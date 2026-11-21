@@ -6,6 +6,19 @@ Connect the updater **once on each computer** running CastLink. Then use the per
 
 Supports **Windows Client 1.0.1**, **Windows/WSL2 Server 1.0.7**, **Ubuntu/Linux Server 1.0.7** and compatible later releases. Updater version **1.0.0** is independent of product versions. Onboarding does not reinstall the server, change its version or restart services.
 
+## Which older versions can be updated?
+
+**Updating from every old version is not guaranteed.** CastLink Updater uses each product's existing update path; the version number alone is not sufficient.
+
+| Product | Requirements |
+| --- | --- |
+| Windows/WSL2 Server → 1.0.7 | Official **1.0.5-rc.1, 1.0.5-rc.2, 1.0.5-rc.3 and 1.0.6-rc.1** releases listed in the target manifest. The exact installed release tag is checked. |
+| Windows Client | An installed official Client with readable build metadata. Detection of Client 1.0.0 and selection of 1.0.1 were verified; this does not establish support for every old or modified build. |
+| Linux Server | Installations created by the standalone Linux/Compose installer, with their settings and installation identity intact. Complete or recover an unfinished installation first. Arbitrary manual deployments are not adopted. |
+| Windows/Docker Legacy | Use its original maintenance tool. There is no automatic migration to WSL2 or Linux. |
+
+Start with **Check** or `castlink check-updates` for your installation. Successful version and file checks do not replace a backup or verification of server operation after updating.
+
 ## Windows: one shortcut for Client and WSL2
 
 1. Download [install-updater-windows.cmd](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) to **the computer where Client or the WSL server is installed**.
