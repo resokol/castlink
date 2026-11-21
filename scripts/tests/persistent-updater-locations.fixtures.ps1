@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]param([string]$SourcePath,[string]$CrossVolumeParent)
 if(-not $SourcePath){$SourcePath=Join-Path $PSScriptRoot '../updater/castlink-updater.ps1'}
 $ErrorActionPreference='Stop'
-$base=Join-Path $env:TEMP ('castlink-updater-locations-'+[guid]::NewGuid().ToString('N'))
+$base=[IO.Path]::GetFullPath((Join-Path $env:TEMP ('castlink-updater-locations-'+[guid]::NewGuid().ToString('N'))))
 $savedLocal=$env:LOCALAPPDATA;$script:failures=@();$script:passes=0
 function Assert($Condition,$Message){if(-not $Condition){throw $Message}}
 function Throws([scriptblock]$Body,$Pattern){try{& $Body}catch{if($_.Exception.Message -match $Pattern){return};throw};throw ('Expected refusal: '+$Pattern)}
@@ -62,7 +62,7 @@ try{
   $client=[pscustomobject]@{channel='client'};$clientRelease=[pscustomobject]@{tag_name='client-v1.0.9-bbbbbbbbbbbb';id=44};Assert ((Get-CLUProductDirectory $client $tool $clientRelease) -ceq (Join-Path $tool 'products/client-v1.0.9-bbbbbbbbbbbb-44')) 'Client cache changed'
  }
  Test 'package plan downloads and cleanup use the selected server root' {
-  $driveRoot=if($CrossVolumeParent){Join-Path $CrossVolumeParent ('castlink-updater-locations-'+[guid]::NewGuid().ToString('N'))}else{Join-Path $base 'package-plan'}
+  $driveRoot=[IO.Path]::GetFullPath($(if($CrossVolumeParent){Join-Path $CrossVolumeParent ('castlink-updater-locations-'+[guid]::NewGuid().ToString('N'))}else{Join-Path $base 'package-plan'}))
   if($CrossVolumeParent){Assert ([IO.Path]::GetPathRoot($driveRoot) -ine [IO.Path]::GetPathRoot($env:LOCALAPPDATA)) 'Cross-volume fixture must use a different drive'}
   try{
    $s=Server $driveRoot ('e'*32);Registry @(Row $driveRoot ('e'*32));$r=Read-CLUWslInstallation $driveRoot;$tool=Join-Path $env:LOCALAPPDATA 'CastLinkUpdater';Protect-CLUDirectory $tool
