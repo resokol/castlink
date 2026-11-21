@@ -61,8 +61,9 @@ try{
   # Read-only discovery is isolated; real private move journal/pointer parsing stays enabled.
   $source=Join-Path $fixture 'pending-source';Protect-CLMDirectory $source
   $tx='a'*32;$op=Get-CLMMoveDirectory $tx;Protect-CLMDirectory $op;$journal=Join-Path $op 'journal.json'
-  $j=@{schemaVersion=1;kind='move';id=$tx;journal=$journal;phase='move-wsl';selectedRoot=$source;sourceRoot=$source;destinationRoot=$dest;logicalId=('2'*32);source=@{releaseTag='server-wsl-v1.0.8';distroName='CastLink-Server-222222222222'}}
+  $j=@{schemaVersion=1;kind='move';id=$tx;directory=$op;journal=$journal;phase='move-wsl';selectedRoot=$source;sourceRoot=$source;destinationRoot=$dest;logicalId=('2'*32);source=@{releaseTag='server-wsl-v1.0.8';distroName='CastLink-Server-222222222222'}}
   Write-CLMJson $journal $j;Write-CLMJson (Join-Path $source 'maintenance-transaction.json') @{schemaVersion=1;kind='move';selectedRoot=$source;journalSelectedRoot=$source;id=$tx;journal=$journal}
+  $null=Read-CLMMoveJournal $source $false
   function Get-CastlinkMaintenanceInstallations {return @()}
   $pending=@(Get-CLMUiRows $source)
   Assert ($pending.Count -eq 1 -and $pending[0].root -ceq $source -and $pending[0].state -ceq 'recovery') 'Selected pending move disappeared because active-root resolution refuses it'
