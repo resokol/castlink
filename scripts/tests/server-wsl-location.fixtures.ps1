@@ -8,20 +8,21 @@ $testRoot=Join-Path $ScratchRoot ('castlink-move-fixtures-'+[guid]::NewGuid().To
 $priorAppData=$env:LOCALAPPDATA;$env:LOCALAPPDATA=Join-Path $testRoot 'profile';[void][IO.Directory]::CreateDirectory($env:LOCALAPPDATA)
 $script:passes=0
 function Test($n,[scriptblock]$b){if($Only -and $n -notlike $Only){return};& $b;$script:passes++;Write-Output ('PASS '+$n)}
-function Fixture([bool]$Running=$true,[bool]$Generation=$false){
- $base=Join-Path $testRoot ([guid]::NewGuid().ToString('N'));$selected=Join-Path $base 'selected';$root=if($Generation){Join-Path $base 'generation'}else{$selected};$dest=Join-Path $base 'new location';foreach($p in @($selected,$root)){[void][IO.Directory]::CreateDirectory($p)}
+function Fixture([bool]$Running=$true,[bool]$Generation=$false,[bool]$Private=$true){
+ $base=Join-Path $testRoot ([guid]::NewGuid().ToString('N'));$selected=Join-Path $base 'selected';$root=if($Generation){Join-Path $base 'generation'}else{$selected};$dest=Join-Path $base 'new location';foreach($p in @($selected,$root)){if($Private){Protect-CLMDirectory $p}else{[void][IO.Directory]::CreateDirectory($p)}}
  $s=[pscustomobject]@{schemaVersion=1;installationId=('a'*32);logicalInstallationId=('b'*32);distroName=('CastLink-Server-'+('a'*12));rootPath=$root;releaseTag='server-wsl-v1.0.8-cccccccccccc';repository='resokol/castlink';rootfsSha256=('d'*64);phase='ready';desiredRunning=$Running;autoStartAtLogon=$false;locationContract='castlink-wsl-location-v1'}
  Write-CLMJson (Join-Path $root 'installation.json') $s
  [void][IO.Directory]::CreateDirectory((Join-Path $root 'distribution'));[IO.File]::WriteAllText((Join-Path $root 'distribution\ext4.vhdx'),'synthetic disk')
  if($Generation){Write-CLMJson (Join-Path $selected 'active-generation.json') @{schemaVersion=1;selectedRoot=$selected;activeRoot=$root;installationId=$s.installationId}}
  $w=@{source=$s;events=(New-Object Collections.Generic.List[string]);registration=(Join-Path $root 'distribution');running=$Running;taskEnabled=$false;moves=0;disk=999999999999L;files=@();archives=@();fail='';late=$false;identity=$s.installationId;conflict=$false}
+ $writePrivateJson=(Get-Command Write-CLMJson).ScriptBlock;$protectPrivateDirectory=(Get-Command Protect-CLMDirectory).ScriptBlock
  $a={param($name,$ctx,$data);$w.events.Add($name);if($w.fail -ceq $name){throw ('Injected '+$name)}
  switch($name){
  'MovePreflight' {if($w.conflict){throw 'Registry identity conflict'};$ctx.source=$w.source;$ctx.task=[pscustomobject]@{exists=$true;enabled=$w.taskEnabled};$ctx.ownedFiles=@($w.files);$ctx.archiveFiles=@($w.archives);$ctx.requiredBytes=1024;$ctx.freeBytes=$w.disk;$ctx.sourceVhdBytes=1024}
  'MoveRegistration' {return [pscustomobject]@{basePath=$w.registration;installationId=$w.identity;distroName=$w.source.distroName;registrationId='fixture-registration';vhdFile='ext4.vhdx'}}
  'MoveQuiesce' {$w.running=$false;$w.taskEnabled=$false}
  'MoveDistribution' {$w.moves++;[void][IO.Directory]::CreateDirectory((Join-Path $ctx.destinationRoot 'distribution'));[IO.File]::Move((Join-Path $ctx.sourceRoot 'distribution\ext4.vhdx'),(Join-Path $ctx.destinationRoot 'distribution\ext4.vhdx'));$w.registration=Join-Path $ctx.destinationRoot 'distribution';if($w.late){$w.late=$false;throw 'WSL returned error after move'}}
- 'MoveBindings' {$s=$ctx.source|ConvertTo-Json -Depth 32|ConvertFrom-Json;$s.rootPath=$ctx.destinationRoot;$s.phase='ready';[IO.File]::WriteAllText((Join-Path $ctx.destinationRoot 'installation.json'),($s|ConvertTo-Json -Depth 32));return $s}
+ 'MoveBindings' {& $protectPrivateDirectory $ctx.destinationRoot;$s=$ctx.source|ConvertTo-Json -Depth 32|ConvertFrom-Json;$s.rootPath=$ctx.destinationRoot;$s.phase='ready';& $writePrivateJson (Join-Path $ctx.destinationRoot 'installation.json') $s;return $s}
  'MoveVerify' {if($ctx.source.desiredRunning){$w.running=$true};return $true}
  'MovePublish' {$w.taskEnabled=$ctx.task.enabled}
  'MoveFinish' {}
@@ -32,6 +33,7 @@ function Fixture([bool]$Running=$true,[bool]$Generation=$false){
 }
 function RunMove($f){Invoke-CastlinkMove -InstallRoot $f.selected -DestinationRoot $f.dest -Confirmation $f.world.source.distroName -Adapter $f.adapter}
 try{
+ Test 'synthetic owned roots and receipts satisfy production private ownership' {$f=Fixture;Assert-CLMPrivatePath $f.root;Assert-CLMPrivatePath (Join-Path $f.root 'installation.json');$null=RunMove $f;Assert-CLMPrivatePath $f.dest;Assert-CLMPrivatePath (Join-Path $f.dest 'installation.json')}
  Test 'running same-release move retains one registration and task preference' {$f=Fixture;$r=RunMove $f;Assert ($r.phase -ceq 'completed') 'Move incomplete';Assert ($f.world.moves -eq 1 -and $f.world.running -and -not $f.world.taskEnabled) 'State lost';Assert ($r.source.releaseTag -ceq $r.destination.releaseTag) 'Release changed'}
  Test 'logical source moves actual active generation' {$f=Fixture $true $true;$r=RunMove $f;Assert ($r.sourceRoot -ceq $f.root) 'Moved selected stub';Assert ((Read-CLMReceipt $f.dest).logicalInstallationId -ceq ('b'*32)) 'Logical identity lost';Throws {Get-CLMRoot $f.selected} 'relocated'}
  Test 'stopped source never starts publicly' {$f=Fixture $false;$null=RunMove $f;Assert (-not $f.world.running) 'Stopped source started'}
@@ -92,9 +94,9 @@ try{
      'FreeBytes' {return 999999999999L}
      'SourceTask' {return [pscustomobject]@{exists=$false;enabled=$false}}
      'ExportTransfer' {[IO.File]::WriteAllText($ctx.transfer,'synthetic transfer')}
-     'ImportCandidate' {[void][IO.Directory]::CreateDirectory($ctx.candidateRoot);[IO.File]::WriteAllText((Join-Path $ctx.candidateRoot 'installation.json'),($ctx.candidate|ConvertTo-Json -Depth 32))}
+     'ImportCandidate' {Protect-CLMDirectory $ctx.candidateRoot;Write-CLMJson (Join-Path $ctx.candidateRoot 'installation.json') $ctx.candidate}
      'CandidateReady' {return [pscustomobject]@{ready=$true}}
-     'PrepareBindings' {$ctx.candidate.phase='ready';[IO.File]::WriteAllText((Join-Path $ctx.candidateRoot 'installation.json'),($ctx.candidate|ConvertTo-Json -Depth 32));return $ctx.candidate}
+     'PrepareBindings' {$ctx.candidate.phase='ready';Write-CLMJson (Join-Path $ctx.candidateRoot 'installation.json') $ctx.candidate;return $ctx.candidate}
     }
    }
    $check=Invoke-CastlinkMaintenance Check $f.dest -TargetDirectory 'synthetic package' -ExpectedManifestSha256 ('a'*64) -Adapter $a
@@ -109,7 +111,7 @@ try{
   [IO.File]::WriteAllText($shortcut,'foreign shortcut');Throws {Assert-CLMEntryPoint $c} 'Unknown|changed'
  }
  Test 'nonprivate self-pinned move source cannot execute installer code' {
-  $f=Fixture;$release=Join-Path $f.root 'release';[void][IO.Directory]::CreateDirectory($release);$helpers=@()
+  $f=Fixture $true $false $false;$release=Join-Path $f.root 'release';[void][IO.Directory]::CreateDirectory($release);$helpers=@()
   foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','server-wsl-location.ps1','install-server-windows.template.ps1')){$p=Join-Path $release $name;[IO.File]::WriteAllText($p,$(if($name -ceq 'install-server-windows.template.ps1'){'throw "UNTRUSTED INSTALLER EXECUTED"'}else{'synthetic helper'}));$helpers+=[pscustomobject]@{file=$name;sha256=(Get-CLMHash $p);size=(Get-Item $p).Length}}
   $manifest=Join-Path $release 'manifest.json';Write-CLMJson $manifest @{schemaVersion=1;channel='server-wsl';repository='resokol/castlink';architecture='amd64';version='1.0.8';sourceCommit=('c'*40);releaseTag=$f.world.source.releaseTag;rootfs=@{sha256=$f.world.source.rootfsSha256};lifecycle=@{schemaVersion=1;runtimeContract='castlink-wsl-pg16-v1';postgresMajor=16;locationContract='castlink-wsl-location-v1';helpers=$helpers}}
   $s=$f.world.source;$s|Add-Member NoteProperty releaseManifestSha256 (Get-CLMHash $manifest);Write-CLMJson (Join-Path $f.root 'installation.json') $s
@@ -157,7 +159,7 @@ try{
  }
 
  Test 'supported WSL does not rely on help returning exit zero' {
-  $f=Fixture;$module=New-Module -ArgumentList (Join-Path (Split-Path $PSScriptRoot -Parent) 'server-wsl-maintenance.ps1') -ScriptBlock {param($manager);. $manager -FunctionsOnly;function Invoke-CLMProcess($Exe,$Arguments){if($Arguments[0] -ceq '--version'){return 'WSL version: 3.0.1.0'};throw 'WSL help exits -1'};Export-ModuleMember -Function *}
+  $f=Fixture $true $false $false;$module=New-Module -ArgumentList (Join-Path (Split-Path $PSScriptRoot -Parent) 'server-wsl-maintenance.ps1') -ScriptBlock {param($manager);. $manager -FunctionsOnly;function Invoke-CLMProcess($Exe,$Arguments){if($Arguments[0] -ceq '--version'){return 'WSL version: 3.0.1.0'};throw 'WSL help exits -1'};Export-ModuleMember -Function *}
   try{Throws {& $module {param($r);Invoke-CLMMoveDefaultAdapter MovePreflight @{sourceRoot=$r;selectedRoot=$r}} $f.root} 'not private'}finally{Remove-Module $module}
  }
 

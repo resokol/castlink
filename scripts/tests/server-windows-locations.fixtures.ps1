@@ -160,16 +160,20 @@ try{
  $pointer=Join-Path $onboardRoot 'maintenance-transaction.json'
  $tx='f'*32;$op=Join-Path $registryRoot ('operations\'+$tx);[void][IO.Directory]::CreateDirectory($op);Protect-CastlinkInstallationDirectory $op
  $journal=Join-Path $op 'journal.json'
- [IO.File]::WriteAllText($pointer,(@{schemaVersion=1;kind='move';id=$tx;selectedRoot=$onboardRoot;journalSelectedRoot=$root;journal=$journal}|ConvertTo-Json))
+ Write-CastlinkPrivateFile $pointer (@{schemaVersion=1;kind='move';id=$tx;selectedRoot=$onboardRoot;journalSelectedRoot=$root;journal=$journal}|ConvertTo-Json)
  $j=@{schemaVersion=1;kind='move';id=$tx;phase='move-verify';selectedRoot=$root;sourceRoot=$root;destinationRoot=$onboardRoot;journal=$journal;logicalId=$onboard.installationId;source=@{installationId=$onboard.installationId}}
- [IO.File]::WriteAllText($journal,($j|ConvertTo-Json -Depth 5))
- Reject {Assert-CastlinkLocationManagement $onboardRoot} 'move|Recover|recovery'
+ # Match lifecycle's private metadata creation, including elevated default-owner tokens.
+ Write-CastlinkPrivateFile $journal ($j|ConvertTo-Json -Depth 5)
+ foreach($metadata in @($pointer,$journal)){Assert ((Get-Acl -LiteralPath $metadata).GetOwner([Security.Principal.SecurityIdentifier]).Value -ceq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) 'Synthetic move metadata must be owned by the current user'}
+ $elevated=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+ Write-Host ('PASS: private move fixture metadata owner matches current user; elevated token='+$elevated)
+ Reject {Assert-CastlinkLocationManagement $onboardRoot} 'Pending move'
  $j.phase='completed';[IO.File]::WriteAllText($journal,($j|ConvertTo-Json -Depth 5))
  Assert-CastlinkLocationManagement $onboardRoot
  $j.logicalId='e'*32;[IO.File]::WriteAllText($journal,($j|ConvertTo-Json -Depth 5))
- Reject {Assert-CastlinkLocationManagement $onboardRoot} 'identity|move|recovery'
+ Reject {Assert-CastlinkLocationManagement $onboardRoot} 'Completed move receipt identity mismatch'
  [IO.File]::Delete($pointer)
- [IO.File]::WriteAllText((Join-Path $onboardRoot 'relocated-to.json'),'{}')
+ Write-CastlinkPrivateFile (Join-Path $onboardRoot 'relocated-to.json') '{}'
  Reject {Assert-CastlinkLocationManagement $onboardRoot} 'moved|relocated'
  # A durable reservation owns an absent path until an authenticated imported
  # receipt is published, including across independent installer processes.
