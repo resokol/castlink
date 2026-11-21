@@ -2,6 +2,19 @@
 
 # CastLink
 
+**CastLink Updater 1.0.0 — постоянный обновлятор**
+
+Установите один раз на каждом компьютере с CastLink — скачивать новый инструмент для каждого обновления вручную больше не нужно.
+
+| Скачать обновлятор | Для чего |
+| --- | --- |
+| **[Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd)** | Client и WSL2-сервер; постоянный ярлык **Update CastLink**. |
+| **[Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh)** | Linux-сервер; команды `castlink check-updates` и `castlink update`. |
+
+**[Инструкция по установке и использованию](distribution/UPDATER.md)** · [Релиз 1.0.0 и файлы](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836). Обновление выбранного продукта применяется после вашего подтверждения.
+
+---
+
 **1.0.7:** сервер и web на основе принятой версии castlink.ru: диагностика видео/аудио, сеть за 10 секунд, совместимость потока vMix и управление WSL2-сервером. Выбирайте точный серверный пакет 1.0.7 своего направления в каталоге; сверяйте версию и source/build ID с его `manifest.json`, файлы — с `SHA256SUMS`. Client остаётся 1.0.1. [Состав и обновление](distribution/RELEASE_NOTES_1_0_7.md).
 
 Подключайте удалённых участников через браузер и получайте отдельные аудио- и видеопотоки для OBS или vMix.
@@ -16,8 +29,6 @@
 **Поддерживаемые направления:** для нового Windows-сервера рекомендую **WSL2 без Docker Desktop**; для Ubuntu/VPS — Linux Server. Старый Windows/Docker EasySetup переведён в **Legacy** и сохранён для существующих установок. Windows/WSL2 и Linux используют стабильную серверную версию **1.0.7** и отдельные установщики. [Статусы и ограничения](distribution/SUPPORTED_INSTALLERS.md).
 
 Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) — отдельное приложение, он не устанавливает сервер.
-
-**Обновления без повторного скачивания инструментов:** один раз подключите [постоянный обновлятор](distribution/UPDATER.md) на каждом компьютере. В Windows используйте ярлык **Update CastLink** для Client и WSL2; в Linux — `castlink check-updates` и `castlink update`. Применение требует вашего подтверждения.
 
 ## Перед установкой
 

@@ -2,6 +2,19 @@
 
 # CastLink
 
+**CastLink Updater 1.0.0 — 永久更新工具**
+
+在每台运行 CastLink 的电脑上安装一次，以后更新时无需再手动下载新的维护工具。
+
+| 下载更新工具 | 支持的产品 |
+| --- | --- |
+| **[Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd)** | Client 和 WSL2 服务器；使用固定的 **Update CastLink** 快捷方式。 |
+| **[Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh)** | Linux 服务器；使用 `castlink check-updates` 和 `castlink update` 命令。 |
+
+**[安装与使用指南](distribution/docs/zh-CN/UPDATER.md)** · [1.0.0 版本与文件](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836)。更新所选产品前需要您的确认。
+
+---
+
 **1.0.7：**服务器与 Web 以已认可的 castlink.ru 版本为基准，包含音视频诊断、最近 10 秒网络质量、vMix 流兼容性及 WSL2 服务器管理。请在目录中选择对应渠道的准确 1.0.7 服务器软件包；将版本及源代码/构建编号与 `manifest.json` 核对，并将文件与 `SHA256SUMS` 核对。Client 保持 1.0.1。[变更与更新](distribution/docs/zh-CN/RELEASE_NOTES_1_0_7.md)。
 
 让远程嘉宾通过浏览器接入，为 OBS 或 vMix 提供独立的音视频流。
@@ -16,8 +29,6 @@
 **主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。Windows/WSL2 与 Linux 使用稳定服务器版本 **1.0.7**，安装程序分别提供。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
 
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe)是独立应用，不会安装服务器。
-
-**更新时无需反复下载工具：**在每台电脑上连接一次[永久更新工具](distribution/docs/zh-CN/UPDATER.md)。Windows 的 Client 与 WSL2 使用 **Update CastLink** 快捷方式，Linux 使用 `castlink check-updates` 与 `castlink update`。应用更新需要确认。
 
 ## 安装前
 

@@ -2,6 +2,19 @@
 
 # CastLink
 
+**CastLink Updater 1.0.0 — persistent updater**
+
+Install it once on each computer running CastLink. You will not need to download a new maintenance tool manually for every update.
+
+| Download updater | Supported products |
+| --- | --- |
+| **[Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd)** | Client and WSL2 server; permanent **Update CastLink** shortcut. |
+| **[Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh)** | Linux server; `castlink check-updates` and `castlink update` commands. |
+
+**[Installation and usage guide](distribution/docs/en/UPDATER.md)** · [Release 1.0.0 and files](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836). Updating the selected product requires your confirmation.
+
+---
+
 **1.0.7:** server and web based on the accepted castlink.ru version, including video/audio diagnostics, rolling 10-second network quality, vMix stream compatibility and WSL2 server management. Choose the exact 1.0.7 server package for your channel in the catalog; match its version and source/build ID to `manifest.json` and files to `SHA256SUMS`. Client remains 1.0.1. [Changes and updating](distribution/docs/en/RELEASE_NOTES_1_0_7.md).
 
 Connect remote guests in a browser and receive separate audio/video feeds for OBS or vMix.
@@ -16,8 +29,6 @@ Choose where to install your server:
 **Primary install paths:** Windows 11 servers use **WSL2 without Docker Desktop**; Ubuntu/VPS servers use the separate Linux package. The former Windows/Docker EasySetup is **Legacy**, retained for existing installations only. Windows/WSL2 and Linux use stable server version **1.0.7** with separate installers. [Installer policy and migration limits](distribution/SUPPORTED_INSTALLERS.md).
 
 Joining someone else's server only requires a browser. The [Windows client](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) is a separate app; it does not install a server.
-
-**Updates without downloading another tool each time:** connect the [persistent updater](distribution/docs/en/UPDATER.md) once on each computer. Use **Update CastLink** for Client and WSL2 on Windows, or `castlink check-updates` and `castlink update` on Linux. Applying an update requires your confirmation.
 
 ## Before installation
 
