@@ -37,6 +37,14 @@ The WSL virtual disk (VHDX), server data, panel and installation-owned files mov
 
 A small installation registry and operation journal remain in `%LOCALAPPDATA%\CastLinkServerRegistry`. Some control files may remain in the previous folder; this does not mean the active VHD remains on the old disk. Do not remove these remnants manually before verifying completion and server operation. **Dragging the folder in Explorer is not a supported move** and does not update WSL, panel or autostart bindings.
 
+## If WSL keeps the virtual disk busy
+
+Other WSL applications, including Docker Desktop, can keep the shared WSL virtual machine active and the CastLink disk busy even after its distribution stops. If this blocks the move, finish your work in those applications and close them before retrying. The tool stops only the selected server and automatically waits a limited time for its disk to be released; it does not stop unrelated distributions.
+
+If the wait ends with a disk-busy error (`ERROR_SHARING_VIOLATION`), data and the journal are retained. Close the applications keeping the disk busy, then choose **Recover transaction**. If you cannot interrupt those applications now, use **Cancel move** when available and the disk is still in its original folder; cancellation checks are described below.
+
+If the disk remains busy, you may run `wsl --shutdown` manually **only after saving and explicitly finishing all work in every WSL distribution**: it stops them all, including the Docker Desktop environment. The tool never runs this command automatically. Shutting down all of WSL is not required for every move.
+
 ## After power loss or a disconnected disk
 
 Reconnect the disk with the same drive letter and reopen maintenance. For an unfinished move, select **Recover transaction**; Updater also offers **Recover transaction…**. Normal start, update and another move are blocked until recovery or confirmed cancellation. The tool checks the journal against the actual WSL location and proceeds only when data ownership is verified. Do not start a second copy or delete either folder, the VHD or the WSL registration.

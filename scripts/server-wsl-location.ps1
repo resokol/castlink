@@ -32,6 +32,27 @@ function Assert-CLMMoveRegistration($Ctx,$Registration){
  Assert-CLMMoveDisks $Ctx $path
  return $path
 }
+function Wait-CLMMoveVhdRelease($Ctx,[ValidateRange(1,900000)][int]$TimeoutMilliseconds=90000,[ValidateRange(1,1000)][int]$PollMilliseconds=250){
+ # Termination can leave the VHD attached to the shared WSL VM. Inspect only
+ # host state here: entering the guest again would reacquire the disk.
+ $sourcePath=Join-Path $Ctx.sourceRoot 'distribution';$clock=[Diagnostics.Stopwatch]::StartNew()
+ while($true){
+  $actual=Assert-CLMMoveRegistration $Ctx (Get-CLMWslRegistration $Ctx.source)
+  if($actual -cne $sourcePath){throw 'Move registration changed while waiting for the VHD; Recover before retrying'}
+  $probe=$null;$busy=$false
+  try{$probe=[IO.File]::Open((Join-Path $actual $Ctx.registration.vhdFile),[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None)}
+  catch{$failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException};if($failure -isnot [IO.IOException] -or ($failure.HResult -band 65535) -notin @(32,33)){throw};$busy=$true}
+  finally{if($probe){$probe.Dispose()}}
+  if(-not $busy){
+   # Close the probe before the official move and recheck its pinned identity.
+   $actual=Assert-CLMMoveRegistration $Ctx (Get-CLMWslRegistration $Ctx.source)
+   if($actual -cne $sourcePath){throw 'Move registration changed while waiting for the VHD; Recover before retrying'}
+   return
+  }
+  if($clock.ElapsedMilliseconds -ge $TimeoutMilliseconds){throw 'The VHD is still busy in WSL. Close other WSL apps or Docker Desktop, wait, then Recover. If needed, shut down your WSL work yourself before Recover; CastLink does not shut down other distributions.'}
+  Start-Sleep -Milliseconds ([Math]::Min($PollMilliseconds,[Math]::Max(1,$TimeoutMilliseconds-$clock.ElapsedMilliseconds)))
+ }
+}
 function Invoke-CLMMoveAdapter($Ctx,[string]$Name){if($Ctx.adapter){return & $Ctx.adapter $Name $Ctx $null};return Invoke-CLMMoveDefaultAdapter $Name $Ctx}
 function Initialize-CLMMoveModule($Ctx){
  if($Ctx.sourceModule){return}
@@ -79,7 +100,7 @@ function Invoke-CLMMoveDefaultAdapter([string]$Name,$Ctx){
   if($running.Split("`n").Trim() -ccontains $Ctx.source.distroName){throw 'Owned source termination not confirmed'}
   return
  }
- 'MoveDistribution' {Assert-CLMGuestMarker $Ctx.source;Assert-CLMStopped $Ctx.source;$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--terminate',$Ctx.source.distroName);$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--manage',$Ctx.source.distroName,'--move',(Join-Path $Ctx.destinationRoot 'distribution')) '' '' 1048576 3600;return}
+ 'MoveDistribution' {Assert-CLMGuestMarker $Ctx.source;Assert-CLMStopped $Ctx.source;$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--terminate',$Ctx.source.distroName);Wait-CLMMoveVhdRelease $Ctx;$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--manage',$Ctx.source.distroName,'--move',(Join-Path $Ctx.destinationRoot 'distribution')) '' '' 1048576 3600;return}
  'MoveBindings' {return Set-CLMMoveBindings $Ctx}
  'MoveVerify' {
   Initialize-CLMMoveModule $Ctx;$Ctx.destination=Sync-CLMKeepaliveReceipt $Ctx.destinationRoot $Ctx.destination $Ctx.sourceModule;Assert-CLMGuestMarker $Ctx.destination
