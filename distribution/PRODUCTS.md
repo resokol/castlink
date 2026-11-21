@@ -15,11 +15,11 @@
 | Windows Client | Отдельное приложение для студии и кастера; сервер не устанавливает | [1.0.1](https://github.com/resokol/castlink/releases/tag/client-v1.0.1-079fd0f9d4b1) · [Установщик](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/SHA256SUMS) |
 
 <a id="updater"></a>
-## Постоянный обновлятор 1.0.0
+## CastLink Updater 1.0.0
 
 Отдельный инструмент для поддерживаемых Client, Windows/WSL2 и Linux. Установите его **один раз на каждом компьютере**, затем используйте постоянный ярлык или команду; версии продуктов остаются Client **1.0.1** и Server **1.0.7**. Проверка не применяет обновление; перед применением требуется подтверждение.
 
-[Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Стабильный выпуск: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). Канал обновлятора независим от серверного и клиентского.
+[Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Стабильный выпуск: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). Канал CastLink Updater независим от серверного и клиентского.
 
 ## Legacy: Windows Server с Docker Desktop
 
