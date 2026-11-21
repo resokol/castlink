@@ -2,11 +2,11 @@
 
 # CastLink
 
-**CastLink Updater 1.0.0 — постоянный обновлятор**
+**CastLink Updater 1.0.0**
 
 Установите один раз на каждом компьютере с CastLink — скачивать новый инструмент для каждого обновления вручную больше не нужно.
 
-| Скачать обновлятор | Для чего |
+| Скачать CastLink Updater | Для чего |
 | --- | --- |
 | **[Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd)** | Client и WSL2-сервер; постоянный ярлык **Update CastLink**. |
 | **[Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh)** | Linux-сервер; команды `castlink check-updates` и `castlink update`. |

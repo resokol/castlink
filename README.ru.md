@@ -17,7 +17,7 @@
 
 Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.1-079fd0f9d4b1/CastLink-Client-1.0.1-079fd0f9d4b1-setup.exe) — отдельное приложение, он не устанавливает сервер.
 
-**Обновления без повторного скачивания инструментов:** один раз подключите [постоянный обновлятор](distribution/UPDATER.md) на каждом компьютере. В Windows используйте ярлык **Update CastLink** для Client и WSL2; в Linux — `castlink check-updates` и `castlink update`. Применение требует вашего подтверждения.
+**Обновления без повторного скачивания инструментов:** один раз подключите [CastLink Updater](distribution/UPDATER.md) на каждом компьютере. В Windows используйте ярлык **Update CastLink** для Client и WSL2; в Linux — `castlink check-updates` и `castlink update`. Применение требует вашего подтверждения.
 
 ## Перед установкой
 
