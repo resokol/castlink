@@ -6,6 +6,19 @@
 
 支持 **Windows Client 1.0.1**、**Windows/WSL2 Server 1.0.7**、**Ubuntu/Linux Server 1.0.7** 及后续兼容版本。更新工具 **1.0.0** 的版本独立于产品版本。连接更新工具不会重新安装服务器、更改其版本或重启服务。
 
+## 可以从哪些旧版本更新？
+
+**不保证能从任意旧版本更新。** CastLink Updater 使用各产品原有的更新流程，仅凭版本号无法判断兼容性。
+
+| 产品 | 条件 |
+| --- | --- |
+| Windows/WSL2 Server → 1.0.7 | 支持目标 manifest 中列出的官方 **1.0.5-rc.1、1.0.5-rc.2、1.0.5-rc.3 和 1.0.6-rc.1**，并核对已安装版本的完整标签。 |
+| Windows Client | 需要已安装的官方 Client，且构建元数据可读取。已验证识别 Client 1.0.0 并选择 1.0.1；这不表示支持所有旧版或修改版。 |
+| Linux Server | 使用独立 Linux/Compose 安装程序创建的安装，且配置与安装标识完整。未完成的安装须先完成或恢复。不自动接管任意手动部署。 |
+| Windows/Docker Legacy | 使用原维护工具。不支持自动迁移至 WSL2 或 Linux。 |
+
+请先对自己的安装点击 **检查** 或运行 `castlink check-updates`。版本与文件检查通过不能代替备份，也不能代替更新后的服务器运行验证。
+
 ## Windows：Client 与 WSL2 共用一个快捷方式
 
 1. 将 [install-updater-windows.cmd](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) 下载到**已安装 Client 或 WSL 服务器的电脑**。
