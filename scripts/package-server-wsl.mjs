@@ -47,7 +47,7 @@ with tarfile.open(archive,'r:gz') as source:
  value=json.loads(selected['opt/castlink/release.json'])
  if value.get('version')!=version or value.get('commit')!=commit or value.get('buildId')!=version+'-'+commit[:12]:
   raise ValueError('Embedded runtime release/version/commit mismatch')
- if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53']}:
+ if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'locationContract':'castlink-wsl-location-v1','supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c']}:
   raise ValueError('Embedded lifecycle compatibility contract mismatch')
  if runtime_hashes!={'usr/local/bin/castlink-server':runtime_hash,'usr/local/bin/castlink-server-maintenance':helper_hash}:
   raise ValueError('Embedded lifecycle helper inventory mismatch')
@@ -127,9 +127,9 @@ async function readNativePanelPackage(root){
  const inventory=JSON.parse(await fs.readFile(path.join(root,'scripts',inventoryFile),'utf8'));
  const names=[inventoryFile,...(inventory.files??[]),...(inventory.buildFiles??[])];
  if(inventory.schemaVersion!==1||inventory.host!=='CastLinkServer.exe'||inventory.binding!=='server-native-binding.json'||
-    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==9||inventory.buildFiles.length!==2||
+    !Array.isArray(inventory.files)||!Array.isArray(inventory.buildFiles)||inventory.files.length!==10||inventory.buildFiles.length!==2||
     new Set(names).size!==names.length||names.some(name=>typeof name!=='string'||!/^[A-Za-z0-9][A-Za-z0-9.-]{0,127}$/.test(name)))throw Error('Invalid native panel helper inventory');
- for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','castlink-updater.ps1'])
+ for(const required of ['server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-location.ps1','castlink-updater.ps1'])
   if(!names.includes(required))throw Error('Missing native panel helper: '+required);
  const files=[];
  for(const file of names){
@@ -150,7 +150,7 @@ if((Get-Item -LiteralPath $manifestPath).Length -gt 1048576 -or (Get-FileHash -L
 $m=[IO.File]::ReadAllText($manifestPath,[Text.Encoding]::UTF8)|ConvertFrom-Json
 if($m.channel -cne 'server-wsl' -or $m.lifecycle.schemaVersion -ne 1){throw 'Unsupported maintenance contract'}
 $seen=@{};foreach($e in $m.lifecycle.helpers){if($e.file -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $seen.ContainsKey($e.file)){throw 'Invalid helper inventory'};$seen[$e.file]=$true;$p=Join-Path $root $e.file;$s=Get-Item -LiteralPath $p -Force;if($s.PSIsContainer -or ($s.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $s.Length -ne $e.size -or $e.sha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne $e.sha256){throw 'Maintenance helper checksum mismatch'}}
-foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(-not $seen.ContainsKey($name)){throw 'Missing maintenance helper'}}
+foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','server-wsl-location.ps1','install-server-windows.template.ps1')){if(-not $seen.ContainsKey($name)){throw 'Missing maintenance helper'}}
 # A fresh -File session keeps UI helpers visible to GetNewClosure event callbacks.
 # Calling the UI with & here puts its helpers in an inaccessible child script scope.
 if(-not $VerifyOnly){
@@ -169,11 +169,11 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  for(const file of [rootfs,sources,upstreamSources,inventory]){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size===0)throw Error('Missing or invalid rootfs/source/inventory');}
  const audited=JSON.parse(execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json'),await hashFile(path.join(root,'scripts/server-wsl-maintenance.py')),await hashFile(path.join(root,'scripts/server-wsl-runtime.py'))],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
  const nativePanel=await readNativePanelPackage(root);
- const helpers=[];for(const file of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1']){
+ const helpers=[];for(const file of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','server-wsl-location.ps1','install-server-windows.template.ps1']){
   const source=path.join(root,'scripts',file==='install-server-windows.template.ps1'?'install-server-windows.ps1':file),stat=await fs.lstat(source);if(!stat.isFile()||stat.isSymbolicLink()||stat.size<=0||stat.size>4194304)throw Error('Invalid lifecycle helper');
   helpers.push({file,sha256:await hashFile(source),size:stat.size});
  }
- const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53'],applicationMigrations:'runtime-bootstrap-v1',helpers};
+ const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,locationContract:'castlink-wsl-location-v1',supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c'],applicationMigrations:'runtime-bootstrap-v1',helpers};
  const rootfsName='CastLink-Server-WSL-amd64.tar.gz',sourcesName='CastLink-Server-WSL-Sources.tar.gz';
  const manifest={schemaVersion:1,channel:'server-wsl',version,releaseTag:`server-wsl-v${version}-${commit.slice(0,12)}`,repository,architecture:'amd64',sourceCommit:commit,
   rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size,expandedBytes:audited.expandedBytes},

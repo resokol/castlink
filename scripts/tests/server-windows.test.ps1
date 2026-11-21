@@ -48,6 +48,14 @@ function Test-CastlinkNativePanelStaging([string]$Directory) {
     $entries += [pscustomobject]@{file=$name;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $path).Length}
   }
   $manifest=[ordered]@{schemaVersion=1;channel='server-wsl';releaseTag=$tag;repository=$repo;rootfs=@{sha256=$rootHash};nativePanel=@{schemaVersion=1;host='CastLinkServer.exe';binding='server-native-binding.json';files=$entries}}
+  $lifecycleEntries=@()
+  foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1','server-wsl-location.ps1')){
+    $path=Join-Path $package $name;[IO.File]::WriteAllText($path,('fixture helper '+$name))
+    $entry=[pscustomobject]@{file=$name;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $path).Length}
+    $lifecycleEntries+=@($entry)
+    if($name -in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-location.ps1')){$manifest.nativePanel.files+=@($entry)}
+  }
+  $manifest.lifecycle=@{schemaVersion=1;locationContract='castlink-wsl-location-v1';helpers=$lifecycleEntries}
   $manifestPath=Join-Path $package 'manifest.json';[IO.File]::WriteAllText($manifestPath,($manifest|ConvertTo-Json -Depth 8))
   $oldTag=$script:PackagedReleaseTag;$oldRepository=$script:PackagedRepository;$oldManifest=$script:PackagedManifestSha256
   $originalBuild=(Get-Command Build-CastlinkNativePanelHost).ScriptBlock
@@ -58,7 +66,18 @@ function Test-CastlinkNativePanelStaging([string]$Directory) {
   try{
     $script:PackagedReleaseTag=$tag;$script:PackagedRepository=$repo
     $script:PackagedManifestSha256=(Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $locationHelper=Join-Path $package 'server-wsl-runtime.py'
+    $locationBytes=[IO.File]::ReadAllBytes($locationHelper);[IO.File]::Delete($locationHelper)
+    Assert-Throws {Prepare-CastlinkNativePanel $root $state $status $package $installer $false} 'helper.*checksum|helper.*missing'
+    Assert ($script:NativeBuilds -eq 0) 'Panel compiled before the complete lifecycle inventory was verified'
+    [IO.File]::WriteAllBytes($locationHelper,$locationBytes)
     $panel=Prepare-CastlinkNativePanel $root $state $status $package $installer $false
+    foreach($entry in @($manifest.nativePanel.files)+@($manifest.lifecycle.helpers)){
+      $cached=Join-Path (Join-Path $root 'release') $entry.file
+      Assert ((Test-Path -LiteralPath $cached) -and (Get-FileHash -LiteralPath $cached -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $entry.sha256) ('Installed release lost verified helper '+$entry.file)
+    }
+    Assert ((Get-FileHash -LiteralPath (Join-Path (Join-Path $root 'release') 'manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $script:PackagedManifestSha256) 'Installed release manifest differs from its pin'
+
     Assert ($script:NativeBuilds -eq 1) 'Native host was not compiled once'
     Assert ($panel.hostPath -ceq (Join-Path (Join-Path $root 'native-panel') 'CastLinkServer.exe')) 'Panel host escaped the owned root'
     $binding=[IO.File]::ReadAllText($panel.bindingPath)|ConvertFrom-Json

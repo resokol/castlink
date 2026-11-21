@@ -15,8 +15,11 @@ function Get-CLUHash([string]$Path){return (Get-FileHash -LiteralPath (Assert-CL
 function Read-CLUJson([string]$Path,[long]$Limit=1048576){$p=Assert-CLUPath $Path;$s=Get-Item -LiteralPath $p -Force;if($s.PSIsContainer -or $s.Length -gt $Limit){throw 'JSON metadata exceeds limit'};$value=ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($p,[Text.Encoding]::UTF8));return $value}
 function Protect-CLUDirectory([string]$Path){
  $p=Assert-CLUPath $Path;[void][IO.Directory]::CreateDirectory($p);$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
- $acl=Get-Acl -LiteralPath $p;$acl.SetAccessRuleProtection($true,$false);foreach($r in @($acl.Access)){$null=$acl.RemoveAccessRuleSpecific($r)}
- foreach($id in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'),[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($id,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))};$acl.SetOwner($sid);([IO.DirectoryInfo]::new($p)).SetAccessControl($acl)
+ $directory=[IO.DirectoryInfo]::new($p);$acl=$directory.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner');$acl.SetAccessRuleProtection($true,$false);foreach($r in @($acl.Access)){$null=$acl.RemoveAccessRuleSpecific($r)}
+ foreach($id in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'),[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($id,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
+ # An existing owner can change its DACL without WRITE_OWNER. Grant private access first.
+ $directory.SetAccessControl($acl);$owner=$directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+ if($owner.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value){$owner.SetOwner($sid);$directory.SetAccessControl($owner)};Assert-CLUPrivate $p
 }
 function Assert-CLUPrivate([string]$Path){
  $p=Assert-CLUPath $Path;$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$acl=Get-Acl -LiteralPath $p
@@ -24,7 +27,8 @@ function Assert-CLUPrivate([string]$Path){
  foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin @($sid,'S-1-5-18','S-1-5-32-544')){throw 'Updater cache is writable/readable by another account'}}
 }
 function Set-CLUCreatedFileOwner([string]$Path){
- $path=Assert-CLUPath $Path;$acl=Get-Acl -LiteralPath $path;$acl.SetOwner([Security.Principal.WindowsIdentity]::GetCurrent().User);([IO.FileInfo]::new($path)).SetAccessControl($acl)
+ $path=Assert-CLUPath $Path;$file=[IO.FileInfo]::new($path);$acl=$file.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner);$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ if($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $sid.Value){$acl.SetOwner($sid);$file.SetAccessControl($acl)}
 }
 function Write-CLUJson([string]$Path,$Value){
  $p=Assert-CLUPath $Path;$tmp=$p+'.'+[guid]::NewGuid().ToString('N')+'.new';$bytes=[Text.UTF8Encoding]::new($false).GetBytes(($Value|ConvertTo-Json -Depth 48))
@@ -146,7 +150,7 @@ function Read-CLUWslInstallation([string]$Root){
  $s=Read-CLUJson (Join-Path $actual 'installation.json');if($s.schemaVersion -ne 1 -or $s.installationId -cnotmatch '^[a-f0-9]{32}$' -or $s.distroName -cne ('CastLink-Server-'+$s.installationId.Substring(0,12)) -or $s.rootPath -cne $actual -or $s.repository -cne 'resokol/castlink' -or $s.rootfsSha256 -cnotmatch '^[a-f0-9]{64}$' -or $s.phase -cnotin @('ready','imported','maintenance') -or ($p -and $p.installationId -cne $s.installationId)){throw 'WSL ownership receipt identity mismatch'}
  $match=[regex]::Match($s.releaseTag,'^server-wsl-v(.+)-[a-f0-9]{12}$');if(-not $match.Success){throw 'WSL release identity mismatch'};$null=Compare-CLUVersion $match.Groups[1].Value $match.Groups[1].Value;$origin=''
  if($s.nativePanel -and $s.nativePanel.bindingPath -and (Get-CLUHash $s.nativePanel.bindingPath) -ceq $s.nativePanel.bindingSha256){$origin=(Read-CLUJson $s.nativePanel.bindingPath).origin}
- return [pscustomobject]@{channel='server-wsl';identity=$s.installationId;folder=$selected;activeRoot=$actual;version=$match.Groups[1].Value;releaseTag=$s.releaseTag;domain=$origin;phase=$s.phase;receipt=$s;label=('WSL '+$origin+' | '+$selected+' | '+$match.Groups[1].Value)}
+ return [pscustomobject]@{channel='server-wsl';identity=$s.installationId;logicalId=$(if($s.logicalInstallationId){$s.logicalInstallationId}else{$s.installationId});availability='available';folder=$selected;activeRoot=$actual;version=$match.Groups[1].Value;releaseTag=$s.releaseTag;domain=$origin;phase=$s.phase;receipt=$s;label=('WSL '+$origin+' | '+$selected+' | '+$match.Groups[1].Value)}
 }
 function Read-CLUClientBuild([string]$Folder){
  $folder=Assert-CLUPath $Folder;$exe=Join-Path $folder 'CastLink Client.exe';if(-not (Test-Path -LiteralPath $exe -PathType Leaf)){throw 'Installed Client executable is absent'};$archive=Assert-CLUPath (Join-Path $folder 'resources\app.asar');$stream=[IO.File]::OpenRead($archive)
@@ -158,8 +162,87 @@ function Get-CLUClientFolders{
  $folders=@((Join-Path $env:LOCALAPPDATA 'Programs\CastLink Client'))
  foreach($hive in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')){if(Test-Path $hive){foreach($key in Get-ChildItem $hive){$p=Get-ItemProperty $key.PSPath;if($p.DisplayName -ceq 'CastLink Client'){if($p.InstallLocation){$folders+=@($p.InstallLocation)}elseif($p.DisplayIcon -match '^"?(.+?\.exe)"?(?:,\d+)?$'){$folders+=@(Split-Path $Matches[1] -Parent)}}}}};return @($folders|Select-Object -Unique)
 }
+function Get-CLULocationRecords{
+ $directory=Join-Path $env:LOCALAPPDATA 'CastLinkServerRegistry';$path=Join-Path $directory 'installations.json'
+ if(-not (Test-Path -LiteralPath $directory)){return @()};Assert-CLUPrivate $directory
+ if(-not (Test-Path -LiteralPath $path)){return @()};Assert-CLUPrivate $path;$value=Read-CLUJson $path
+ if($value.schemaVersion -ne 1 -or $value.owner -cne 'castlink-wsl-location-v1' -or $value.userSid -cne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -or $null -eq $value.installations -or $value.installations -isnot [array]){throw 'Invalid installation location registry identity'}
+ $ids=@{};$roots=@{};$physical=@{};$installationIds=@{};$rows=@()
+ foreach($row in $value.installations){
+  if($row.logicalId -cnotmatch '^[a-f0-9]{32}$' -or $row.installationId -cnotmatch '^[a-f0-9]{32}$'){throw 'Invalid installation location registry identity'}
+  foreach($field in @('selectedRoot','activeRoot')){$path=Assert-CLUPath $row.$field;if($path -cne $row.$field -or $path -eq [IO.Path]::GetPathRoot($path)){throw 'Invalid installation location registry path'}}
+  if($installationIds.ContainsKey($row.installationId) -or $ids.ContainsKey($row.logicalId) -or $roots.ContainsKey($row.selectedRoot) -or $physical.ContainsKey($row.activeRoot)){throw 'Conflicting or duplicate installation location registry identity'}
+  $installationIds[$row.installationId]=$true;$ids[$row.logicalId]=$true;$roots[$row.selectedRoot]=$true;$physical[$row.activeRoot]=$true;$rows+=@($row)
+ };return $rows
+}
+function Read-CLURegisteredInstallation($Record){
+ foreach($path in @($Record.selectedRoot,$Record.activeRoot)){$cancelled=Get-CLUMoveDiscoveryState $path;if($cancelled){if($cancelled.availability -ceq 'pending' -and ($cancelled.logicalId -cne $Record.logicalId -or $cancelled.identity -cne $Record.installationId)){throw 'Registry and pending move identity conflict'};return $cancelled}}
+ $selected=$Record.selectedRoot;$active=$Record.activeRoot;$selectedPresent=Test-Path -LiteralPath $selected;$activePresent=Test-Path -LiteralPath $active
+ if($selectedPresent){
+  Assert-CLUPrivate $selected;$pointer=[IO.Path]::Combine($selected,'active-generation.json')
+  if(Test-Path -LiteralPath $pointer){Assert-CLUPrivate $pointer;$p=Read-CLUJson $pointer;if($p.schemaVersion -ne 1 -or $p.selectedRoot -cne $selected -or $p.activeRoot -cne $active -or $p.installationId -cne $Record.installationId){throw 'Registry and active generation identity conflict'}}
+  elseif($active -cne $selected){throw 'Registry active root mismatch: logical pointer is absent'}
+ }
+ if(-not $selectedPresent -or -not $activePresent){return [pscustomobject]@{channel='server-wsl';identity=$Record.installationId;logicalId=$Record.logicalId;folder=$selected;activeRoot=$active;availability='unavailable';version='';receipt=$null;label=('WSL | '+$selected)}}
+ Assert-CLUPrivate $active;Assert-CLUPrivate ([IO.Path]::Combine($active,'installation.json'));$receipt=Read-CLUJson ([IO.Path]::Combine($active,'installation.json'));if($receipt.phase -ceq 'removed' -and $receipt.rootPath -ceq $active -and $receipt.installationId -ceq $Record.installationId -and $receipt.repository -ceq 'resokol/castlink'){return New-CLULocationIssue $selected 'retired' 'Installation was removed; old source cannot be adopted' $Record.logicalId};$row=Read-CLUWslInstallation $selected
+ if($row.activeRoot -cne $active -or $row.identity -cne $Record.installationId -or $row.logicalId -cne $Record.logicalId){throw 'Registry and ownership receipt identity conflict'};return $row
+}
+function Resolve-CLUCompletedRelocation([string]$Root,$Records,[string[]]$Visited=@(),[string]$ExpectedLogicalId=''){
+ $Root=Assert-CLUPath $Root;if($Visited.Count -ge 32 -or $Root -iin $Visited){throw 'Completed relocation chain has a cycle or exceeds its bound'}
+ $marker=Join-Path $Root 'relocated-to.json';if(-not (Test-Path -LiteralPath $marker)){return $null}
+ Assert-CLUPrivate $Root;Assert-CLUPrivate $marker;$m=Read-CLUJson $marker
+ if($m.schemaVersion -ne 1 -or $m.logicalId -cnotmatch '^[a-f0-9]{32}$' -or $m.transactionId -cnotmatch '^[a-f0-9]{32}$' -or ($ExpectedLogicalId -and $m.logicalId -cne $ExpectedLogicalId) -or (Assert-CLUPath $m.destinationRoot) -cne $m.destinationRoot){throw 'Completed relocation identity is invalid'}
+ $matches=@($Records|Where-Object {$_.logicalId -ceq $m.logicalId})
+ if($matches.Count -ne 1){throw 'Completed relocation has no unique registered destination'}
+ $operation=Join-Path $env:LOCALAPPDATA ('CastLinkServerRegistry\operations\'+$m.transactionId);$journal=Join-Path $operation 'journal.json';$pointer=Join-Path $Root 'maintenance-transaction.json'
+ foreach($path in @($operation,$journal,$pointer)){Assert-CLUPrivate $path};$p=Read-CLUJson $pointer;$j=Read-CLUJson $journal
+ if($p.schemaVersion -ne 1 -or $p.kind -cne 'move' -or $p.id -cne $m.transactionId -or $p.selectedRoot -cne $Root -or $p.journal -cne $journal -or $p.journalSelectedRoot -cne $j.selectedRoot -or $j.schemaVersion -ne 1 -or $j.id -cne $m.transactionId -or $j.kind -cne 'move' -or $j.phase -cne 'completed' -or $j.logicalId -cne $m.logicalId -or $j.destinationRoot -cne $m.destinationRoot -or $Root -cnotin @($j.selectedRoot,$j.sourceRoot)){throw 'Completed relocation journal identity mismatch'}
+ if($matches[0].selectedRoot -cne $m.destinationRoot){$resolved=Resolve-CLUCompletedRelocation $m.destinationRoot $Records @($Visited+$Root) $m.logicalId;if(-not $resolved -or $resolved -cne $matches[0].selectedRoot){throw 'Completed relocation chain has no verified registered destination'};return $resolved}
+ $null=Read-CLURegisteredInstallation $matches[0];return $matches[0].selectedRoot
+}
+function New-CLULocationIssue([string]$Root,[string]$Status,[string]$Message,[string]$LogicalId=''){
+ return [pscustomobject]@{channel='server-wsl';identity=('location:'+ $Root);logicalId=$LogicalId;folder=$Root;activeRoot=$Root;availability=$Status;canRecover=$false;statusMessage=$Message;receipt=$null;version='';label=('WSL | '+$Root)}
+}
+function Get-CLUMoveDiscoveryState([string]$Root){
+ $pointer=Join-Path $Root 'maintenance-transaction.json';if(-not (Test-Path -LiteralPath $pointer)){return $null}
+ try{
+  $p=Read-CLUJson $pointer;if($p.kind -cne 'move'){return $null};Assert-CLUPrivate $Root;Assert-CLUPrivate $pointer
+  if($p.id -cnotmatch '^[a-f0-9]{32}$'){throw 'Move pointer identity mismatch'}
+  $operation=Join-Path $env:LOCALAPPDATA ('CastLinkServerRegistry\operations\'+$p.id);$path=Join-Path $operation 'journal.json'
+  foreach($file in @((Join-Path $env:LOCALAPPDATA 'CastLinkServerRegistry'),$operation,$path)){Assert-CLUPrivate $file}
+  $j=Read-CLUJson $path
+  if($p.schemaVersion -ne 1 -or $p.selectedRoot -cne $Root -or $p.journal -cne $path -or $p.journalSelectedRoot -cne $j.selectedRoot -or $j.schemaVersion -ne 1 -or $j.id -cne $p.id -or $j.kind -cne 'move' -or ($j.journal -and $j.journal -cne $path) -or $Root -cnotin @($j.selectedRoot,$j.sourceRoot,$j.destinationRoot)){throw 'Move journal identity mismatch'}
+  if($j.phase -ceq 'cancelled' -and $Root -ceq $j.destinationRoot){return New-CLULocationIssue $Root 'retired' 'Cancelled move destination is retained for audit, not an installation' $j.logicalId}
+  if($j.phase -cin @('move-prepared','move-quiesce','move-copy','move-wsl','move-bindings','move-verify','move-publish','move-finish','move-cleanup','move-cancel-restore','move-cancel-cleanup')){
+   $row=Read-CLUWslInstallation $Root;foreach($file in @($row.activeRoot,(Join-Path $row.activeRoot 'installation.json'))){Assert-CLUPrivate $file}
+   if($row.logicalId -cne $j.logicalId -or ($j.source -and ($row.identity -cne $j.source.installationId -or $row.releaseTag -cne $j.source.releaseTag -or $row.receipt.rootfsSha256 -cne $j.source.rootfsSha256))){throw 'Pending move receipt identity mismatch'}
+   $row.availability='pending';$row|Add-Member NoteProperty canRecover $true;$row|Add-Member NoteProperty statusMessage 'Interrupted relocation; recover this operation';return $row
+  }
+  if($j.phase -cnotin @('completed','cancelled')){throw 'Unknown durable move phase'}
+ }catch{return New-CLULocationIssue $Root 'conflict' $_.Exception.Message}
+ return $null
+}
+function Get-CLURelocationState([string]$Root,$Records){
+ $cancelled=Get-CLUMoveDiscoveryState $Root;if($cancelled){return $cancelled}
+ $marker=Join-Path $Root 'relocated-to.json';if(-not (Test-Path -LiteralPath $marker)){return $null}
+ try{$resolved=Resolve-CLUCompletedRelocation $Root $Records;return [pscustomobject]@{resolvedRoot=$resolved}}catch{$failure=$_.Exception.Message}
+ try{
+  foreach($path in @($Root,$marker)){Assert-CLUPrivate $path};$m=Read-CLUJson $marker
+  if($m.schemaVersion -ne 1 -or $m.logicalId -cnotmatch '^[a-f0-9]{32}$' -or $m.transactionId -cnotmatch '^[a-f0-9]{32}$' -or (Assert-CLUPath $m.destinationRoot) -cne $m.destinationRoot){throw 'Relocation identity mismatch'}
+  $operation=Join-Path $env:LOCALAPPDATA ('CastLinkServerRegistry\operations\'+$m.transactionId);$journal=Join-Path $operation 'journal.json';$pointer=Join-Path $Root 'maintenance-transaction.json'
+  foreach($path in @((Join-Path $env:LOCALAPPDATA 'CastLinkServerRegistry'),$operation,$journal,$pointer)){Assert-CLUPrivate $path};$p=Read-CLUJson $pointer;$j=Read-CLUJson $journal
+  if($p.schemaVersion -ne 1 -or $p.kind -cne 'move' -or $p.id -cne $m.transactionId -or $p.selectedRoot -cne $Root -or $p.journal -cne $journal -or $p.journalSelectedRoot -cne $j.selectedRoot -or $j.schemaVersion -ne 1 -or $j.id -cne $m.transactionId -or $j.kind -cne 'move' -or $j.logicalId -cne $m.logicalId -or $j.destinationRoot -cne $m.destinationRoot -or $Root -cnotin @($j.selectedRoot,$j.sourceRoot) -or ($j.journal -and $j.journal -cne $journal)){throw 'Relocation journal identity mismatch'}
+  if($j.phase -cin @('move-prepared','move-quiesce','move-copy','move-wsl','move-bindings','move-verify','move-publish','move-finish','move-cleanup','move-cancel-restore','move-cancel-cleanup')){
+   $row=Read-CLUWslInstallation $Root;Assert-CLUPrivate (Join-Path $row.activeRoot 'installation.json');if($row.logicalId -cne $m.logicalId){throw 'Pending relocation receipt identity mismatch'}
+   $row.availability='pending';$row|Add-Member NoteProperty canRecover $true;$row|Add-Member NoteProperty statusMessage 'Interrupted relocation; recover this operation';return $row
+  }
+  if($j.phase -ceq 'completed' -and @($Records|Where-Object {$_.logicalId -ceq $m.logicalId}).Count -eq 0){return New-CLULocationIssue $Root 'retired' 'Relocated installation is no longer registered; old source cannot be adopted' $m.logicalId}
+ }catch{$failure=$_.Exception.Message}
+ return New-CLULocationIssue $Root 'conflict' $failure
+}
 function Resolve-CLUSelectedRoot([string]$Root){
  $root=Assert-CLUPath $Root
+ $records=@(Get-CLULocationRecords);$relocated=Resolve-CLUCompletedRelocation $root $records;if($relocated){return $relocated};$registered=@($records|Where-Object {$_.selectedRoot -ieq $root -or $_.activeRoot -ieq $root});if($registered.Count -gt 1){throw 'Ambiguous registered installation root'};if($registered.Count -eq 1){$null=Read-CLURegisteredInstallation $registered[0];return $registered[0].selectedRoot}
  if((Split-Path (Split-Path $root -Parent) -Leaf) -cne 'lifecycle-generations'){return $root}
  $storage=Split-Path (Split-Path $root -Parent) -Parent;$queue=[Collections.Generic.Queue[string]]::new();$queue.Enqueue($storage);$matches=@();$count=0
  while($queue.Count){
@@ -172,19 +255,73 @@ function Resolve-CLUSelectedRoot([string]$Root){
  return $matches[0]
 }
 function Get-CLUInstallations([string]$SelectedRoot){
- $rows=@();if($SelectedRoot){return @(Read-CLUWslInstallation (Resolve-CLUSelectedRoot $SelectedRoot))}
+ $rows=@();$records=@(Get-CLULocationRecords);$seen=@{};$physical=@{}
+ if($SelectedRoot){$state=Get-CLURelocationState (Assert-CLUPath $SelectedRoot) $records;if($state -and -not $state.resolvedRoot){return @($state)};$resolved=if($state){$state.resolvedRoot}else{Resolve-CLUSelectedRoot $SelectedRoot};$registered=@($records|Where-Object {$_.selectedRoot -ieq $resolved});if($registered.Count -eq 1){try{return @(Read-CLURegisteredInstallation $registered[0])}catch{return @(New-CLULocationIssue $resolved 'conflict' $_.Exception.Message $registered[0].logicalId)}};return @(Read-CLUWslInstallation $resolved)}
  foreach($folder in Get-CLUClientFolders){try{$rows+=@(Read-CLUClientBuild $folder)}catch{}}
- $base=Join-Path $env:LOCALAPPDATA 'CastLinkServer';if(Test-Path -LiteralPath $base){$queue=[Collections.Generic.Queue[string]]::new();$queue.Enqueue((Assert-CLUPath $base));$seen=@{};$count=0
+ foreach($record in $records){try{$row=Read-CLURegisteredInstallation $record}catch{$row=New-CLULocationIssue $record.selectedRoot 'conflict' $_.Exception.Message $record.logicalId};$rows+=@($row);$seen[$row.logicalId]=$row;$physical[$row.identity]=$row}
+ $base=Join-Path $env:LOCALAPPDATA 'CastLinkServer';if(Test-Path -LiteralPath $base){$queue=[Collections.Generic.Queue[string]]::new();$queue.Enqueue((Assert-CLUPath $base));$count=0
   while($queue.Count){$dir=$queue.Dequeue();$count++;if($count -gt 4096){throw 'Too many local server directories; choose an explicit installation'}
-   if((Test-Path -LiteralPath (Join-Path $dir 'installation.json')) -or (Test-Path -LiteralPath (Join-Path $dir 'active-generation.json'))){try{$row=Read-CLUWslInstallation $dir;if(-not $seen.ContainsKey($row.identity)){$rows+=@($row);$seen[$row.identity]=$true}}catch{}}
+   $relocated=Get-CLURelocationState $dir $records
+   if($relocated -and -not $relocated.resolvedRoot){if($relocated.availability -ceq 'pending'){$rows=@($rows|Where-Object {$_.channel -cne 'server-wsl' -or $_.logicalId -cne $relocated.logicalId})};$rows+=@($relocated)}
+   if(-not $relocated -and ((Test-Path -LiteralPath (Join-Path $dir 'installation.json')) -or (Test-Path -LiteralPath (Join-Path $dir 'active-generation.json')))){
+    $row=$null;try{$row=Read-CLUWslInstallation $dir}catch{}
+    if($row){$previous=$seen[$row.logicalId];if(-not $previous){$previous=$physical[$row.identity]};if($previous){if($previous.folder -ine $row.folder -or $previous.activeRoot -ine $row.activeRoot){throw 'Ambiguous or conflicting installation identity; copied locations cannot be adopted'}}else{$rows+=@($row);$seen[$row.logicalId]=$row;$physical[$row.identity]=$row}}
+   }
    foreach($d in Get-ChildItem -LiteralPath $dir -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','lifecycle-generations') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$queue.Enqueue($d.FullName)}
   }
  };return $rows
 }
+function Get-CLUMovePlan($Installation,[string]$Language='ru',[switch]$Recovery){
+ if($Installation.channel -cne 'server-wsl'){throw 'Move is available only for WSL servers'}
+ if($Installation.availability -and $Installation.availability -cne 'available' -and -not ($Recovery -and $Installation.availability -ceq 'pending')){throw (Get-CLUText $Installation.availability $Language)}
+ $fresh=@(Get-CLUInstallations $Installation.folder)[0];if($fresh.identity -cne $Installation.identity -or $fresh.activeRoot -cne $Installation.activeRoot -or $fresh.releaseTag -cne $Installation.releaseTag){throw 'Installation changed; refresh before opening maintenance'}
+ $s=$fresh.receipt;if($fresh.availability -and $fresh.availability -cne 'available' -and -not ($Recovery -and $fresh.availability -ceq 'pending')){throw (Get-CLUText $fresh.availability $Language)};if($s.locationContract -cne 'castlink-wsl-location-v1'){throw (Get-CLUText moveUpgrade $Language)}
+ foreach($path in @($fresh.folder,$fresh.activeRoot,(Join-Path $fresh.activeRoot 'installation.json'))){Assert-CLUPrivate $path}
+ if($s.nativePanel){
+  $panel=$s.nativePanel;$panelRoot=Join-Path $fresh.activeRoot 'native-panel'
+  if($panel.schemaVersion -ne 1 -or $panel.bindingPath -cne (Join-Path $panelRoot 'server-native-binding.json') -or $panel.hostPath -cne (Join-Path $panelRoot 'CastLinkServer.exe')){throw 'Installed panel binding path mismatch'}
+  Assert-CLUPrivate $panelRoot
+  foreach($pair in @(@($panel.bindingPath,$panel.bindingSha256),@($panel.hostPath,$panel.hostSha256))){Assert-CLUPrivate $pair[0];if($pair[1] -cnotmatch '^[a-f0-9]{64}$' -or (Get-CLUHash $pair[0]) -cne $pair[1]){throw 'Installed panel binding checksum mismatch'}}
+  $binding=Read-CLUJson $panel.bindingPath
+  if($binding.installRoot -cne $fresh.activeRoot -or $binding.installationId -cne $s.installationId -or $binding.expectedBuildId -cne ($s.releaseTag -creplace '^server-wsl-v','')){throw 'Installed panel binding identity mismatch'}
+ }
+ $dir=Join-Path $fresh.activeRoot 'release';Assert-CLUPrivate $dir;$manifestPath=Join-Path $dir 'manifest.json';Assert-CLUPrivate $manifestPath
+ $pin=if($s.releaseManifestSha256){$s.releaseManifestSha256}elseif($s.nativePanel){$s.nativePanel.manifestSha256}else{''}
+ if($pin -cnotmatch '^[a-f0-9]{64}$' -or (Get-CLUHash $manifestPath) -cne $pin){throw 'Installed manifest checksum mismatch'}
+ $m=Read-CLUJson $manifestPath
+ if($m.schemaVersion -ne 1 -or $m.repository -cne 'resokol/castlink' -or $m.channel -cne 'server-wsl' -or $m.architecture -cne 'amd64' -or $m.releaseTag -cne $s.releaseTag -or $m.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $m.releaseTag -cne ('server-wsl-v'+$m.version+'-'+$m.sourceCommit.Substring(0,12)) -or $m.rootfs.sha256 -cne $s.rootfsSha256 -or $m.lifecycle.schemaVersion -ne 1 -or $m.lifecycle.runtimeContract -cne 'castlink-wsl-pg16-v1'){throw 'Installed manifest identity mismatch'}
+ if($m.lifecycle.locationContract -cne 'castlink-wsl-location-v1'){throw (Get-CLUText moveUpgrade $Language)}
+ $seen=@{};foreach($e in @($m.lifecycle.helpers)+@($m.nativePanel.files)){if(-not $e){continue};Assert-CLUName $e.file;if($seen.ContainsKey($e.file)){if($seen[$e.file] -cne ($e.sha256+':'+$e.size)){throw 'Conflicting installed helper inventory'};continue};$seen[$e.file]=$e.sha256+':'+$e.size;$file=Assert-CLUFile $dir $e;Assert-CLUPrivate $file}
+ foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-location.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if($name -cnotin @($m.lifecycle.helpers|ForEach-Object {$_.file})){throw 'Installed lifecycle helper inventory is incomplete'}}
+ $entry=Join-Path $dir 'server-wsl-maintenance-ui.ps1'
+ return [pscustomobject]@{entry=$entry;selectedRoot=$fresh.folder;logicalId=$fresh.logicalId;manifestPin=$pin;arguments=@('-NoLogo','-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$entry,'-InstallRoot',$fresh.folder,'-Lang',$Language,'-InitialAction','Move')}
+}
+function Start-CLULifecycleUi($Plan){$arguments=$Plan.arguments;& (Join-Path $PSHOME 'powershell.exe') @arguments;if($LASTEXITCODE -ne 0){throw 'Installed maintenance UI failed'}}
+function Open-CLUMoveUi($Installation,[string]$Language){$plan=Get-CLUMovePlan $Installation $Language;Start-CLULifecycleUi $plan}
 function Test-CLUWslCompatibility($Manifest,$Installation){if($Installation.releaseTag -cnotin @($Manifest.lifecycle.supportedSources)){throw 'This release does not support a direct upgrade from the installed WSL version'};return $true}
+function Get-CLUProductDirectory($Installation,[string]$Root,$Release){
+ Assert-CLUName $Release.tag_name;if($Release.id -le 0){throw 'Invalid product release identity'};$name=$Release.tag_name+'-'+$Release.id
+ if($Installation.channel -ceq 'client'){$directory=Join-Path (Join-Path $Root 'products') $name;Protect-CLUDirectory $directory;return $directory}
+ if($Installation.channel -cne 'server-wsl' -or ($Installation.availability -and $Installation.availability -cne 'available')){throw 'An available WSL installation is required for its package cache'}
+ $fresh=@(Get-CLUInstallations $Installation.folder)[0]
+ if($fresh.identity -cne $Installation.identity -or $fresh.releaseTag -cne $Installation.releaseTag -or $fresh.activeRoot -cne $Installation.activeRoot){throw 'Installation changed before selecting its package cache'}
+ foreach($path in @($fresh.folder,$fresh.activeRoot,(Join-Path $fresh.activeRoot 'installation.json'))){Assert-CLUPrivate $path}
+ $lease=Enter-CLULock $Root ('product-location:'+ $fresh.logicalId)
+ try{
+  $cache=Join-Path $fresh.folder 'lifecycle-updater';$directory=Join-Path $cache $name
+  foreach($path in @($cache,$directory)){
+   $marker=Join-Path $path 'package-owner.json';$record=[pscustomobject]@{schemaVersion=1;owner='castlink-updater-products-v1';logicalId=$fresh.logicalId;selectedRoot=$fresh.folder;releaseTag=$(if($path -ceq $directory){$Release.tag_name}else{''});releaseId=$(if($path -ceq $directory){$Release.id}else{0})}
+   if(Test-Path -LiteralPath $path){
+    Assert-CLUPrivate $path;if(-not (Test-Path -LiteralPath $marker -PathType Leaf)){throw 'Package cache ownership collision; existing files were preserved'};Assert-CLUPrivate $marker;$old=Read-CLUJson $marker
+    foreach($field in @('schemaVersion','owner','logicalId','selectedRoot','releaseTag','releaseId')){if($old.$field -cne $record.$field){throw 'Package cache ownership identity mismatch'}}
+   }else{Protect-CLUDirectory $path;Write-CLUJson $marker $record}
+  };return $directory
+ }finally{$lease.Dispose()}
+}
 function Get-CLUProductPlan($Installation,[object[]]$Releases,[string]$Root,[switch]$Recovery){
+ if($Installation.availability -and $Installation.availability -cne 'available'){throw ('Installation location is '+$Installation.availability+'; recover or refresh before updating')}
  $selected=Select-CLURelease $Releases $Installation.channel $(if($Recovery){''}else{$Installation.version});if(-not $selected){return $null};$r=Get-CLURelease ([long]$selected.id);if($r.id -ne $selected.id -or $r.tag_name -cne $selected.tag_name -or $r.draft -ne $false -or $r.prerelease -ne $false){throw 'Product release changed during selection'}
- $match=[regex]::Match($r.tag_name,('^'+$Installation.channel+'-v([0-9]+\.[0-9]+\.[0-9]+)-([a-f0-9]{12})$'));if(-not $match.Success){throw 'Invalid stable product tag'};$v=$match.Groups[1].Value;$dir=Join-Path (Join-Path $Root 'products') ($r.tag_name+'-'+$r.id);Protect-CLUDirectory $dir
+ $match=[regex]::Match($r.tag_name,('^'+$Installation.channel+'-v([0-9]+\.[0-9]+\.[0-9]+)-([a-f0-9]{12})$'));if(-not $match.Success){throw 'Invalid stable product tag'};$v=$match.Groups[1].Value;$dir=Get-CLUProductDirectory $Installation $Root $r
  $plan=[pscustomobject]@{installation=$Installation;release=$r;version=$v;directory=$dir;manifest=$null;manifestPin='';installer=$null;notes=[string]$r.body}
  if($Installation.channel -ceq 'client'){$name='CastLink-Client-'+$v+'-'+$match.Groups[2].Value+'-setup.exe';$plan.installer=Get-CLUAsset $r $name 2147483648L;$null=Get-CLUAsset $r 'SHA256SUMS' 1048576;return $plan}
  $ma=Get-CLUAsset $r 'manifest.json' 1048576;$manifestFile=Receive-CLUAsset $dir $r 'manifest.json' 1048576;$m=Read-CLUJson $manifestFile;$plan.manifest=$m;$plan.manifestPin=$ma.digest.Substring(7)
@@ -193,16 +330,47 @@ function Get-CLUProductPlan($Installation,[object[]]$Releases,[string]$Root,[swi
  $seen=@{};foreach($e in @($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)+@($m.nativePanel.files)+@($m.lifecycle.helpers)){Assert-CLUName $e.file;if($seen.ContainsKey($e.file)){if($seen[$e.file] -cne ($e.sha256+':'+$e.size)){throw 'Conflicting WSL file inventory'};continue};$seen[$e.file]=$e.sha256+':'+$e.size;$asset=Get-CLUAsset $r $e.file 68719476736L;if($e.sha256 -cne $asset.digest.Substring(7) -or $e.size -ne $asset.size){throw 'WSL manifest asset metadata mismatch'}}
  foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if($name -cnotin @($m.lifecycle.helpers|ForEach-Object {$_.file})){throw 'WSL maintenance helper inventory is incomplete'}};return $plan
 }
-function Get-CLURecoveryPlan($Installation){
- if($Installation.channel -cne 'server-wsl'){throw 'Recovery requires a WSL installation'}
+function Assert-CLURecoveryHelpers([string]$Directory,$Manifest,[string]$ManifestPin){
+ Assert-CLUPrivate $Directory;$seen=@{};$lifecycle=@{}
+ foreach($entry in @($Manifest.lifecycle.helpers)){
+  Assert-CLUName $entry.file;if($lifecycle.ContainsKey($entry.file)){throw 'Duplicate recovery helper inventory'};$lifecycle[$entry.file]=$true
+ }
+ $required=@('server-wsl-maintenance.ps1');if($Manifest.lifecycle.locationContract -ceq 'castlink-wsl-location-v1'){$required+=@('server-wsl-location.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')}
+ foreach($name in $required){if(-not $lifecycle.ContainsKey($name)){throw 'Required recovery companion missing from inventory'}}
+ foreach($entry in @($Manifest.lifecycle.helpers)+@($Manifest.nativePanel.files)){
+  if(-not $entry){continue};Assert-CLUName $entry.file;$identity=$entry.sha256+':'+$entry.size
+  if($seen.ContainsKey($entry.file)){if($seen[$entry.file] -cne $identity){throw 'Conflicting recovery helper inventory'};continue};$seen[$entry.file]=$identity;$file=Assert-CLUFile $Directory $entry;Assert-CLUPrivate $file
+ }
+ foreach($item in Get-ChildItem -LiteralPath $Directory -Force){
+  if($item.PSIsContainer -or $item.Extension -inotmatch '^\.(ps1|psm1|psd1|py|exe|dll|cmd|bat|vbs|js)$' -or $seen.ContainsKey($item.Name)){continue}
+  if($item.Name -cne 'install-server-windows.ps1' -or -not $seen.ContainsKey('install-server-windows.template.ps1')){throw ('Unexpected executable recovery companion: '+$item.Name)}
+  Assert-CLUPrivate $item.FullName;$text=[IO.File]::ReadAllText((Join-Path $Directory 'install-server-windows.template.ps1'),[Text.Encoding]::UTF8).TrimStart([char]0xfeff)
+  foreach($pair in @(@('RELEASE_TAG',$Manifest.releaseTag),@('ROOTFS_SHA256',$Manifest.rootfs.sha256),@('MANIFEST_SHA256',$ManifestPin),@('REPOSITORY',$Manifest.repository))){$text=$text.Replace(('@CASTLINK_WSL_'+$pair[0]+'@'),[string]$pair[1])}
+  if($text -match '@CASTLINK_'){throw 'Unresolved recovery installer pin'};$bytes=([Text.UTF8Encoding]::new($true)).GetPreamble()+[Text.Encoding]::UTF8.GetBytes(($text -replace '\r?\n',"`r`n"));$sha=[Security.Cryptography.SHA256]::Create()
+  try{$expected=([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+  if((Get-CLUHash $item.FullName) -cne $expected){throw 'Generated recovery installer differs from verified template'}
+ }
+ return Join-Path $Directory 'server-wsl-maintenance.ps1'
+}
+function Get-CLURecoveryPlan($Installation,[string]$Language='ru'){
+ if($Installation.channel -cne 'server-wsl'){throw 'Recovery requires a WSL installation'};if($Installation.availability -cin @('retired','conflict','unavailable')){throw ('Installation location is '+$Installation.availability+'; repair discovery before recovery')}
  $root=Assert-CLUPath $Installation.folder;$pointer=Read-CLUJson (Join-Path $root 'maintenance-transaction.json');$journalPath=Assert-CLUPath $pointer.journal;$journal=Read-CLUJson $journalPath
+ if($pointer.kind -ceq 'move' -or $journal.kind -ceq 'move'){
+  if($Language -cnotin @('ru','en','zh-CN')){$Language='ru'}
+  if($pointer.id -cnotmatch '^[a-f0-9]{32}$'){throw 'Move recovery journal identity mismatch'}
+  $operation=Join-Path $env:LOCALAPPDATA ('CastLinkServerRegistry\operations\'+$pointer.id);$expected=Join-Path $operation 'journal.json'
+  foreach($path in @((Join-Path $env:LOCALAPPDATA 'CastLinkServerRegistry'),$operation,$root,(Join-Path $root 'maintenance-transaction.json'),$journalPath)){Assert-CLUPrivate $path}
+  if($pointer.schemaVersion -ne 1 -or $pointer.kind -cne 'move' -or $pointer.selectedRoot -cne $root -or $journalPath -cne $expected -or $journal.schemaVersion -ne 1 -or $journal.kind -cne 'move' -or $journal.id -cne $pointer.id -or $journal.journal -cne $expected -or $journal.selectedRoot -cne $pointer.journalSelectedRoot -or $root -cnotin @($journal.selectedRoot,$journal.sourceRoot,$journal.destinationRoot) -or $journal.logicalId -cne $Installation.logicalId -or $journal.source.installationId -cne $Installation.identity -or $journal.source.releaseTag -cne $Installation.releaseTag -or $journal.source.rootfsSha256 -cne $Installation.receipt.rootfsSha256){throw 'Move recovery journal identity mismatch'}
+  $ui=Get-CLUMovePlan $Installation $Language -Recovery;$ui.arguments=@($ui.arguments[0..($ui.arguments.Count-3)]) # Pending selected-root UI enables Recover without requesting a new Move.
+  return [pscustomobject]@{kind='move';installation=$Installation;version=$Installation.version;directory=(Split-Path $ui.entry -Parent);manifestPin=$ui.manifestPin;lifecycleUi=$ui;language=$Language;journalSha256=(Get-CLUHash $journalPath);journalPath=$journalPath;notes=((Get-CLUText recover $Language)+' '+$journal.id)}
+ }
  if($pointer.schemaVersion -ne 1 -or $pointer.selectedRoot -cne $root -or $journal.schemaVersion -ne 1 -or $journal.id -cne $pointer.id -or $journal.journal -cne $journalPath -or $journal.selectedRoot -cne $root -or $journal.kind -cne 'update'){throw 'Use original maintenance for this transaction type; update journal identity is required'}
  $dir=Assert-CLUPath $journal.targetDirectory;Assert-CLUPrivate $dir;$manifestPath=Join-Path $dir 'manifest.json'
  if($journal.manifestSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-CLUHash $manifestPath) -cne $journal.manifestSha256){throw 'Recorded recovery manifest checksum mismatch'}
  $m=Read-CLUJson $manifestPath
  if($m.schemaVersion -ne 1 -or $m.channel -cne 'server-wsl' -or $m.repository -cne 'resokol/castlink' -or $m.releaseTag -cne $journal.target.releaseTag -or $m.sourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $m.releaseTag -cne ('server-wsl-v'+$m.version+'-'+$m.sourceCommit.Substring(0,12)) -or $m.lifecycle.schemaVersion -ne 1 -or $m.lifecycle.runtimeContract -cne 'castlink-wsl-pg16-v1'){throw 'Recorded recovery target identity mismatch'}
  $helpers=@($m.lifecycle.helpers|Where-Object {$_.file -ceq 'server-wsl-maintenance.ps1'});if($helpers.Count -ne 1){throw 'Recorded recovery helper is missing or duplicated'}
- $helper=Assert-CLUFile $dir $helpers[0];Assert-CLUPrivate $helper
+ $helper=Assert-CLURecoveryHelpers $dir $m $journal.manifestSha256
  $assets=@();$seen=@{};foreach($entry in @($m.rootfs,$m.sources,$m.upstreamSources,$m.inventory)+@($m.nativePanel.files)+@($m.lifecycle.helpers)){if(-not $entry){continue};Assert-CLUName $entry.file;if(-not $seen.ContainsKey($entry.file)){$seen[$entry.file]=$true;$assets+=@([pscustomobject]@{name=$entry.file;size=$entry.size;digest=('sha256:'+$entry.sha256)})}}
  return [pscustomobject]@{installation=$Installation;version=$m.version;directory=$dir;manifest=$m;manifestPin=$journal.manifestSha256;recoveryHelper=$helper;journalSha256=(Get-CLUHash $journalPath);journalPath=$journalPath;notes=('Recover recorded transaction '+$journal.id);release=[pscustomobject]@{assets=$assets}}
 }
@@ -214,7 +382,7 @@ function Apply-CLUProduct($Plan,[string]$Root,[switch]$Recovery){
  $installation=$Plan.installation;$lease=Enter-CLULock $Root ($installation.channel+':'+$installation.identity);$cacheLease=$null
  try{
   $cacheLease=Enter-CLULock $Root ('product-cache:'+ $Plan.directory)
-  if($Recovery){$fresh=Get-CLURecoveryPlan $installation;if($fresh.journalSha256 -cne $Plan.journalSha256 -or $fresh.manifestPin -cne $Plan.manifestPin){throw 'Recovery journal changed after confirmation'};. $fresh.recoveryHelper -FunctionsOnly;$result=Invoke-CastlinkMaintenance -Action Recover -InstallRoot $installation.folder;if($result.phase -eq 'completed' -or ($result.phase -eq 'rolled-back' -and -not (Test-Path -LiteralPath $result.candidateRoot))){Set-CLUProductPending $fresh $false;Clear-CLUProductPayload $fresh};return}
+  if($Recovery){$fresh=Get-CLURecoveryPlan $installation $Plan.language;if($fresh.journalSha256 -cne $Plan.journalSha256 -or $fresh.manifestPin -cne $Plan.manifestPin){throw 'Recovery journal changed after confirmation'};if($fresh.kind -ceq 'move'){Start-CLULifecycleUi $fresh.lifecycleUi;return};$null=Assert-CLURecoveryHelpers $fresh.directory $fresh.manifest $fresh.manifestPin;. $fresh.recoveryHelper -FunctionsOnly;$result=Invoke-CastlinkMaintenance -Action Recover -InstallRoot $installation.folder;if($result.phase -eq 'completed' -or ($result.phase -eq 'rolled-back' -and -not (Test-Path -LiteralPath $result.candidateRoot))){Set-CLUProductPending $fresh $false;Clear-CLUProductPayload $fresh};return}
   Set-CLUProductPending $Plan $true
   if($installation.channel -ceq 'client'){
    $now=Read-CLUClientBuild $installation.folder;if($now.sourceCommit -cne $installation.sourceCommit -or $now.version -cne $installation.version){throw 'Client identity changed; check updates again'}
@@ -231,12 +399,12 @@ function Apply-CLUProduct($Plan,[string]$Root,[switch]$Recovery){
 }
 function Invoke-CLUConfirmedUpdate($Plan,[string]$Root,[bool]$Confirmed,[switch]$Recovery){if(-not $Confirmed){return};if(-not $Plan){throw 'Check this exact installation before applying an update'};Apply-CLUProduct $Plan $Root -Recovery:$Recovery}
 function Get-CLUText([string]$Key,[string]$Language){
- $t=@{title=@('Обновить CastLink','Update CastLink','更新 CastLink');select=@('Выберите локальную установку','Select a local installation','选择本机安装');check=@('Проверить','Check','检查');update=@('Обновить…','Update…','更新…');recover=@('Восстановить операцию…','Recover transaction…','恢复事务…');automatic=@('Проверять при запуске','Check at startup','启动时检查');latest=@('Обновлений нет','No updates available','没有可用更新');available=@('Доступна версия','Available version','可用版本');busy=@('Выполняется проверка или загрузка…','Checking or downloading…','正在检查或下载…');done=@('Операция завершена','Operation completed','操作已完成');confirm=@('Обновить выбранную установку? Работа сервера прервётся. Установщик Client может закрыть приложение.','Update this installation? Server service will be interrupted. Client setup may close the app.','更新此安装？服务器服务将中断。客户端安装程序可能关闭应用。');failure=@('Ошибка проверки или обновления. Установленные данные сохранены. Повторите проверку; для прерванной WSL-операции используйте восстановление.','Check or update failed. Existing data was retained. Retry Check; use Recover for an interrupted WSL transaction.','检查或更新失败。现有数据已保留。请重试检查；WSL 事务中断时请使用恢复。');none=@('Установки не найдены. Для WSL откройте обновлятор из панели сервера или укажите -InstallRoot.','No installations found. For WSL, open from its server panel or pass -InstallRoot.','未找到安装。对于 WSL，请从服务器面板打开或指定 -InstallRoot。');legacy=@('Legacy Docker обслуживается прежним инструментом; автоматический переход на WSL не выполняется.','Legacy Docker uses its original maintenance tool; automatic WSL migration is unavailable.','旧版 Docker 请使用原维护工具；不提供自动迁移到 WSL。')};$i=if($Language -ceq 'en'){1}elseif($Language -ceq 'zh-CN'){2}else{0};if(-not $t.ContainsKey($Key)){return $Key};return $t[$Key][$i]
+ $t=@{pending=@('Перенос прерван. Восстановите операцию.','Relocation interrupted. Recover this operation.','迁移已中断。请恢复此操作。');retired=@('Установка удалена или больше не зарегистрирована.','Installation removed or no longer registered.','安装已删除或不再注册。');conflict=@('Конфликт размещения. Требуется проверка этой установки.','Location conflict. This installation needs review.','位置冲突。请检查此安装。');move=@('Перенести сервер…','Move server…','移动服务器…');refresh=@('Обновить список','Refresh','刷新');unavailable=@('Папка установки недоступна. Подключите диск и обновите список.','Installation folder unavailable. Reconnect the disk and refresh.','安装文件夹不可用。请重新连接磁盘并刷新。');moveUpgrade=@('Сначала явно обновите сервер до выпуска с поддержкой переноса, затем выберите «Перенести сервер…».','First explicitly update this server to a release supporting relocation, then choose Move server.','请先明确将此服务器更新到支持迁移的版本，然后选择移动服务器。');title=@('Обновить CastLink','Update CastLink','更新 CastLink');select=@('Выберите локальную установку','Select a local installation','选择本机安装');check=@('Проверить','Check','检查');update=@('Обновить…','Update…','更新…');recover=@('Восстановить операцию…','Recover transaction…','恢复事务…');automatic=@('Проверять при запуске','Check at startup','启动时检查');latest=@('Обновлений нет','No updates available','没有可用更新');available=@('Доступна версия','Available version','可用版本');busy=@('Выполняется проверка или загрузка…','Checking or downloading…','正在检查或下载…');done=@('Операция завершена','Operation completed','操作已完成');confirm=@('Обновить выбранную установку? Работа сервера прервётся. Установщик Client может закрыть приложение.','Update this installation? Server service will be interrupted. Client setup may close the app.','更新此安装？服务器服务将中断。客户端安装程序可能关闭应用。');failure=@('Ошибка проверки или обновления. Установленные данные сохранены. Повторите проверку; для прерванной WSL-операции используйте восстановление.','Check or update failed. Existing data was retained. Retry Check; use Recover for an interrupted WSL transaction.','检查或更新失败。现有数据已保留。请重试检查；WSL 事务中断时请使用恢复。');none=@('Установки не найдены. Для WSL откройте обновлятор из панели сервера или укажите -InstallRoot.','No installations found. For WSL, open from its server panel or pass -InstallRoot.','未找到安装。对于 WSL，请从服务器面板打开或指定 -InstallRoot。');legacy=@('Legacy Docker обслуживается прежним инструментом; автоматический переход на WSL не выполняется.','Legacy Docker uses its original maintenance tool; automatic WSL migration is unavailable.','旧版 Docker 请使用原维护工具；不提供自动迁移到 WSL。')};$i=if($Language -ceq 'en'){1}elseif($Language -ceq 'zh-CN'){2}else{0};if(-not $t.ContainsKey($Key)){return $Key};return $t[$Key][$i]
 }
-function Invoke-CLUUiWork([ValidateSet('Check','Overview','RecoveryPlan','Apply','Recover')][string]$Operation,$Rows,[string]$Root,$Plan){
+function Invoke-CLUUiWork([ValidateSet('Check','Overview','RecoveryPlan','Apply','Recover','Move')][string]$Operation,$Rows,[string]$Root,$Plan){
  # Keep WPF responsive while network, setup or the established WSL transaction owns its own runspace.
  $pipeline=[PowerShell]::Create();$source=$script:CLURequest.source
- $code='param($source,$operation,$rows,$root,$plan);$ErrorActionPreference="Stop";. $source -FunctionsOnly;switch($operation){Check{Get-CLUProductPlan $rows @(Get-CLUReleases) $root};RecoveryPlan{Get-CLURecoveryPlan $rows};Overview{$catalog=@(Get-CLUReleases);foreach($row in $rows){[pscustomobject]@{installation=$row;plan=(Get-CLUProductPlan $row $catalog $root)}}};Apply{Apply-CLUProduct $plan $root};Recover{Apply-CLUProduct $plan $root -Recovery}}'
+ $code='param($source,$operation,$rows,$root,$plan);$ErrorActionPreference="Stop";. $source -FunctionsOnly;switch($operation){Move{Open-CLUMoveUi $rows $plan};Check{Get-CLUProductPlan $rows @(Get-CLUReleases) $root};RecoveryPlan{Get-CLURecoveryPlan $rows $plan};Overview{$catalog=@(Get-CLUReleases);foreach($row in $rows){[pscustomobject]@{installation=$row;plan=$(if(-not $row.availability -or $row.availability -ceq "available"){Get-CLUProductPlan $row $catalog $root}else{$null})}}};Apply{Apply-CLUProduct $plan $root};Recover{Apply-CLUProduct $plan $root -Recovery}}'
  $null=$pipeline.AddScript($code).AddArgument($source).AddArgument($Operation).AddArgument($Rows).AddArgument($Root).AddArgument($Plan)
  $handle=$pipeline.BeginInvoke();$frame=[Windows.Threading.DispatcherFrame]::new();$timer=[Windows.Threading.DispatcherTimer]::new();$timer.Interval=[TimeSpan]::FromMilliseconds(100);$timer.Add_Tick({if($handle.IsCompleted){$frame.Continue=$false}})
  try{$timer.Start();[Windows.Threading.Dispatcher]::PushFrame($frame);$result=@($pipeline.EndInvoke($handle));if($pipeline.HadErrors){throw [string]$pipeline.Streams.Error[0]};return $result}finally{$timer.Stop();$pipeline.Dispose()}
@@ -244,22 +412,32 @@ function Invoke-CLUUiWork([ValidateSet('Check','Overview','RecoveryPlan','Apply'
 function Show-CLUWindow([string]$Root,[string]$SelectedRoot,[string]$Language){
  Add-Type -AssemblyName PresentationFramework
  [xml]$xml=@'
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="760" Height="650" MinWidth="620" MinHeight="500" WindowStartupLocation="CenterScreen" Background="#FAFAF9"><Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock x:Name="Heading" FontSize="27" FontWeight="SemiBold"/><ComboBox x:Name="Language" Grid.Row="1" HorizontalAlignment="Right" Width="150" Margin="0,12"><ComboBoxItem Content="Русский"/><ComboBoxItem Content="English"/><ComboBoxItem Content="简体中文"/></ComboBox><TextBlock x:Name="SelectLabel" Grid.Row="2"/><ComboBox x:Name="Products" Grid.Row="3" Margin="0,6,0,12" MinHeight="36"/><StackPanel Grid.Row="4"><CheckBox x:Name="Automatic" Margin="0,0,0,12"/><WrapPanel><Button x:Name="Check" MinWidth="100" Padding="12,8" Margin="0,0,8,8"/><Button x:Name="Update" MinWidth="100" Padding="12,8" Margin="0,0,8,8" IsEnabled="False"/><Button x:Name="Recover" MinWidth="100" Padding="12,8" Margin="0,0,8,8"/></WrapPanel></StackPanel><TextBox x:Name="Result" Grid.Row="5" TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent"/><TextBlock x:Name="Legacy" Grid.Row="6" TextWrapping="Wrap" Foreground="#666666" Margin="0,12,0,0"/></Grid></Window>
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="760" Height="650" MinWidth="620" MinHeight="500" WindowStartupLocation="CenterScreen" Background="#FAFAF9"><Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock x:Name="Heading" FontSize="27" FontWeight="SemiBold"/><ComboBox x:Name="Language" Grid.Row="1" HorizontalAlignment="Right" Width="150" Margin="0,12"><ComboBoxItem Content="Русский"/><ComboBoxItem Content="English"/><ComboBoxItem Content="简体中文"/></ComboBox><TextBlock x:Name="SelectLabel" Grid.Row="2"/><ComboBox x:Name="Products" Grid.Row="3" Margin="0,6,0,12" MinHeight="36"/><StackPanel Grid.Row="4"><CheckBox x:Name="Automatic" Margin="0,0,0,12"/><WrapPanel><Button x:Name="Check" MinWidth="100" Padding="12,8" Margin="0,0,8,8"/><Button x:Name="Update" MinWidth="100" Padding="12,8" Margin="0,0,8,8" IsEnabled="False"/><Button x:Name="Recover" MinWidth="100" Padding="12,8" Margin="0,0,8,8"/><Button x:Name="Move" MinWidth="100" Padding="12,8" Margin="0,0,8,8" IsEnabled="False"/><Button x:Name="Refresh" MinWidth="100" Padding="12,8" Margin="0,0,8,8"/></WrapPanel></StackPanel><TextBox x:Name="Result" Grid.Row="5" TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent"/><TextBlock x:Name="Legacy" Grid.Row="6" TextWrapping="Wrap" Foreground="#666666" Margin="0,12,0,0"/></Grid></Window>
 '@
  $window=[Windows.Markup.XamlReader]::Load([Xml.XmlNodeReader]::new($xml));$rows=@(Get-CLUInstallations $SelectedRoot);if($SelectedRoot -and $rows.Count -eq 1){$SelectedRoot=$rows[0].folder};$prefs=Get-CLUPreferences $Root;$state=@{rows=$rows;plan=$null;lang=$Language;busy=$false}
  $window.FindName('Automatic').IsChecked=$prefs.automatic;$window.FindName('Language').SelectedIndex=if($Language -ceq 'en'){1}elseif($Language -ceq 'zh-CN'){2}else{0}
- $render={foreach($pair in @(@('Heading','title'),@('SelectLabel','select'),@('Check','check'),@('Update','update'),@('Recover','recover'),@('Automatic','automatic'),@('Legacy','legacy'))){$control=$window.FindName($pair[0]);$text=Get-CLUText $pair[1] $state.lang;if($control -is [Windows.Controls.TextBlock]){$control.Text=$text}else{$control.Content=$text}};$window.Title=Get-CLUText title $state.lang};& $render
- foreach($row in $rows){$null=$window.FindName('Products').Items.Add($row.label)};if($SelectedRoot -and $rows.Count -eq 1){$window.FindName('Products').SelectedIndex=0};if(-not $rows.Count){$window.FindName('Result').Text=Get-CLUText none $state.lang}
+ $render={foreach($pair in @(@('Heading','title'),@('SelectLabel','select'),@('Check','check'),@('Update','update'),@('Recover','recover'),@('Move','move'),@('Refresh','refresh'),@('Automatic','automatic'),@('Legacy','legacy'))){$control=$window.FindName($pair[0]);$text=Get-CLUText $pair[1] $state.lang;if($control -is [Windows.Controls.TextBlock]){$control.Text=$text}else{$control.Content=$text}};$window.Title=Get-CLUText title $state.lang};& $render
+ foreach($row in $rows){$null=$window.FindName('Products').Items.Add(($row.label+$(if($row.availability -and $row.availability -cne 'available'){' | '+(Get-CLUText $row.availability $state.lang)}else{''})))};if($SelectedRoot -and $rows.Count -eq 1){$window.FindName('Products').SelectedIndex=0};if(-not $rows.Count){$window.FindName('Result').Text=Get-CLUText none $state.lang}
  $choose={ $index=$window.FindName('Products').SelectedIndex;if($index -lt 0 -or $index -ge $state.rows.Count){throw (Get-CLUText select $state.lang)};return $state.rows[$index] }
- $setBusy={param([bool]$Value)$state.busy=$Value;foreach($n in @('Check','Recover','Products','Language')){$window.FindName($n).IsEnabled=-not $Value};$window.FindName('Update').IsEnabled=(-not $Value -and $null -ne $state.plan)}
+ $setBusy={param([bool]$Value)$state.busy=$Value;foreach($n in @('Check','Recover','Refresh','Products','Language')){$window.FindName($n).IsEnabled=-not $Value};$window.FindName('Update').IsEnabled=(-not $Value -and $null -ne $state.plan);$index=$window.FindName('Products').SelectedIndex;$window.FindName('Move').IsEnabled=(-not $Value -and $index -ge 0 -and $state.rows[$index].channel -ceq 'server-wsl' -and $state.rows[$index].availability -ceq 'available')}
+ $refresh={param($Keep)
+  $fresh=@(Get-CLUInstallations);$key=if($Keep.logicalId){$Keep.logicalId}else{$Keep.identity};$matches=@($fresh|Where-Object {$(if($_.logicalId){$_.logicalId}else{$_.identity}) -ceq $key -and $_.channel -ceq $Keep.channel})
+  if($SelectedRoot){if($matches.Count -eq 1){$fresh=$matches}else{$fresh=@(Get-CLUInstallations $SelectedRoot)}}
+  $state.plan=$null;$state.rows=$fresh;$window.FindName('Products').Items.Clear();$select=-1
+  for($i=0;$i -lt $fresh.Count;$i++){$row=$fresh[$i];$null=$window.FindName('Products').Items.Add(($row.label+$(if($row.availability -and $row.availability -cne 'available'){' | '+(Get-CLUText $row.availability $state.lang)}else{''})));if($(if($row.logicalId){$row.logicalId}else{$row.identity}) -ceq $key -and $row.channel -ceq $Keep.channel){$select=$i}}
+  $window.FindName('Products').SelectedIndex=$select
+ }
  $check={try{& $setBusy $true;$state.plan=$null;$window.FindName('Result').Text=Get-CLUText busy $state.lang;$window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::Render);$row=& $choose;$state.plan=Invoke-CLUUiWork Check $row $Root $null;if($state.plan){$window.FindName('Result').Text=$row.label+"`n"+(Get-CLUText available $state.lang)+': '+$state.plan.version+"`n`n"+$state.plan.notes}else{$window.FindName('Result').Text=Get-CLUText latest $state.lang}}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}}
  $window.FindName('Check').Add_Click($check)
- $window.FindName('Products').Add_SelectionChanged({$state.plan=$null;$window.FindName('Update').IsEnabled=$false})
+ $window.FindName('Products').Add_SelectionChanged({$state.plan=$null;& $setBusy $state.busy})
  $window.FindName('Language').Add_SelectionChanged({$state.lang=@('ru','en','zh-CN')[$window.FindName('Language').SelectedIndex];& $render;Set-CLUPreferences $Root ([bool]$window.FindName('Automatic').IsChecked) $state.lang})
  $window.FindName('Automatic').Add_Click({Set-CLUPreferences $Root ([bool]$window.FindName('Automatic').IsChecked) $state.lang})
- $apply={param([bool]$Recovery)try{& $setBusy $true;$row=& $choose;$plan=$state.plan;if($Recovery){if($row.channel -cne 'server-wsl'){throw 'Recovery is available for WSL servers'};$plan=Invoke-CLUUiWork RecoveryPlan $row $Root $null};if(-not $plan){throw 'Check this installation first'};$prompt=(Get-CLUText confirm $state.lang)+"`n`n"+$row.label+"`n"+$plan.version+"`n`n"+$plan.notes;$confirmed=[Windows.MessageBox]::Show($window,$prompt,(Get-CLUText title $state.lang),'YesNo','Warning','No') -eq 'Yes';if(-not $confirmed){return};$window.FindName('Result').Text=Get-CLUText busy $state.lang;$window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::Render);Invoke-CLUUiWork $(if($Recovery){'Recover'}else{'Apply'}) $row $Root $plan|Out-Null;$state.plan=$null;$state.rows=@(Get-CLUInstallations $SelectedRoot);$window.FindName('Products').Items.Clear();foreach($freshRow in $state.rows){$null=$window.FindName('Products').Items.Add($freshRow.label)};$window.FindName('Result').Text=Get-CLUText done $state.lang}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}}
+ $apply={param([bool]$Recovery)try{& $setBusy $true;$row=& $choose;$plan=$state.plan;if($Recovery){if($row.channel -cne 'server-wsl'){throw 'Recovery is available for WSL servers'};$plan=Invoke-CLUUiWork RecoveryPlan $row $Root $state.lang};if(-not $plan){throw 'Check this installation first'};if($Recovery -and $plan.kind -ceq 'move'){Invoke-CLUUiWork Recover $row $Root $plan|Out-Null;& $refresh $row;return};$prompt=(Get-CLUText confirm $state.lang)+"`n`n"+$row.label+"`n"+$plan.version+"`n`n"+$plan.notes;$confirmed=[Windows.MessageBox]::Show($window,$prompt,(Get-CLUText title $state.lang),'YesNo','Warning','No') -eq 'Yes';if(-not $confirmed){return};$window.FindName('Result').Text=Get-CLUText busy $state.lang;$window.Dispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::Render);Invoke-CLUUiWork $(if($Recovery){'Recover'}else{'Apply'}) $row $Root $plan|Out-Null;& $refresh $row;$window.FindName('Result').Text=Get-CLUText done $state.lang}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}}
  $window.FindName('Update').Add_Click({& $apply $false});$window.FindName('Recover').Add_Click({& $apply $true})
- if($prefs.automatic -and $rows.Count){if($SelectedRoot -and $rows.Count -eq 1){$window.Add_ContentRendered({& $check})}else{$window.Add_ContentRendered({try{& $setBusy $true;$overview=@(Invoke-CLUUiWork Overview $rows $Root $null);$lines=@();foreach($item in $overview){$row=$item.installation;$target=$item.plan;$lines+=@($row.label+' — '+$(if($target){(Get-CLUText available $state.lang)+': '+$target.version}else{Get-CLUText latest $state.lang}))};$window.FindName('Result').Text=$lines -join "`n`n"}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}})}}
+ $window.FindName('Refresh').Add_Click({try{$keep=$null;if($window.FindName('Products').SelectedIndex -ge 0){$keep=& $choose};& $setBusy $true;& $refresh $keep}catch{$window.FindName('Result').Text=$_.Exception.Message}finally{& $setBusy $false}})
+ $window.FindName('Move').Add_Click({try{& $setBusy $true;$row=& $choose;Invoke-CLUUiWork Move $row $Root $state.lang|Out-Null;& $refresh $row}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}})
+ & $setBusy $false
+ if($prefs.automatic -and $rows.Count){if($SelectedRoot -and $rows.Count -eq 1){$window.Add_ContentRendered({& $check})}else{$window.Add_ContentRendered({try{& $setBusy $true;$overview=@(Invoke-CLUUiWork Overview $rows $Root $null);$lines=@();foreach($item in $overview){$row=$item.installation;$target=$item.plan;$lines+=@($row.label+' — '+$(if($row.availability -and $row.availability -cne 'available'){Get-CLUText $row.availability $state.lang}elseif($target){(Get-CLUText available $state.lang)+': '+$target.version}else{Get-CLUText latest $state.lang}))};$window.FindName('Result').Text=$lines -join "`n`n"}catch{$window.FindName('Result').Text=(Get-CLUText failure $state.lang)+"`n"+$_.Exception.Message}finally{& $setBusy $false}})}}
  $window.Add_Closing({param($sender,$event);if($state.busy){$event.Cancel=$true}});$null=$window.ShowDialog()
 }
 function Register-CLUShortcut([string]$Root,[string]$Language){

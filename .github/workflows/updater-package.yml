@@ -87,6 +87,17 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/persistent-updater-review.fixtures.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: WSL installation locations, move recovery and native controls
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach ($fixture in @('server-windows-locations','server-wsl-location','persistent-updater-locations','server-wsl-location-ui')) {
+            & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File "scripts/tests/$fixture.fixtures.ps1"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-native-location-guard.fixtures.ps1 -ControlPath scripts/server-native-control.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-wsl-maintenance.fixtures.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Verify native fixture also accepts the packaged exact bytes
         run: |
           node scripts/package-updater.mjs "$env:RUNNER_TEMP/updater-package" "$env:GITHUB_SHA" "$env:UPDATER_VERSION"

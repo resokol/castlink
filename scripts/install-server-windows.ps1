@@ -155,10 +155,25 @@ function Initialize-CastlinkWslNetworking([string]$Path, [string[]]$RunningDistr
     }
 }
 
+function New-CastlinkPrivateFileStream([string]$Path,[IO.FileMode]$Mode=[IO.FileMode]::CreateNew) {
+    # An elevated token otherwise chooses Administrators as the new file owner.
+    # Supply the private DACL and current-user owner atomically at file creation;
+    # no sensitive bytes are written before the security descriptor is applied.
+    $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+    $security=[Security.AccessControl.FileSecurity]::new()
+    $security.SetAccessRuleProtection($true,$false)
+    foreach($principal in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'))){
+        $security.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($principal,'FullControl','Allow'))
+    }
+    $security.SetOwner($sid)
+    return [IO.FileStream]::new($Path,$Mode,[Security.AccessControl.FileSystemRights]::FullControl,[IO.FileShare]::None,4096,[IO.FileOptions]::None,$security)
+}
+
 function Save-CastlinkInstallation([string]$Root, $State) {
     $path = Join-Path $Root 'installation.json'
     $temporary = Join-Path $Root 'installation.json.new'
-    [IO.File]::WriteAllText($temporary, ($State | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+    $stream=New-CastlinkPrivateFileStream $temporary ([IO.FileMode]::Create)
+    try { $bytes=[Text.Encoding]::UTF8.GetBytes(($State|ConvertTo-Json -Depth 5));$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true) } finally { $stream.Dispose() }
     if (Test-Path -LiteralPath $path) {
         $replaceClock = [Diagnostics.Stopwatch]::StartNew()
         while ($true) {
@@ -174,17 +189,347 @@ function Save-CastlinkInstallation([string]$Root, $State) {
     } else { [IO.File]::Move($temporary, $path) }
 }
 
-function Get-CastlinkInstallation([string]$Root, [string]$Tag, [string]$Repo, [string]$RootfsHash) {
+function ConvertTo-CastlinkLocationPath([string]$Root) {
+    if ([string]::IsNullOrWhiteSpace($Root) -or $Root -notmatch '^[A-Za-z]:\\' -or $Root -match '[<>"|?*\x00-\x1f]' -or $Root.Substring(2).Contains(':')) { throw 'InstallRoot must be an absolute local drive path, not a UNC or device path.' }
+    foreach ($part in $Root.Substring(3).Split('\')) {
+        if ($part -match '[ .]$' -or $part -match '^(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)' -or $part -in @('.','..')) { throw 'InstallRoot contains a reserved or ambiguous path component.' }
+    }
+    $full = [IO.Path]::GetFullPath($Root).TrimEnd('\')
+    if ($full.Length -le 2) { throw 'InstallRoot cannot be a drive root.' }
+    return $full
+}
+
+function Assert-CastlinkLocationLinks([string]$Path) {
+    $ancestor = $Path
+    while ($ancestor) {
+        if (Test-Path -LiteralPath $ancestor) {
+            if ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Location cannot use directory links or reparse points.' }
+        }
+        $ancestor = [IO.Path]::GetDirectoryName($ancestor)
+    }
+}
+
+function Get-CastlinkInstallVolume([string]$Root) { return [IO.DriveInfo]::new([IO.Path]::GetPathRoot($Root)) }
+
+function Assert-CastlinkInstallRoot([string]$Root) {
+    $full = ConvertTo-CastlinkLocationPath $Root
+    foreach ($reserved in @($env:WINDIR,$env:ProgramFiles,${env:ProgramFiles(x86)},$env:ProgramData)) {
+        if ($reserved -and ($full -ieq $reserved.TrimEnd('\') -or $full.StartsWith($reserved.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase))) { throw 'InstallRoot cannot be inside a reserved system directory.' }
+    }
+    foreach ($reserved in @($env:USERPROFILE,$env:LOCALAPPDATA,$env:APPDATA)) {
+        if ($reserved -and $full -ieq $reserved.TrimEnd('\')) { throw 'InstallRoot cannot be a profile root.' }
+    }
+    if ($full -match '^[A-Za-z]:\\(?:System Volume Information|\$Recycle\.Bin)(?:\\|$)') { throw 'InstallRoot cannot use a reserved system directory.' }
+    Assert-CastlinkLocationLinks $full
+    $volume = Get-CastlinkInstallVolume $full
+    if (-not $volume.IsReady -or [string]$volume.DriveType -notin @('Fixed','Removable')) { throw 'InstallRoot requires an available local disk.' }
+    if ($volume.DriveFormat -ine 'NTFS') { throw 'InstallRoot requires a local NTFS volume.' }
+    if ((Test-Path -LiteralPath $full) -and -not (Test-Path -LiteralPath $full -PathType Container)) { throw 'InstallRoot must be a directory.' }
+    return $full
+}
+
+function Assert-CastlinkLocationPrivate([string]$Path,[switch]$Directory,[switch]$LegacySource) {
+    Assert-CastlinkLocationLinks $Path
+    if (-not (Test-Path -LiteralPath $Path)) { throw 'Private location or receipt is missing.' }
+    $item = Get-Item -LiteralPath $Path -Force
+    if ($Directory -and -not $item.PSIsContainer) { throw 'Private registry directory is invalid.' }
+    $acl = $item.GetAccessControl([Security.AccessControl.AccessControlSections]'Access, Owner')
+    $sid = Get-CastlinkCurrentUserSid
+    $allowed=@($sid,'S-1-5-18');$owners=@($sid)
+    if ($LegacySource) { $allowed+=@('S-1-5-32-544');$owners+=@('S-1-5-32-544') }
+    if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cnotin $owners -or ($Directory -and -not $acl.AreAccessRulesProtected)) { throw 'Location requires a private current-user ACL and owner.' }
+    foreach ($rule in @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))) {
+        if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $allowed) { throw 'Location permissions are not private to the current user and SYSTEM.' }
+    }
+}
+
+function Get-CastlinkLocationRegistryRoot { return Join-Path $env:LOCALAPPDATA 'CastLinkServerRegistry' }
+
+function Get-CastlinkLocationRecords {
+    $root = Get-CastlinkLocationRegistryRoot
+    Assert-CastlinkLocationLinks $root
+    if (-not (Test-Path -LiteralPath $root)) { return }
+    Assert-CastlinkLocationPrivate $root -Directory
+    $path = Join-Path $root 'installations.json'
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    Assert-CastlinkLocationPrivate $path
+    try {
+        if ((Get-Item -LiteralPath $path).Length -gt 1048576) { throw 'Registry is too large.' }
+        $data = [IO.File]::ReadAllText($path) | ConvertFrom-Json
+        if ($data.schemaVersion -ne 1 -or $data.owner -cne 'castlink-wsl-location-v1' -or $data.userSid -cne (Get-CastlinkCurrentUserSid) -or $data.installations -isnot [array]) { throw 'Invalid registry schema or owner.' }
+        $ids = @{}; $selectedPaths = @{}; $activePaths = @{}
+        foreach ($row in $data.installations) {
+            if ($row.logicalId -notmatch '^[a-f0-9]{32}$' -or $row.installationId -notmatch '^[a-f0-9]{32}$' -or $row.selectedRoot -cne (ConvertTo-CastlinkLocationPath $row.selectedRoot) -or $row.activeRoot -cne (ConvertTo-CastlinkLocationPath $row.activeRoot)) { throw 'Invalid registry identity or path.' }
+            if ($ids.ContainsKey($row.logicalId) -or $selectedPaths.ContainsKey($row.selectedRoot) -or $activePaths.ContainsKey($row.activeRoot)) { throw 'Conflicting duplicate registry identity or path.' }
+            $ids[$row.logicalId]=$true; $selectedPaths[$row.selectedRoot]=$row.logicalId; $activePaths[$row.activeRoot]=$row.logicalId
+        }
+        foreach ($row in $data.installations) {
+            if ($selectedPaths.ContainsKey($row.activeRoot) -and $selectedPaths[$row.activeRoot] -cne $row.logicalId) { throw 'Conflicting logical and active registry paths.' }
+        }
+        # A missing/removable disk is retained; discovery verifies receipts before using it.
+        return $data.installations
+    } catch { throw ('Invalid location registry: '+$_.Exception.Message) }
+}
+
+function Get-CastlinkLocationIdentity($State) {
+    if ($State.PSObject.Properties['logicalInstallationId']) { $id=[string]$State.logicalInstallationId } else { $id=[string]$State.installationId }
+    if ($id -notmatch '^[a-f0-9]{32}$') { throw 'Invalid logical installation identity.' }
+    return $id
+}
+
+function Assert-CastlinkLocationReceipt([string]$Root,$State,[switch]$LegacySource) {
+    $full = Assert-CastlinkInstallRoot $Root
+    Assert-CastlinkLocationPrivate $full -Directory -LegacySource:$LegacySource
+    $path = Join-Path $full 'installation.json'
+    Assert-CastlinkLocationPrivate $path -LegacySource:$LegacySource
+    $receipt = Get-CastlinkInstallation $full $State.releaseTag $State.repository $State.rootfsSha256 -MaintenanceSource:$LegacySource
+    if (($receipt.phase -notin @('imported','ready') -and -not ($LegacySource -and $receipt.phase -ceq 'maintenance')) -or $receipt.installationId -cne $State.installationId -or $receipt.rootPath -cne $State.rootPath -or (Get-CastlinkLocationIdentity $receipt) -cne (Get-CastlinkLocationIdentity $State)) { throw 'Location receipt identity does not match the supplied installation.' }
+    return $receipt
+}
+
+function New-CastlinkLocationPrivateDirectory([string]$Path) {
+    Assert-CastlinkLocationLinks $Path
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $acl=[Security.AccessControl.DirectorySecurity]::new()
+        $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+        $acl.SetAccessRuleProtection($true,$false)
+        foreach($principal in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($principal,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
+        $acl.SetOwner($sid)
+        [void][IO.Directory]::CreateDirectory($Path,$acl)
+    }
+    Assert-CastlinkLocationPrivate $Path -Directory
+}
+function Get-CastlinkDirectoryOwner([string]$Root) {
+    return ([IO.DirectoryInfo]::new($Root)).GetAccessControl([Security.AccessControl.AccessControlSections]::Owner).GetOwner([Security.Principal.SecurityIdentifier]).Value
+}
+function Assert-CastlinkEmptyRootOwner([string]$Root) {
+    if ((Test-Path -LiteralPath $Root) -and -not (Test-Path -LiteralPath (Join-Path $Root 'installation.json'))) {
+        if ((Get-CastlinkDirectoryOwner $Root) -cne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { throw 'The existing empty installation folder is not owned by the current user. Choose a new folder; its ACL was not changed.' }
+    }
+}
+function Get-CastlinkInstallReservationPath([string]$Root) {
+    $hash=[Security.Cryptography.SHA256]::Create()
+    try{$key=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes((ConvertTo-CastlinkLocationPath $Root).ToLowerInvariant()))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
+    return Join-Path (Join-Path (Get-CastlinkLocationRegistryRoot) 'reservations') ($key+'.json')
+}
+function Get-CastlinkInstallReservation([string]$Root) {
+    $path=Get-CastlinkInstallReservationPath $Root
+    Assert-CastlinkLocationLinks $path
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    Assert-CastlinkLocationPrivate (Split-Path $path -Parent) -Directory
+    Assert-CastlinkLocationPrivate $path
+    $claim=[IO.File]::ReadAllText($path)|ConvertFrom-Json
+    if ($claim.schemaVersion -ne 1 -or $claim.owner -cne 'castlink-wsl-location-v1' -or $claim.userSid -cne (Get-CastlinkCurrentUserSid) -or $claim.root -ine $Root -or $claim.installationId -cnotmatch '^[a-f0-9]{32}$' -or $claim.logicalId -cnotmatch '^[a-f0-9]{32}$') { throw 'Invalid installation location reservation; explicit repair is required.' }
+    return $claim
+}
+function Assert-CastlinkInstallReservation([string]$Root,$State) {
+    $claim=Get-CastlinkInstallReservation $Root
+    if ($claim -and ($claim.installationId -cne $State.installationId -or $claim.logicalId -cne (Get-CastlinkLocationIdentity $State))) { throw 'This installation path is reserved by another incomplete installation. Recover it or explicitly repair the reservation.' }
+}
+function Reserve-CastlinkInstallLocation([string]$Root,$State) {
+    Assert-CastlinkEmptyRootOwner $Root
+    Invoke-CastlinkLocationWrite {
+        param($rows)
+        Assert-CastlinkInstallLocation $Root $State $rows
+        Assert-CastlinkEmptyRootOwner $Root
+        if (Test-Path -LiteralPath $Root) {
+            $hasReceipt=Test-Path -LiteralPath (Join-Path $Root 'installation.json')
+            $current=Get-CastlinkInstallation $Root $State.releaseTag $State.repository $State.rootfsSha256
+            if ($hasReceipt -and $current.installationId -cne $State.installationId) { throw 'Installation directory identity changed before reservation; no files were adopted.' }
+        }
+        Assert-CastlinkInstallReservation $Root $State
+        if (@($rows|Where-Object {$_.activeRoot -ieq $Root -and $_.installationId -ceq $State.installationId}).Count) { return @{changed=$false;rows=$rows} }
+        $claim=Get-CastlinkInstallReservation $Root
+        if ($claim) {
+            # An orphan claim is not evidence that a missing/reassigned disk is safe.
+            Assert-CastlinkLocationPrivate $Root -Directory
+            Assert-CastlinkLocationPrivate (Join-Path $Root 'installation.json')
+            $receipt=Get-CastlinkInstallation $Root $State.releaseTag $State.repository $State.rootfsSha256
+            if ($receipt.installationId -cne $claim.installationId -or (Get-CastlinkLocationIdentity $receipt) -cne $claim.logicalId) { throw 'Reserved installation receipt mismatch; explicit repair is required.' }
+            return @{changed=$false;rows=$rows}
+        }
+        $path=Get-CastlinkInstallReservationPath $Root
+        New-CastlinkLocationPrivateDirectory (Split-Path $path -Parent)
+        Write-CastlinkPrivateFile $path (@{schemaVersion=1;owner='castlink-wsl-location-v1';userSid=(Get-CastlinkCurrentUserSid);root=$Root;installationId=$State.installationId;logicalId=(Get-CastlinkLocationIdentity $State)}|ConvertTo-Json)
+        return @{changed=$false;rows=$rows}
+    }
+}
+function Assert-CastlinkUnusedLocation([string]$Root,[object[]]$Rows=$null) {
+    $destination=Assert-CastlinkInstallRoot $Root
+    if ($null -eq $Rows) { $Rows=@(Get-CastlinkLocationRecords) }
+    foreach($row in $Rows){
+        if ($row.selectedRoot -ieq $destination -or $row.activeRoot -ieq $destination) { throw 'Move destination is already a registered installation location, even if its disk or folder is unavailable.' }
+    }
+    if (Get-CastlinkInstallReservation $destination) { throw 'Move destination is reserved by an incomplete installation. Recover it or explicitly repair the reservation.' }
+}
+function New-CastlinkMoveDestination([string]$Root) {
+    $destination=Assert-CastlinkInstallRoot $Root
+    # The shared registry lease covers the final claim check and creation of the
+    # destination operation lease. Installers recheck contents under this same lock.
+    Invoke-CastlinkLocationWrite {
+        param($rows)
+        Assert-CastlinkUnusedLocation $destination $rows
+        if (Test-Path -LiteralPath $destination) { throw 'Move destination must be a new directory; existing files were preserved.' }
+        New-CastlinkLocationPrivateDirectory $destination
+        $operationLease=New-CastlinkPrivateFileStream (Join-Path $destination 'operation.lock')
+        return @{changed=$false;rows=$rows;value=$operationLease}
+    }
+}
+
+function Complete-CastlinkInstallReservation([string]$Root,$State) {
+    if (-not (Get-CastlinkInstallReservation $Root)) { return }
+    Invoke-CastlinkLocationWrite {
+        param($rows)
+        Assert-CastlinkInstallReservation $Root $State
+        if (@($rows|Where-Object {$_.activeRoot -ieq $Root -and $_.installationId -ceq $State.installationId -and $_.logicalId -ceq (Get-CastlinkLocationIdentity $State)}).Count -ne 1) { throw 'Reservation cannot be released before matching location publication.' }
+        $path=Get-CastlinkInstallReservationPath $Root
+        if (Test-Path -LiteralPath $path) { [IO.File]::Delete($path) }
+        return @{changed=$false;rows=$rows}
+    }
+}
+
+function Invoke-CastlinkLocationWrite([scriptblock]$Change) {
+    $registryDirectory = Get-CastlinkLocationRegistryRoot
+    Assert-CastlinkLocationLinks $registryDirectory
+    New-CastlinkLocationPrivateDirectory $registryDirectory
+    $lockPath = Join-Path $registryDirectory 'locations.lock'
+    if (Test-Path -LiteralPath $lockPath) { Assert-CastlinkLocationPrivate $lockPath }
+    $clock = [Diagnostics.Stopwatch]::StartNew(); $lease = $null
+    while (-not $lease) {
+        try { $lease=New-CastlinkPrivateFileStream $lockPath ([IO.FileMode]::OpenOrCreate) }
+        catch {
+            $cause=$_.Exception;while($cause.InnerException){$cause=$cause.InnerException}
+            if ($cause -isnot [IO.IOException] -or ($cause.HResult -band 65535) -notin @(32,33) -or $clock.ElapsedMilliseconds -ge 10000) { throw }
+            Start-Sleep -Milliseconds 50
+        }
+    }
+    $temporary = $null
+    try {
+        $rows = @(Get-CastlinkLocationRecords)
+        $result = & $Change $rows
+        if (-not $result.changed) { if ($result.ContainsKey('value')) { return $result.value }; return }
+        $data = [ordered]@{schemaVersion=1;owner='castlink-wsl-location-v1';userSid=(Get-CastlinkCurrentUserSid);installations=@($result.rows)}
+        $path = Join-Path $registryDirectory 'installations.json'
+        $temporary = Join-Path $registryDirectory ([guid]::NewGuid().ToString('N')+'.json.new')
+        Write-CastlinkPrivateFile $temporary ($data|ConvertTo-Json -Depth 6)
+        if (Test-Path -LiteralPath $path) { [IO.File]::Replace($temporary,$path,[NullString]::Value) } else { [IO.File]::Move($temporary,$path) }
+        $temporary = $null
+    } finally {
+        if ($temporary -and (Test-Path -LiteralPath $temporary)) { [IO.File]::Delete($temporary) }
+        $lease.Dispose()
+    }
+}
+
+function Set-CastlinkLocation([string]$SelectedRoot,$State,[string]$ExpectedSelectedRoot,[string]$ExpectedActiveRoot) {
+    $selected = Assert-CastlinkInstallRoot $SelectedRoot
+    $receipt = Assert-CastlinkLocationReceipt $State.rootPath $State
+    $logicalId = Get-CastlinkLocationIdentity $receipt
+    $expectedSelected = ConvertTo-CastlinkLocationPath $ExpectedSelectedRoot
+    $expectedActive = ConvertTo-CastlinkLocationPath $ExpectedActiveRoot
+    Invoke-CastlinkLocationWrite {
+        param($rows)
+        Assert-CastlinkInstallReservation $selected $State
+        Assert-CastlinkInstallReservation $receipt.rootPath $State
+        $matches = @($rows|Where-Object {$_.logicalId -ceq $logicalId})
+        # Recovery may replay publication after the atomic rename but before journaling.
+        # An authenticated exact target is already complete and requires no mutation.
+        if ($matches.Count -eq 1 -and $matches[0].selectedRoot -ceq $selected -and $matches[0].activeRoot -ceq $receipt.rootPath -and $matches[0].installationId -ceq $receipt.installationId) { return @{changed=$false;rows=$rows} }
+        if ($matches.Count -gt 0) {
+            if ($matches[0].selectedRoot -ine $expectedSelected -or $matches[0].activeRoot -ine $expectedActive) { throw 'Location registry changed; compare-and-swap conflict.' }
+        } else {
+            # Missing discovery metadata is not proof: authenticate the source receipt first.
+            Assert-CastlinkLocationPrivate $expectedActive -Directory -LegacySource
+            Assert-CastlinkLocationPrivate (Join-Path $expectedActive 'installation.json') -LegacySource
+            $source = [IO.File]::ReadAllText((Join-Path $expectedActive 'installation.json'))|ConvertFrom-Json
+            $null = Assert-CastlinkLocationReceipt $expectedActive $source -LegacySource
+            if ((Get-CastlinkLocationIdentity $source) -cne $logicalId) { throw 'Source receipt identity does not match location publication.' }
+        }
+        foreach ($other in @($rows|Where-Object {$_.logicalId -cne $logicalId})) {
+            if ($other.selectedRoot -ieq $selected -or $other.activeRoot -ieq $selected -or $other.activeRoot -ieq $receipt.rootPath -or $other.selectedRoot -ieq $receipt.rootPath) { throw 'Location registry path conflicts with another installation.' }
+        }
+        $row = [pscustomobject]@{logicalId=$logicalId;selectedRoot=$selected;activeRoot=$receipt.rootPath;installationId=$receipt.installationId}
+        return @{changed=$true;rows=@($rows|Where-Object {$_.logicalId -cne $logicalId})+@($row)}
+    }
+}
+
+function Register-CastlinkLocation([string]$SelectedRoot,$State) {
+    Set-CastlinkLocation $SelectedRoot $State $SelectedRoot $State.rootPath
+    Complete-CastlinkInstallReservation $State.rootPath $State
+}
+
+function Remove-CastlinkLocation([string]$LogicalId,[string]$ExpectedSelectedRoot) {
+    if ($LogicalId -notmatch '^[a-f0-9]{32}$') { throw 'Invalid logical installation identity.' }
+    $expected = ConvertTo-CastlinkLocationPath $ExpectedSelectedRoot
+    Invoke-CastlinkLocationWrite {
+        param($rows)
+        $matches = @($rows|Where-Object {$_.logicalId -ceq $LogicalId})
+        if ($matches.Count -eq 0) { return @{changed=$false;rows=$rows} }
+        if ($matches[0].selectedRoot -ine $expected) { throw 'Location registry changed; removal compare-and-swap conflict.' }
+        return @{changed=$true;rows=@($rows|Where-Object {$_.logicalId -cne $LogicalId})}
+    }
+}
+
+function Assert-CastlinkInstallLocation([string]$Root,$State,[object[]]$Rows=$null) {
+    if ($null -eq $Rows) { $Rows=@(Get-CastlinkLocationRecords) }
+    $logicalId=Get-CastlinkLocationIdentity $State
+    foreach($row in $Rows){
+        if($row.selectedRoot -ine $Root -and $row.activeRoot -ine $Root -and $row.logicalId -cne $logicalId){continue}
+        if($row.activeRoot -ine $Root -or $row.installationId -cne $State.installationId -or $row.logicalId -cne $logicalId -or -not (Test-Path -LiteralPath (Join-Path $Root 'installation.json') -PathType Leaf)){
+            throw 'This registered installation location is unavailable or conflicts with its receipt. Reconnect the original disk or explicitly repair its registry entry; it will not be recreated automatically.'
+        }
+        $null=Assert-CastlinkLocationReceipt $Root $State
+    }
+}
+
+function Assert-CastlinkLocationManagement([string]$Root) {
+    if (Test-Path -LiteralPath (Join-Path $Root 'relocated-to.json')) { throw 'This installation was relocated. Open the server at its new folder through CastLink Updater.' }
+    $pointerPath=Join-Path $Root 'maintenance-transaction.json'
+    if (-not (Test-Path -LiteralPath $pointerPath)) { return }
+    try {
+        Assert-CastlinkLocationPrivate $pointerPath -LegacySource
+        $pointer=[IO.File]::ReadAllText($pointerPath)|ConvertFrom-Json
+        if ($pointer.kind -cne 'move') { return }
+        if ($pointer.schemaVersion -ne 1 -or $pointer.id -cnotmatch '^[a-f0-9]{32}$' -or $pointer.selectedRoot -cne $Root) { throw 'Move pointer identity mismatch.' }
+        $directory=Join-Path (Join-Path (Get-CastlinkLocationRegistryRoot) 'operations') $pointer.id
+        $expected=Join-Path $directory 'journal.json'
+        if ($pointer.journal -cne $expected) { throw 'Move journal path mismatch.' }
+        Assert-CastlinkLocationPrivate $directory -Directory
+        Assert-CastlinkLocationPrivate $expected
+        $journal=[IO.File]::ReadAllText($expected)|ConvertFrom-Json
+        if ($journal.schemaVersion -ne 1 -or $journal.kind -cne 'move' -or $journal.id -cne $pointer.id -or $journal.journal -cne $expected -or $journal.selectedRoot -cne $pointer.journalSelectedRoot -or $Root -cnotin @($journal.selectedRoot,$journal.sourceRoot,$journal.destinationRoot)) { throw 'Move journal identity mismatch.' }
+        if ($journal.phase -cne 'completed') { throw 'Pending move; use Maintenance Recover before direct management.' }
+        if ($Root -cne $journal.destinationRoot) { throw 'The source installation was relocated.' }
+        Assert-CastlinkLocationPrivate $Root -Directory
+        $receiptPath=Join-Path $Root 'installation.json';Assert-CastlinkLocationPrivate $receiptPath
+        $receipt=[IO.File]::ReadAllText($receiptPath)|ConvertFrom-Json
+        if ($receipt.rootPath -cne $Root -or $receipt.installationId -cne $journal.source.installationId -or (Get-CastlinkLocationIdentity $receipt) -cne $journal.logicalId) { throw 'Completed move receipt identity mismatch.' }
+    } catch { throw ('Move recovery required: '+$_.Exception.Message) }
+}
+
+function Complete-CastlinkLocationRegistration([string]$Root,$State) {
+    # An explicit new-install marker survives a failed registration. Completed installs
+    # (including legacy receipts) never acquire discovery files merely by running again.
+    if (-not $State.PSObject.Properties['locationRegistryPending'] -or -not $State.locationRegistryPending) { return }
+    if ($State.phase -cne 'ready') { throw 'Location onboarding requires a ready receipt.' }
+    Register-CastlinkLocation $Root $State
+    $State.locationRegistryPending = $false
+    Save-CastlinkInstallation $Root $State
+}
+
+function Get-CastlinkInstallation([string]$Root, [string]$Tag, [string]$Repo, [string]$RootfsHash, [switch]$MaintenanceSource) {
     $statePath = Join-Path $Root 'installation.json'
     if (Test-Path -LiteralPath $statePath) {
-        $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-        if ($state.schemaVersion -ne 1 -or $state.phase -notin @('created','imported','ready') -or $state.installationId -notmatch '^[a-f0-9]{32}$' -or $state.distroName -cne ('CastLink-Server-' + $state.installationId.Substring(0,12)) -or $state.rootPath -cne [IO.Path]::GetFullPath($Root)) { throw 'Installation identity is invalid; no distribution was changed.' }
+        $state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $validPhases=@('created','imported','ready')
+        # Only lifecycle source identity proof may inspect a quiesced old receipt.
+        if ($MaintenanceSource -and $state.PSObject.Properties['maintenanceTransaction'] -and $state.maintenanceTransaction -cmatch '^[a-f0-9]{32}$') { $validPhases+=@('maintenance') }
+        if ($state.schemaVersion -ne 1 -or $state.phase -notin $validPhases -or $state.installationId -notmatch '^[a-f0-9]{32}$' -or $state.distroName -cne ('CastLink-Server-' + $state.installationId.Substring(0,12)) -or $state.rootPath -cne [IO.Path]::GetFullPath($Root)) { throw 'Installation identity is invalid; no distribution was changed.' }
         if ($state.releaseTag -cne $Tag -or $state.repository -cne $Repo -or $state.rootfsSha256 -cne $RootfsHash) { throw 'This directory belongs to a different release. Use its original installer; upgrades are not supported by this first installer.' }
         return $state
     }
     if ((Test-Path -LiteralPath $Root) -and @(Get-ChildItem -LiteralPath $Root -Force).Count -gt 0) { throw 'InstallRoot contains foreign files. Choose an empty CastLink directory.' }
     $id = [guid]::NewGuid().ToString('N')
-    return [pscustomobject]@{schemaVersion=1;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;releaseManifestSha256=$script:PackagedManifestSha256;phase='created'}
+    return [pscustomobject]@{schemaVersion=1;locationContract='castlink-wsl-location-v1';locationRegistryPending=$true;installationId=$id;distroName=('CastLink-Server-'+$id.Substring(0,12));rootPath=[IO.Path]::GetFullPath($Root);releaseTag=$Tag;repository=$Repo;rootfsSha256=$RootfsHash;releaseManifestSha256=$script:PackagedManifestSha256;phase='created'}
 }
 
 function Assert-CastlinkPackage([string]$Directory, [string]$Tag, [string]$Repo, [string]$RootfsHash, [string]$ManifestHash) {
@@ -347,6 +692,49 @@ function Assert-CastlinkNativePanelReceipt([string]$Root, $State) {
     return $panel
 }
 
+function Save-CastlinkLifecyclePackage([string]$Root,[string]$Directory,$Manifest,[string]$Url,[bool]$AllowDownload) {
+    if (-not $Manifest.PSObject.Properties['lifecycle']) { return }
+    $lifecycle=$Manifest.lifecycle
+    $required=@('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')
+    if ($lifecycle.PSObject.Properties['locationContract']) {
+        if ($lifecycle.locationContract -cne 'castlink-wsl-location-v1') { throw 'Unsupported lifecycle location contract.' }
+        $required+=@('server-wsl-location.ps1')
+    }
+    if ($lifecycle.schemaVersion -ne 1 -or @($lifecycle.helpers).Count -ne $required.Count) { throw 'Lifecycle helper inventory is incomplete.' }
+    $seen=@{}; $entries=@()
+    foreach ($entry in @($lifecycle.helpers)+@($Manifest.nativePanel.files)) {
+        if ($entry.file -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $entry.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $entry.size -le 0 -or $entry.size -gt 4194304) { throw 'Lifecycle helper inventory is invalid.' }
+        if ($seen.ContainsKey($entry.file)) {
+            if ($seen[$entry.file].sha256 -cne $entry.sha256 -or $seen[$entry.file].size -ne $entry.size) { throw 'Conflicting lifecycle helper inventory.' }
+            continue
+        }
+        $seen[$entry.file]=$entry; $entries+=@($entry)
+    }
+    $lifecycleNames=@($lifecycle.helpers|ForEach-Object {$_.file})
+    if (@($lifecycleNames|Select-Object -Unique).Count -ne $required.Count -or @($required|Where-Object {$_ -cnotin $lifecycleNames}).Count -ne 0) { throw 'Lifecycle helper inventory is incomplete.' }
+    foreach ($entry in $entries) {
+        $source=Join-Path $Directory $entry.file
+        Assert-CastlinkLocationLinks $source
+        $valid=(Test-Path -LiteralPath $source -PathType Leaf) -and (Get-Item -LiteralPath $source).Length -eq $entry.size -and (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $entry.sha256
+        if (-not $valid -and $AllowDownload) { Receive-CastlinkAsset ($Url+$entry.file) $source $entry.size }
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-Item -LiteralPath $source).Length -ne $entry.size -or (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256) { throw ('Lifecycle helper checksum verification failed: '+$entry.file) }
+    }
+    # Local-package installs must also remain maintainable after the original package
+    # folder is removed. Cache only this pinned manifest's exact helper inventory.
+    $cache=Join-Path $Root 'release'
+    Assert-CastlinkLocationLinks $cache
+    [void][IO.Directory]::CreateDirectory($cache)
+    $manifestPath=Join-Path $Directory 'manifest.json'
+    $entries+=@([pscustomobject]@{file='manifest.json';sha256=$script:PackagedManifestSha256;size=(Get-Item -LiteralPath $manifestPath).Length})
+    foreach ($entry in $entries) {
+        $target=Join-Path $cache $entry.file
+        Assert-CastlinkLocationLinks $target
+        if (Test-Path -LiteralPath $target) {
+            if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-Item -LiteralPath $target).Length -ne $entry.size -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'A conflicting installed lifecycle helper exists; it was preserved.' }
+        } else { [IO.File]::Copy((Join-Path $Directory $entry.file),$target,$false) }
+    }
+}
+
 function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Directory, [string]$SourcePath, [bool]$AllowDownload) {
     $manifestPath = Join-Path $Directory 'manifest.json'
     $url = 'https://github.com/'+$script:PackagedRepository+'/releases/download/'+$script:PackagedReleaseTag+'/'
@@ -362,7 +750,10 @@ function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Di
     if (-not $manifest.PSObject.Properties['nativePanel']) { return $null }
     $bundle = $manifest.nativePanel
     $names = @('server-native-panel-files.json','server-native-control.ps1','server-native-monitor.ps1','simple-easy-setup-control.ps1','simple-easy-setup-language.ps1','simple-easy-setup-network.ps1','simple-easy-setup-control.ico','server-native-panel-host.cs','build-server-native-panel-host.ps1')
-    if ($manifest.PSObject.Properties['lifecycle']) { $names += @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1') }
+    if ($manifest.PSObject.Properties['lifecycle']) {
+        $names += @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1')
+        if ($manifest.lifecycle.PSObject.Properties['locationContract'] -and $manifest.lifecycle.locationContract -ceq 'castlink-wsl-location-v1') { $names += @('server-wsl-location.ps1') }
+    }
     if ('castlink-updater.ps1' -cin @($bundle.files|ForEach-Object {$_.file})) { $names += @('castlink-updater.ps1') }
     if ($bundle.schemaVersion -ne 1 -or $bundle.host -cne 'CastLinkServer.exe' -or $bundle.binding -cne 'server-native-binding.json' -or @($bundle.files).Count -ne $names.Count) { throw 'Native panel helper inventory is invalid.' }
     $seen = @{}
@@ -374,6 +765,7 @@ function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Di
         if (-not $valid -and $AllowDownload) { Receive-CastlinkAsset ($url+$entry.file) $source $entry.size }
         if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-Item -LiteralPath $source).Length -ne $entry.size -or (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256) { throw 'Native panel helper checksum verification failed.' }
     }
+    Save-CastlinkLifecyclePackage $Root $Directory $manifest $url $AllowDownload
     $panelRoot = Join-Path $Root 'native-panel'
     if (Test-Path -LiteralPath $panelRoot) {
         if ((Get-Item -LiteralPath $panelRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Native panel directory cannot use a link.' }
@@ -515,7 +907,7 @@ function Protect-CastlinkInstallationDirectory([string]$Root) {
 
 function Write-CastlinkPrivateFile([string]$Path, [string]$Content) {
     # The owned parent has a current-user/SYSTEM ACL before a secret is created.
-    $stream = [IO.FileStream]::new($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    $stream = New-CastlinkPrivateFileStream $Path
     try {
         $bytes = [Text.Encoding]::UTF8.GetBytes($Content)
         $stream.Write($bytes, 0, $bytes.Length)
@@ -657,6 +1049,18 @@ function Register-CastlinkPersistentUpdater($State,$Status,[string]$Directory,[b
     Invoke-CastlinkUpdaterRegistration $file $Language;return $true
 }
 
+function Resolve-CastlinkInstallRoot([string]$Root,[string]$Action,[bool]$IsNonInteractive) {
+    $base = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer'))
+    if (-not $Root) {
+        $Root = $base
+        if ($Action -eq 'Install' -and -not $IsNonInteractive -and -not (Test-Path -LiteralPath (Join-Path $base 'installation.json'))) {
+            $chosen = Read-Host ('Installation folder ['+$base+']')
+            if (-not [string]::IsNullOrWhiteSpace($chosen)) { $Root = $chosen }
+        }
+    }
+    return Assert-CastlinkInstallRoot $Root
+}
+
 function Invoke-CastlinkWindowsInstaller {
     if ($Help) {
         Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Use CastLink-Maintenance.cmd or the native Maintenance button for explicit WSL update/removal/restore. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
@@ -669,22 +1073,22 @@ function Invoke-CastlinkWindowsInstaller {
     if (-not $ReleaseTag) { $ReleaseTag = $script:PackagedReleaseTag }
     if (-not $Repository) { $Repository = $script:PackagedRepository }
     if ($ReleaseTag -cne $script:PackagedReleaseTag -or $Repository -cne $script:PackagedRepository) { throw 'Requested repository/tag does not match this pinned release installer.' }
-    $base = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer'))
-    if (-not $InstallRoot) { $InstallRoot = $base }
-    $InstallRoot = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
-    if ($InstallRoot -ine $base -and -not $InstallRoot.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'InstallRoot must be LocalAppData\CastLinkServer or a directory below it.' }
-    $ancestor = $InstallRoot
-    while ($ancestor) {
-        if ((Test-Path -LiteralPath $ancestor) -and ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'InstallRoot cannot use directory links or reparse points.' }
-        $ancestor = [IO.Path]::GetDirectoryName($ancestor)
-    }
+    $InstallRoot = Resolve-CastlinkInstallRoot $InstallRoot $Action ([bool]$NonInteractive)
     if ($Action -ne 'Install' -and -not (Test-Path -LiteralPath (Join-Path $InstallRoot 'installation.json'))) { throw 'No owned CastLink installation exists at InstallRoot.' }
+    Assert-CastlinkLocationManagement $InstallRoot
     $state = Get-CastlinkInstallation $InstallRoot $ReleaseTag $Repository $script:PackagedRootfsSha256
-    [void][IO.Directory]::CreateDirectory($InstallRoot)
+    Assert-CastlinkInstallLocation $InstallRoot $state
+    Assert-CastlinkEmptyRootOwner $InstallRoot
+    if ($state.phase -eq 'created' -and (Get-CastlinkInstallVolume $InstallRoot).AvailableFreeSpace -lt 8GB) { throw 'InstallRoot needs at least 8 GiB of free space before installation.' }
+    if ($Action -ceq 'Install' -and $state.phase -in @('created','imported')) { Reserve-CastlinkInstallLocation $InstallRoot $state }
+    if (-not (Test-Path -LiteralPath $InstallRoot)) { New-CastlinkLocationPrivateDirectory $InstallRoot }
+    Assert-CastlinkEmptyRootOwner $InstallRoot
     $lock = [IO.FileStream]::new((Join-Path $InstallRoot 'operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None,4096,[IO.FileOptions]::DeleteOnClose)
     try {
         # Re-read after acquiring the lease; another invocation may have finished.
+        Assert-CastlinkLocationManagement $InstallRoot
         if (Test-Path -LiteralPath (Join-Path $InstallRoot 'installation.json')) { $state = Get-CastlinkInstallation $InstallRoot $ReleaseTag $Repository $script:PackagedRootfsSha256 }
+        Assert-CastlinkInstallLocation $InstallRoot $state
         $newInstallation = $state.phase -cne 'ready'
         Protect-CastlinkInstallationDirectory $InstallRoot
         Save-CastlinkInstallation $InstallRoot $state
@@ -739,6 +1143,7 @@ function Invoke-CastlinkWindowsInstaller {
             if ($LASTEXITCODE -ne 0) { throw 'Imported distribution identity could not be recorded. Distribution preserved; manual recovery is required.' }
             Assert-CastlinkGuestIdentity $state
             $state.phase = 'imported'; Save-CastlinkInstallation $InstallRoot $state
+            Register-CastlinkLocation $InstallRoot $state
         }
         Assert-CastlinkMirroredRuntime $state
         $state | Add-Member NoteProperty desiredRunning $true -Force
@@ -764,6 +1169,7 @@ function Invoke-CastlinkWindowsInstaller {
         }
         Assert-CastlinkKeepaliveAlive $state
         $state.phase = 'ready'; Save-CastlinkInstallation $InstallRoot $state
+        Complete-CastlinkLocationRegistration $InstallRoot $state
         if($newInstallation -and $panelReady){
             try{$null=Register-CastlinkPersistentUpdater $state $status $cache $true $Lang}
             catch{$notice=@{ru='Сервер работает. Постоянный обновлятор не зарегистрирован; запустите install-updater-windows.cmd отдельно.';en='Server is running. The permanent updater was not registered; run install-updater-windows.cmd separately.';'zh-CN'='服务器正在运行。永久更新程序未注册；请单独运行 install-updater-windows.cmd。'};Write-Warning ($notice[$Lang]+' '+$_.Exception.Message)}
