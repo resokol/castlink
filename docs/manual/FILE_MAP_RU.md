@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2057**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2058**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -17014,7 +17014,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 292 файлов
+## scripts · 293 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -19002,6 +19002,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1
 
 [`scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1`](../../scripts/tests/simple-easy-setup-ssh-auth.fixtures.ps1)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/simple-easy-setup-ssh-packages.fixtures.ps1
+
+[`scripts/tests/simple-easy-setup-ssh-packages.fixtures.ps1`](../../scripts/tests/simple-easy-setup-ssh-packages.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 
