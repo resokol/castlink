@@ -13,8 +13,28 @@ test('password SSH helper provides a pinned portable dependency and reusable tra
     assert.match(source, new RegExp(`function ${name}\\s*\\{`));
   }
   assert.match(source, /api\.nuget\.org\/v3-flatcontainer/);
-  assert.match(source, /0873cf5e9d72bd25c509ca86cb57e8301923e2dc2162e93207968b16c153894e/);
-  assert.doesNotMatch(source, /Start-Process|Invoke-Expression|sshpass|ConvertFrom-SecureString|PtrToString|Write-(?:Host|Output).*Password/i);
+  assert.match(source, /c933c4e0163cd7d78960796fcf27b5908cf2feb05fd95ccfd9d3cc37334a5b2b/);
+  // SSH.NET only accepts an immutable string for an encrypted key's passphrase.
+  // The password-authentication path passes UTF-8 bytes directly.
+  const passwordTransport = source.replace('return new PrivateKeyFile(stream, Marshal.PtrToStringUni(pointer));', '');
+  assert.doesNotMatch(passwordTransport, /Start-Process|Invoke-Expression|sshpass|ConvertFrom-SecureString|PtrToString|Write-(?:Host|Output).*Password/i);
+});
+
+test('the cleanup allowlist covers exactly the pinned SSH cache files and keeps legacy cache recognition', () => {
+  const source = readFileSync(helper, 'utf8');
+  const cleanup = readFileSync(new URL('../simple-easy-setup-cleanup.ps1', import.meta.url), 'utf8');
+  const directory = source.match(/Join-Path \$ToolsDir '(sshnet-[^']+)'/)[1];
+  const patterns = [...cleanup.matchAll(/\$relative -cmatch '([^']+)'/g)].map(match => new RegExp(match[1]));
+  const owned = file => patterns.some(pattern => pattern.test(file));
+  const pins = [...source.matchAll(/Id='([^']+)';Version='([^']+)';Framework='[^']+';Dll='([^']+)';Sha256='[a-f0-9]{64}'/g)];
+  assert.ok(pins.length >= 9);
+  for (const [,id,version,dll] of pins) {
+    assert.ok(owned('.tools/' + directory + '/' + dll), dll);
+    assert.ok(owned('.tools/' + directory + '/' + id + '.' + version + '.nupkg'), id);
+    assert.equal(owned('.tools/' + directory + '/' + id + '.999.0.0.nupkg'), false);
+  }
+  assert.ok(owned('.tools/sshnet-2024.2.0/SSH.NET.2024.2.0.nupkg'));
+  assert.equal(owned('.tools/' + directory + '/unrelated.dll'), false);
 });
 
 test('stock Windows PowerShell runs actual SSH helper boundary fixtures', {

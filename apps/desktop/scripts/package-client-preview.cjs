@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process');
 const {stagePackage}=require('./package-files.cjs'),{buildProcessAudio}=require('./build-process-audio.cjs'),{buildWindowSlides}=require('./build-window-slides.cjs'),{buildRemotePcInput}=require('./build-remote-pc-input.cjs');
 function previewConfiguration(desktop,stage,out,resources){return{
- extends:path.join(desktop,'electron-builder.yml'),appId:'ru.castlink.client.preview',productName:'CastLink Client Preview',executableName:'CastLink Client Preview',
+ extends:path.join(desktop,'electron-builder.yml'),afterPack:path.join(__dirname,'windows-wer.cjs'),appId:'ru.castlink.client.preview',productName:'CastLink Client Preview',executableName:'CastLink Client Preview',
  directories:{app:stage,output:out},protocols:[{name:'CastLink presentation component',schemes:['castlink-presenter']},{name:'CastLink remote PC component',schemes:['castlink-remote']}],publish:null,
  extraResources:resources,artifactName:'CastLink-Client-Preview-${version}-win-x64.zip',
  nsis:{include:path.join(desktop,'build/client-preview.nsh'),artifactName:'CastLink-Client-Preview-Setup.exe',shortcutName:'CastLink Client Preview',oneClick:false,perMachine:false,allowElevation:false,allowToChangeInstallationDirectory:true,deleteAppDataOnUninstall:false},

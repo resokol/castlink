@@ -244,7 +244,7 @@ STUDIOLINK_TRANSFER_SERVER_ID=$node
   $services=@{
     postgres=@{image=$Release.images.postgres;platform='linux/amd64';restart=$restartPolicy;env_file=@('postgres.env');volumes=@('postgres-data:/var/lib/postgresql/data');healthcheck=@{test=@('CMD-SHELL','pg_isready -U castlink -d castlink');interval='5s';timeout='5s';retries=24}}
     web=@{image=$Release.images.web;platform='linux/amd64';restart=$restartPolicy;env_file=@('web.env');volumes=@('web-data:/data','converter-socket:/run/castlink-converter:ro');depends_on=@{postgres=@{condition='service_healthy'}}}
-    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'7882:7882/udp'),($binding+'3478:3478/udp'),($binding+'30000-30031:30000-30031/udp'))}
+    livekit=@{image=$Release.images.livekit;platform='linux/amd64';restart=$restartPolicy;environment=@('LIVEKIT_RTC_FLEXFEC_UPSTREAM_ENABLED');command=@('--config','/etc/livekit.yaml');volumes=@('./livekit.json:/etc/livekit.yaml:ro');ports=@(($binding+'7881:7881/tcp'),($binding+'7882:7882/udp'),($binding+'3478:3478/udp'),($binding+'30000-30031:30000-30031/udp'))}
     caddy=@{image=$Release.images.caddy;platform='linux/amd64';restart=$restartPolicy;volumes=@('./Caddyfile:/etc/caddy/Caddyfile:ro','caddy-data:/data','caddy-config:/config');ports=$ports;depends_on=@('web','livekit')}
   }
   if($network){

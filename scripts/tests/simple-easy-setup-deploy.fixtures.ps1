@@ -36,6 +36,7 @@ try {
   if(-not $refused -or (Test-Path (Join-Path $invalidFolder '.castlink-install.json'))){throw 'Unconfirmed password mutated installation state'}
   Write-SimpleConfiguration $folder $state $release '192.168.1.22'
   $compose=Get-Content (Join-Path $folder 'compose.json') -Raw | ConvertFrom-Json
+  if (@($compose.services.livekit.environment) -notcontains 'LIVEKIT_RTC_FLEXFEC_UPSTREAM_ENABLED') { throw 'Optional FlexFEC setting missing from LiveKit' }
   if ($compose.services.web.image -ne $release.images.web -or $compose.services.postgres.volumes[0] -ne 'postgres-data:/var/lib/postgresql/data' -or $compose.services.caddy.ports[0] -ne '443:443') { throw 'Compose layout mismatch' }
   if ($compose.services.postgres.healthcheck.test[1] -ne 'pg_isready -U castlink -d castlink') { throw 'Healthcheck interpolates missing host environment' }
   $lk=Get-Content (Join-Path $folder 'livekit.json') -Raw | ConvertFrom-Json

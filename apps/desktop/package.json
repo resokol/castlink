@@ -13,7 +13,8 @@
     "package:share:win": "node scripts/package-screen-share.cjs"
   },
   "devDependencies": {
-    "electron": "44.9.0",
-    "electron-builder": "26.15.3"
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0",
+    "electron-builder-squirrel-windows": "26.18.0"
   }
 }

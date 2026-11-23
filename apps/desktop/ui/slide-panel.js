@@ -32,7 +32,11 @@ function paint(state){
  element('controller-badge').textContent=state.controller;element('page').hidden=state.navigationMode==='window-steps-v1';element('page').textContent=state.navigationMode==='window-steps-v1'?'':`${state.page} / ${state.pages}`;element('navigation').setAttribute('aria-label',t.navigation);
  for(const name of['previous','next']){element(name).setAttribute('aria-label',t[name]);element(name).title=t[name];element(name).disabled=state.busy||!state.canNavigate||(!['powerpoint-steps-v1','window-steps-v1'].includes(state.navigationMode)&&(name==='previous'?state.page<=1:state.page>=state.pages));}
  const canMenu=!!toolbar?.canDelegate||state.canReclaim;
- element('control-toggle').hidden=!canMenu;element('controller-badge').hidden=canMenu;element('control-label').textContent=t.compact;element('control-toggle').setAttribute('aria-label',t.control);element('control-menu').setAttribute('aria-label',t.control);
+ const toggle=element('control-toggle'),controllerLabel=toolbar?.controllerIdentity?state.controller:undefined;
+ toggle.hidden=!canMenu;element('controller-badge').hidden=canMenu;
+ element('control-label').textContent=controllerLabel||t.compact;
+ toggle.title=controllerLabel||t.control;toggle.setAttribute('aria-label',toggle.title);
+ element('control-menu').setAttribute('aria-label',t.control);
  if(!canMenu)setMenu(false,false);
  element('menu-heading').textContent=t.delegate;element('menu-current').textContent=state.controller;element('menu-note').textContent=t.note;element('empty').textContent=t.empty;
  const list=toolbar?.canDelegate?toolbar.participants:[],seen=new Set();

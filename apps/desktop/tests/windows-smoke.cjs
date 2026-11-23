@@ -8,7 +8,7 @@ app.setPath('userData',path.join(output,'profile-'+process.pid));
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
 const prompts=[];
 dialog.showMessageBox=async(_window,options)=>{prompts.push({message:options.message,detail:options.detail});return {response:1};};
-const ts=require(path.join(root,'apps/web/node_modules/typescript'));
+const ts=require(path.join(root,'apps/web/tests/node_modules/typescript'));
 const adapter=ts.transpileModule(fs.readFileSync(path.join(root,'apps/web/lib/desktop-stop-panel.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const sdk=fs.readFileSync(path.join(root,'apps/web/node_modules/livekit-client/dist/livekit-client.umd.js'),'utf8');
 const {spawn,execFileSync}=require('node:child_process'),os=require('node:os');

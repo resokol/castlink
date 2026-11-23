@@ -28,6 +28,23 @@ test('participant menu preserves focus through polling, supports keyboard and hi
  f.get('control-toggle').click();assert.equal(f.get('control-menu').scrollTop,0,'reopening starts at menu heading');
  f.get('hide').click();assert.equal(f.hidden.length,1);assert.equal(f.sent.length,0);assert.equal(f.menus.at(-1),false);
 });
+test('owner menu names the active controller and still offers reassignment and reclaim',()=>{
+ for(const [locale,controller] of [['ru','Управляет: Анна'],['en','Controlled by: Anna'],['zh-CN','控制者: 安娜']]){
+  const f=fixture(),state={...v2(),locale,controller,canReclaim:true};
+  f.paint(state);
+  const toggle=f.get('control-toggle');
+  assert.equal(f.get('control-label').textContent,controller);
+  assert.equal(toggle.attributes['aria-label'],controller);
+  assert.equal(toggle.title,controller);
+  toggle.click();
+  assert.equal(f.get('participants').children.length,2);
+  f.get('reclaim').click();
+  assert.equal(f.sent.at(-1).action,'reclaim');
+  f.paint({...state,canReclaim:false,toolbar:{...state.toolbar,controllerIdentity:null}});
+  assert.notEqual(f.get('control-label').textContent,controller);
+  assert.notEqual(toggle.attributes['aria-label'],controller);
+ }
+});
 test('retired participant DOM action cannot delegate a replacement session to the same identity',()=>{
  const f=fixture();f.paint(v2());f.get('control-toggle').click();const old=f.get('participants').children[1];f.paint({...v2(),id:'replacement:grant:2'});old.click();assert.equal(f.sent.length,0);
  f.get('control-toggle').click();f.get('participants').children[1].click();assert.deepEqual(f.sent,[{id:'replacement:grant:2',action:'delegate',controllerIdentity:'guest-two'}]);
