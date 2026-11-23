@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2054**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2057**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -230,7 +230,7 @@ GitHub Actions: Private Windows primary kernel compile (NO EXECUTION). Выпо�
 
 Настройки редактора и задач разработчика; не production service.
 
-## apps · 438 файлов
+## apps · 441 файлов
 
 ### apps/cli/.gitignore
 
@@ -3000,7 +3000,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
-Используют: [`apps/desktop/tests/client-preview-package.test.cjs`](../../apps/desktop/tests/client-preview-package.test.cjs).
+Используют: [`apps/desktop/tests/client-preview-package.test.cjs`](../../apps/desktop/tests/client-preview-package.test.cjs), [`apps/desktop/tests/windows-wer.test.cjs`](../../apps/desktop/tests/windows-wer.test.cjs).
 
 ### apps/desktop/scripts/package-files.cjs
 
@@ -3024,7 +3024,7 @@ CastLink Client для Windows
 
 Библиотеки/Node: `electron-builder`, `node:child_process`, `node:crypto`, `node:fs`, `node:os`, `node:path`.
 
-Используют: [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs), [`apps/desktop/tests/private-test-auth-package.test.cjs`](../../apps/desktop/tests/private-test-auth-package.test.cjs).
+Используют: [`apps/desktop/scripts/verify-pptx-test.cjs`](../../apps/desktop/scripts/verify-pptx-test.cjs), [`apps/desktop/tests/private-test-auth-package.test.cjs`](../../apps/desktop/tests/private-test-auth-package.test.cjs), [`apps/desktop/tests/windows-wer.test.cjs`](../../apps/desktop/tests/windows-wer.test.cjs).
 
 Переменные окружения (только имена): `CASTLINK_PRIVATE_TEST_AUTH_ORIGIN`, `CASTLINK_PRIVATE_TEST_AUTH_SOURCE`.
 
@@ -3096,6 +3096,16 @@ CastLink Client для Windows
 
 Библиотеки/Node: `node:assert/strict`, `node:crypto`, `node:fs`, `node:path`.
 
+### apps/desktop/scripts/windows-wer.cjs
+
+[`apps/desktop/scripts/windows-wer.cjs`](../../apps/desktop/scripts/windows-wer.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Библиотеки/Node: `node:fs/promises`, `node:path`.
+
+Используют: [`apps/desktop/tests/windows-wer.test.cjs`](../../apps/desktop/tests/windows-wer.test.cjs).
+
 ### apps/desktop/src/capture.cjs
 
 [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs)
@@ -3105,6 +3115,14 @@ CastLink Client для Windows
 Читает/импортирует: [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs).
 
 Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs), [`apps/desktop/tests/capture.test.cjs`](../../apps/desktop/tests/capture.test.cjs).
+
+### apps/desktop/src/crash-reports.cjs
+
+[`apps/desktop/src/crash-reports.cjs`](../../apps/desktop/src/crash-reports.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Используют: [`apps/desktop/src/main.cjs`](../../apps/desktop/src/main.cjs).
 
 ### apps/desktop/src/helper-preload.cjs
 
@@ -3130,7 +3148,7 @@ CastLink Client для Windows
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/persistent-updater.cjs`](../../apps/desktop/src/persistent-updater.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
+Читает/импортирует: [`apps/desktop/src/capture.cjs`](../../apps/desktop/src/capture.cjs), [`apps/desktop/src/crash-reports.cjs`](../../apps/desktop/src/crash-reports.cjs), [`apps/desktop/src/ipc-policy.cjs`](../../apps/desktop/src/ipc-policy.cjs), [`apps/desktop/src/native-presentation-desktop.cjs`](../../apps/desktop/src/native-presentation-desktop.cjs), [`apps/desktop/src/permissions.cjs`](../../apps/desktop/src/permissions.cjs), [`apps/desktop/src/persistent-updater.cjs`](../../apps/desktop/src/persistent-updater.cjs), [`apps/desktop/src/powerpoint.cjs`](../../apps/desktop/src/powerpoint.cjs), [`apps/desktop/src/presentation-helper.cjs`](../../apps/desktop/src/presentation-helper.cjs), [`apps/desktop/src/presenter-protocol.cjs`](../../apps/desktop/src/presenter-protocol.cjs), [`apps/desktop/src/private-test-basic-auth.cjs`](../../apps/desktop/src/private-test-basic-auth.cjs), [`apps/desktop/src/process-audio.cjs`](../../apps/desktop/src/process-audio.cjs), [`apps/desktop/src/remote-pc-capture.cjs`](../../apps/desktop/src/remote-pc-capture.cjs), [`apps/desktop/src/remote-pc-desktop.cjs`](../../apps/desktop/src/remote-pc-desktop.cjs), [`apps/desktop/src/remote-pc-helper.cjs`](../../apps/desktop/src/remote-pc-helper.cjs), [`apps/desktop/src/remote-pc-protocol.cjs`](../../apps/desktop/src/remote-pc-protocol.cjs), [`apps/desktop/src/server-policy.cjs`](../../apps/desktop/src/server-policy.cjs), [`apps/desktop/src/setup.cjs`](../../apps/desktop/src/setup.cjs), [`apps/desktop/src/slide-panel.cjs`](../../apps/desktop/src/slide-panel.cjs), [`apps/desktop/src/stop-panel.cjs`](../../apps/desktop/src/stop-panel.cjs), [`apps/desktop/src/updates.cjs`](../../apps/desktop/src/updates.cjs), [`package.json`](../../package.json).
 
 Библиотеки/Node: `electron`, `node:crypto`, `node:fs`, `node:os`, `node:path`, `node:url`.
 
@@ -4065,6 +4083,16 @@ CastLink Client для Windows
 Библиотеки/Node: `electron`, `node:assert/strict`, `node:child_process`, `node:fs`, `node:path`.
 
 Переменные окружения (только имена): `CASTLINK_UPDATE_QA_OUTPUT`, `S`.
+
+### apps/desktop/tests/windows-wer.test.cjs
+
+[`apps/desktop/tests/windows-wer.test.cjs`](../../apps/desktop/tests/windows-wer.test.cjs)
+
+Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
+
+Читает/импортирует: [`apps/desktop/scripts/package-client-preview.cjs`](../../apps/desktop/scripts/package-client-preview.cjs), [`apps/desktop/scripts/package-pptx-test.cjs`](../../apps/desktop/scripts/package-pptx-test.cjs), [`apps/desktop/scripts/windows-wer.cjs`](../../apps/desktop/scripts/windows-wer.cjs).
+
+Библиотеки/Node: `node:assert/strict`, `node:fs/promises`, `node:os`, `node:path`, `node:test`.
 
 ### apps/desktop/ui/capture-picker.css
 
@@ -15582,7 +15610,7 @@ TURN через TLS на TCP 443
 
 [`distribution/UPDATER.md`](../../distribution/UPDATER.md)
 
-Постоянный обновлятор CastLink 1.0.0
+CastLink Updater 1.0.0
 
 ### distribution/docs/en/GUIDE.md
 
