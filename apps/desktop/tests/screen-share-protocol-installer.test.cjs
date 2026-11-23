@@ -1,6 +1,8 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm'),{createRequire}=require('node:module'),{spawnSync}=require('node:child_process');
-const root=path.resolve(__dirname,'../../..'),desktop=path.join(root,'apps/desktop'),pnpm=path.join(root,'node_modules/.pnpm'),folder=fs.readdirSync(pnpm).find(v=>v.startsWith('app-builder-lib@26.15.3_')),builder=path.join(pnpm,folder,'node_modules/app-builder-lib');
+const root=path.resolve(__dirname,'../../..'),desktop=path.join(root,'apps/desktop');
+const builderRequire = createRequire(require.resolve('electron-builder/package.json'));
+const builder = path.dirname(builderRequire.resolve('app-builder-lib/package.json'));
 const packaging=require('../scripts/package-screen-share.cjs');
 async function emittedHeader(t){
  const work=fs.mkdtempSync(path.join(os.tmpdir(),'share-uri-nsis-'));t.after(()=>fs.rmSync(work,{recursive:true,force:true}));

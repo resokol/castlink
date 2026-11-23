@@ -12,7 +12,7 @@ function runtime(options={}){
   }
   const updateCalls=[],updateAdapter={automatic:()=>true,setAutomatic:value=>updateCalls.push({automatic:value}),check:async value=>updateCalls.push(value||{})};
   const ipcMain=new EventEmitter();ipcMain.handlers={};ipcMain.handle=(name,handler)=>ipcMain.handlers[name]=handler;ipcMain.removeHandler=()=>{};
-  const prompts=[];let resolveSources;const electron={app,BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>items},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
+  const prompts=[], crashStarts=[], folders=[], menus=[];let resolveSources;const electron={app,crashReporter:{start:value=>crashStarts.push({...value})},BrowserWindow:Window,Menu:{setApplicationMenu(){},buildFromTemplate:items=>{menus.push(items);return items;}},dialog:{showMessageBox:async(...args)=>{prompts.push(args);return {response:options.response||0};}},ipcMain,session:{fromPartition:()=>ses},desktopCapturer:{getSources:()=>new Promise(r=>resolveSources=r)},shell:{openPath:async directory=>{folders.push(directory);return options.openError||'';},openExternal:url=>{opened.push(url);return Promise.resolve();}},nativeTheme:{themeSource:'system'},globalShortcut:{register:()=>true,unregister(){}}};
   const filename=path.resolve(__dirname,'../src/main.cjs'),localRequire=createRequire(filename),module={exports:{}};
   const presentation={exports:{}};
   if(options.presentationExec){
@@ -20,7 +20,7 @@ function runtime(options={}){
     vm.runInNewContext(fs.readFileSync(file,'utf8'),{module:presentation,require:name=>{const actual=localRequire(name);return name==='./powerpoint.cjs'?{...actual,createPowerPointController:value=>actual.createPowerPointController({...value,execFile:options.presentationExec})}:actual;},__dirname:path.dirname(file)},{filename:file});
   }
   vm.runInNewContext(fs.readFileSync(filename,'utf8')+'\nmodule.exports={connect,chooseSource,dismissPicker};',{require:name=>name==='electron'?electron:name==='./native-presentation-desktop.cjs'&&options.presentationExec?presentation.exports:name==='./remote-pc-helper.cjs'?{runRemotePcHelper:value=>{app.remoteOptions=value;}}:name==='./updates.cjs'?{...localRequire(name),createUpdateController:()=>updateAdapter}:localRequire(name),module,__dirname:path.dirname(filename),process:runtimeProcess,console,URL},{filename});
-  return {api:module.exports,windows,opened,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
+  return {api:module.exports,windows,opened,crashStarts,folders,menus,ses,app,prompts,updateCalls,ipcMain,nativeTheme:electron.nativeTheme,resolveSources:value=>resolveSources(value),cleanup:()=>fs.rmSync(temporary,{recursive:true,force:true})};
 }
 test('actual popup handler opens trusted output links externally without native privileges',async()=>{
   const state=runtime();try{
@@ -206,4 +206,28 @@ test('actual normal-client permission handler dispatches only the verified curre
   assert.equal(await request(details),false,'a previous top document cannot authorize a later launch');
   assert.equal(state.prompts.length,1,'initial device prompt only; no extra grant dialog');assert.equal(state.opened.length,0,'Electron owns the one native dispatch after permission callback');
  }finally{state.cleanup();}
+});
+
+test('Windows crash collection precedes readiness and crash-folder access requires a native menu choice', async t => {
+  for (const [response, openError] of [[0, ''], [1, ''], [1, 'unavailable']]) {
+    const state = runtime({ready:true, platform:'win32', response, openError});
+    t.after(state.cleanup);
+    assert.deepEqual(state.crashStarts, [{uploadToServer:false}]);
+    assert.equal(state.windows.length, 0);
+    await tick();
+    const item = state.menus.at(-1).find(item => item.label === 'Отчёты о сбоях…');
+    assert.ok(item);
+    assert.equal(state.folders.length, 0);
+    await item.click({}, state.windows[0]);
+    assert.deepEqual(state.folders, response === 1 ? [state.app.getPath('crashDumps')] : []);
+    assert.match(state.prompts[0][1].detail, /\.dmp/);
+    assert.equal(state.prompts[0][1].cancelId, 0);
+    if (openError) assert.equal(state.prompts.at(-1)[1].detail, state.app.getPath('crashDumps'));
+    assert.ok(Object.keys(state.ipcMain.handlers).every(name => !/crash/i.test(name)));
+  }
+  const linux = runtime({ready:true, platform:'linux'});
+  t.after(linux.cleanup);
+  await tick();
+  assert.deepEqual(linux.crashStarts, []);
+  assert.equal(linux.menus.at(-1).some(item => item.label === 'Отчёты о сбоях…'), false);
 });

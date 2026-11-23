@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen, crashReporter } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -72,7 +72,10 @@ function configureMenu() {
   const t=labels();
   Menu.setApplicationMenu(null);
   const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
-  applicationMenu=Menu.buildFromTemplate([...updateItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  const crashItems = process.platform === 'win32'
+    ? [require('./crash-reports.cjs').menuItem({ app, dialog, shell, locale: settings.locale })]
+    : [];
+  applicationMenu=Menu.buildFromTemplate([...updateItems,...crashItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
@@ -215,6 +218,7 @@ if(remoteHelperMode){
   else void Promise.resolve(require('./presentation-helper.cjs').runPresentationHelper({app,BrowserWindow,dialog})).catch(()=>app.quit());
 } else if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  if (process.platform === 'win32') crashReporter.start({ uploadToServer: false });
   require('./private-test-basic-auth.cjs').installPrivateTestAuth({app,enabled:pptxTestBuild&&!presenterBuild,file:process.env.CASTLINK_PRIVATE_TEST_AUTH_FILE,getClient:()=>client,getOrigin:()=>settings.serverOrigin});
   if(app.isPackaged&&!pptxTestBuild){
     // electron-builder removes the portable's extracted process.execPath on exit.

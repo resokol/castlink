@@ -9,7 +9,7 @@ fs.mkdirSync(output, { recursive: true });
 app.setPath('userData', path.join(output, 'profile-' + process.pid));
 app.commandLine.appendSwitch('use-fake-device-for-media-stream');
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
-const ts = require(path.join(root, 'apps/web/node_modules/typescript'));
+const ts = require(path.join(root, 'apps/web/tests/node_modules/typescript'));
 const report = { platform: process.platform, electron: process.versions.electron, syntheticMedia: true, productionAccess: false, checks: [] };
 let client, controller, server;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));

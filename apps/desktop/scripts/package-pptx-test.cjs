@@ -44,7 +44,7 @@ function stagePrivatePackage(root,destination,commit,{sourceDirty=true}={}){
 function privateBuilderConfig({stage,output,electron}){
   const extraResources=[{from:path.join(stage,'native-resources/powerpoint'),to:'powerpoint'}];
   if(fs.existsSync(path.join(stage,'native-resources/process-audio')))extraResources.push({from:path.join(stage,'native-resources/process-audio'),to:'process-audio'});
-  return{extraFiles:[{from:path.join(stage,'launchers'),to:'.'}],extends:null,appId:'ru.castlink.pptx-test',productName:'CastLink PPTX Test',asar:true,protocols:[],publish:null,npmRebuild:false,electronVersion:electron,directories:{app:stage,output},files:['src/*.cjs','ui/*','assets/*','package.json','build-info.json','snapshot-files.json','LICENSE','THIRD_PARTY_NOTICES'],extraResources,artifactName:'CastLink-PPTX-Private-Test-win-x64.${ext}',win:{icon:'assets/castlink-icon.ico',target:['dir','zip'],signAndEditExecutable:false}};
+  return{afterPack:path.join(__dirname,'windows-wer.cjs'),extraFiles:[{from:path.join(stage,'launchers'),to:'.'}],extends:null,appId:'ru.castlink.pptx-test',productName:'CastLink PPTX Test',asar:true,protocols:[],publish:null,npmRebuild:false,electronVersion:electron,directories:{app:stage,output},files:['src/*.cjs','ui/*','assets/*','package.json','build-info.json','snapshot-files.json','LICENSE','THIRD_PARTY_NOTICES'],extraResources,artifactName:'CastLink-PPTX-Private-Test-win-x64.${ext}',win:{icon:'assets/castlink-icon.ico',target:['dir','zip'],signAndEditExecutable:false}};
 }
 async function main(){
   if(process.platform!=='win32')throw Error('Build the private Windows candidate on Windows');

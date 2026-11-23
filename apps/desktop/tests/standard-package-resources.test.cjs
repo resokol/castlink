@@ -19,6 +19,7 @@ test('the standard package builds and ships its existing PDF navigation helper a
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../scripts/package.cjs'),'utf8'),{require:name=>{assert.ok(Object.hasOwn(modules,name),name);return modules[name];},__dirname:path.join(root,'apps/desktop/scripts'),process:runtimeProcess,console:{log(){},error(){}}});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(runtimeProcess.exitCode,undefined,'the normal packaging entry point completed');
+  assert.equal(configuration.afterPack,path.join(root,'apps/desktop/scripts/windows-wer.cjs'));
   assert.deepEqual(calls,['audio','window-slides','remote-input']);
   assert.ok(configuration.extraResources.some(resource=>resource.to==='remote-input/CastLink.RemoteInput.exe'&&resource.from.endsWith(path.join('remote-input','CastLink.RemoteInput.exe'))));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='window-slides/CastLink.WindowSlides.exe'&&resource.from.endsWith(path.join('window-slides','CastLink.WindowSlides.exe'))),'the compiled helper is part of standard extraResources');

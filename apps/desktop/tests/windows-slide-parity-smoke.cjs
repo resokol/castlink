@@ -4,7 +4,7 @@ const {app,BrowserWindow,ipcMain,nativeTheme}=require('electron');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'../../..'),out=path.join(root,'artifacts/slide-parity-qa');
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',path.join(out,'profile-'+process.pid));
-const ts=require(path.join(root,'apps/web/node_modules/typescript'));
+const ts=require(path.join(root,'apps/web/tests/node_modules/typescript'));
 const source=fs.readFileSync(path.join(root,'apps/web/lib/co-presentation-toolbar.ts'),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 app.on('window-all-closed',()=>{});
