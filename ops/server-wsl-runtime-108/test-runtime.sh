@@ -48,7 +48,7 @@ prepare(){
  guest ip -o link | awk -F': ' '{print $2}' | grep -qx lo
  test "$(guest ip -o link | wc -l)" -eq 1
 }
-guest(){ sudo nsenter --target "$leader" --mount --uts --ipc --net --pid --cgroup --root --wdns=/ -- /usr/bin/env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 "$@"; }
+guest(){ (umask 022; sudo nsenter --target "$leader" --mount --uts --ipc --net --pid --cgroup --root --wdns=/ -- /usr/bin/env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 "$@"); }
 diagnose(){ if test -n "${leader:-}" && test -e "/proc/$leader"; then guest systemctl --failed --no-pager || true; guest sh -c 'cd /opt/castlink/app; id; ip -br addr; runuser -u castlink-caddy -- env XDG_DATA_HOME=/var/lib/castlink-server/caddy XDG_CONFIG_HOME=/var/lib/castlink-server/caddy/config /usr/local/bin/caddy validate --config /etc/castlink-server/Caddyfile --adapter caddyfile 2>&1 | tail -4; systemctl daemon-reload' || true; guest journalctl -b -u castlink-private-ports -u castlink-converter -u castlink-livekit -u castlink-postgres -u castlink-web -u castlink-caddy -u castlink-turn-tls --no-pager -o cat | grep -Ei 'failed|denied|cannot|error' | sed -E 's#(postgresql|https?|wss?)://[^ ]+#[address omitted]#g' | tail -20 || true; fi; }
 trap diagnose ERR
 prepare baseline
@@ -57,7 +57,7 @@ newid=$(cat /proc/sys/kernel/random/uuid | tr -d -)
 transaction=$(cat /proc/sys/kernel/random/uuid)
 marker=/var/lib/castlink-server-wsl-installation-id
 printf %s "$oldid" | guest tee "$marker" >/dev/null
-guest bash -ec 'umask 077; tr -d "-" </proc/sys/kernel/random/uuid | tr -d "\n" > /run/castlink-proof-password; /usr/local/bin/castlink-server init --lang en --address 127.0.0.1 --media-ip 127.0.0.1 --room-creation-password-file /run/castlink-proof-password; rm /run/castlink-proof-password'
+guest bash -ec 'umask 077; tr -d "-" </proc/sys/kernel/random/uuid | tr -d "\n" > /run/castlink-proof-password; umask 022; /usr/local/bin/castlink-server init --lang en --address 127.0.0.1 --media-ip 127.0.0.1 --room-creation-password-file /run/castlink-proof-password; rm /run/castlink-proof-password'
 guest /usr/local/bin/castlink-server start
 guest /usr/local/bin/castlink-server status | jq -e --arg b "${oldtag#server-wsl-v}" '.ready and .buildId==$b' >/dev/null
 db(){ guest runuser -u postgres -- /usr/lib/postgresql/16/bin/psql -d castlink -h /run/castlink-postgres -v ON_ERROR_STOP=1 -qAt "$@"; }
