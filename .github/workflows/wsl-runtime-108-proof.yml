@@ -1,0 +1,25 @@
+name: WSL 1.0.8 isolated rootfs upgrade proof
+on:
+  push:
+    branches: [ops/server-wsl-runtime-108]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  isolated-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      FACTORY_RUN: ''
+      FACTORY_SHA: ''
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Verify exact release and boot rootfs with loopback-only networking
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ops/server-wsl-runtime-108/test-runtime.sh
+      - uses: actions/upload-artifact@v7.0.2
+        if: success() && env.FACTORY_RUN != ''
+        with:
+          name: wsl-1.0.8-runtime-proof
+          path: ${{ runner.temp }}/runtime-proof.json
