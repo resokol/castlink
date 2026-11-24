@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
-      FACTORY_RUN: ''
-      FACTORY_SHA: ''
+      FACTORY_RUN: '44820441013'
+      FACTORY_SHA: '0d16de2e782cd2e847e9824024c5b788a080a59b'
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Verify exact release and boot rootfs with loopback-only networking

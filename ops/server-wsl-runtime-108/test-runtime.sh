@@ -4,6 +4,12 @@ proofdir="$RUNNER_TEMP/wsl-runtime"
 mkdir -p "$proofdir/baseline" "$proofdir/candidate"
 oldtag=server-wsl-v1.0.7-0d16de2e782c
 oldsha=0d16de2e782cd2e847e9824024c5b788a080a59b
+target_version=1.0.8
+if [[ "$FACTORY_SHA" == 0d16de2e782cd2e847e9824024c5b788a080a59b ]]; then
+ oldtag=server-wsl-v1.0.6-rc.1-dad063393b53
+ oldsha=dad063393b5308638d99383669617e41c9e163fc
+ target_version=1.0.7
+fi
 gh release download "$oldtag" -R resokol/castlink -D "$proofdir/baseline" -p manifest.json -p CastLink-Server-WSL-amd64.tar.gz
 gh api "repos/resokol/castlink/releases/tags/$oldtag" > "$proofdir/baseline/release.json"
 python3 - "$proofdir/baseline" "$oldsha" "$oldtag" <<'PY'
@@ -22,10 +28,10 @@ if test -n "$FACTORY_RUN"; then
  gh api "repos/resokol/castlink/actions/runs/$FACTORY_RUN" > "$proofdir/candidate/run.json"
  jq -e --arg sha "$FACTORY_SHA" '.head_sha==$sha and .path==".github/workflows/server-wsl-package.yml" and .conclusion=="success"' "$proofdir/candidate/run.json" >/dev/null
  gh run download "$FACTORY_RUN" -R resokol/castlink -n "castlink-server-wsl-install-$FACTORY_SHA" -D "$proofdir/candidate"
- python3 - "$proofdir/candidate" "$FACTORY_SHA" "$oldtag" <<'PY'
+ python3 - "$proofdir/candidate" "$FACTORY_SHA" "$oldtag" "$target_version" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
-d=Path(sys.argv[1]); m=json.loads((d/'manifest.json').read_bytes()); assert m['sourceCommit']==sys.argv[2] and m['releaseTag']=='server-wsl-v1.0.8-'+sys.argv[2][:12]
+d=Path(sys.argv[1]); m=json.loads((d/'manifest.json').read_bytes()); assert m['sourceCommit']==sys.argv[2] and m['releaseTag']=='server-wsl-v'+sys.argv[4]+'-'+sys.argv[2][:12]
 assert sys.argv[3] in m['lifecycle']['supportedSources']
 for e in [m['rootfs'],*m['lifecycle']['helpers']]:
  with (d/e['file']).open('rb') as f: assert hashlib.file_digest(f,'sha256').hexdigest()==e['sha256']
@@ -63,11 +69,11 @@ guest /usr/local/bin/castlink-server status | jq -e --arg b "${oldtag#server-wsl
 db(){ guest runuser -u postgres -- /usr/lib/postgresql/16/bin/psql -d castlink -h /run/castlink-postgres -v ON_ERROR_STOP=1 -qAt "$@"; }
 db -c "CREATE TABLE release_108_fixture (payload text NOT NULL); INSERT INTO release_108_fixture VALUES ('from-1.0.7')"
 guest /usr/local/bin/castlink-server stop
-echo 'Published 1.0.7 started HTTPS/DB/LiveKit successfully in loopback-only guest, recorded test DB row and stopped'
+echo "Published $oldtag started HTTPS/DB/LiveKit successfully in loopback-only guest, recorded test DB row and stopped"
 if test -z "$FACTORY_RUN"; then exit 0; fi
 oldtree="$proofdir/baseline/tree"; newtree="$proofdir/candidate/tree"
-for name in server-wsl-maintenance.py server-wsl-runtime.py; do sudo install -D -m600 "$proofdir/candidate/$name" "$oldtree/run/castlink-proof/$name"; done
-oldtool(){ guest python3 /run/castlink-proof/server-wsl-maintenance.py "$1" --installation-id "$oldid"; }
+for name in server-wsl-maintenance.py server-wsl-runtime.py; do sudo install -D -m600 "$proofdir/candidate/$name" "$oldtree/var/lib/castlink-qa-helpers/$name"; done
+oldtool(){ guest python3 /var/lib/castlink-qa-helpers/server-wsl-maintenance.py "$1" --installation-id "$oldid"; }
 oldtool inspect | jq -e '.stopped and .initialized and .complete and .postgresMajor==16' >/dev/null
 oldtool export >"$proofdir/transfer.tar"
 prepare candidate
@@ -75,14 +81,14 @@ printf %s "$newid" | guest tee "$marker" >/dev/null
 tool(){ local action="$1"; shift; guest /usr/local/bin/castlink-server-maintenance "$action" --installation-id "$newid" "$@"; }
 tool gate-close --transaction-id "$transaction"
 tool import <"$proofdir/transfer.tar"
-sudo python3 - "$oldtree" "$newtree" <<'PY'
+sudo python3 - "$oldtree" "$newtree" "$oldtag" "$target_version" <<'PY'
 import json,sys,hashlib
 from pathlib import Path
-a,b=[Path(d)/'var/lib/castlink-server' for d in sys.argv[1:]]
+a,b=[Path(d)/'var/lib/castlink-server' for d in sys.argv[1:3]]
 x,y=[json.loads((d/'state.json').read_bytes()) for d in (a,b)]
 for k in ['installationId','nodeId','address','origin','mediaIp','turnHost','publicHttps','roomCreationPasswordHash']:
  assert x[k]==y[k],k
-assert x['release']['version']=='1.0.7' and y['release']['version']=='1.0.8'
+assert 'server-wsl-v'+x['release']['buildId']==sys.argv[3] and y['release']['version']==sys.argv[4]
 for name in ['secrets.json','postgres/castlink-installation-id','data/server-origin-ca.pem']:
  assert (a/name).read_bytes()==(b/name).read_bytes(),name
 matches=list((a/'caddy').rglob('*.key')); assert matches
@@ -90,7 +96,7 @@ for f in matches: assert f.read_bytes()==(b/f.relative_to(a)).read_bytes()
 print('Installation and node IDs, origin, media, password, secrets, private TLS keys and public CA survived transfer')
 PY
 guest /usr/local/bin/castlink-server start
-newbuild="1.0.8-${FACTORY_SHA:0:12}"
+newbuild="$target_version-${FACTORY_SHA:0:12}"
 guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
 tool gate-open --committed-transaction "$transaction"
 guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
