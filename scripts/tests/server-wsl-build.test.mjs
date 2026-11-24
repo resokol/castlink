@@ -6,6 +6,13 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {verifyBuildSource} from '../build-server-wsl.mjs';
 
+test('WSL installs the atomic runtime required by the copied Node binary',async()=>{
+ const dockerfile=await fs.readFile(new URL('../../infrastructure/server-wsl/Dockerfile',import.meta.url),'utf8');
+ const instructions=dockerfile.replace(/\\\r?\n/g,' ');
+ assert.match(instructions,/apt-get install -y --no-install-recommends [^&]*\blibatomic1\b/);
+ assert.match(instructions,/\/usr\/local\/bin\/node --version/);
+});
+
 test('release builds refuse a claimed commit that differs from code or has dirty inputs',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-build-source-'));
  const git=args=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();

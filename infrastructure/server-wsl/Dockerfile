@@ -11,7 +11,7 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbi
  && sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources \
  && apt-get update && apt-get install -y --no-install-recommends \
     systemd systemd-sysv dbus ca-certificates curl openssl python3 \
-    postgresql-16 haproxy nftables iproute2 procps libstdc++6 \
+    postgresql-16 haproxy nftables iproute2 procps libstdc++6 libatomic1 \
     libreoffice-impress fonts-dejavu-core fonts-liberation \
  # Refresh packages left in the pinned base: superseded binary versions can
  # disappear from source indexes even while still installed in that base.
