@@ -227,6 +227,11 @@ class SourceArchiveTest(unittest.TestCase):
         inputs = primary['runtimeInputs']
         self.assertEqual({b['image'] for b in inputs['goBinaries']}, {'postgres', 'caddy', 'livekit'})
         self.assertTrue(set(inputs['alpineImageRecipes']) <= {s['path'] for s in primary['files']})
+        turn_dockerfile = (root/'infrastructure/turn-tls/Dockerfile').read_text()
+        turn_recipes = [item for item in primary['files']
+                        if 'turntls' in inputs['alpineImageRecipes'].get(item['path'], [])]
+        self.assertEqual(len(turn_recipes), 1)
+        self.assertIn('apk add --no-cache ' + turn_recipes[0]['component'].replace(' ', '='), turn_dockerfile)
         self.assertIn('https://github.com/resokol/castlink', primary['scope'])
         self.assertIn('MIT', primary['scope'])
         self.assertNotIn('private CastLink', primary['scope'])

@@ -2216,6 +2216,69 @@
       "component": "openldap 2.6.15-r0"
     },
     {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/APKBUILD",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/APKBUILD",
+      "sha256": "3db5f8f76df5014cc263e59f21c3399766b35c2e4d3cdbf1cbaab5c6138a0c2d",
+      "size": 8295,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-107496.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/CVE-2026-107496.patch",
+      "sha256": "77d3759d279c71af59629c4a0fa82d8272a099762f2fa9e3f66d7ca5ed544157",
+      "size": 3375,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-88822.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/CVE-2026-88822.patch",
+      "sha256": "50f7cc52fb146703379ca043d17e204c4fda99c684efe3db6d6f3ae1d175bd2a",
+      "size": 2321,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-88823.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/CVE-2026-88823.patch",
+      "sha256": "a945077c0a978dbfe5af5e4f7174a2151466547f8fb94562f395baa7b6b7c147",
+      "size": 3483,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-95691.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/CVE-2026-95691.patch",
+      "sha256": "93d8e82fdc995172a6d5cc6952491658106191bd5ac221d34596adbddfcd1afe",
+      "size": 7377,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/CVE-2026-95692.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/CVE-2026-95692.patch",
+      "sha256": "0e328604c0038de6629a29322ae5f02d2f5f5128c2625b57ca64262efab99e05",
+      "size": 2100,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/auxv.patch",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/auxv.patch",
+      "sha256": "0b3a36c0f1b3d8e0adcf02c251374ce4d2578b0c9f4b88207bf85c5c1b58c7d8",
+      "size": 2013,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://distfiles.alpinelinux.org/distfiles/v3.24/openssl-3.5.9.tar.gz",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/openssl-3.5.9.tar.gz",
+      "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "size": 53279637,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/alpinelinux/aports/0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/main/openssl/openssl-fips.post-install",
+      "path": "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/openssl-fips.post-install",
+      "sha256": "441311401af66e9f1b4b38730827ade609669196f91c56b82351a7226b903755",
+      "size": 231,
+      "component": "openssl 3.5.9-r1"
+    },
+    {
       "url": "https://raw.githubusercontent.com/alpinelinux/aports/29b9ec24b1b5b39aeef51fa2a044210e2ec5258e/main/openssl/APKBUILD",
       "path": "alpine/openssl-29b9ec24b1b5b39aeef51fa2a044210e2ec5258e/APKBUILD",
       "sha256": "ea459c051ee8d846c06f1d47d09d0f737778502c01de88c9696e96a208de5943",
@@ -6113,6 +6176,9 @@
       ],
       "alpine/openldap-dff61c85c6c68e2c5fb8abac65f0dd97d4ad8763/APKBUILD": [
         "postgres"
+      ],
+      "alpine/openssl-0f4c7e8d0f5f7cebbdc2156eca4391080b732bf2/APKBUILD": [
+        "turntls"
       ],
       "alpine/openssl-29b9ec24b1b5b39aeef51fa2a044210e2ec5258e/APKBUILD": [
         "caddy",

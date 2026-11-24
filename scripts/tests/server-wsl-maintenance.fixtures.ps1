@@ -333,7 +333,12 @@ public static class CLMArgvEchoFixture {
  Test 'native binding compiler stages a recoverable exact root and refuses unknown hosts' {
   $base=Join-Path $testRoot 'native-bindings';$cache=Join-Path $base 'cache';$root=Join-Path $base 'installed';$journalDir=Join-Path $base 'transaction';foreach($p in @($base,$cache,$root,$journalDir)){[void][IO.Directory]::CreateDirectory($p)}
   $scripts=Split-Path $PSScriptRoot -Parent;$inventory=Read-CLMJson (Join-Path $scripts 'server-native-panel-files.json');$entries=@()
-  foreach($n in @('server-native-panel-files.json')+@($inventory.files)+@($inventory.buildFiles)){[IO.File]::Copy((Join-Path $scripts $n),(Join-Path $cache $n),$false);$entries+=[pscustomobject]@{file=$n;sha256=(Get-CLMHash (Join-Path $cache $n));size=(Get-Item (Join-Path $cache $n)).Length}}
+  foreach($name in @('server-native-panel-files.json')+@($inventory.files)+@($inventory.buildFiles)){
+   $sourceName=if($name -ceq 'castlink-updater.ps1'){'updater/castlink-updater.ps1'}else{$name}
+   $destination=Join-Path $cache $name
+   [IO.File]::Copy((Join-Path $scripts $sourceName),$destination,$false)
+   $entries+=[pscustomobject]@{file=$name;sha256=(Get-CLMHash $destination);size=(Get-Item $destination).Length}
+  }
   [IO.File]::Copy((Join-Path $scripts 'install-server-windows.ps1'),(Join-Path $cache 'install-server-windows.template.ps1'),$false)
   $manifest=[pscustomobject]@{releaseTag='server-wsl-v1.0.6-cccccccccccc';repository='resokol/castlink';rootfs=[pscustomobject]@{sha256=('c'*64)};nativePanel=[pscustomobject]@{schemaVersion=1;host='CastLinkServer.exe';binding='server-native-binding.json';files=$entries}}
   Write-CLMJson (Join-Path $cache 'manifest.json') $manifest;$pin=Get-CLMHash (Join-Path $cache 'manifest.json');$installer=Stage-CLMInstaller $cache $manifest $pin;$m=Import-CLMInstaller $installer

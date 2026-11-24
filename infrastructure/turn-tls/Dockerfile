@@ -9,9 +9,10 @@ USER root
 RUN --mount=type=secret,id=proxy_ca,target=/run/proxy-ca,required=false \
     set -eu; if [ -s /run/proxy-ca ]; then \
       cat /etc/ssl/cert.pem /run/proxy-ca > /tmp/build-ca.pem; \
-      SSL_CERT_FILE=/tmp/build-ca.pem apk add --no-cache openssl; \
-      rm /tmp/build-ca.pem; \
-    else apk add --no-cache openssl; fi
+      export SSL_CERT_FILE=/tmp/build-ca.pem; \
+    fi; \
+    apk add --no-cache openssl=3.5.9-r1; \
+    rm -f /tmp/build-ca.pem
 COPY infrastructure/turn-tls/entrypoint.sh /usr/local/bin/castlink-turn-tls
 RUN chmod 755 /usr/local/bin/castlink-turn-tls
 ENTRYPOINT ["/usr/local/bin/castlink-turn-tls"]
