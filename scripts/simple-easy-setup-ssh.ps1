@@ -3,19 +3,22 @@
 
 function Get-SimpleSshPackagePins {
     @(
+        # .NET Framework binds exact strong names. The logging and task libraries
+        # reference older BCL assemblies alongside the versions used by SSH.NET.
+        @{Id='System.Runtime.CompilerServices.Unsafe';Version='4.5.3';Framework='net461';Dll='System.Runtime.CompilerServices.Unsafe.dll';Sha256='96764c52a44ee1161151e48ef07489f72047a851cb55b99e9f01d6908536d1a9'},
+        @{Id='System.Buffers';Version='4.5.1';Framework='net461';Dll='System.Buffers.dll';Sha256='c30b3dd2c7e2f4cee4b823d692fd42118309b42ab1f5007f923d329a5b0d6b12'},
+        @{Id='System.Numerics.Vectors';Version='4.5.0';Framework='net46';Dll='System.Numerics.Vectors.dll';Sha256='a9d49320581fda1b4f4be6212c68c01a22cdf228026099c20a8eabefcf90f9cf'},
+        @{Id='System.Memory';Version='4.5.5';Framework='net461';Dll='System.Memory.dll';Sha256='10f43da352a29fb2b3188e4edd4dcf5100194c8b526e4f61fe2e2b5623775a22'},
         @{Id='System.Runtime.CompilerServices.Unsafe';Version='6.1.2';Framework='net462';Dll='System.Runtime.CompilerServices.Unsafe.dll';Sha256='5f6a7f53af3465f92beb6da873ebe0e496206c313313b98badee4355a6b25937'},
         @{Id='System.Buffers';Version='4.6.1';Framework='net462';Dll='System.Buffers.dll';Sha256='b00451e91d016fbec091ad1e361f3a7015e1d91d4047f7e48a74455b2a673d79'},
         @{Id='System.Numerics.Vectors';Version='4.6.1';Framework='net462';Dll='System.Numerics.Vectors.dll';Sha256='2bc500a86dcb02f2032d6d877f9e2d6e9e4a79080e57239b4198679d4031f2c7'},
         @{Id='System.Memory';Version='4.6.3';Framework='net462';Dll='System.Memory.dll';Sha256='26078aeb758c9ae985e8bf851f973026061da6a5eb4837204d0c2d2204c72955'},
-        @{Id='System.ValueTuple';Version='4.6.2';Framework='net47';Dll='System.ValueTuple.dll';Sha256='76fd0e366a2b90655fd15d557b0b79504197748358cb578fe3193f6d97bdd9aa'},
-        @{Id='System.Threading.Tasks.Extensions';Version='4.6.3';Framework='net462';Dll='System.Threading.Tasks.Extensions.dll';Sha256='1abc92c7517a021ead7e79d0b7f3c70be75bce0fac7cfe3b38e157d32245ff1a'},
-        @{Id='Microsoft.Bcl.AsyncInterfaces';Version='11.0.0';Framework='net462';Dll='Microsoft.Bcl.AsyncInterfaces.dll';Sha256='0aad37c8a5ac211d389b03ce6171023f9ff0271b357b2e9ce07cc028dd4763a6'},
-        @{Id='System.Formats.Asn1';Version='11.0.0';Framework='net462';Dll='System.Formats.Asn1.dll';Sha256='4bfa5deb012efb78cd5afb550f182d530f58765523bd12d805fa3315326ef90b'},
-        @{Id='Microsoft.Bcl.HashCode';Version='6.0.0';Framework='net462';Dll='Microsoft.Bcl.HashCode.dll';Sha256='f3b9b2bab0bf8cc717d5fdf6d7aee3ec54e36d9e85bd41347acae161319cbd6b'},
-        @{Id='Microsoft.Bcl.Cryptography';Version='11.0.0';Framework='net462';Dll='Microsoft.Bcl.Cryptography.dll';Sha256='8b6252f5a7170ef1c1e30aafba518b4b131a5c9186bb574653c64116469b8631'},
-        @{Id='System.Diagnostics.DiagnosticSource';Version='11.0.0';Framework='net462';Dll='System.Diagnostics.DiagnosticSource.dll';Sha256='16e694e83a96da9e27e15038b10c0a37a87605433287cb464fc4d1f9e4597647'},
-        @{Id='Microsoft.Extensions.DependencyInjection.Abstractions';Version='11.0.0';Framework='net462';Dll='Microsoft.Extensions.DependencyInjection.Abstractions.dll';Sha256='2bb9ba44ab003c647b323e2c8a632b2e2ed54d735346340e1ea7787eaf37f270'},
-        @{Id='Microsoft.Extensions.Logging.Abstractions';Version='11.0.0';Framework='net462';Dll='Microsoft.Extensions.Logging.Abstractions.dll';Sha256='8bf2e244848021a81502e342d7ae282f60f04c9d57a8c4e2ea5219293941fc71'},
+        @{Id='System.Threading.Tasks.Extensions';Version='4.5.4';Framework='net461';Dll='System.Threading.Tasks.Extensions.dll';Sha256='a304a963cc0796c5179f9c6b7d8022bbce3b2fa7c029eb6196f631f7b462d678'},
+        @{Id='Microsoft.Bcl.AsyncInterfaces';Version='8.0.0';Framework='net462';Dll='Microsoft.Bcl.AsyncInterfaces.dll';Sha256='f5a5a68b03092ab2abf68843d4a4aea25dfbcbe8dd0f13c625cb779b6fc1927c'},
+        @{Id='System.Formats.Asn1';Version='10.0.15';Framework='net462';Dll='System.Formats.Asn1.dll';Sha256='abc8ae7f7153619c737ac614e52c3a90354c77a91248f6d5479a1db7622fe9be'},
+        @{Id='Microsoft.Bcl.Cryptography';Version='10.0.15';Framework='net462';Dll='Microsoft.Bcl.Cryptography.dll';Sha256='16fba39f21cc28dfc80c4b5ee4c3c688aabaaf97ed26d9b7d28bd75e4110064d'},
+        @{Id='Microsoft.Extensions.DependencyInjection.Abstractions';Version='8.0.2';Framework='net462';Dll='Microsoft.Extensions.DependencyInjection.Abstractions.dll';Sha256='51f2df1100245f10da54f0bb7e813f277155117777d4fbbab902214e27372606'},
+        @{Id='Microsoft.Extensions.Logging.Abstractions';Version='8.0.3';Framework='net462';Dll='Microsoft.Extensions.Logging.Abstractions.dll';Sha256='e4c498d5a13051b4577a148f1d8c3470167215c507e2392069b75dc61322bb74'},
         @{Id='BouncyCastle.Cryptography';Version='2.7.0';Framework='net461';Dll='BouncyCastle.Cryptography.dll';Sha256='f091ffccab4d03993e660bace277659a79dee0972f54d7f1f4bd46d680966241'},
         @{Id='SSH.NET';Version='2026.0.1';Framework='net462';Dll='Renci.SshNet.dll';Sha256='c933c4e0163cd7d78960796fcf27b5908cf2feb05fd95ccfd9d3cc37334a5b2b'}
     )
@@ -23,7 +26,7 @@ function Get-SimpleSshPackagePins {
 
 function Get-SimpleSshLibraryDir {
     param([Parameter(Mandatory=$true)][string]$ToolsDir)
-    return (Join-Path $ToolsDir 'sshnet-2026.0.1')
+    return (Join-Path $ToolsDir 'sshnet-2026.0.1-net48')
 }
 
 function Get-SimpleSshStreamHash {
@@ -81,7 +84,7 @@ function Install-SimpleSshDependency {
             $archive = Read-SimpleSshPackage -Pin $pin -PackageFile $packageFile
             try {
                 $entry = $archive.GetEntry('lib/' + $pin.Framework + '/' + $pin.Dll)
-                $dllFile = Join-Path $libraryDir $pin.Dll
+                $dllFile = Join-Path $libraryDir ($pin.Id + '.' + $pin.Version + '.dll')
                 $dllStream = $entry.Open()
                 try { $expectedHash = Get-SimpleSshStreamHash $dllStream } finally { $dllStream.Dispose() }
                 $alreadyPresent = (Test-Path -LiteralPath $dllFile -PathType Leaf)
@@ -109,69 +112,35 @@ function Import-SimpleSshDependency {
     if ($frameworkRelease -lt 528040) { throw 'Install .NET Framework 4.8 to use SSH.' }
     Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
     $libraryDir = Get-SimpleSshLibraryDir $ToolsDir
-    $references = @()
-    $assemblies = @()
+    # NuGet ships no ValueTuple DLL for net471 and later. The CLR redirects this
+    # SSH.NET reference to its own serviced facade, which forwards to mscorlib.
+    $tuple = [Reflection.Assembly]::Load('System.ValueTuple, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51')
+    $frameworkDll = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'System.ValueTuple.dll'
+    if (-not $tuple.GlobalAssemblyCache -or
+        $tuple.FullName -cne 'System.ValueTuple, Version=4.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51' -or
+        (Get-FileHash -LiteralPath $tuple.Location).Hash -cne (Get-FileHash -LiteralPath $frameworkDll).Hash) {
+        throw 'Conflicting SSH dependency already loaded: System.ValueTuple'
+    }
     foreach ($pin in Get-SimpleSshPackagePins) {
         $archive = Read-SimpleSshPackage -Pin $pin -PackageFile (Join-Path $libraryDir ($pin.Id + '.' + $pin.Version + '.nupkg'))
         try {
             $stream = $archive.GetEntry('lib/' + $pin.Framework + '/' + $pin.Dll).Open()
             try { $expectedHash = Get-SimpleSshStreamHash $stream } finally { $stream.Dispose() }
-            $dllFile = Join-Path $libraryDir $pin.Dll
+            $dllFile = Join-Path $libraryDir ($pin.Id + '.' + $pin.Version + '.dll')
             if (-not (Test-Path -LiteralPath $dllFile -PathType Leaf) -or (Get-FileHash -LiteralPath $dllFile -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant() -cne $expectedHash) {
                 throw ('SSH dependency DLL checksum failed: ' + $pin.Id)
             }
             $loaded = [Reflection.Assembly]::LoadFrom($dllFile)
-            if ((Get-FileHash -LiteralPath $loaded.Location -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant() -cne $expectedHash) {
+            $loadedHash = (Get-FileHash -LiteralPath $loaded.Location -Algorithm SHA256 -ErrorAction Stop).Hash
+            if ($loadedHash -ine $expectedHash) {
                 throw ('Conflicting SSH dependency already loaded: ' + $pin.Id)
             }
-            $assemblies += $loaded
-            $references += $dllFile
+            if ($pin.Id -ceq 'SSH.NET') { $sshAssembly = $loaded }
         } finally { $archive.Dispose() }
     }
-    # Windows PowerShell cannot set bindingRedirect for a private library. Only
-    # redirect the exact strong names compiled into the verified SSH.NET assembly.
-    if ($null -eq ('CastLink.SimpleSshBindings' -as [type])) {
-        Add-Type -TypeDefinition @'
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-namespace CastLink {
-    public static class SimpleSshBindings {
-        private static Assembly owner;
-        private static readonly Dictionary<string, Assembly> bindings =
-            new Dictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
-
-        public static void Install(Assembly ssh, Assembly[] verified) {
-            lock (bindings) {
-                if (owner == ssh) return;
-                if (owner != null) throw new InvalidOperationException("Restart PowerShell before changing SSH libraries.");
-                foreach (AssemblyName request in ssh.GetReferencedAssemblies()) {
-                    foreach (Assembly candidate in verified) {
-                        AssemblyName actual = candidate.GetName();
-                        if (request.Name == actual.Name && actual.Version > request.Version &&
-                            request.CultureName == actual.CultureName && request.GetPublicKeyToken().Length > 0 &&
-                            BitConverter.ToString(request.GetPublicKeyToken()) == BitConverter.ToString(actual.GetPublicKeyToken())) {
-                            bindings.Add(request.FullName, candidate);
-                        }
-                    }
-                }
-                owner = ssh;
-                AppDomain.CurrentDomain.AssemblyResolve += Resolve;
-            }
-        }
-
-        private static Assembly Resolve(object sender, ResolveEventArgs args) {
-            Assembly target;
-            return args.RequestingAssembly == owner && bindings.TryGetValue(args.Name, out target) ? target : null;
-        }
-    }
-}
-'@ -ErrorAction Stop
-    }
-    [CastLink.SimpleSshBindings]::Install($assemblies[-1], [Reflection.Assembly[]]$assemblies)
     if ($null -eq ('CastLink.SimpleSshHostKeyGate' -as [type])) {
         # HostKeyReceived runs on SSH.NET's worker thread. No PowerShell callback is used there.
-        Add-Type -ReferencedAssemblies ($references + @('System.dll', 'System.Core.dll')) -TypeDefinition @'
+        Add-Type -ReferencedAssemblies @($sshAssembly.Location, 'System.dll', 'System.Core.dll') -TypeDefinition @'
 using System;
 using System.IO;
 using System.Security;

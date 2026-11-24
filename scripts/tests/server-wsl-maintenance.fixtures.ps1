@@ -44,10 +44,18 @@ function Fixture {
  }.GetNewClosure()
  return @{root=$root;world=$world;adapter=$a}
 }
+function Get-FixturePackageSource([string]$Scripts,[string]$Name){
+ if($Name -ceq 'install-server-windows.template.ps1'){return Join-Path $Scripts 'install-server-windows.ps1'}
+ if($Name -ceq 'castlink-updater.ps1'){return Join-Path $Scripts 'updater/castlink-updater.ps1'}
+ return Join-Path $Scripts $Name
+}
 function InstalledSourceFixture([string]$Profile,[bool]$Incomplete){
  $root=Join-Path $Profile 'CastLinkServer/installed';$public=Join-Path $Profile 'published';$target=Join-Path $Profile 'target';foreach($p in @($root,$public,$target,(Join-Path $root 'release'))){[void][IO.Directory]::CreateDirectory($p)}
  $scripts=Split-Path $PSScriptRoot -Parent;$panelInventory=Read-CLMJson (Join-Path $scripts 'server-native-panel-files.json');$panelFiles=@();$helpers=@()
- foreach($name in @('server-native-panel-files.json')+@($panelInventory.files)+@($panelInventory.buildFiles)+@('server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){if(Test-Path (Join-Path $public $name)){continue};$src=Join-Path $scripts $(if($name -ceq 'install-server-windows.template.ps1'){'install-server-windows.ps1'}else{$name});[IO.File]::Copy($src,(Join-Path $public $name),$false)}
+ foreach($name in @('server-native-panel-files.json')+@($panelInventory.files)+@($panelInventory.buildFiles)+@('server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){
+  $destination=Join-Path $public $name
+  if(-not (Test-Path $destination)){[IO.File]::Copy((Get-FixturePackageSource $scripts $name),$destination,$false)}
+ }
  foreach($name in @('server-native-panel-files.json')+@($panelInventory.files)+@($panelInventory.buildFiles)){$p=Join-Path $public $name;$panelFiles+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}}
  foreach($name in @('server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1')){$p=Join-Path $public $name;$helpers+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}}
  $payloads=@();foreach($name in @('rootfs.tar.gz','sources.tar.gz','upstream.tar.gz','packages.tsv')){$p=Join-Path $public $name;[IO.File]::WriteAllText($p,('synthetic '+$name));$payloads+=[pscustomobject]@{file=$name;size=(Get-Item $p).Length;sha256=(Get-CLMHash $p)}};$payloads[0]|Add-Member NoteProperty expandedBytes 1024
@@ -334,9 +342,8 @@ public static class CLMArgvEchoFixture {
   $base=Join-Path $testRoot 'native-bindings';$cache=Join-Path $base 'cache';$root=Join-Path $base 'installed';$journalDir=Join-Path $base 'transaction';foreach($p in @($base,$cache,$root,$journalDir)){[void][IO.Directory]::CreateDirectory($p)}
   $scripts=Split-Path $PSScriptRoot -Parent;$inventory=Read-CLMJson (Join-Path $scripts 'server-native-panel-files.json');$entries=@()
   foreach($name in @('server-native-panel-files.json')+@($inventory.files)+@($inventory.buildFiles)){
-   $sourceName=if($name -ceq 'castlink-updater.ps1'){'updater/castlink-updater.ps1'}else{$name}
    $destination=Join-Path $cache $name
-   [IO.File]::Copy((Join-Path $scripts $sourceName),$destination,$false)
+   [IO.File]::Copy((Get-FixturePackageSource $scripts $name),$destination,$false)
    $entries+=[pscustomobject]@{file=$name;sha256=(Get-CLMHash $destination);size=(Get-Item $destination).Length}
   }
   [IO.File]::Copy((Join-Path $scripts 'install-server-windows.ps1'),(Join-Path $cache 'install-server-windows.template.ps1'),$false)

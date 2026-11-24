@@ -28,12 +28,15 @@ test('the cleanup allowlist covers exactly the pinned SSH cache files and keeps 
   const owned = file => patterns.some(pattern => pattern.test(file));
   const pins = [...source.matchAll(/Id='([^']+)';Version='([^']+)';Framework='[^']+';Dll='([^']+)';Sha256='[a-f0-9]{64}'/g)];
   assert.ok(pins.length >= 9);
-  for (const [,id,version,dll] of pins) {
-    assert.ok(owned('.tools/' + directory + '/' + dll), dll);
-    assert.ok(owned('.tools/' + directory + '/' + id + '.' + version + '.nupkg'), id);
-    assert.equal(owned('.tools/' + directory + '/' + id + '.999.0.0.nupkg'), false);
+  for (const [,id,version] of pins) {
+    for (const extension of ['dll', 'nupkg']) {
+      assert.ok(owned(`.tools/${directory}/${id}.${version}.${extension}`), id);
+      assert.equal(owned(`.tools/${directory}/${id}.999.0.0.${extension}`), false);
+    }
   }
   assert.ok(owned('.tools/sshnet-2024.2.0/SSH.NET.2024.2.0.nupkg'));
+  assert.ok(owned('.tools/sshnet-2026.0.1/Renci.SshNet.dll'));
+  assert.ok(owned('.tools/sshnet-2026.0.1/Microsoft.Extensions.Logging.Abstractions.11.0.0.nupkg'));
   assert.equal(owned('.tools/' + directory + '/unrelated.dll'), false);
 });
 
