@@ -1,4 +1,4 @@
-set -euo pipefail
+set -Eeuo pipefail
 umask 077
 proofdir="$RUNNER_TEMP/wsl-runtime"
 mkdir -p "$proofdir/baseline" "$proofdir/candidate"
@@ -41,15 +41,15 @@ prepare(){
  sudo systemd-run --unit="castlinkproof-$label" -p Delegate=yes -p KillMode=mixed -- /usr/bin/systemd-nspawn --keep-unit --boot --private-network --settings=no --resolv-conf=off --capability=all --machine="castlink-$label" --directory="$r/tree"
  for ((i=0;i<90;i++)); do
   leader=$(machinectl show "castlink-$label" -p Leader --value 2>/dev/null || true)
-  if [[ "$leader" =~ ^[1-9][0-9]+$ ]] && guest systemctl show -p LoadState --value castlink-server.target 2>/dev/null | grep -qx loaded; then break; fi
+  if [[ "$leader" =~ ^[1-9][0-9]+$ ]] && guest systemctl is-system-running 2>/dev/null | grep -Eq "^(degraded|running)$"; then break; fi
   sleep 1
  done
  [[ "$leader" =~ ^[1-9][0-9]+$ ]] || { sudo journalctl -u "castlinkproof-$label" -n 45 --no-pager; return 1; }
  guest ip -o link | awk -F': ' '{print $2}' | grep -qx lo
  test "$(guest ip -o link | wc -l)" -eq 1
 }
-guest(){ sudo nsenter --target "$leader" --mount --uts --ipc --net --pid --cgroup --root --wd=/ -- "$@"; }
-diagnose(){ if test -n "${leader:-}" && test -e "/proc/$leader"; then guest systemctl --failed --no-pager || true; guest journalctl -b -u castlink-private-ports -u castlink-converter -u castlink-livekit -u castlink-postgres -u castlink-web -u castlink-caddy -u castlink-turn-tls --no-pager -o cat | grep -Ei 'failed|denied|cannot|error' | sed -E 's#(postgresql|https?|wss?)://[^ ]+#[address omitted]#g' | tail -20 || true; fi; }
+guest(){ sudo nsenter --target "$leader" --mount --uts --ipc --net --pid --cgroup --root --wdns=/ -- /usr/bin/env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 "$@"; }
+diagnose(){ if test -n "${leader:-}" && test -e "/proc/$leader"; then guest systemctl --failed --no-pager || true; guest sh -c 'cd /opt/castlink/app; id; ip -br addr; runuser -u castlink-caddy -- env XDG_DATA_HOME=/var/lib/castlink-server/caddy XDG_CONFIG_HOME=/var/lib/castlink-server/caddy/config /usr/local/bin/caddy validate --config /etc/castlink-server/Caddyfile --adapter caddyfile 2>&1 | tail -4; systemctl daemon-reload' || true; guest journalctl -b -u castlink-private-ports -u castlink-converter -u castlink-livekit -u castlink-postgres -u castlink-web -u castlink-caddy -u castlink-turn-tls --no-pager -o cat | grep -Ei 'failed|denied|cannot|error' | sed -E 's#(postgresql|https?|wss?)://[^ ]+#[address omitted]#g' | tail -20 || true; fi; }
 trap diagnose ERR
 prepare baseline
 oldid=$(cat /proc/sys/kernel/random/uuid | tr -d -)
