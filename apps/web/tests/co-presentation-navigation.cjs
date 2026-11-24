@@ -30,5 +30,10 @@ focus.update('grant',false);focus.remember(button);focus.update('grant',true);fo
 doc.activeElement=doc.body;focus.update('grant',false);assert.equal(doc.activeElement,doc.body,'ordinary polling never steals body focus without a real pending transition');
 focus.remember(button);focus.update('grant',true);const outsideClick=new Event('pointerdown');Object.defineProperty(outsideClick,'target',{value:doc.body});doc.dispatchEvent(outsideClick);focus.update('grant',false);assert.equal(doc.activeElement,doc.body,'outside click during pending cancels focus restoration');
 doc.activeElement=doc.body;focus.update('replacement',false);assert.equal(doc.activeElement,doc.body,'replacement grant cannot restore old focus');
-focus.remember(button);const chat={};doc.activeElement=chat;const event=new Event('focusin');Object.defineProperty(event,'target',{value:chat});doc.dispatchEvent(event);doc.activeElement=doc.body;focus.update('replacement',false);assert.equal(doc.activeElement,doc.body,'typing/chat focus cancels navigation restoration');focus.dispose();
+focus.remember(button);const chat={};doc.activeElement=chat;const event=new Event('focusin');Object.defineProperty(event,'target',{value:chat});doc.dispatchEvent(event);doc.activeElement=doc.body;focus.update('replacement',false);assert.equal(doc.activeElement,doc.body,'typing/chat focus cancels navigation restoration');const opposite={focus(){doc.activeElement=this;}};
+doc.activeElement=button;focus.remember(button);focus.update('replacement',true);
+button.disabled=true;button.focus=()=>{};button.parentElement={querySelector:()=>opposite};
+doc.activeElement=doc.body;focus.update('replacement',false);
+assert.equal(doc.activeElement,opposite,'at a deck boundary the available direction keeps keyboard navigation');
+focus.dispose();
 console.log('PASS exact current SID recipient screen grant, decoded image/letterbox, focused arrows and single primary image click, no interactive/modifier/repeat input, honest unknown PDF counts');

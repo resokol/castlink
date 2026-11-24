@@ -15,7 +15,7 @@ jobs:
   windows-parser:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Windows PowerShell parser and behavioral boundaries
         shell: powershell
         run: |
@@ -35,12 +35,12 @@ jobs:
     needs: windows-parser
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22
+          node-version: 26.13.1
       - name: Install pinned dependencies
-        run: npx --yes pnpm@9.15.0 install --frozen-lockfile
+        run: npx --yes pnpm@12.23.0 install --frozen-lockfile
       - name: Installer and package checks
         run: |
           node --test scripts/tests/package-server-wsl.test.mjs scripts/tests/server-wsl-build.test.mjs scripts/tests/server-bootstrap-package.test.mjs scripts/tests/server-windows.test.mjs scripts/tests/server-native-panel.test.mjs scripts/tests/server-native-monitor.test.mjs
@@ -81,7 +81,7 @@ jobs:
           CASTLINK_BUILD_VERSION: ${{ inputs.version }}
           CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE: ${{ runner.temp }}/castlink-upstream-sources-1.0.2.tar.gz
         run: node scripts/build-server-wsl.mjs "$RUNNER_TEMP/server-wsl" "$GITHUB_SHA" "$CASTLINK_BUILD_VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: castlink-server-wsl-install-${{ github.sha }}
           path: |
@@ -90,7 +90,7 @@ jobs:
             !${{ runner.temp }}/server-wsl/package/CastLink-ThirdParty-Sources.tar.gz
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: castlink-server-wsl-candidate-${{ github.sha }}
           path: ${{ runner.temp }}/server-wsl/package/*

@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {fixture} from './host-startup-producer-fixture.mjs';
+import {fixtureBarrierTimeoutMs,waitForFixtureBarrier} from './host-startup-runner-fixture.mjs';
 test('protected normal completion publishes descriptor and durable RUN then returns terminal epoch',()=>fixture(async f=>{
  const result=await f.runProducer();assert.equal(result.code,0,result.out+result.err);
  const response=JSON.parse(result.out),descriptor=JSON.parse(fs.readFileSync(f.file)),desired=JSON.parse(fs.readFileSync(f.desiredFile));
@@ -32,12 +33,17 @@ test('restart during terminal publication cannot release RUN authority',()=>fixt
 }));
 test('producer actual child lease excludes retained start-services until verified release',()=>fixture(async f=>{
  const held=f.state+'.producer-held',proceed=f.state+'.producer-continue';
- const prefix=`const originalWrite=fs.writeFileSync;let waited=false;fs.writeFileSync=(file,bytes,...args)=>{const result=originalWrite(file,bytes,...args);if(!waited&&file===process.env.FIXTURE_STATE&&JSON.parse(bytes).http?.length){waited=true;originalWrite(${JSON.stringify(held)},'held');const deadline=Date.now()+10000;while(!fs.existsSync(${JSON.stringify(proceed)})){if(Date.now()>deadline)throw Error('fixture timeout');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10)}}return result};`;
- const child=f.launchProducer({},prefix),deadline=Date.now()+8000;
- try{while(!fs.existsSync(held)){assert.ok(Date.now()<deadline,'producer acquired lease and reached GET');await new Promise(r=>setTimeout(r,10))}
+ const prefix=`const originalWrite=fs.writeFileSync;let waited=false;fs.writeFileSync=(file,bytes,...args)=>{const result=originalWrite(file,bytes,...args);if(!waited&&file===process.env.FIXTURE_STATE&&JSON.parse(bytes).http?.length){waited=true;originalWrite(${JSON.stringify(held)},'held');const deadline=Date.now()+${fixtureBarrierTimeoutMs};while(!fs.existsSync(${JSON.stringify(proceed)})){if(Date.now()>deadline)throw Error('fixture timeout');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10)}}return result};`;
+ const child=f.launchProducer({},prefix);
+ let result;
+ try {
+  await waitForFixtureBarrier(held, child.done);
   assert.equal(fs.existsSync(f.scope+'/active'),true);assert.equal((await f.serviceRun(0)).code,4);assert.equal(fs.existsSync(f.file),false);assert.equal(fs.existsSync(f.desiredFile),false);
- }finally{fs.writeFileSync(proceed,'continue')}
- const result=await child.done;assert.equal(result.code,0,result.out+result.err);assert.equal(fs.existsSync(f.scope+'/active'),false);assert.equal(JSON.parse(fs.readFileSync(f.scope+'/epoch.json')).epoch,1);
+ } finally {
+  fs.writeFileSync(proceed,'continue');
+  result = await child.done;
+ }
+ assert.equal(result.code,0,result.out+result.err);assert.equal(fs.existsSync(f.scope+'/active'),false);assert.equal(JSON.parse(fs.readFileSync(f.scope+'/epoch.json')).epoch,1);
 }));
 test('missing protected normal completion cannot manufacture RUN',()=>fixture(async f=>{
  fs.unlinkSync(f.request.completion.attempt.path);const result=await f.runProducer();assert.equal(result.code,4);assert.equal(fs.existsSync(f.file),false);assert.equal(fs.existsSync(f.desiredFile),false);assert.equal(fs.existsSync(f.scope+'/active'),true);

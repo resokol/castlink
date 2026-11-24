@@ -9,6 +9,13 @@ export type StreamStat = {
   audio?: AudioReceiveDiagnostic;
   audioTrack?: AudioTrackDiagnostic;
   video?: VideoDiagnostic;
+  trackSid?: string; peerReport?: RtcpPeerReport;
+};
+
+/** SFU-origin RTCP, observed by a browser through its existing RTCStatsReport. */
+export type RtcpPeerReport = {
+  kind: "remote-inbound-rtp" | "remote-outbound-rtp"; fresh: boolean; ageMs: number;
+  fractionLost?: number; packetsSent?: number; bytesSent?: number;
 };
 
 /** Cumulative RTC counters; seconds remain seconds as defined by getStats. */
@@ -113,6 +120,7 @@ export type TelemetrySample = {
   audioPlayback?: AudioPlaybackDiagnostic;
   runtime?: RuntimeDiagnostic;
   videoDiagnosticsLimited?: boolean;
+  peerReportsLimited?: boolean;
 };
 
 export type MetricPoint = {
@@ -126,7 +134,13 @@ export type ConnectionHistory = {
   firstSeen: number; lastSeen: number; latest: TelemetrySample;
 };
 
+export type ConnectionProblemPeriod = {
+  firstAt: number; lastAt: number; from: number; to: number;
+  lossPct: number; concealedPct: number; freezes: number; reconnect: boolean; poorQuality: boolean;
+};
+
 export type HistoryResponse = {
+  problemPeriods?: { total: number; periods: ConnectionProblemPeriod[] };
   from: number; to: number; bucketMs: number; series: MetricPoint[];
   connections: ConnectionHistory[]; retainedFrom: number | null;
   audioSummary?: AudioHistorySummary;

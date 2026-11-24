@@ -32,7 +32,7 @@ test('web and Windows consume matching canonical brand assets', () => {
 });
 
 test('shared brand image renders beside the wordmark without duplicate accessible text', () => {
-  const ts = webRequire('typescript');
+  const ts = createRequire(new URL('../../apps/web/tests/package.json', import.meta.url))('typescript');
   const Module = require('node:module');
   const source = fs.readFileSync('apps/web/components/BrandIcon.tsx', 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: {

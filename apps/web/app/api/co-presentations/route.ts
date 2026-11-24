@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
                 entry.lastCommand = undefined;
                 entry.controlRevision++;
                 entry.command = undefined;
+            } else if (savedController && entry.controllerAccepted === false) {
+                // Older clients use this flag to decide whether to display their controls.
+                entry.controllerAccepted = true;
             }
         }));
         const active = entries.filter(currentCoPresentation);
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
             if (!controller || data.controllerSid !== undefined && data.controllerSid !== controller.sid || controller.association !== session.association || samePresenter(controller, session.owner) || !currentCoPresentation(session) || session.controlRevision !== controlRevision || !latestOwner || !samePresenter(latestOwner, session.owner))
                 return reply({ error: 'Caster unavailable' }, 409);
             session.controller = { identity: controller.identity, sid: controller.sid };
-            session.controllerAccepted = data.requireAcceptance === true ? false : undefined;
+            session.controllerAccepted = true;
             session.lastCommand = undefined;
             session.controlRevision++;
             session.command = undefined;
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
             }
         }
         else if (data.action === 'navigate') {
-            if (!owner && (!samePresenter(principal, session.controller) || session.controllerAccepted === false))
+            if (!owner && !samePresenter(principal, session.controller))
                 return reply({ error: 'Control not granted' }, 403);
             if (data.controlRevision !== session.controlRevision)
                 return reply({ error: 'Control grant changed; refresh before retrying' }, 409);

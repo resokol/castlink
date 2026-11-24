@@ -940,7 +940,8 @@ def render(folder, state, release):
       'postgres': {'env_file': ['postgres.env'], 'volumes': ['postgres-data:/var/lib/postgresql/data'],
         'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U castlink -d castlink'], 'interval': '5s', 'timeout': '5s', 'retries': 24}},
       'web': {'env_file': ['web.env'], 'volumes': ['web-data:/data', 'converter-socket:/run/castlink-converter:ro'], 'depends_on': {'postgres': {'condition': 'service_healthy'}}},
-      'livekit': {'command': ['--config', '/etc/livekit.yaml'], 'volumes': ['./livekit.json:/etc/livekit.yaml:ro'], 'ports': ports},
+      'livekit': {'command': ['--config', '/etc/livekit.yaml'], 'environment': ['LIVEKIT_RTC_FLEXFEC_UPSTREAM_ENABLED'],
+        'volumes': ['./livekit.json:/etc/livekit.yaml:ro'], 'ports': ports},
       'caddy': {'volumes': ['./Caddyfile:/etc/caddy/Caddyfile:ro', 'caddy-data:/data', 'caddy-config:/config'],
                 'ports': [http, https] if n['mode'] == 'https' else [http], 'depends_on': ['web', 'livekit']}}
     services['presentation-converter'] = {'command': ['python3', '/app/scripts/presentation-converter/server.py'],

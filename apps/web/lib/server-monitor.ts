@@ -1,7 +1,10 @@
 import { readFile, statfs, access } from "node:fs/promises";
 import os from "node:os";
+import { collectNodeKeyframes } from "./node-keyframes";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { readNodeRoomInventory } from "./room-store";
+import { mediaRoomName } from "./studio-scope";
+import { roomPublicationSnapshot, saveRoomSfuEvidence, type RoomSfuSnapshot } from "./room-sfu-evidence";
 import { productionDataDir } from "./persistent-storage";
 import type { MonitorScope, ServerMonitorSample } from "./server-monitor-types";
 import { serverObservabilityStore, MONITOR_INTERVAL_MS, OBSERVABILITY_RETENTION_MS, observabilitySamplerRunning } from "./server-observability-store";
@@ -71,13 +74,15 @@ async function disk() {
   } catch { return { diskTotalBytes: null, diskUsedBytes: null, diskAvailableBytes: null }; }
 }
 
-async function mediaCounts() {
+async function mediaCounts(inventory: Promise<Awaited<ReturnType<typeof readNodeRoomInventory>> | null>) {
   const configured = !!(process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
   if (!configured) return { activeRooms: null, connections: null, casters: null, livekit: "unconfigured" as const };
   // Each RoomService request is bounded by the SDK's HTTP timeout; limit parallel room reads.
   try {
     const client = new RoomServiceClient(process.env.LIVEKIT_SERVER_URL || "http://127.0.0.1:7880", process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, { requestTimeout: 3 });
-    const rooms = await client.listRooms();
+    const [rooms, configuredRooms] = await Promise.all([client.listRooms(), inventory]);
+    const scopedRooms = new Set((configuredRooms ?? []).filter(record => record.studioId).map(record => mediaRoomName(record.studioId, record.name)));
+    const observations: { room: string; snapshot: RoomSfuSnapshot }[] = [];
     const deadline = Date.now() + 4000;
     let next = 0, connections = 0, casters = 0;
     const worker = async () => {
@@ -85,11 +90,17 @@ async function mediaCounts() {
         if (Date.now() >= deadline) throw new Error("media_snapshot_timeout");
         const room = rooms[next++];
         const participants = await client.listParticipants(room.name);
+        if (scopedRooms.has(room.name)) observations.push({ room: room.name, snapshot: roomPublicationSnapshot(participants, Date.now()) });
         connections += participants.length;
         casters += participants.filter(person => person.identity.startsWith("guest-")).length;
       }
     };
-    await Promise.all(Array.from({ length: Math.min(4, rooms.length) }, worker));
+    const workers = await Promise.allSettled(Array.from({ length: Math.min(4, rooms.length) }, worker));
+    // Archive after the bounded RoomService requests so disk latency does not consume the request deadline.
+    for (const { room, snapshot } of observations) {
+      await saveRoomSfuEvidence(room, snapshot).catch(() => undefined);
+    }
+    if (workers.some(result => result.status === "rejected")) throw new Error("incomplete_media_snapshot");
     return { activeRooms: rooms.length, connections, casters, livekit: "ok" as const };
   } catch { return { activeRooms: null, connections: null, casters: null, livekit: "unavailable" as const }; }
 }
@@ -99,19 +110,20 @@ export async function collectServerMonitorSample(): Promise<ServerMonitorSample>
   const at = Date.now();
   const cpus = os.cpus();
   const cpu = { at, idle: cpus.reduce((sum, item) => sum + item.times.idle, 0), total: cpus.reduce((sum, item) => sum + Object.values(item.times).reduce((a, b) => a + b, 0), 0) };
-  const [ram, storage, network, inventory, media] = await Promise.all([
+  const inventory = readNodeRoomInventory().catch(() => null);
+  const [ram, storage, network, configuredRooms, media, keyframes] = await Promise.all([
     memory(), disk(),
     Promise.all([readFile("/proc/net/route", "utf8"), readFile("/proc/net/dev", "utf8")]).then(([routes, devices]) => parseNetwork(routes, devices, at)).catch(() => null),
-    readNodeRoomInventory().then(rooms => rooms.length).catch(() => null),
-    mediaCounts(),
+    inventory.then(rooms => rooms?.length ?? null),
+    mediaCounts(inventory), collectNodeKeyframes(at),
   ]);
   const cpuPercent = cpuUsage(previousCpu, cpu), rates = networkRates(previousNetwork, network);
   previousCpu = cpu; previousNetwork = network;
   return {
-    at, cpuPercent, ...ram, ...storage, networkInMbps: rates.inMbps, networkOutMbps: rates.outMbps,
+    at, cpuPercent, ...(keyframes ? { keyframes } : {}), ...ram, ...storage, networkInMbps: rates.inMbps, networkOutMbps: rates.outMbps,
     processRssBytes: process.memoryUsage().rss, processUptimeSec: Math.floor(process.uptime()),
-    configuredRooms: inventory, activeRooms: media.activeRooms, connections: media.connections, casters: media.casters,
-    services: { web: "ok", livekit: media.livekit, roomStore: inventory === null ? "unavailable" : "ok" },
+    configuredRooms, activeRooms: media.activeRooms, connections: media.connections, casters: media.casters,
+    services: { web: "ok", livekit: media.livekit, roomStore: configuredRooms === null ? "unavailable" : "ok" },
   };
 }
 

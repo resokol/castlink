@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pg", "ssh2"],
   // Presentation upload bypasses middleware body cloning and enforces its own streamed limit.
   // Keep ordinary API cloning bounded; never buffer the 1.5 GB presentation path here.
-  experimental: { middlewareClientMaxBodySize: 26 * 1024 * 1024 },
+  experimental: { useTypeScriptCli: true, proxyClientMaxBodySize: 26 * 1024 * 1024 },
   outputFileTracingExcludes: { "/*": [".studiolink-data/**/*", ".env*"] },
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   generateBuildId: async () => buildId,

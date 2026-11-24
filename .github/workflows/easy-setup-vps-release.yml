@@ -19,15 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22.23.3
-      - uses: pnpm/action-setup@v4
+          node-version: 26.13.1
+      - uses: pnpm/action-setup@v6.1.1
         with:
-          version: 9.15.0
+          version: 12.23.0
           run_install: false
       - name: Compile the manifest validator and registry observer
         run: |
@@ -44,8 +44,8 @@ jobs:
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/castlink-easy-web:${BUILD_ID}"
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -62,7 +62,7 @@ jobs:
           NODE
       - name: Build the immutable Linux amd64 web image
         id: image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: Dockerfile.web
@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir vps-release
-          docker buildx imagetools inspect docker.io/livekit/livekit-server:v1.13.7 --format '{{json .Manifest}}' > vps-release/livekit-descriptor.json
+          docker buildx imagetools inspect docker.io/livekit/livekit-server@sha256:04668840140552c7e5d7faf28959cbf2256fb04ea641c4fd23ea69cbf3d7d105 --format '{{json .Manifest}}' > vps-release/livekit-descriptor.json
           node --input-type=module <<'NODE'
           import {readFileSync,writeFileSync} from 'node:fs';
           import {createHash} from 'node:crypto';
@@ -97,11 +97,11 @@ jobs:
           const livekit=JSON.parse(readFileSync('vps-release/livekit-descriptor.json','utf8'));
           if(!digest.test(livekit.digest)||!digest.test(process.env.WEB_DIGEST))throw Error('Missing genuine registry digest');
           const image=reference=>({reference,architectures:['amd64']});
-          const release={schemaVersion:1,release:process.env.BUILD_ID,nodeVersion:'22.23.3',architectures:['amd64'],images:{
+          const release={schemaVersion:1,release:process.env.BUILD_ID,nodeVersion:'26.13.1',architectures:['amd64'],images:{
             web:image(process.env.WEB_IMAGE.split(':')[0]+'@'+process.env.WEB_DIGEST),
-            postgres:image('docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea'),
+            postgres:image('docker.io/library/postgres@sha256:9d9e487c1bd6413c52ccb3c02f46c8e37fa1e1d1a32a84519eb4e68d0ad1da30'),
             livekit:image('docker.io/livekit/livekit-server@'+livekit.digest),
-            caddy:image('docker.io/library/caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d')}};
+            caddy:image('docker.io/library/caddy@sha256:fc9cbc100585871d18d4e451cca7021785c90a7006087427ae5ceb3e4efe6424')}};
           validateReleaseManifest(release,release.release,'amd64');
           const checks=await releaseAvailabilityChecks({manifest:release,release:release.release,architecture:'amd64'},new LocalExecutor(60000));
           if(checks.length!==4||checks.some(c=>c.state!=='pass'))throw Error('Registry identity/platform verification failed');
@@ -109,7 +109,7 @@ jobs:
           writeFileSync('vps-release/release.json',bytes,{flag:'wx'});
           writeFileSync('vps-release/admission.json',JSON.stringify({schemaVersion:1,source:process.env.GITHUB_SHA,manifestSHA256:createHash('sha256').update(bytes).digest('hex'),checks,distribution:'private-github-package',deployment:'not-run',services:'not-run',tls:'unverified',media:'unverified'},null,2)+'\n',{flag:'wx'});
           NODE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: easy-setup-vps-release-${{ github.sha }}
           path: vps-release/

@@ -12,7 +12,7 @@ const fail=phase=>{const e=Error('Docker Desktop read-only provenance is unverif
 function result(r,phase){if(!r||r.error||r.signal||r.status!==0||typeof r.stdout!=='string'||typeof r.stderr!=='string'||Buffer.byteLength(r.stdout)+Buffer.byteLength(r.stderr)>32768)fail(phase);return r;}
 function execute(command,args){return spawnSync(command,args,{shell:false,encoding:'utf8',timeout:120000,maxBuffer:32768,windowsHide:true});}
 async function download(url,file,limit){
- if(!/^https:\/\/desktop\.docker\.com\/mac\/main\/(?:arm64|amd64)\/241994\/(?:Docker\.dmg|checksums\.txt)$/.test(url))fail('download-url');
+ if(!Object.values(DESKTOP_PINS.targets).some(target => url === target.url || url === target.checksumUrl))fail('download-url');
  const r=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(600000)});if(!r.ok||!r.body)fail('download');
  const h=await open(file,'wx',0o600);let count=0;
  try{for await(const chunk of r.body){count+=chunk.byteLength;if(count>limit)fail('download-size');await h.writeFile(chunk);}await h.sync();}finally{await h.close();}
@@ -37,8 +37,8 @@ export function parseSigningEvidence(text){
 }
 export async function inspectMacDesktopProvenance({architecture,directory,host={platform:process.platform,arch:process.arch,node:process.versions.node},pin=DESKTOP_PINS.targets[architecture],execute:run=execute,download:get=download,space:readSpace=statfs}){
  // pin/host/transport seams are for inert offline tests. CLI uses frozen defaults.
- if(!['arm64','x64'].includes(architecture)||host.platform!=='darwin'||host.arch!==architecture||host.node!=='22.23.3')fail('native-runner');
- if(!pin||pin.version!=='4.94.0'||pin.build!=='241994'||typeof pin.sha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.sha256)||typeof directory!=='string'||!path.isAbsolute(directory))fail('input');
+ if(!['arm64','x64'].includes(architecture)||host.platform!=='darwin'||host.arch!==architecture||host.node!=='26.13.1')fail('native-runner');
+ if(!pin||pin.version!==DESKTOP_PINS.version||pin.build!==DESKTOP_PINS.build||typeof pin.sha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.sha256)||typeof directory!=='string'||!path.isAbsolute(directory))fail('input');
  await mkdir(directory,{mode:0o700});
  const dmg=path.join(directory,'Docker.dmg'),listing=path.join(directory,'checksums.txt'),mount=path.join(directory,'readonly-mount'),app=path.join(mount,'Docker.app');
  let phase='capacity',attachAttempted=false,mounted=false,observed={},assessmentEvidence=null,error=null,cleanup='complete';

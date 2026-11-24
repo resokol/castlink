@@ -21,7 +21,7 @@ for(const [name,change,reason,errorCode,trace]of [
  ['reply type',{notFIFO:4},5,0,[3,4]]])test(name,async()=>{const r=await run(change);assert.equal(r.process.exitCode,4);assert.equal(r.loads,0);assert.deepEqual(r.trace,trace);assert.deepEqual(r.errors,[JSON.stringify({schemaVersion:1,bootstrapReason:reason,errorCode})+'\n']);});
 test('admitted channel still imports entry with same descriptors',async()=>{const r=await run();assert.equal(r.process.exitCode,0);assert.equal(r.loads,1);assert.deepEqual(r.trace,[3,4]);assert.deepEqual(r.errors,[]);});
 
-test('real pinned Windows Stats reports false despite raw FIFO mode',()=>{assert.equal(process.version,'v22.23.3');const stat=windowsStat(fs.constants.S_IFIFO);assert.equal(stat.isFIFO(),false);assert.equal(stat.mode & fs.constants.S_IFMT,fs.constants.S_IFIFO);});
+test('real pinned Windows Stats reports false despite raw FIFO mode',()=>{assert.equal(process.version,'v26.13.1');const stat=windowsStat(fs.constants.S_IFIFO);assert.equal(stat.isFIFO(),false);assert.equal(stat.mode & fs.constants.S_IFMT,fs.constants.S_IFIFO);});
 
 for(const mode of [0,fs.constants.S_IFDIR,fs.constants.S_IFLNK,fs.constants.S_IFSOCK])test('non-pipe raw mode refuses '+mode,async()=>{const r=await run({modeFD:3,mode});assert.equal(r.process.exitCode,4);assert.equal(r.loads,0);assert.deepEqual(r.trace,[3]);assert.deepEqual(r.errors,[JSON.stringify({schemaVersion:1,bootstrapReason:4,errorCode:0})+'\n']);});
 test('pipe permission bits do not change file type',async()=>{const r=await run({modeFD:3,mode:fs.constants.S_IFIFO|0o600});assert.equal(r.process.exitCode,0);assert.deepEqual(r.trace,[3,4]);});

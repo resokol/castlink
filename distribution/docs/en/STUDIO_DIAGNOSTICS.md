@@ -2,6 +2,22 @@
 
 [Русский](../../STUDIO_DIAGNOSTICS.md) · [简体中文](../zh-CN/STUDIO_DIAGNOSTICS.md)
 
+## When audio cuts out or video freezes
+
+Open **Statistics** in the main studio and select the room and a period covering the incident. Start with all roles, participants and sessions. Note the time and time zone, whose stream was affected and who noticed it. Participants do not need to take any action.
+
+Enter the local time in **Incident minute** and select **Review minute**. Compare the same track at the publisher and each receiver, its peak loss and the five-second intervals with measurements. Client availability shows connection states and reconnects between observations of each session. **Download this minute’s diagnostics** saves the measurements and findings for the displayed minute.
+
+Platform administrators also see LiveKit API probes and the numbers of keyframes received and forwarded across all rooms on the node during each measured interval. One incoming frame can reach multiple receivers. The background sampler runs approximately every 15 seconds and retains up to 24 hours of node history. Restarts, gaps and missing counters can leave a value unavailable. For stock LiveKit 1.13.11 on a private Docker Compose bridge, add `infrastructure/production/compose.incident-metrics.bridge.yml` to the existing project’s Compose files. The overlay requires bridge networking and publishes no ports.
+
+1. Select **Analyze connection issues**. Find the episode by time and source, then review its measurements and suggested action. An observed condition can come directly from the sender’s browser, for example when it reports CPU-limited encoding. A likely cause comes from comparing the same stream across receivers. With insufficient evidence, the affected side remains unknown. Filtering to one receiver can remove the other points of comparison.
+2. If the same stream froze for several receivers at once, check the sender and their shared delivery path. Overlapping symptoms alone cannot establish a server fault. When available, LiveKit history confirms that a track was published and records its mute state at the time of the observation. Packet loss requires media connection reports. The measurements may leave the specific router or network provider unknown.
+3. Select **Download full diagnostics** with the same filters. The browser saves an NDJSON file. Its first line, `manifest`, gives the selected time bounds. Client samples and any available LiveKit observations follow. The last line, `summary`, contains the findings and the `complete` flag. A missing final line or `complete: false` indicates a partial export. Even with `complete: true`, there can be periods when no measurements arrived. Send the file to the investigator with the time and description of the incident.
+
+Platform administrators also receive `server-load-sample` rows with the original node CPU measurements. If elevated CPU coincides with an incident, check which processes were busy then. Timing alone does not identify LiveKit as the cause.
+
+Analysis and export read stored history on demand. The file is streamed in chunks. During a broadcast, selecting a short interval around a known incident reduces processing time.
+
 Audio meters now update inside their own components instead of updating the participant roster every animation frame.
 
 After updating the server, reopen the primary studio in your browser or Windows Client. Open **Statistics → Primary studio diagnostics**. The latest received data refreshes with Statistics approximately every15seconds; samples are sent approximately every2seconds. Stale data is marked.

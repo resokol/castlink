@@ -7,12 +7,12 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {RUNTIMES, packageCli, verifyPackage} from './package-cli.mjs';
 
-const upstream='https://nodejs.org/dist/v22.23.3/';
+const upstream='https://nodejs.org/dist/v26.13.1/';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function assertNative(target, host=process) {
  if (!RUNTIMES[target]) throw Error('Unsupported target.');
  if (`${host.platform}-${host.arch}`!==target) throw Error('A matching native runner is required; check the macOS runner architecture/availability.');
- if (host.version!=='v22.23.3') throw Error('Build Node must be exactly 22.23.3.');
+ if (host.version!=='v26.13.1') throw Error('Build Node must be exactly 26.13.1.');
 }
 export function verifyUpstreamChecksum(listing,target) {
  const runtime=RUNTIMES[target];
@@ -97,7 +97,7 @@ async function main(args) {
  const repo=fileURLToPath(new URL('../',import.meta.url));
  const result=await packageCli({development:true,target,runtimeArchive,dist:path.join(repo,'apps/cli/dist'),serverManifest:path.join(repo,'scripts/fixtures/ci-server-manifest.json'),output:path.resolve(output)});
  const checks=await smoke(result,target,temp);
- const proof={schemaVersion:1,distribution:'development-only',installable:false,serverManifest:'fake-digests-NOT-INSTALLABLE',target,nodeVersion:'22.23.3',sourceCommit:process.env.GITHUB_SHA??null,archive:path.basename(result.archive),archiveSha256:result.archiveSha256,checks,projectLicense:'MIT',signing:'unverified',physicalMacMediaAcceptance:'unverified',fullSetupAcceptance:'unverified'};
+ const proof={schemaVersion:1,distribution:'development-only',installable:false,serverManifest:'fake-digests-NOT-INSTALLABLE',target,nodeVersion:'26.13.1',sourceCommit:process.env.GITHUB_SHA??null,archive:path.basename(result.archive),archiveSha256:result.archiveSha256,checks,projectLicense:'MIT',signing:'unverified',physicalMacMediaAcceptance:'unverified',fullSetupAcceptance:'unverified'};
  await writeFile(path.join(path.resolve(output),'DEVELOPMENT-CI-PROOF.json'),JSON.stringify(proof,null,2)+'\n',{flag:'wx'});
  if (process.env.GITHUB_STEP_SUMMARY) {
   const {appendFile}=await import('node:fs/promises');

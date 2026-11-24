@@ -25,7 +25,8 @@ class NextResponse extends Response {static json(body, init){return new Response
 class TokenVerifier {async verify(token){if(token !== 'valid-token') throw Error('invalid');return claims;}}
 const imports = {'next/server':{NextResponse},'livekit-server-sdk':{TokenVerifier},'@/lib/telemetry-store':store,
   '@/lib/runtime-diagnostics':runtime,'@/lib/audio-diagnostics':require('../lib/audio-diagnostics.ts'),
-  '@/lib/video-diagnostics':require('../lib/video-diagnostics.ts'),
+  '@/lib/telemetry-sanitize':require('../lib/telemetry-sanitize.ts'),
+  '@/lib/room-diagnostics-export':require('../lib/room-diagnostics-export.ts'),
   '@/lib/access':{isStudio:()=>owner,sameOrigin:()=>true},
   '@/lib/room-admin':{isRoomAdmin:async(_,room,studio)=>admin && room===authRoom && studio===authStudio},
   '@/lib/room-studio-access':{canHostNamedRoom:async(_,room,studio)=>owner && room===authRoom && studio===authStudio},

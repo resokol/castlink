@@ -135,7 +135,7 @@ export default function OutputPage() {
         const { token,remotePcSources:initialSources } = await response.json();
         outputToken=token;remotePcSources=initialSources||[];
         if (disposed) return;
-        await room.connect(getLiveKitUrl(), token, { autoSubscribe: false });
+        await room.connect(getLiveKitUrl(), token, { autoSubscribe: false, subscriberAllowPause: false });
         if (disposed) { await room.disconnect(); return; }
         stopTelemetry = startRoomTelemetry(room, roomName, token, undefined, access, () => bindings.inspectAudio());
         await room.startAudio().catch(() => undefined);

@@ -5,13 +5,14 @@ import { createInterface } from "node:readline";
 import { mean, sumRates, type AudioHistoryResponse, type RuntimeHistoryResponse, type ConnectionHistory, type HistoryResponse, type MetricPoint, type TelemetryRole, type TelemetrySample } from "./telemetry-types";
 import { addAudioSummary, emptyAudioSummary } from "./audio-diagnostics";
 import { sanitizeRuntimeDiagnostic } from "./runtime-diagnostics";
+import { connectionProblemPeriods } from "./connection-problem-periods";
 import { rememberLiveSample } from "./live-telemetry-cache";
 import { persistentStatsDir } from "./persistent-storage";
 import { archiveTelemetryHour, historyEnd, openTelemetryHour, statsMaxBytes, statsRetentionDays, telemetryHours, STATS_HOUR } from "./telemetry-archives";
 
 const HOUR = STATS_HOUR;
 const storeRoot = () => persistentStatsDir();
-const roomDirectory = (room: string) => path.join(storeRoot(), createHash("sha256").update(room).digest("hex"));
+export const roomDirectory = (room: string) => path.join(storeRoot(), createHash("sha256").update(room).digest("hex"));
 let lastCleanup = 0;
 let pending: Promise<void> = Promise.resolve();
 
@@ -79,6 +80,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
   const bucketMs = precise ? 2000 : Math.max(10_000, Math.ceil(minutes * 60_000 / 360 / 10_000) * 10_000);
   const connections = new Map<string, ConnectionHistory>();
   const buckets = new Map<number, Map<string, Bucket>>();
+  const problems = connectionProblemPeriods(from, to);
   let retainedFrom: number | null = null;
   const audioSummary = emptyAudioSummary(), recoveryBySession = new Map<string, number>();
   const directory = roomDirectory(room);
@@ -93,6 +95,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
       if (sample.at < from || sample.at > to) continue;
       if (sample.room !== room) continue;
       const previous = connections.get(sample.session);
+      const priorSample = previous?.latest;
       if (!previous) connections.set(sample.session, { session: sample.session, identity: sample.identity,
         name: sample.name, role: sample.role, firstSeen: sample.at, lastSeen: sample.at, latest: sample });
       else {
@@ -102,6 +105,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
       if (selectedSession && selectedSession !== sample.session) continue;
       if (selectedIdentity && selectedIdentity !== sample.identity) continue;
       if (selectedRole && selectedRole !== sample.role) continue;
+      problems.add(sample, priorSample);
       addAudioSummary(audioSummary, sample, recoveryBySession);
       retainedFrom = retainedFrom === null ? sample.at : Math.min(retainedFrom, sample.at);
       const at = Math.floor(sample.at / bucketMs) * bucketMs;
@@ -147,7 +151,7 @@ export async function readHistory(room: string, minutes: number, selectedSession
     (!selectedRole || c.role === selectedRole) &&
     // Reset affects the live list; selecting a historical day must still show its connections.
     (endAt !== undefined || c.lastSeen > cleared || (c.latest.state !== "disconnected" && to - c.lastSeen < 35000)));
-  return { from, to, bucketMs, series, retainedFrom, retention, audioSummary, connections: visible.sort((a, b) => b.lastSeen - a.lastSeen) };
+  return { from, to, bucketMs, series, problemPeriods: problems.finish(), retainedFrom, retention, audioSummary, connections: visible.sort((a, b) => b.lastSeen - a.lastSeen) };
 }
 
 type DiagnosticHistoryOptions = {

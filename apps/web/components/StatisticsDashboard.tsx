@@ -1,4 +1,5 @@
 "use client";
+import { RoomMediaDiagnostics } from "./RoomMediaDiagnostics";
 import { sessionHttpBearer } from "../lib/session-http-bearer";
 
 
@@ -318,6 +319,10 @@ export function StatisticsDashboard({ roomName, token, identity, studioRole, stu
       <p className="muted">{t("Входящие — от сервера к клиентам. Исходящие — от клиентов к серверу. Для всех соединений битрейты суммируются, RTT, jitter и потери усредняются. Пропуски — нет замеров.")}</p>
       <p className="muted">{t("История аудио содержит каждый сохранённый замер с точным временем UTC, потерями, concealment, jitter buffer и состоянием воспроизведения выхода. По умолчанию история хранится 30 дней: прошедшие часы сжимаются без потери двухсекундных замеров, без записи аудио и видео. Общий лимит диска может сократить доступный период; уже удалённые старые дни восстановить невозможно. Старые клиенты не передают новые поля. Отсутствие прироста samples и нулевой уровень не доказывают обрыв: возможны тишина и DTX.")}</p>
     </div>
+    <RoomMediaDiagnostics key={JSON.stringify([studioId, roomName, platformNodeId, platformMediaRoom, historyDay, minutes, roleFilter, participantFilter, session])}
+      statsUrl={statsUrl()} start={history?.from} cutoff={history?.to} connections={history?.connections ?? []}
+      problemPeriods={history?.problemPeriods} hasMeasurements={history?.retainedFrom != null}
+      filtered={Boolean(roleFilter || participantFilter || session)} />
     {error && <p role="alert" className="av-error">{error}</p>}
     {!history ? <p className="panel">{t("Загружаем историю…")}</p> : <>
       <div className="stats-summary">

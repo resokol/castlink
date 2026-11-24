@@ -6,12 +6,12 @@ const {PNG} = require('pngjs');
 const out = process.env.CASTLINK_OUTPUT_QA_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-output-alpha-'));
 fs.mkdirSync(out, {recursive: true});
 const loader = path.join(out, 'ts-loader.cjs'), cssLoader = path.join(out, 'css-loader.cjs');
-fs.writeFileSync(loader, `const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
+fs.writeFileSync(loader, `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
 fs.writeFileSync(cssLoader, `module.exports=function(s){const names={},globals=[];s=s.replace(/:global\\(([^)]+)\\)/g,(_,v)=>'__GLOBAL_'+(globals.push(v)-1)+'__').replace(/\\.([a-zA-Z_][\\w-]*)/g,(_,v)=>'.'+(names[v]='output_qa_'+v)).replace(/__GLOBAL_(\\d+)__/g,(_,i)=>globals[i]);return 'const style=document.createElement("style");style.textContent='+JSON.stringify(s)+';document.head.append(style);export default '+JSON.stringify(names);};`);
 let browser, server;
 (async () => {
   const adapter = path.join(__dirname, 'fixtures/output-transparency-adapter.ts');
-  const wp = req('next/dist/compiled/webpack/webpack'); wp.init();
+  const wp = req('next/dist/compiled/webpack/webpack');
   await new Promise((resolve, reject) => wp.webpack({mode: 'development', entry: path.join(__dirname, 'fixtures/output-transparency.tsx'), devtool: false,
     output: {path: out, filename: 'bundle.js'}, resolve: {extensions: ['.ts', '.tsx', '.js'], alias: {'@': web, 'next/navigation$': adapter, 'livekit-client$': adapter, '@/components/I18nProvider$': adapter, '@/lib/livekit-url$': adapter}, modules: [path.join(web, 'node_modules'), 'node_modules']},
     module: {rules: [{test: /\.tsx?$/, use: loader}, {test: /\.css$/, use: cssLoader}]}, optimization: {minimize: false}},

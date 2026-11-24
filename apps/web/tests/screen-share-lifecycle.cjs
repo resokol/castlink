@@ -6,7 +6,7 @@ Module._extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, filename);
 const { enableRoomScreenShare, enableStudioScreenShare, stopStudioScreenShare } = require('../lib/screen-share.ts');
-const { LocalParticipant } = require('livekit-client');
+const { Room } = require('livekit-client');
 
 function makeRoom() {
   const room = { state: 'connected', publication: undefined, stopped: 0, unpublished: 0, pending: undefined };
@@ -64,7 +64,8 @@ function makeRoom() {
     async unpublishTrack(track) { publications.delete(track.source); },
     async setScreenShareEnabled() {},
   };
-  participant.createScreenTracks = options => LocalParticipant.prototype.createScreenTracks.call(participant, options);
+  const sdkParticipant = new Room().localParticipant;
+  participant.createScreenTracks = options => sdkParticipant.createScreenTracks(options);
   const studio = { state: 'connected', localParticipant: participant };
   assert.equal(await enableStudioScreenShare(studio, () => true, () => false), true);
   assert.deepEqual(sent.map(track => track.source), ['screen_share', 'screen_share_audio']);

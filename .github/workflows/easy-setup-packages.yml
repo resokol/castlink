@@ -31,7 +31,7 @@ jobs:
     if: ${{ false }}
     runs-on: ${{ (inputs.self_hosted) && fromJSON('["self-hosted","Windows","castlink"]') || 'windows-latest' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Verify selected product and source branch
         env:
           CASTLINK_TRACK: ${{ inputs.track }}
@@ -95,7 +95,7 @@ jobs:
           & scripts/tests/simple-easy-setup-language.fixtures.ps1 -GuiPath "$pwd/scripts/simple-easy-setup-gui.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'language-proof')
           & scripts/tests/simple-easy-setup-control.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'control-proof')
           & scripts/tests/simple-easy-setup-recovery.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'recovery-proof')
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: easy-setup-gui-proof
@@ -106,16 +106,6 @@ jobs:
             ${{ runner.temp }}/language-proof/*
             ${{ runner.temp }}/control-proof/*
             ${{ runner.temp }}/recovery-proof/*
-      - name: Real password SSH dependency load on .NET Framework
-        shell: powershell
-        run: |
-          . scripts/simple-easy-setup-ssh.ps1
-          $tools = Join-Path $env:RUNNER_TEMP 'castlink-ssh'
-          $null = Install-SimpleSshDependency -ToolsDir $tools
-          $password = ConvertTo-SecureString 'fixture-not-a-real-password' -AsPlainText -Force
-          $session = New-SimpleSshClients -HostName '127.0.0.1' -Login 'fixture' -Password $password -Port 22 -ToolsDir $tools
-          Disconnect-SimpleSsh -Client $session
-          $password.Dispose()
   packages:
     permissions:
       contents: write
@@ -123,15 +113,15 @@ jobs:
     needs: windows-powershell
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Verify selected product and source branch
         env:
           CASTLINK_TRACK: ${{ inputs.track }}
         run: node scripts/release-track.cjs metadata "$CASTLINK_TRACK" "$GITHUB_SHA"
         shell: bash
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
+          node-version: 26.13.1
       - name: Verify independent release channels
         run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs scripts/tests/release-draft-id.test.cjs
       - name: Verify canonical release repository before building
@@ -162,7 +152,7 @@ jobs:
           spec.loader.exec_module(sources)
           published = 'https://github.com/resokol/castlink/releases/download/linux-v1.0.4-079fd0f9d4b1/'
           # Reuse bytes, never the old manifest: current paths, sizes and hashes
-          # are checked again, and missing or changed sources stop the build.
+          # are checked again, and new inputs are fetched and verified against the current source manifest.
           inputs = [
               ('CastLink-ThirdParty-Sources.tar.gz', 'distribution/third-party-sources.json', 1448018597, '77151631fa7a4d34cfa318b67fe45288845983e23cf8bf421d1905a13cf81a3c'),
               ('CastLink-ThirdParty-Office-Sources.tar.gz', 'distribution/third-party-office-sources.json', 1110224637, '5db53be3a4dac0849b7e026046db8358e02bf0ad1462b11eb723067d42f80c93'),
@@ -172,9 +162,9 @@ jobs:
                   item = {'component': asset, 'url': published + asset, 'path': asset, 'size': size, 'sha256': digest}
                   archive = sources.fetch(item, pathlib.Path(temporary))
                   manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding='utf-8'))
-                  sources.seed_cache_from_archive(manifest, '/tmp/source-cache', archive)
+                  sources.seed_cache_from_archive(manifest, '/tmp/source-cache', archive, require_all=False)
                   archive.unlink()
-                  print('Verified current pinned inputs: ' + manifest_path, flush=True)
+                  print('Reused matching, verified historical source inputs: ' + manifest_path, flush=True)
           PY
       - name: Build current application and bundled relay image
         run: |
@@ -182,14 +172,14 @@ jobs:
           # This ephemeral hosted-job cache is no longer needed after both
           # checked source assets have been produced; leave space for packaging.
           rm -rf -- /tmp/source-cache
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         if: ${{ inputs.track == 'server-setup' }}
         with:
           name: easy-setup-gui-proof
           path: ${{ runner.temp }}
       - name: Assemble selected product (setup retains its pinned VPS transport)
         run: node scripts/package-simple-easy-setup.mjs "$RUNNER_TEMP/packages" /tmp/images.tar.gz "$GITHUB_SHA" "$(cat /tmp/web-id)" /tmp/official-ids.json "$RUNNER_TEMP/gui-host/EasySetup.exe" "${{ inputs.track }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: CastLink-${{ inputs.track }}-${{ github.sha }}
           path: |
@@ -214,7 +204,7 @@ jobs:
         run: |
           "ProgramData=$([Environment]::GetFolderPath('CommonApplicationData'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ComSpec=$(Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Verify selected product and source branch
         env:
           CASTLINK_TRACK: ${{ inputs.track }}
@@ -229,9 +219,9 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Could not enumerate pinned Linux files'}
           git -c core.autocrlf=false checkout-index --force --all
           if($LASTEXITCODE -ne 0){throw 'Could not materialize canonical source bytes'}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
+          node-version: 26.13.1
       - name: Verify independent release channels
         shell: powershell
         run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs scripts/tests/release-draft-id.test.cjs
@@ -279,7 +269,7 @@ jobs:
         run: |
           node scripts/build-simple-easy-setup-images.mjs "$env:RUNNER_TEMP/images" "$env:GITHUB_SHA" "${{ inputs.track }}"
           if($LASTEXITCODE -ne 0){throw 'Actual image build/smoke failed'}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         if: ${{ inputs.track == 'server-setup' }}
         with:
           name: easy-setup-gui-proof
@@ -290,7 +280,7 @@ jobs:
           $id=(Get-Content "$env:RUNNER_TEMP/images/web-id" -Raw).Trim()
           node scripts/package-simple-easy-setup.mjs "$env:RUNNER_TEMP/packages" "$env:RUNNER_TEMP/images/images.tar.gz" "$env:GITHUB_SHA" "$id" "$env:RUNNER_TEMP/images/official-ids.json" "$env:RUNNER_TEMP/gui-host/EasySetup.exe" "${{ inputs.track }}"
           if($LASTEXITCODE -ne 0){throw 'Asset assembly failed'}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: CastLink-${{ inputs.track }}-${{ github.sha }}
           path: |

@@ -17,7 +17,7 @@ const { MAX_PRESENTATION_UPLOAD } = require('./load-typescript.cjs').load('../li
   const chunks = Array.from({ length: Math.ceil(body.length / 65536) }, (_, i) => body.subarray(i * 65536, (i + 1) * 65536));
   const request = Readable.from(chunks);
   request.url = '/api/presentation-file';
-  const cloned = getCloneableBody(request, config.experimental.middlewareClientMaxBodySize);
+  const cloned = getCloneableBody(request, config.experimental.proxyClientMaxBodySize);
   const copy = [];
   for await (const chunk of cloned.cloneBodyStream()) copy.push(chunk);
   await cloned.finalize();

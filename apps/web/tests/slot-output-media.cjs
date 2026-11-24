@@ -44,7 +44,7 @@ function makeFixture(sourceMode, abortSignal = AbortSignal, pendingBody = false)
   participant.trackPublications.set('camera',camera);participant.trackPublications.set('screen',screen);
   class Room extends EventEmitter {
     constructor(){super();this.state='disconnected';this.localParticipant={identity:'output-client'};this.remoteParticipants=new Map([[participant.identity,participant]]);Room.instance=this;}
-    async connect(){this.state='connected';}
+    async connect(_url,_token,options){this.connectOptions=options;this.state='connected';}
     async disconnect(){this.state='disconnected';}
     async startAudio(){}
   }
@@ -107,6 +107,7 @@ function makePublication(source,video,calls) {
 async function testSource(sourceMode, abortSignal) {
   const f=makeFixture(sourceMode, abortSignal);f.mount();await f.flushTimers();f.render();f.room().emit(f.RoomEvent.TrackSubscribed);f.render();
   assert.equal(f.calls.requests.length,1,`${sourceMode} sends the output request even without AbortSignal static helpers`);
+  assert.equal(f.room().connectOptions.subscriberAllowPause,false,'a stable slot uses the production congestion policy');
   assert.equal(f.calls.requests[0].signal.aborted,false,'completed request is not aborted');
   assert.ok(f.timers.some(timer=>timer.ms===8000&&timer.cancelled),'completed request clears its timeout');
   const expected=sourceMode==='camera'?'camera':'screen_share',other=sourceMode==='camera'?'screen_share':'camera';

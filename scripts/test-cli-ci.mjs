@@ -128,7 +128,7 @@ function actor(){
  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-private-control-ci-'));try{
   const s=fs.lstatSync(temporary);if(s.uid!==1000||s.gid!==1000||!s.isDirectory()||(s.mode&0o777)!==0o700)fail('actor-private-directory');
   const env={...actorEnvironment(node,recordedOwner),HOME:temporary,TMPDIR:temporary};
-  currentPhase='legacy-tests';return run(node,['--test',...legacyFiles.map(n=>path.join(cli,'tests',n))],env,300000);
+  currentPhase='legacy-tests';return run(node,['--test','--test-reporter=tap',...legacyFiles.map(n=>path.join(cli,'tests',n))],env,300000);
  }finally{fs.rmSync(temporary,{recursive:true,force:true});}
 }
 function main(args){

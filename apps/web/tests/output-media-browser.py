@@ -6,7 +6,7 @@ from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 root=Path(__file__).resolve().parents[3]
 out=Path(tempfile.mkdtemp(prefix='castlink-output-media-'))
-compiled=subprocess.run(['node','-e',"const fs=require('fs'),ts=require('typescript');process.stdout.write(ts.transpileModule(fs.readFileSync('lib/output-track-bindings.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)"],cwd=root/'apps/web',capture_output=True,text=True,check=True).stdout
+compiled=subprocess.run(['node','-e',"const fs=require('fs'),ts=require('./tests/node_modules/typescript');process.stdout.write(ts.transpileModule(fs.readFileSync('lib/output-track-bindings.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)"],cwd=root/'apps/web',capture_output=True,text=True,check=True).stdout
 bundle=(root/'apps/web/node_modules/livekit-client/dist/livekit-client.umd.js').as_uri()
 js=r"""
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));

@@ -9,13 +9,25 @@ permissions:
   contents: read
 
 jobs:
+  windows-ssh-dependencies:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Load pinned SSH packages in stock Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & scripts/tests/simple-easy-setup-ssh-packages.fixtures.ps1 -ToolsDir (Join-Path $env:RUNNER_TEMP 'castlink-ssh')
+
   verify:
     # Keep the validated canonical sudo layout used by the fixed-identity CLI gate.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16.16-alpine3.24@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
         env:
           POSTGRES_USER: castlink
           POSTGRES_PASSWORD: castlink
@@ -31,16 +43,16 @@ jobs:
       STUDIOLINK_RELEASE: ci-${{ github.sha }}
       TEST_DATABASE_URL: postgresql://castlink:castlink@127.0.0.1:5432/castlink_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.1.1
         with:
-          version: 9.15.0
+          version: 12.23.0
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22
+          node-version: 26.13.1
           cache: pnpm
 
       - name: Install dependencies
@@ -123,8 +135,8 @@ jobs:
             }
           }
           CADDY
-          docker run -d --name castlink-ops-qa-livekit --network host livekit/livekit-server:v1.13.7 --dev --bind 127.0.0.1 --port 17880
-          docker run -d --name castlink-ops-qa-caddy --network host -v "$QA_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4
+          docker run -d --name castlink-ops-qa-livekit --network host livekit/livekit-server:v1.13.11@sha256:25cd902de7cacbd5f1f779f6a6ac1eae20ba8f56b0935934ce6b0ab80d1e3d20 --dev --bind 127.0.0.1 --port 17880
+          docker run -d --name castlink-ops-qa-caddy --network host -v "$QA_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
           for attempt in {1..30}; do
             if curl -s -o /dev/null http://127.0.0.1:17880; then break; fi
             sleep 1

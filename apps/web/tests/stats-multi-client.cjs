@@ -29,6 +29,9 @@ function request(route, cookie = '', body, headers = {}) {
   const sample = { at: Date.now(), room: 'Poker', identity: 'guest-fixture', name: 'Guest', session: 'fixture-audio-session', role: 'guest', state: 'connected', quality: 'good', reconnects: 0, uptimeSec: 20,
     streams: [{ id: 'audio-in', kind: 'audio', direction: 'in', participant: 'guest-fixture', source: 'microphone', bitrateKbps: 64, lossPct: 1, jitterMs: 10, rttMs: 50 }] };
   await saveSample(sample);
+  const { saveRoomSfuEvidence } = require('../lib/room-sfu-evidence.ts');
+  await saveRoomSfuEvidence(sample.room, { at: sample.at, limited: false,
+    tracks: [{ participant: sample.identity, trackSid: 'TR_audio', kind: 'audio', muted: false }] });
   const url = '/api/stats?studioId=studio-default&room=Poker&minutes=15';
   // No browser has joined LiveKit or acquired the publishing primary lease.
   for (const cookie of [firstPc, secondPc]) {
@@ -38,6 +41,19 @@ function request(route, cookie = '', body, headers = {}) {
     assert.equal(history.connections[0].session, sample.session);
     const details = await api.GET(request(url + '&diagnostics=audio', cookie));
     assert.equal(details.status, 200); assert.equal((await details.json()).samples[0].session, sample.session);
+  }
+  for (const mode of ['full', 'analysis']) {
+    const endpoint = url + '&diagnostics=' + mode;
+    const permitted = await api.GET(request(endpoint, secondPc));
+    assert.equal(permitted.status, 200);
+    const lines = (await permitted.text()).trim().split('\n').map(line => JSON.parse(line));
+    assert.equal(lines.at(-1).sampleCount, 1);
+    assert.equal(lines.at(-1).complete, true);
+    assert.equal(lines.at(-1).sfu.observedSamples, 1);
+    if (mode === 'full') assert.equal(lines.find(record => record.type === 'sfu-sample').sample.tracks[0].trackSid, 'TR_audio');
+    assert.equal((await api.GET(request(endpoint))).status, 403);
+    assert.equal((await api.GET(request(endpoint.replace('Poker', 'Other'), secondPc))).status, 403);
+    assert.equal((await api.GET(request(endpoint.replace('studio-default', 'studio-foreign'), secondPc))).status, 403);
   }
   assert.equal((await api.GET(request(url, secondPc, undefined, { authorization: 'Bearer expired-media-token' }))).status, 200, 'expired media connection does not revoke a valid studio login');
   assert.equal((await api.GET(request(url))).status, 403, 'anonymous reader denied');

@@ -4,6 +4,7 @@ export type ServerMonitorSample = {
   at: number;
   from?: number;
   gapBefore?: boolean;
+  keyframes?: import("./node-keyframes").NodeKeyframes;
   cpuPercent: number | null;
   memoryUsedBytes: number | null;
   memoryTotalBytes: number | null;

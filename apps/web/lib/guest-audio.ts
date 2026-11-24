@@ -2,14 +2,13 @@ import type { AudioCaptureOptions, LocalAudioTrack, Room, Track, TrackPublishOpt
 
 export type GuestAudioProfile = "speech" | "raw";
 type AudioChoices = { audioDeviceId?: string; audioProfile?: GuestAudioProfile };
-type ProcessingOptions = Pick<AudioCaptureOptions, "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation">;
 
 /** Processing is opt-in; retain an explicit saved speech profile. */
 export function guestAudioProfile(value?: unknown): GuestAudioProfile {
   return value === "speech" ? "speech" : "raw";
 }
 
-export function guestAudioProcessingOptions(choices: AudioChoices): ProcessingOptions {
+export function guestAudioProcessingOptions(choices: AudioChoices) {
   const speech = guestAudioProfile(choices.audioProfile) === "speech";
   // Voice isolation can override noiseSuppression; automatic gain can amplify
   // the residual noise again. Keep the two modes explicit and gain stable.
@@ -50,7 +49,7 @@ function restartOptions(track: LocalAudioTrack, choices: AudioChoices): AudioCap
 }
 
 /** The preflight capture and the LiveKit microphone use the same explicit constraints. */
-export function guestAudioCaptureOptions(choices: AudioChoices): AudioCaptureOptions {
+export function guestAudioCaptureOptions(choices: AudioChoices) {
   return { ...guestAudioProcessingOptions(choices), ...(choices.audioDeviceId ? { deviceId: { exact: choices.audioDeviceId } } : {}) };
 }
 

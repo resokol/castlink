@@ -4,10 +4,10 @@
 
 ## Локальная разработка
 
-Используйте Node.js 22 и pnpm 9.15.0. Для полного набора серверных проверок нужна Linux-среда с Bash и Python 3; нативные Windows-проверки запускаются в Windows. Не используйте рабочие серверы и реальные пользовательские данные для тестов.
+Используйте Node.js 26.13.1 и pnpm 12.23.0. Для полного набора серверных проверок нужна Linux-среда с Bash, Python 3, компилятором C и Go. Для проверок шаблонов CLI команда `go` должна запускать инструменты Go. Путь к ним можно задать в `CASTLINK_TEST_GO`. Нативные Windows-проверки запускаются в Windows. Не используйте рабочие серверы и реальные пользовательские данные для тестов.
 
 ```sh
-corepack enable
+npm install --global pnpm@12.23.0
 pnpm install --frozen-lockfile
 pnpm dev
 ```
@@ -34,8 +34,8 @@ pnpm build
 
 ## English
 
-Start from current `main`, follow the setup and verification commands above, and describe the problem, behavioral change and actual test results in your pull request. Full server tests require Linux, Bash and Python 3; native Windows checks require Windows. Keep credentials, user data and local tooling artifacts out of Git. Original project code is MIT; preserve all third-party licenses and attribution. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Start from current `main`, follow the setup and verification commands above, and describe the problem, behavioral change and actual test results in your pull request. Full server tests require Linux, Bash, Python 3, a C compiler and the Go toolchain. The CLI template tests use `go` from PATH or the executable specified by `CASTLINK_TEST_GO`. Native Windows checks require Windows. Keep credentials, user data and local tooling artifacts out of Git. Original project code is MIT; preserve all third-party licenses and attribution. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## 简体中文
 
-请从最新的 `main` 创建分支，按照上面的步骤安装依赖并运行检查。在拉取请求中说明问题、行为变化和实际测试结果。完整的服务器测试需要 Linux、Bash 和 Python 3；Windows 原生测试需要 Windows。不要提交凭据、用户数据或本地工具文件。项目原创代码采用 MIT 许可证；请保留第三方许可证和署名。安全漏洞请按照 [SECURITY.md](SECURITY.md) 私下报告。
+请从最新的 `main` 创建分支，按照上面的步骤安装依赖并运行检查。在拉取请求中说明问题、行为变化和实际测试结果。完整的服务器测试需要 Linux、Bash、Python 3、C 编译器和 Go 工具链。CLI 模板测试使用 PATH 中的 `go` 或 `CASTLINK_TEST_GO` 指定的可执行文件。Windows 原生测试需要 Windows。不要提交凭据、用户数据或本地工具文件。项目原创代码采用 MIT 许可证；请保留第三方许可证和署名。安全漏洞请按照 [SECURITY.md](SECURITY.md) 私下报告。

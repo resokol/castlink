@@ -26,7 +26,7 @@ export function validateReleaseManifest(value:unknown,release:string,architectur
  if(m.schemaVersion!==1&&m.schemaVersion!==2)throw new CliError('Unsupported release schema.');
  if(m.schemaVersion===2){validatePrivateControlCapability(m.privateControl);if(architecture!=='amd64'||!Array.isArray(m.architectures)||m.architectures.length!==1||m.architectures[0]!=='amd64')throw new CliError('Private control requires Linux amd64 UID 1000 target verification.',2);}
  if(typeof m.release!=='string' || m.release.length>128 || !version.test(m.release) || m.release!==release)throw new CliError('Release version mismatch or invalid release.');
- if(typeof m.nodeVersion!=='string' || !/^22\.\d+\.\d+$/.test(m.nodeVersion))throw new CliError('Release requires an exact Node 22 runtime version.');
+ if(typeof m.nodeVersion!=='string' || !/^(?:22|26)\.\d+\.\d+$/.test(m.nodeVersion))throw new CliError('Release requires an exact Node 22 or Node 26 runtime version.');
  const supported=architectures(m.architectures);
  if(!supported.includes(architecture))throw new CliError('Release does not support requested architecture.');
  if(!m.images || typeof m.images!=='object' || Array.isArray(m.images) || Object.keys(m.images).length!==imageNames.length || imageNames.some(name=>!(name in (m.images as object))))throw new CliError('Required release images are missing or invalid.');

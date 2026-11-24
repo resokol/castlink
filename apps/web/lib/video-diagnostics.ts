@@ -34,15 +34,24 @@ export function videoDiagnostic(stat: Record<string, any>, source?: Record<strin
 /** Match the ingestion UTF-8 budget without sacrificing existing audio/runtime/basic video data. */
 export function telemetryBody(sample: TelemetrySample): string {
   const body = JSON.stringify(sample), encoder = new TextEncoder();
-  if (encoder.encode(body).length <= 100_000 || !sample.streams.some(stream => stream.video)) return body;
-  const bounded = { ...sample, streams: sample.streams.map(stream => ({ ...stream })), videoDiagnosticsLimited: true };
+  if (encoder.encode(body).length <= 100_000) return body;
+  const bounded = { ...sample, streams: sample.streams.map(stream => ({ ...stream })) };
   let bytes = encoder.encode(JSON.stringify(bounded)).length;
+  for (let i = bounded.streams.length - 1; i >= 0 && bytes > 100_000; i--) {
+    const stream = bounded.streams[i];
+    if (!stream.peerReport && !stream.trackSid) continue;
+    if (stream.peerReport) bytes -= encoder.encode(',"peerReport":' + JSON.stringify(stream.peerReport)).length;
+    if (stream.trackSid) bytes -= encoder.encode(',"trackSid":' + JSON.stringify(stream.trackSid)).length;
+    delete stream.peerReport; delete stream.trackSid;
+    if (!bounded.peerReportsLimited) { bounded.peerReportsLimited = true; bytes += ',"peerReportsLimited":true'.length; }
+  }
   // Local publications are collected first. Retain their diagnostics preferentially.
   for (let i = bounded.streams.length - 1; i >= 0 && bytes > 100_000; i--) {
     const stream = bounded.streams[i];
     if (!stream.video) continue;
     bytes -= encoder.encode(',"video":' + JSON.stringify(stream.video)).length;
     delete stream.video;
+    if (!bounded.videoDiagnosticsLimited) { bounded.videoDiagnosticsLimited = true; bytes += ',"videoDiagnosticsLimited":true'.length; }
   }
   return JSON.stringify(bounded);
 }

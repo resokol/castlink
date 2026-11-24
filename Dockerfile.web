@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS builder
+FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS builder
 ARG CASTLINK_SOURCE_COMMIT
 LABEL ru.castlink.image.owner="castlink" \
       ru.castlink.image.ownership="castlink-build-v1" \
@@ -8,9 +8,10 @@ WORKDIR /app
 ENV NODE_USE_ENV_PROXY=1
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
-    corepack enable && corepack prepare pnpm@9.15.0 --activate
+    npm install --global --no-audit --no-fund pnpm@12.23.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
+COPY apps/web/tests/package.json apps/web/tests/package.json
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     pnpm install --frozen-lockfile --filter web...
@@ -35,7 +36,7 @@ RUN node scripts/prepare-web-runtime.mjs apps/web/.next/standalone /app
 
 # Copy only the traced production server, browser assets and operator programs.
 # Source files and the build-stage package manager never enter runtime layers.
-FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS runtime
+FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS runtime
 ARG CASTLINK_SOURCE_COMMIT
 LABEL ru.castlink.image.owner="castlink" \
       ru.castlink.image.ownership="castlink-build-v1" \

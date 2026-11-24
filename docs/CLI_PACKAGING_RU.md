@@ -2,13 +2,13 @@
 
 Документ относится к исследовательскому TypeScript `apps/cli`. Упаковщик создаёт только development-архивы для `win32-x64`, `darwin-arm64` и `darwin-x64`; он не упаковывает опубликованный `CastLink-Linux.tar.gz`. Подписанный пользовательский релиз и физическая Windows/macOS acceptance этого инструмента не подтверждены. Публичная публикация архивов этим инструментом не выполняется. Текущие условия проекта определяет [LICENSE](../LICENSE), а установка поддерживаемых продуктов описана в [INSTALL](../distribution/INSTALL.md).
 
-На машине разработчика нужны Node.js и Python 3. Windows developer build использует штатный Python launcher `py -3`, Unix — `python3`. Сначала скомпилируйте CLI, подготовьте проверенный server release manifest и скачайте соответствующий upstream архив Node.js 22.23.3. Упаковщик проверяет его байты по встроенному SHA256; криптографическая проверка подписи upstream SHASUMS этим этапом не выполняется.
+На машине разработчика нужны Node.js и Python 3. Windows developer build использует штатный Python launcher `py -3`, Unix — `python3`. Сначала скомпилируйте CLI, подготовьте проверенный server release manifest и скачайте соответствующий upstream архив Node.js 26.13.1. Упаковщик проверяет его байты по встроенному SHA256; криптографическая проверка подписи upstream SHASUMS этим этапом не выполняется.
 
 ```sh
 pnpm --filter @castlink/cli build
 node scripts/package-cli.mjs --development \
   --target darwin-arm64 \
-  --runtime-archive /absolute/path/node-v22.23.3-darwin-arm64.tar.gz \
+  --runtime-archive /absolute/path/node-v26.13.1-darwin-arm64.tar.gz \
   --dist apps/cli/dist \
   --server-manifest /absolute/path/release.json \
   --output /absolute/path/new-output-directory

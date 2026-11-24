@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, statSync } from "node:fs";
 import path from "node:path";
 import { productionDataDir } from "./persistent-storage";
+import { safeKeyframeInterval } from "./node-keyframes";
 import { safeServerEvent } from "./server-event-sanitize";
 import type { PendingServerEvent, ServerEvent, ServerEventLevel, ObservabilityStorage } from "./server-event-types";
 import type { ServerMonitorSample } from "./server-monitor-types";
@@ -30,6 +31,8 @@ function sampleFrom(value: unknown): ServerMonitorSample | null {
     if (!["ok", "unavailable", "unconfigured"].includes(String(services[name]))) return null;
     (output.services as Record<string, unknown>)[name] = services[name];
   }
+  const keyframes = safeKeyframeInterval(input.keyframes);
+  if (keyframes && keyframes.at === input.at) output.keyframes = keyframes;
   return output as unknown as ServerMonitorSample;
 }
 
@@ -180,6 +183,51 @@ export class ServerObservabilityStore {
     } catch { this.failed = true; }
     const latest = samples.at(-1) || null;
     return { ...aggregateMonitorSamples(samples.filter(sample => sample.at > this.clock() - windowMs), windowMs, 720, this.clock()), latest, windowMs, storage: this.storage() };
+  }
+  /** Historical room reports may read CPU only. Keep the SQL projection independent of other node metrics. */
+  readCpuSamples(from: number, to: number) {
+    const samples: { at: number; cpuPercent: number | null }[] = [];
+    try { lstatSync(this.filename); }
+    catch (error) { return { samples, available: (error as NodeJS.ErrnoException).code === "ENOENT" }; }
+    const db = this.open();
+    if (!db) return { samples, available: false };
+    try {
+      const now = this.clock();
+      const rows = db.prepare(`SELECT at, CASE WHEN json_valid(payload) THEN
+        CASE WHEN json_type(payload,'$.cpuPercent') IN ('integer','real') THEN json_extract(payload,'$.cpuPercent') END
+        END AS cpu FROM metrics WHERE at>? AND at>=? AND at<=? ORDER BY at LIMIT ?`)
+        .all(now - OBSERVABILITY_RETENTION_MS, from, Math.min(to, now), this.metricLimit);
+      for (const row of rows) {
+        const cpu = row.cpu;
+        samples.push({ at: Number(row.at), cpuPercent: typeof cpu === "number" && Number.isFinite(cpu) && cpu >= 0 && cpu <= 100 ? cpu : null });
+      }
+      return { samples, available: true };
+    } catch { return { samples, available: false }; }
+  }
+  /** Minute-only projection for authenticated platform incident reports. */
+  readIncidentNode(from: number, to: number) {
+    const samples: { at: number; livekit: ServerMonitorSample["services"]["livekit"]; keyframes?: ServerMonitorSample["keyframes"] }[] = [];
+    if (to < from || to - from >= 60_000) return { samples, available: false };
+    try { lstatSync(this.filename); }
+    catch (error) { return { samples, available: (error as NodeJS.ErrnoException).code === "ENOENT" }; }
+    const db = this.open();
+    if (!db) return { samples, available: false };
+    try {
+      const rows = db.prepare(`SELECT at,json_extract(payload,'$.services.livekit') AS livekit,
+        json_extract(payload,'$.keyframes') AS keyframes FROM metrics
+        WHERE at>? AND at>=? AND at<=? ORDER BY at LIMIT ?`)
+        .all(this.clock() - OBSERVABILITY_RETENTION_MS, from, Math.min(to, this.clock()), this.metricLimit);
+      for (const row of rows) {
+        const livekit = row.livekit;
+        if (livekit !== "ok" && livekit !== "unavailable" && livekit !== "unconfigured") continue;
+        const at = Number(row.at);
+        const interval = typeof row.keyframes === "string" ? safeKeyframeInterval(JSON.parse(row.keyframes)) : undefined;
+        // Intervals that straddle the minute boundary include events from outside this incident.
+        const keyframes = interval && interval.at === at && interval.from >= from ? interval : undefined;
+        samples.push({ at, livekit, ...(keyframes ? { keyframes } : {}) });
+      }
+      return { samples, available: true };
+    } catch { return { samples, available: false }; }
   }
   readEvents(level: ServerEventLevel | "all", cursor?: number, limit = 50) {
     this.corrupt = 0;

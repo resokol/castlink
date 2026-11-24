@@ -22,7 +22,7 @@
     },
     "nodeVersion": {
       "type": "string",
-      "pattern": "^22\\.\\d+\\.\\d+$"
+      "pattern": "^(?:22|26)\\.\\d+\\.\\d+$"
     },
     "architectures": {
       "$ref": "#/$defs/architectures"

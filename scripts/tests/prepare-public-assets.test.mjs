@@ -17,8 +17,9 @@ test('fresh dev and build stage complete local themes and replace stale generate
   // Model the installed PDF dependency so preparation runs without a package manager or network.
   const vendor=path.join(web,'node_modules/pdfjs-dist');
   await fs.mkdir(path.join(vendor,'build'),{recursive:true});
-  await fs.writeFile(path.join(vendor,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.4.299'}));
+  await fs.writeFile(path.join(vendor,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.5.438'}));
   await fs.writeFile(path.join(vendor,'build/pdf.worker.min.mjs'),'// fixture PDF worker');
+  await fs.writeFile(path.join(vendor,'build/pdf.renderer.min.mjs'),'// fixture PDF renderer');
   await fs.writeFile(path.join(vendor,'LICENSE'),'fixture PDF license');
   await fs.mkdir(publicDirectory,{recursive:true});
   await fs.writeFile(path.join(publicDirectory,'keep.txt'),'unrelated public file');
@@ -48,6 +49,7 @@ test('fresh dev and build stage complete local themes and replace stale generate
    await fs.access(path.join(publicDirectory,'new/features.html'));
    await fs.access(path.join(publicDirectory,'new/assets/Manrope-OFL.txt'));
    assert.equal(await fs.readFile(path.join(publicDirectory,'pdfjs/pdf.worker.min.mjs'),'utf8'),'// fixture PDF worker');
+   assert.equal(await fs.readFile(path.join(publicDirectory,'pdfjs/pdf.renderer.min.mjs'),'utf8'),'// fixture PDF renderer');
    assert.equal(await fs.readFile(path.join(publicDirectory,'keep.txt'),'utf8'),'unrelated public file');
    if(name==='dev') {
     await fs.writeFile(path.join(publicDirectory,'new/stale.css'),'orphaned asset');

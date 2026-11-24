@@ -1,10 +1,13 @@
 services:
   livekit:
-    image: ${CASTLINK_LIVEKIT_IMAGE:-livekit/livekit-server:v1.13.7}
+    image: ${CASTLINK_LIVEKIT_IMAGE:-livekit/livekit-server:v1.13.11@sha256:25cd902de7cacbd5f1f779f6a6ac1eae20ba8f56b0935934ce6b0ab80d1e3d20}
     container_name: studiolink-livekit
     restart: unless-stopped
     network_mode: host
     command: --config /etc/livekit.yaml
+    # Set in the project .env to accept repair packets from compatible publishers.
+    environment:
+      - LIVEKIT_RTC_FLEXFEC_UPSTREAM_ENABLED
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     logging:

@@ -155,8 +155,19 @@ class TransferTest(unittest.TestCase):
                     self.helper(self.target).validate_manifest({**manifest,'sourceRelease':unknown})
 
     def test_exact_published_106_rc1_upgrades_to_stable_preserving_all_data_and_identity(self):
-        self.source=self.fixture('published-106-rc1',PUBLISHED_106_RC1)
-        (self.target/'opt/castlink/release.json').write_text(json.dumps(STABLE_107))
+        self.assert_preserved_upgrade(PUBLISHED_106_RC1, STABLE_107)
+
+    def test_exact_published_107_upgrades_to_108_preserving_all_data_and_identity(self):
+        previous = {**STABLE_107, 'commit': '0d16de2e782cd2e847e9824024c5b788a080a59b',
+                    'buildId': '1.0.7-0d16de2e782c'}
+        candidate = {**STABLE_107, 'version': '1.0.8', 'buildId': '1.0.8-'+'b'*12,
+                     'lifecycle': {**STABLE_107['lifecycle'], 'supportedSources':
+                         [*STABLE_107['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
+        self.assert_preserved_upgrade(previous, candidate)
+
+    def assert_preserved_upgrade(self, previous, candidate):
+        self.source=self.fixture('published-source', previous)
+        (self.target/'opt/castlink/release.json').write_text(json.dumps(candidate))
         source=self.source/'var/lib/castlink-server'
         before={str(p.relative_to(source)):(p.read_bytes(),p.stat().st_mode&0o777)
                 for p in source.rglob('*') if p.is_file()}
@@ -164,14 +175,14 @@ class TransferTest(unittest.TestCase):
         (self.target/'var/lib/castlink-server-wsl-installation-id').write_text(target_host+'\n')
         data=self.export()
         with tarfile.open(fileobj=io.BytesIO(data),mode='r:') as archive:
-            self.assertEqual(json.load(archive.extractfile('manifest.json'))['sourceRelease'],PUBLISHED_106_RC1)
+            self.assertEqual(json.load(archive.extractfile('manifest.json'))['sourceRelease'],previous)
         self.helper(self.target).import_(target_host,io.BytesIO(data))
         target=self.target/'var/lib/castlink-server'
         old=json.loads(before['state.json'][0]);new=json.loads((target/'state.json').read_text())
         self.assertEqual({k:v for k,v in new.items() if k not in ('release','completed')},
                          {k:v for k,v in old.items() if k not in ('release','completed')})
         self.assertFalse(new['completed'])  # Candidate must complete its own gated startup before admission.
-        self.assertEqual(new['release'],STABLE_107)
+        self.assertEqual(new['release'],candidate)
         for name,(contents,mode) in before.items():
             if name!='state.json':self.assertEqual((target/name).read_bytes(),contents,name)
             self.assertEqual((target/name).stat().st_mode&0o777,mode,name)

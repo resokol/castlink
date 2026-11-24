@@ -13,8 +13,8 @@ export async function hashFile(file){
 // Validate without extraction: an imported OS may contain absolute symlinks and
 // device entries, but must not carry the producer's identity or an installation.
 const audit=String.raw`
-import hashlib,json,re,sys,tarfile
-archive,version,commit,inventory_path,sources_path,upstream_path,upstream_manifest,helper_hash,runtime_hash=sys.argv[1:]
+import hashlib,importlib.util,json,re,sys,tarfile
+archive,version,commit,inventory_path,sources_path,upstream_path,upstream_manifest,helper_hash,runtime_hash,source_verifier=sys.argv[1:]
 required={'usr/lib/systemd/systemd','usr/lib/x86_64-linux-gnu/security/pam_systemd.so','usr/lib/systemd/user/dbus.socket',
           'usr/local/bin/node','usr/local/bin/caddy',
           'usr/local/bin/livekit-server','usr/local/bin/castlink-server','usr/local/bin/castlink-server-maintenance',
@@ -47,7 +47,7 @@ with tarfile.open(archive,'r:gz') as source:
  value=json.loads(selected['opt/castlink/release.json'])
  if value.get('version')!=version or value.get('commit')!=commit or value.get('buildId')!=version+'-'+commit[:12]:
   raise ValueError('Embedded runtime release/version/commit mismatch')
- if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53']}:
+ if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c']}:
   raise ValueError('Embedded lifecycle compatibility contract mismatch')
  if runtime_hashes!={'usr/local/bin/castlink-server':runtime_hash,'usr/local/bin/castlink-server-maintenance':helper_hash}:
   raise ValueError('Embedded lifecycle helper inventory mismatch')
@@ -100,25 +100,9 @@ if {(p['name'],p['version']) for p in manifest.get('packages',[])}!=packages or 
 if any(actual.get(name)!=value for name,value in references.items()):
  raise ValueError('Missing or incorrect corresponding source payload referenced by descriptor')
 with open(upstream_manifest,encoding='utf-8') as stream: expected=json.load(stream)
-expected_files={item['path']:{'sha256':item['sha256'],'size':item['size']} for item in expected['files']}
-upstream_actual={}; captured=None; seen=set()
-with tarfile.open(upstream_path,'r:gz') as source:
- for member in source:
-  name=member.name.removeprefix('./').rstrip('/')
-  if name in ('','.'): continue
-  if member.isdir(): continue
-  if not member.isfile() or name in seen or name.startswith('/') or '..' in name.split('/'):
-   raise ValueError('Unsafe upstream source archive')
-  seen.add(name);stream=source.extractfile(member)
-  if name=='README.txt': continue
-  if name=='source-manifest.json':
-   if member.size>16*1024*1024: raise ValueError('Upstream source manifest too large')
-   captured=json.loads(stream.read());continue
-  digest=hashlib.sha256();size=0
-  for block in iter(lambda:stream.read(1024*1024),b''):digest.update(block);size+=len(block)
-  upstream_actual[name]={'sha256':digest.hexdigest(),'size':size}
-if captured!=expected or upstream_actual!=expected_files:
- raise ValueError('Upstream source archive differs from reviewed dependency manifest')
+spec=importlib.util.spec_from_file_location('source_verifier',source_verifier)
+verifier=importlib.util.module_from_spec(spec);spec.loader.exec_module(verifier)
+verifier.verify_source_archive(expected, upstream_path)
 print(json.dumps({'expandedBytes':expanded}))
 `;
 
@@ -167,13 +151,13 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
  output=path.resolve(output);
  try{await fs.lstat(output);throw Error('Destination already exists; choose a new package directory');}catch(e){if(e.code!=='ENOENT')throw e;}
  for(const file of [rootfs,sources,upstreamSources,inventory]){const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size===0)throw Error('Missing or invalid rootfs/source/inventory');}
- const audited=JSON.parse(execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json'),await hashFile(path.join(root,'scripts/server-wsl-maintenance.py')),await hashFile(path.join(root,'scripts/server-wsl-runtime.py'))],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
+ const audited=JSON.parse(execFileSync(python,['-c',audit,rootfs,version,commit,inventory,sources,upstreamSources,path.join(root,'distribution/third-party-sources.json'),await hashFile(path.join(root,'scripts/server-wsl-maintenance.py')),await hashFile(path.join(root,'scripts/server-wsl-runtime.py')),fileURLToPath(new URL('./package-third-party-sources.py',import.meta.url))],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
  const nativePanel=await readNativePanelPackage(root);
  const helpers=[];for(const file of ['server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','server-wsl-maintenance.py','server-wsl-runtime.py','install-server-windows.template.ps1']){
   const source=path.join(root,'scripts',file==='install-server-windows.template.ps1'?'install-server-windows.ps1':file),stat=await fs.lstat(source);if(!stat.isFile()||stat.isSymbolicLink()||stat.size<=0||stat.size>4194304)throw Error('Invalid lifecycle helper');
   helpers.push({file,sha256:await hashFile(source),size:stat.size});
  }
- const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53'],applicationMigrations:'runtime-bootstrap-v1',helpers};
+ const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c'],applicationMigrations:'runtime-bootstrap-v1',helpers};
  const rootfsName='CastLink-Server-WSL-amd64.tar.gz',sourcesName='CastLink-Server-WSL-Sources.tar.gz';
  const manifest={schemaVersion:1,channel:'server-wsl',version,releaseTag:`server-wsl-v${version}-${commit.slice(0,12)}`,repository,architecture:'amd64',sourceCommit:commit,
   rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size,expandedBytes:audited.expandedBytes},

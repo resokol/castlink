@@ -6,13 +6,13 @@ const {chromium} = require(process.env.CASTLINK_QA_PLAYWRIGHT || 'playwright'), 
 const out = process.env.CASTLINK_IMAGE_QA_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-image-pipeline-'));
 fs.mkdirSync(out, {recursive: true});
 const loader = path.join(out, 'ts-loader.cjs'), cssLoader = path.join(out, 'css-loader.cjs');
-fs.writeFileSync(loader, `const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
+fs.writeFileSync(loader, `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
 fs.writeFileSync(cssLoader, `module.exports=function(s){const names={},globals=[];s=s.replace(/:global\\(([^)]+)\\)/g,(_,v)=>'__GLOBAL_'+(globals.push(v)-1)+'__').replace(/\\.([a-zA-Z_][\\w-]*)/g,(_,v)=>'.'+(names[v]='image_qa_'+v)).replace(/__GLOBAL_(\\d+)__/g,(_,i)=>globals[i]);return 'const style=document.createElement("style");style.textContent='+JSON.stringify(s)+';document.head.append(style);export default '+JSON.stringify(names);};`);
 let browser, server;
 const center = image => [...image.data.slice((Math.floor(image.height / 2) * image.width + Math.floor(image.width / 2)) * 4, (Math.floor(image.height / 2) * image.width + Math.floor(image.width / 2)) * 4 + 4)];
 const gray = (pixel, expected, label) => { for (const channel of pixel.slice(0, 3)) assert.ok(Math.abs(channel - expected) <= 3, `${label}: expected gray ${expected}±3; got RGBA ${pixel}`); assert.equal(pixel[3], 255, label + ' is opaque video'); };
 (async () => {
-  const adapter = path.join(__dirname, 'fixtures/image-correction-pipeline-adapter.ts'), wp = req('next/dist/compiled/webpack/webpack'); wp.init();
+  const adapter = path.join(__dirname, 'fixtures/image-correction-pipeline-adapter.ts'), wp = req('next/dist/compiled/webpack/webpack');
   const plugins = process.env.CASTLINK_IMAGE_QA_TRANSFORM_MODULE ? [new wp.webpack.NormalModuleReplacementPlugin(/(?:^|\/)multiview-image(?:\.ts)?$/, process.env.CASTLINK_IMAGE_QA_TRANSFORM_MODULE)] : [];
   await new Promise((resolve, reject) => wp.webpack({mode: 'development', entry: path.join(__dirname, 'fixtures/image-correction-pipeline.tsx'), devtool: false,
     output: {path: out, filename: 'bundle.js'}, resolve: {extensions: ['.ts', '.tsx', '.js'], alias: {'@': web, 'next/navigation$': adapter, 'livekit-client$': adapter, '@/components/I18nProvider$': adapter, '@/components/LanguageSwitcher$': adapter, '@/lib/livekit-url$': adapter, '@/lib/client-transfer$': adapter, '@/lib/use-session-transfer$': adapter}, modules: [path.join(web, 'node_modules'), 'node_modules']},

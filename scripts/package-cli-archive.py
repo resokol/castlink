@@ -20,7 +20,7 @@ def safe(name):
         raise ValueError('Unsafe archive path')
 
 
-def extract(archive, prefix, output, windows):
+def extract(archive, prefix, output, windows, binary_bytes):
     selected = {prefix + '/LICENSE': 'LICENSE', prefix + ('/node.exe' if windows else '/bin/node'): 'node.exe' if windows else 'bin/node'}
     found = set()
     total = 0
@@ -41,14 +41,16 @@ def extract(archive, prefix, output, windows):
         seen.add(name)
         size = entry.file_size if windows else entry.size
         total += size
-        if total > MAX_EXPANDED or size > MAX_FILE:
-            raise ValueError('Archive expansion limit exceeded')
+        executable = selected.get(name) in ('node.exe', 'bin/node')
+        file_limit = binary_bytes if executable else MAX_FILE
+        if total > MAX_EXPANDED or size > file_limit or (executable and size != binary_bytes):
+            raise ValueError('Archive expansion limit or pinned executable size mismatch')
         if name not in selected:
             continue
         regular = (not entry.is_dir() and not stat.S_ISLNK(entry.external_attr >> 16)) if windows else entry.isfile()
         if not regular:
             raise ValueError('Selected runtime member must be regular')
-        data = handle.read(entry) if windows else handle.extractfile(entry).read(MAX_FILE + 1)
+        data = handle.read(entry) if windows else handle.extractfile(entry).read(file_limit + 1)
         if len(data) != size:
             raise ValueError('Invalid runtime member size')
         target = Path(output) / selected[name]
@@ -91,7 +93,7 @@ if __name__ == '__main__':
     try:
         operation, *args = sys.argv[1:]
         if operation == 'extract':
-            extract(*args[:3], args[3] == 'win32-x64')
+            extract(*args[:3], args[3] == 'win32-x64', int(args[4]))
         elif operation == 'create':
             create(*args[:2], args[2] == 'win32-x64')
         else:

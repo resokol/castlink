@@ -5,13 +5,14 @@ import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { publishRoomOutboundStats } from "./room-outbound-stats";
 import { readTrackStats } from "./media-stats";
+import { observePeerReport, type RtcpReportMarker } from "./rtcp-peer-report";
 import { videoDiagnostic, telemetryBody } from "./video-diagnostics";
 import { telemetryContext } from "./telemetry-context";
 import { Room, RoomEvent, Track, type LocalAudioTrack } from "livekit-client";
 import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample, StudioMediaDiagnostic } from "./telemetry-types";
 import { audioReceiveDiagnostic, sanitizeAudioPlayback, sanitizeAudioTrack, type AudioCounters } from "./audio-diagnostics";
 
-type Counter = { at: number; bytes: number; packets: number | null; lost: number | null };
+type Counter = { at: number; bytes: number; packets: number | null; lost: number | null; peer?: RtcpReportMarker };
 const numberOrNull = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
 const millis = (value: unknown) => { const n = numberOrNull(value); return n === null ? null : n * 1000; };
 const tokenExpiresAt = (value: string) => telemetryContext(value, "").expiresAt;
@@ -64,7 +65,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
   const identity = room.localParticipant.identity;
   const role: TelemetrySample["role"] = identity.startsWith("studio-panel-") ? "studio" :
     identity.startsWith("output-") ? "output" : identity.startsWith("monitor-") ? "monitor" : "guest";
-  const beginRecovery = () => { if (!recovering) reconnects++; recovering = true; };
+  const beginRecovery = () => { if (!recovering) { reconnects++; for (const counter of previous.values()) delete counter.peer; } recovering = true; };
   const onReconnect = () => { beginRecovery(); runtime?.event("reconnecting"); };
   const onSignalReconnect = () => { beginRecovery(); runtime?.event("signal-reconnecting"); };
   const onReconnected = () => { recovering = false; runtime?.event("reconnected"); };
@@ -150,17 +151,15 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
           const counterKey = `${participant.identity}:${publication.trackSid}:${id}`;
           if (seen.has(counterKey)) continue;
           seen.add(counterKey);
-          const remote = direction === "out" ? (report.get(stat.remoteId) || stats.find((s) => s.type === "remote-inbound-rtp" && s.localId === stat.id)) : undefined;
+          const peerKind = direction === "out" ? "remote-inbound-rtp" : "remote-outbound-rtp";
+          const linked = stat.remoteId ? report.get(stat.remoteId) : stats.find(s => s.type === peerKind && s.localId === stat.id);
+          const observation = observePeerReport(direction, stat, linked, previous.get(counterKey)?.peer);
+          const remote = direction === "out" && observation ? linked : undefined;
           const packets = numberOrNull(direction === "in" ? stat.packetsReceived : stat.packetsSent);
           const lost = numberOrNull(direction === "in" ? stat.packetsLost : remote?.packetsLost);
-          const next = { at: stat.timestamp, bytes: Number((direction === "in" ? stat.bytesReceived : stat.bytesSent) || 0), packets, lost };
+          const next = { at: stat.timestamp, bytes: Number((direction === "in" ? stat.bytesReceived : stat.bytesSent) || 0), packets, lost, peer: observation?.marker };
           const delta = rateDelta(previous.get(counterKey), next);
-          // Outbound packetsSent already includes packets lost at the receiver.
-          if (direction === "out") {
-            const prev = previous.get(counterKey);
-            delta.lossPct = prev && packets !== null && prev.packets !== null && lost !== null && prev.lost !== null &&
-              packets > prev.packets && lost >= prev.lost ? Math.min(100, (lost - prev.lost) / (packets - prev.packets) * 100) : null;
-          }
+          if (direction === "out") delta.lossPct = observation?.lossPct ?? null;
           previous.set(counterKey, next);
           let audio;
           if (direction === "in" && publication.kind === Track.Kind.Audio) {
@@ -175,6 +174,8 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
             capture, sourceAudioLevel: mediaSource?.type === "media-source" && mediaSource.kind === "audio" ? mediaSource.audioLevel : null,
           }, direction === "out") : undefined;
           streams.push({ id, participant: participant.identity, name: participant.name || participant.identity,
+            ...(publication.trackSid ? { trackSid: publication.trackSid } : {}),
+            ...(observation ? { peerReport: observation.report } : {}),
             direction, kind: publication.kind === Track.Kind.Video ? "video" : "audio", source: publication.source,
             codec: report.get(stat.codecId)?.mimeType ?? null, ...delta, lostPackets: lost,
             jitterMs: millis(direction === "in" ? stat.jitter : remote?.jitter),

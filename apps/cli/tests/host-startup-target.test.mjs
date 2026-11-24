@@ -1,6 +1,6 @@
 import fs from 'node:fs';import {createHash} from 'node:crypto';
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFile,writeFile,unlink,stat,chmod} from 'node:fs/promises';
-import {fixture,id} from './host-startup-runner-fixture.mjs';
+import {fixture,id,waitForFixtureBarrier} from './host-startup-runner-fixture.mjs';
 const read=f=>readFile(f.state,'utf8').then(JSON.parse);
 function reply(r){assert.equal(r.err,'');return JSON.parse(r.out)}
 test('actual Node fixed helper process activates preseeded synthetic normal RUN through exact private stdin transport',()=>fixture(async f=>{const r=reply(await f.run('reconcile')),s=await read(f);assert.equal(r.outcome,'open');assert.equal(r.lease,'released');assert.deepEqual(s.control.map(x=>x.request.operation),['status','seal','status','unseal','status','status','status']);assert.ok(s.control.every(x=>x.argv.join(' ')==='exec -i '+f.descriptor.association.containers.livekit+' /usr/local/bin/livekit-server-private castlink-idle-control'));assert.equal(JSON.stringify(s.control).includes('PRIVATE_CONTROL_SECRET'),false);assert.equal(s.sealed,false);assert.equal(JSON.parse(await readFile(f.scope+'/epoch.json')).epoch,1)}));
@@ -13,7 +13,22 @@ test('actual missing initialized admission state never auto-initializes or activ
 for(const failure of ['foreign','volume'])test('actual '+failure+' resource PRE refuses private activation and START',()=>fixture(async f=>{if(failure==='foreign')await f.change({foreign:true});else {const s=await read(f);await f.change({volumes:s.volumes.slice(1)})}const r=reply(await f.run('reconcile'));assert.equal(r.outcome,'unknown');const s=await read(f);assert.deepEqual(s.control,[]);assert.equal(s.start,0)}));
 test('actual normal-completion provisioning refuses pending SQL and cannot manufacture RUN',()=>fixture(async f=>{await unlink(f.desiredFile);const r=reply(await f.run('record-run'));assert.equal(r.outcome,'unknown');assert.equal(await stat(f.desiredFile).then(()=>true,()=>false),false);assert.equal((await read(f)).sql,'pending')}));
 test('actual protected completion file loss blocks retained synthetic RUN before service effect',()=>fixture(async f=>{await unlink(f.descriptor.completion.attempt.path);const r=reply(await f.run('reconcile'));assert.equal(r.outcome,'unknown');assert.deepEqual((await read(f)).control,[])}));
-test('actual control seal holds shared lease against a separate retained --start-services helper',()=>fixture(async f=>{await f.change({hold:true});const first=f.run('reconcile');const deadline=Date.now()+10000;while(!await stat(f.state+'.held').then(()=>true,()=>false)&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));assert.ok(await stat(f.state+'.held'));const second=await f.serviceRun(0);assert.equal(second.code,4);assert.equal(second.out+second.err,'');await writeFile(f.state+'.continue','continue');assert.equal(reply(await first).outcome,'open');assert.equal((await read(f)).start,0)}));
+test('actual control seal holds shared lease against a separate retained --start-services helper',()=>fixture(async f=>{
+ await f.change({hold:true});
+ const first = f.run('reconcile');
+ let result;
+ try {
+  await waitForFixtureBarrier(f.state+'.held', first);
+  const second = await f.serviceRun(0);
+  assert.equal(second.code,4);
+  assert.equal(second.out+second.err,'');
+ } finally {
+  await writeFile(f.state+'.continue','continue');
+  result = await first;
+ }
+ assert.equal(reply(result).outcome,'open');
+ assert.equal((await read(f)).start,0);
+}));
 test('actual private descriptor metadata and entrypoint refuse stdout/stderr secrets',()=>fixture(async f=>{await chmod(f.file,0o644);const source=`const m=await import(${JSON.stringify(f.base+'/host-startup-entry.js')});process.exitCode=await m.hostStartupEntry(['--profile-file',${JSON.stringify(f.file)}]);`;const result=await f.launch(source).done;assert.equal(result.code,4);assert.equal(result.err,'');assert.deepEqual(JSON.parse(result.out),{schemaVersion:1,outcome:'unknown',admission:'unknown',releaseBlocked:true,registration:'unverified'})}));
 
 test('actual selected engine drift preserves incomplete lease and refuses another service owner',()=>fixture(async f=>{await f.change({engineFlip:true});assert.equal(reply(await f.run('reconcile')).outcome,'unknown');assert.ok(await stat(f.scope+'/active'));assert.equal((await read(f)).start,0);assert.deepEqual((await read(f)).control,[]);assert.equal((await f.serviceRun(0)).code,4)}));

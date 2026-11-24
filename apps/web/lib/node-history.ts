@@ -1,3 +1,4 @@
+import { roomDiagnosticsResponse } from "./room-diagnostics-export";
 import { readAudioHistory, readRuntimeHistory, readVideoHistory, readHistory } from "./telemetry-store";
 import type { TelemetryRole } from "./telemetry-types";
 export async function localNodeHistory(params: URLSearchParams) {
@@ -11,4 +12,8 @@ export async function localNodeHistory(params: URLSearchParams) {
     to:params.has("to") ? Number(params.get("to")) : undefined});
   return readHistory(room,minutes,session || undefined,params.get("resolution")==="2s",participant || undefined,role as TelemetryRole || undefined,
     params.has("to") ? Number(params.get("to")) : undefined);
+}
+
+export function localRoomDiagnostics(params: URLSearchParams, signal: AbortSignal, nodeId: string) {
+  return roomDiagnosticsResponse(params.get("room") || "", params, signal, nodeId);
 }

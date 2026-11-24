@@ -5,7 +5,7 @@ const { getMiddlewareRouteMatcher } = require('next/dist/shared/lib/router/utils
 const { NextResponse } = require('next/server');
 
 (async () => {
-  const middleware = load('../middleware.ts', { './lib/update-maintenance': { maintenanceResponse: () => null } });
+  const middleware = load('../proxy.ts', { './lib/update-maintenance': { maintenanceResponse: () => null } });
   const match = getMiddlewareRouteMatcher(getMiddlewareMatchers(middleware.config.matcher, {}));
   for (const pathname of ['/api/presentation-file', '/api/presentation-file/']) {
     assert.equal(match(pathname, {}, {}), false, 'upload must avoid Next Node middleware body cloning: ' + pathname);

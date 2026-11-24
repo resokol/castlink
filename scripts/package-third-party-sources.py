@@ -5,6 +5,8 @@ Uses Python standard libraries; system curl is an optional timeout fallback.
 Never copies the CastLink source tree.
 The input manifest is reviewed with image/dependency updates, not discovered from
 mutable upstream branches during release publication.
+Schema 2 also accepts upstream archive digests from APKBUILD or the image
+recipe. The emitted manifest records SHA-256 and size for every verified file.
 """
 import argparse
 import concurrent.futures
@@ -27,11 +29,11 @@ ASSET = 'CastLink-ThirdParty-Sources.tar.gz'
 OFFICE_ASSET = 'CastLink-ThirdParty-Office-Sources.tar.gz'
 ASSETS = (ASSET, OFFICE_ASSET)
 LEGAL = re.compile(r'^(?:licen[sc]e|copying|notice|copyright|third[-_]party[-_]notices?)(?:[._-].*)?$', re.I)
-FIELDS = ('url', 'path', 'sha256', 'size', 'component')
+MAX_UNSIZED_SOURCE = 512 * 1024 * 1024
 
 
 def validate(manifest):
-    if manifest.get('schemaVersion') != 1 or not manifest.get('files'):
+    if manifest.get('schemaVersion') not in (1, 2) or not manifest.get('files'):
         raise ValueError('Expected a nonempty versioned source manifest')
     seen = set()
     for item in manifest['files']:
@@ -43,8 +45,14 @@ def validate(manifest):
             raise ValueError('Unsafe or duplicate source path: ' + name)
         if url.scheme != 'https' or not url.netloc or url.username or url.password or url.fragment:
             raise ValueError('Expected public HTTPS source URL')
-        if not re.fullmatch('[a-f0-9]{64}', item['sha256']) or type(item['size']) is not int or item['size'] < 0:
+        algorithms = [key for key in ('sha256', 'sha512') if key in item]
+        if manifest['schemaVersion'] == 1 and (algorithms != ['sha256'] or 'size' not in item):
             raise ValueError('Invalid source checksum/size')
+        if not algorithms or ('size' in item and (type(item['size']) is not int or item['size'] < 0)):
+            raise ValueError('Invalid source checksum/size')
+        formats = {'sha256': '[a-f0-9]{64}', 'sha512': '[a-f0-9]{128}'}
+        if any(not re.fullmatch(formats[key], item[key]) for key in algorithms):
+            raise ValueError('Invalid source checksum')
         if not isinstance(item['component'], str) or not item['component']:
             raise ValueError('Missing component attribution')
         seen.add(name)
@@ -70,17 +78,74 @@ def validate_runtime_sources(manifests, inventory):
     if missing: raise ValueError('Missing exact Debian source inputs: ' + ', '.join(sorted(set(missing))))
 
 
+def allowed_size(item, size):
+    return size == item['size'] if 'size' in item else 0 < size <= MAX_UNSIZED_SOURCE
+
+
+def stream_hash(stream, algorithm='sha256'):
+    digest = hashlib.new(algorithm)
+    for block in iter(lambda: stream.read(1024 * 1024), b''):
+        digest.update(block)
+    return digest.hexdigest()
+
+
 def valid_file(file, item):
-    if not file.is_file() or file.stat().st_size != item['size']:
+    if not file.is_file() or not allowed_size(item, file.stat().st_size):
         return False
-    h = hashlib.sha256()
-    with file.open('rb') as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
-            h.update(block)
-    return h.hexdigest() == item['sha256']
+    for algorithm in ('sha256', 'sha512'):
+        if algorithm in item:
+            with file.open('rb') as stream:
+                if stream_hash(stream, algorithm) != item[algorithm]:
+                    return False
+    return 'sha256' in item or 'sha512' in item
 
 
-def seed_cache_from_archive(manifest, cache, source_archive):
+def resolved_item(item, file):
+    result = dict(item)
+    if 'sha256' not in result:
+        with file.open('rb') as stream:
+            result['sha256'] = stream_hash(stream)
+    result.setdefault('size', file.stat().st_size)
+    return result
+
+
+def verify_source_archive(manifest, archive_path):
+    """Check WSL's supplied source sidecar against the current checked-in pins and its own byte receipts."""
+    expected = {item['path']: item for item in validate(manifest)}
+    resolved = {}
+    captured = None
+    seen = set()
+    with tarfile.open(archive_path, 'r|gz') as archive:
+        for member in archive:
+            name = member.name.removeprefix('./').rstrip('/')
+            if member.isdir():
+                continue
+            if not member.isfile() or name in seen or name.startswith('/') or '..' in name.split('/'):
+                raise ValueError('Unsafe upstream source archive')
+            seen.add(name)
+            if name == 'README.txt':
+                continue
+            with archive.extractfile(member) as stream:
+                if name == 'source-manifest.json':
+                    if member.size > 16 * 1024 * 1024:
+                        raise ValueError('Upstream source manifest too large')
+                    captured = json.load(stream)
+                    continue
+                item = expected.get(name)
+                if not item or not allowed_size(item, member.size):
+                    raise ValueError('Upstream source inventory or size mismatch')
+                sums = {key: hashlib.new(key) for key in ('sha256', 'sha512') if key == 'sha256' or key in item}
+                for block in iter(lambda: stream.read(1024 * 1024), b''):
+                    for digest in sums.values():
+                        digest.update(block)
+                if any(key in item and item[key] != digest.hexdigest() for key, digest in sums.items()):
+                    raise ValueError('Upstream source checksum mismatch')
+                resolved[name] = {**item, 'sha256': sums['sha256'].hexdigest(), 'size': member.size}
+    if expected.keys() != resolved.keys() or captured != {**manifest, 'files': [resolved[name] for name in expected]}:
+        raise ValueError('Upstream source manifest or payload mismatch')
+
+
+def seed_cache_from_archive(manifest, cache, source_archive, *, require_all=True):
     """Stream only current pinned inputs into the trusted cache; never extract paths."""
     selected = {item['path']: item for item in validate(manifest)}
     cache = pathlib.Path(cache)
@@ -95,31 +160,29 @@ def seed_cache_from_archive(manifest, cache, source_archive):
             item = selected[member.name]
             if not member.isfile():
                 raise ValueError('Selected source archive member must be regular: ' + member.name)
-            if member.size != item['size']:
+            if not allowed_size(item, member.size):
                 raise ValueError('Source archive size mismatch: ' + member.name)
             target = cache / item['path']
             target.parent.mkdir(parents=True, exist_ok=True)
             temporary = None
             try:
-                digest = hashlib.sha256()
                 size = 0
                 with archive.extractfile(member) as stream, tempfile.NamedTemporaryFile(
                         mode='wb', dir=target.parent, prefix='.castlink-source-', suffix='.partial', delete=False) as out:
                     temporary = pathlib.Path(out.name)
                     for block in iter(lambda: stream.read(1024 * 1024), b''):
                         size += len(block)
-                        if size > item['size']:
+                        if size > item.get('size', MAX_UNSIZED_SOURCE):
                             raise ValueError('Source archive size exceeds manifest: ' + member.name)
-                        digest.update(block)
                         out.write(block)
-                if size != item['size'] or digest.hexdigest() != item['sha256']:
+                if not valid_file(temporary, item):
                     raise ValueError('Source archive checksum/size mismatch: ' + member.name)
                 temporary.replace(target)
             finally:
                 if temporary is not None:
                     temporary.unlink(missing_ok=True)
     missing = sorted(selected.keys() - seen)
-    if missing:
+    if missing and require_all:
         raise ValueError('Missing current manifest sources from reuse archive: ' + ', '.join(missing))
 
 
@@ -136,7 +199,7 @@ def fetch(item, cache):
                 size = 0
                 for block in iter(lambda: response.read(1024 * 1024), b''):
                     size += len(block)
-                    if size > item['size']:
+                    if size > item.get('size', MAX_UNSIZED_SOURCE):
                         raise ValueError('Source size exceeds manifest: ' + item['path'])
                     out.write(block)
             if not valid_file(temporary, item):
@@ -154,6 +217,7 @@ def fetch(item, cache):
                     subprocess.run([curl, '--ipv4', '--fail', '--location', '--silent', '--show-error',
                                     '--proto', '=https', '--proto-redir', '=https',
                                     '--connect-timeout', '20', '--max-time', '120',
+                                    '--max-filesize', str(item.get('size', MAX_UNSIZED_SOURCE)),
                                     '--output', str(temporary), item['url']], check=True, timeout=130)
                     if not valid_file(temporary, item):
                         raise ValueError('Source checksum mismatch: ' + item['path'])
@@ -191,6 +255,7 @@ def build(manifest, cache, output, asset_name=ASSET):
     output.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         files = list(pool.map(lambda item: fetch(item, cache), items))
+    manifest = {**manifest, 'files': [resolved_item(item, file) for item, file in zip(items, files)]}
     notices = output / 'third_party' / ('upstream-office' if asset_name == OFFICE_ASSET else 'upstream')
     notices.mkdir(parents=True, exist_ok=True)
     index = []
@@ -233,7 +298,9 @@ if __name__ == '__main__':
     parser.add_argument('--asset-name', choices=ASSETS, default=ASSET)
     parser.add_argument('--runtime-inventory')
     parser.add_argument('--baseline-manifest')
-    parser.add_argument('--reuse-archive', help='Seed the cache from an archive containing every current manifest path with exact size and SHA256')
+    seed = parser.add_mutually_exclusive_group()
+    seed.add_argument('--seed-archive', help='Reuse only matching, checksum-verified members of a historical sidecar; fetch newly pinned inputs')
+    seed.add_argument('--reuse-archive', help='Require a complete matching sidecar and verify every source against the current manifest')
     parser.add_argument('--cache', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
@@ -244,6 +311,6 @@ if __name__ == '__main__':
         if args.baseline_manifest:
             with open(args.baseline_manifest, encoding='utf-8') as stream: manifests.append(json.load(stream))
         validate_runtime_sources(manifests, pathlib.Path(args.runtime_inventory).read_text(encoding='utf-8'))
-    if args.reuse_archive:
-        seed_cache_from_archive(manifest, args.cache, args.reuse_archive)
+    if args.reuse_archive or args.seed_archive:
+        seed_cache_from_archive(manifest, args.cache, args.reuse_archive or args.seed_archive, require_all=bool(args.reuse_archive))
     build(manifest, args.cache, args.output, asset_name=args.asset_name)

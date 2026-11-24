@@ -14,5 +14,26 @@ await control.tick(after);assert.equal(goTo,0);assert.equal(requests.at(-1).acti
 await control.tick({...session,command:{...command,id:'expired',expiresAt:Date.now()-1}});assert.equal(effects,1);
 assert.equal(failed,0);
 control.stop();await control.tick(session);assert.equal(effects,1);
+// A helper status round trip can outlast the remaining lifetime of a live step.
+for (const windowMode of [false, true]) {
+ const target = windowMode ? {id:'window',name:'Window',kind:'window'} : native;
+ let now=1000, steps=0, acknowledgements=[];
+ const clock=Date.now;
+ Date.now=()=>now;
+ try {
+  const adapter=m.exports.createNativePresentationControl({
+   native:target, current:()=>true,
+   bridge:{status:async()=>{now+=900;return target;},step:async request=>{
+    assert.ok(now<request.expiresAt); steps++; return {commandId:request.commandId,status:target};
+   }},
+   request:async body=>{acknowledgements.push(body);return {};},changed(){},failed(){assert.fail('unexpected binding failure');}
+  });
+  const snapshot={...session, ...(windowMode?{kind:'window',navigationMode:'window-steps-v1'}:{}),
+   command:{...command,issuedAt:0,expiresAt:1700}};
+  await adapter.tick(snapshot);
+  assert.equal(steps,1,'dispatch the still-live slide command before a slow status read: '+target.id);
+  assert.equal(acknowledgements[0]?.ok,true);
+ } finally {Date.now=clock;}
+}
 console.log('PASS PPTX adapter: same-slide command ACK, owner manual position authoritative, ACK retry without effect replay, expired command and stop');
 })().catch(e=>{console.error(e);process.exitCode=1});

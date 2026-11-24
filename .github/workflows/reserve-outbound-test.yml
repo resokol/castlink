@@ -13,15 +13,15 @@ jobs:
     runs-on: [self-hosted, Windows, castlink]
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
+          node-version: 26.13.1
       - name: Install locked test dependencies
         shell: powershell
         run: |
           $env:TEMP=$env:RUNNER_TEMP
-          npx --yes pnpm@9.15.0 install --frozen-lockfile
+          npx --yes pnpm@12.23.0 install --frozen-lockfile
           if($LASTEXITCODE -ne 0){throw 'Dependency installation failed'}
       - name: Outbound reserve regressions and typecheck
         shell: powershell
@@ -30,7 +30,7 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'Reserve regression failed'}
           node --test scripts/tests/brand-icons.test.mjs scripts/tests/package-simple-easy-setup.test.mjs
           if($LASTEXITCODE -ne 0){throw 'Brand/package regression failed'}
-          npx --yes pnpm@9.15.0 --filter web exec tsc --noEmit
+          npx --yes pnpm@12.23.0 --filter web exec tsc --noEmit
           if($LASTEXITCODE -ne 0){throw 'Typecheck failed'}
       - name: Native installer icon and window verification
         shell: powershell
@@ -43,7 +43,7 @@ jobs:
           & scripts/tests/simple-easy-setup-gui-native.fixtures.ps1 -HostPath $hostPath -SourceRoot "$pwd/scripts" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-native')
           & scripts/tests/simple-easy-setup-graphite.fixtures.ps1 -XamlPath "$pwd/scripts/simple-easy-setup-window.xaml" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-graphite')
           & scripts/tests/simple-easy-setup-control.fixtures.ps1 -ControlPath "$pwd/scripts/simple-easy-setup-control.ps1" -ProofFolder (Join-Path $env:RUNNER_TEMP 'reserve-test-control')
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: reserve-test-windows-proof

@@ -87,27 +87,47 @@ export function createNativePresentationControl(options: {
       if (!current() || flight) return;
       flight = true;
       try {
-        let actual = await options.bridge.status(options.native.id);
-        if (!current()) return;
-        if (session.kind === 'window') {
-          if (!isNativeWindowPresentation(options.native) || !isNativeWindowPresentation(actual) || !validNativeControlledPresentation(actual) || actual.id !== options.native.id) throw new Error('Presentation window changed');
-          const command = session.command;
-          if (!command) return;
+        const windowMode = session.kind === 'window';
+        if (windowMode !== isNativeWindowPresentation(options.native)) throw new Error('Presentation kind changed');
+        const steps = windowMode || session.navigationMode === 'powerpoint-steps-v1';
+        const command = steps && session.command;
+        if (command) {
           if (command.generation !== session.generation || command.controlRevision !== session.controlRevision || command.expiresAt <= Date.now()) return;
           let result = completed.get(command.id);
+          let observedPage: number | undefined;
           if (!result) {
-            if (!options.bridge.step) throw new Error('Window steps unavailable');
-            result = {ok: false}; completed.set(command.id, result);
+            if (!options.bridge.step) throw new Error('Presentation steps unavailable');
+            // The native step validates the bound target and returns its status.
+            // A separate status round trip can exhaust the command's deadline.
+            result = {ok: false};
+            completed.set(command.id, result);
             if (completed.size > 128) completed.delete(completed.keys().next().value!);
             try {
-              const value = await options.bridge.step({id: options.native.id, commandId: command.id, direction: command.direction, expiresAt: command.expiresAt});
+              const reply = await options.bridge.step({id: options.native.id, commandId: command.id, direction: command.direction, expiresAt: command.expiresAt});
               if (!current()) return;
-              if (value.commandId !== command.id || !isNativeWindowPresentation(value.status) || !validNativeControlledPresentation(value.status) || value.status.id !== options.native.id) throw new Error('Window step not confirmed');
+              const actual = reply.status;
+              if (reply.commandId !== command.id || !validNativeControlledPresentation(actual) || actual.id !== options.native.id || isNativeWindowPresentation(actual) !== windowMode) throw new Error('Step not confirmed');
+              if (!isNativeWindowPresentation(actual)) {
+                if (actual.pages !== session.pages) throw new Error('Presentation changed');
+                observedPage = actual.page;
+              }
               result.ok = true;
-            } catch (cause) { if (!current()) return; if ((cause as {code?: string})?.code === 'WINDOW_SLIDES_FOREGROUND') result.error = 'WINDOW_SLIDES_FOREGROUND'; }
+            } catch (cause) {
+              if (!current()) return;
+              if (windowMode && (cause as {code?: string})?.code === 'WINDOW_SLIDES_FOREGROUND') result.error = 'WINDOW_SLIDES_FOREGROUND';
+            }
+          }
+          // A failed step or an ACK retry needs the presenter's actual position.
+          // Never repeat the step to obtain that position.
+          if (!windowMode && observedPage === undefined) {
+            const actual = await options.bridge.status(options.native.id);
+            if (!current()) return;
+            if (isNativeWindowPresentation(actual) || !validNativePresentation(actual) || actual.id !== options.native.id || actual.pages !== session.pages) throw new Error('Presentation changed');
+            observedPage = actual.page;
           }
           try {
-            const response = await options.request({action: 'step-ack', id: session.id, generation: session.generation, commandId: command.id, revision: session.revision, ok: result.ok, ...(result.error ? {error: result.error} : {})});
+            const response = await options.request({action:'step-ack', id:session.id, generation:session.generation, commandId:command.id, revision:session.revision,
+              ok:result.ok, ...(observedPage !== undefined ? {page:observedPage} : {}), ...(result.error ? {error:result.error} : {})});
             if (current() && response.session) options.changed(response.session);
           } catch (cause) {
             const status = (cause as {status?: number})?.status;
@@ -116,36 +136,20 @@ export function createNativePresentationControl(options: {
           }
           return;
         }
-        if (isNativeWindowPresentation(options.native) || isNativeWindowPresentation(actual)) throw new Error('Presentation kind changed');
-        if (!validNativePresentation(actual) || actual.id !== options.native.id || actual.pages !== session.pages) throw new Error('Presentation changed');
-        if (session.navigationMode === 'powerpoint-steps-v1') {
+        let actual = await options.bridge.status(options.native.id);
+        if (!current()) return;
+        if (windowMode) {
+          if (!isNativeWindowPresentation(actual) || !validNativeControlledPresentation(actual) || actual.id !== options.native.id) throw new Error('Presentation window changed');
+          return;
+        }
+        if (isNativeWindowPresentation(actual) || !validNativePresentation(actual) || actual.id !== options.native.id || actual.pages !== session.pages) throw new Error('Presentation changed');
+        if (steps) {
+          if (actual.page === session.page && session.renderedPage === actual.page) return;
           try {
-          const command = session.command;
-          if (command) {
-            if (command.generation !== session.generation || command.controlRevision !== session.controlRevision || command.expiresAt <= Date.now()) return;
-            let result = completed.get(command.id);
-            if (!result) {
-              if (!options.bridge.step) throw new Error('PowerPoint steps unavailable');
-              // Reserve before the effect. A failed/ambiguous native call is
-              // never repeated by a later poll of the same command.
-              result = { ok: false }; completed.set(command.id, result);
-              if (completed.size > 128) completed.delete(completed.keys().next().value!);
-              try {
-                const value = await options.bridge.step({ id: options.native.id, commandId: command.id, direction: command.direction, expiresAt: command.expiresAt });
-                if (!current()) return;
-                if (value.commandId !== command.id || isNativeWindowPresentation(value.status) || !validNativePresentation(value.status) || value.status.id !== options.native.id || value.status.pages !== session.pages) throw new Error('Step not confirmed');
-                actual = value.status;
-                result.ok = true;
-              } catch { if (!current()) return; }
-            }
-            const response = await options.request({ action: 'step-ack', id: session.id, generation: session.generation, commandId: command.id, revision: session.revision, page: actual.page, ok: result.ok });
+            const response = await options.request({action:'sync', id:session.id, generation:session.generation, revision:session.revision, page:actual.page});
             if (current() && response.session) options.changed(response.session);
-          } else if (actual.page !== session.page || session.renderedPage !== actual.page) {
-            const response = await options.request({ action: 'sync', id: session.id, generation: session.generation, revision: session.revision, page: actual.page });
-            if (current() && response.session) options.changed(response.session);
-          }
           } catch (cause) {
-            const status = cause && typeof cause === 'object' && 'status' in cause ? cause.status : undefined;
+            const status = (cause as {status?: number})?.status;
             if (status === 401 || status === 403) throw cause;
             if (status !== 409 && current()) (options.unavailable || options.failed)();
           }

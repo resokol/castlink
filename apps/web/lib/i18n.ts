@@ -1,3 +1,4 @@
+import { incidentMessages } from "./i18n/incident";
 import { pagesMessages } from "./i18n/pages";
 import { slotsMessages } from "./i18n/slots";
 import { managementMessages } from "./i18n/management";
@@ -11,7 +12,7 @@ export type Locale = "ru" | "en" | "zh-CN";
 export type TranslationParams = Record<string, string | number>;
 export type Translator = (source: string, params?: TranslationParams) => string;
 export const messages: Record<string, readonly [string, string, string?]> = {
-  ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages, ...entryMessages, ...serverMonitorMessages,
+  ...incidentMessages, ...pagesMessages, ...managementMessages, ...workspacesMessages, ...slotsMessages, ...entryMessages, ...serverMonitorMessages,
 };
 export function normalizeLocale(value: unknown): Locale {
   return value === "en" || value === "zh-CN" ? value : "ru";

@@ -4,7 +4,7 @@
   "license": "MIT",
   "version": "1.0.7",
   "buildNumber": "7",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@12.23.0",
   "engines": { "node": ">=22.13.0" },
   "scripts": {
     "desktop:dev": "pnpm --filter @castlink/desktop dev",
@@ -26,12 +26,5 @@
     "control-plane:seed-default": "node scripts/control-plane-seed-default.mjs",
     "control-plane:register-node": "node scripts/control-plane-register-node.mjs",
     "test:cli": "pnpm --filter @castlink/cli test"
-  },
-  "pnpm": {
-    "overrides": {
-      "postcss": "8.5.23",
-      "source-map-js": "1.2.2",
-      "sharp": "0.35.5"
-    }
   }
 }

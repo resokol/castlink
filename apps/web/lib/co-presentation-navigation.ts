@@ -50,7 +50,10 @@ export function createPresentationNavigationFocus(doc: Document) {
       disabled = nextDisabled;
       if (eligible) {
         restore = false;
-        if (button?.isConnected && doc.activeElement === doc.body && (!doc.hasFocus || doc.hasFocus())) button.focus({preventScroll:true});
+        if (button?.isConnected && doc.activeElement === doc.body && (!doc.hasFocus || doc.hasFocus())) {
+          const target = button.disabled ? button.parentElement?.querySelector<HTMLButtonElement>('button:not(:disabled)') : button;
+          target?.focus({preventScroll:true});
+        }
       }
     },
     dispose() { clear(); doc.removeEventListener('focusin',outsideFocus); doc.removeEventListener('pointerdown',outsidePointer); },
