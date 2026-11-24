@@ -56,7 +56,7 @@ prepare(){
 }
 guest(){ (umask 022; sudo nsenter --target "$leader" --mount --uts --ipc --net --pid --cgroup --root --wdns=/ -- /usr/bin/env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 "$@"); }
 diagnose(){ if test -n "${leader:-}" && test -e "/proc/$leader"; then guest systemctl --failed --no-pager || true; guest sh -c 'cd /opt/castlink/app; id; ip -br addr; runuser -u castlink-caddy -- env XDG_DATA_HOME=/var/lib/castlink-server/caddy XDG_CONFIG_HOME=/var/lib/castlink-server/caddy/config /usr/local/bin/caddy validate --config /etc/castlink-server/Caddyfile --adapter caddyfile 2>&1 | tail -4; systemctl daemon-reload' || true; guest journalctl -b -u castlink-private-ports -u castlink-converter -u castlink-livekit -u castlink-postgres -u castlink-web -u castlink-caddy -u castlink-turn-tls --no-pager -o cat | grep -Ei 'failed|denied|cannot|error' | sed -E 's#(postgresql|https?|wss?)://[^ ]+#[address omitted]#g' | tail -20 || true; fi; }
-trap diagnose ERR
+trap 'diagnose >&2' ERR
 prepare baseline
 oldid=$(cat /proc/sys/kernel/random/uuid | tr -d -)
 newid=$(cat /proc/sys/kernel/random/uuid | tr -d -)
@@ -99,9 +99,13 @@ print('Installation and node IDs, origin, media, password, secrets, private TLS 
 PY
 guest /usr/local/bin/castlink-server start
 newbuild="$target_version-${FACTORY_SHA:0:12}"
-guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
+check_target(){ if guest /usr/local/bin/castlink-server status > "$proofdir/status.json" && jq -e --arg b "$newbuild" '.ready and .buildId==$b' "$proofdir/status.json" >/dev/null; then return 0; fi; cat "$proofdir/status.json" >&2; return 1; }
+echo 'Checking candidate before opening gate'
+check_target
 tool gate-open --committed-transaction "$transaction"
-guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
+echo 'Waiting for restarted TLS services after opening gate'
+for ((trial=0;trial<40;trial++)); do if check_target; then break; fi; sleep 1; done
+check_target
 test "$(db -c "$room_query")" = 'upgrade-fixture-room'
 guest /usr/local/bin/castlink-server stop
 jq -n --arg s "$FACTORY_SHA" --arg r "$FACTORY_RUN" --arg from "$oldtag" --arg to "server-wsl-v$newbuild" '{source:$s,factory:$r,from:$from,to:$to,loopbackOnly:true,sourceReady:true,sourceStopped:true,targetReadyBeforeOpening:true,targetReadyAfterOpening:true,dbRowPreserved:true,identitiesTlsAndCredentialsPreserved:true}' > "$RUNNER_TEMP/runtime-proof.json"
