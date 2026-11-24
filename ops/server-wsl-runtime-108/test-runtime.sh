@@ -67,7 +67,9 @@ guest bash -ec 'umask 077; tr -d "-" </proc/sys/kernel/random/uuid | tr -d "\n" 
 guest /usr/local/bin/castlink-server start
 guest /usr/local/bin/castlink-server status | jq -e --arg b "${oldtag#server-wsl-v}" '.ready and .buildId==$b' >/dev/null
 db(){ guest runuser -u postgres -- /usr/lib/postgresql/16/bin/psql -d castlink -h /run/castlink-postgres -v ON_ERROR_STOP=1 -qAt "$@"; }
-db -c "CREATE TABLE release_108_fixture (payload text NOT NULL); INSERT INTO release_108_fixture VALUES ('from-1.0.7')"
+db -c "INSERT INTO castlink_control.rooms(room_id,studio_id,name) SELECT 'release-108-qa',studio_id,'upgrade-fixture-room' FROM castlink_control.studios ORDER BY studio_id LIMIT 1"
+room_query="SELECT name FROM castlink_control.rooms WHERE room_id='release-108-qa'"
+test "$(db -c "$room_query")" = 'upgrade-fixture-room'
 guest /usr/local/bin/castlink-server stop
 echo "Published $oldtag started HTTPS/DB/LiveKit successfully in loopback-only guest, recorded test DB row and stopped"
 if test -z "$FACTORY_RUN"; then exit 0; fi
@@ -100,7 +102,7 @@ newbuild="$target_version-${FACTORY_SHA:0:12}"
 guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
 tool gate-open --committed-transaction "$transaction"
 guest /usr/local/bin/castlink-server status | jq -e --arg b "$newbuild" '.ready and .buildId==$b' >/dev/null
-test "$(db -c 'SELECT payload FROM release_108_fixture')" = 'from-1.0.7'
+test "$(db -c "$room_query")" = 'upgrade-fixture-room'
 guest /usr/local/bin/castlink-server stop
 jq -n --arg s "$FACTORY_SHA" --arg r "$FACTORY_RUN" --arg from "$oldtag" --arg to "server-wsl-v$newbuild" '{source:$s,factory:$r,from:$from,to:$to,loopbackOnly:true,sourceReady:true,sourceStopped:true,targetReadyBeforeOpening:true,targetReadyAfterOpening:true,dbRowPreserved:true,identitiesTlsAndCredentialsPreserved:true}' > "$RUNNER_TEMP/runtime-proof.json"
 echo 'Upgrade runtime proof passed'
