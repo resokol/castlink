@@ -16,7 +16,7 @@ python3 - "$proofdir/baseline" "$oldsha" "$oldtag" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
 d=Path(sys.argv[1]); release=json.loads((d/'release.json').read_bytes())
-assert release['tag_name']==sys.argv[3] and not release['draft'] and not release['prerelease']
+assert release['tag_name']==sys.argv[3] and not release['draft'] and release['prerelease']==('-rc.' in sys.argv[3])
 m=json.loads((d/'manifest.json').read_bytes()); assert m['sourceCommit']==sys.argv[2] and m['releaseTag']==sys.argv[3]
 for name in ['manifest.json',m['rootfs']['file']]:
  a,=[a for a in release['assets'] if a['name']==name]
