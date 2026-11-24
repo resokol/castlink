@@ -51,7 +51,7 @@ export function validSlideControlsAction(event: unknown): event is SlideControls
 /** One controls window. Closing it hides controls without touching presentation or media. */
 export function createCoPresentationControls(options: {
   host: Window; bridge?: SlidesBridge; action: (action: SlideControlsAction) => void | Promise<unknown>;
-  visibility?: (visible: boolean) => void;
+  visibility?: (visibleGrant: string) => void;
   nativeOpened?: (id: string) => void;
   browserOpened?: (id: string) => void;
 }) {
@@ -60,12 +60,17 @@ export function createCoPresentationControls(options: {
   let state: SlideControlsState | undefined, child: Window | null = null;
   let showAttempt = 0;
   let reservation: object | undefined;
-  let disposed = false, epoch = 0, inFlight = false, stopFlight = false, stopFailed = false, visible = false;
+  let disposed = false, epoch = 0, inFlight = false, stopFlight = false, stopFailed = false, visibleGrant = '';
   let view: { id: string; epoch: number; value: ReturnType<typeof createSlideToolbar> } | undefined;
   let themeObserver: MutationObserver | undefined;
   let queue: Promise<unknown> = Promise.resolve();
   const autoAttempted = new Set<string>();
-  const visibility = (next: boolean) => { visible = next; if (!disposed) options.visibility?.(next); };
+  const visibility = (next: boolean) => {
+    const grant = next ? state?.id || '' : '';
+    if (grant === visibleGrant) return;
+    visibleGrant = grant;
+    if (!disposed) options.visibility?.(grant);
+  };
   const enqueue = (run: () => Promise<unknown>) => { queue = queue.then(run, run).catch(() => { visibility(false); }); return queue; };
   const hidden = () => { reservation = undefined; themeObserver?.disconnect(); themeObserver = undefined; view?.value.dispose(); view = undefined; child = null; visibility(false); };
   const slot = api ? createDocumentPictureInPictureSlot(api, 'slides', hidden) : undefined;
@@ -145,6 +150,7 @@ export function createCoPresentationControls(options: {
       };
     },
     ownerStopSupported: bridge ? [2,3,4].includes(bridge.version || 0) : !!api,
+    isVisible(id: string) { return visibleGrant === id && !!id && (!!bridge || !!child && !child.closed); },
     native: !!bridge,
     browserFloating: !!api,
     update(next?: SlideControlsState, autoOpen = false) {
@@ -154,7 +160,12 @@ export function createCoPresentationControls(options: {
       const old = state;
       if (old?.id !== next.id) { epoch++; inFlight = false; stopFlight = false; stopFailed = false; }
       state = { ...next, ...(next.toolbar ? { toolbar: { ...next.toolbar, participants: next.toolbar.participants.map(person => ({ ...person })) } } : {}) }; const version = epoch;
-      if (!bridge) { render(); return Promise.resolve(); }
+      if (!bridge) {
+        render();
+        // A grant revision replaces the toolbar inside the existing PiP window.
+        if (child && !child.closed) visibility(true);
+        return Promise.resolve();
+      }
       return enqueue(async () => {
         if (old && old.id !== next.id) await bridge.hide(old.id);
         if (disposed || version !== epoch || state?.id !== next.id) return;
@@ -190,7 +201,7 @@ export function createCoPresentationControls(options: {
           const result = await bridge.show(nativeState(state));
           if (!disposed && version === epoch && state?.id === current.id) { visibility(!!result.visible); if (result.visible) options.nativeOpened?.(current.id); }
         });
-        return !disposed && version === epoch && visible;
+        return !disposed && version === epoch && visibleGrant === current.id;
       }
       if (!slot) return false;
       // slot.open invokes requestWindow before this first await. No popup fallback

@@ -136,6 +136,10 @@ export function GuestVideoCard({
       </select></label>
       <div className={styles.actual} title={t("Измеренная отправка камеры в комнату, включая все видеослои; без аудио")}><span>{t("В комнату · факт")}</span><output>{guest.camera && guest.roomSendBitrateKbps != null ? t("{bitrateKbps} кбит/с", { bitrateKbps: guest.roomSendBitrateKbps.toLocaleString(locale) }) : "—"}</output></div>
     </div>
+    <details>
+      <summary>{t("Если у кастера пропадает видео")}</summary>
+      <p>{t("При нехватке полосы уменьшите лимит камеры. При потере пакетов оператор сервера может включить приём FlexFEC. Для восстановления видео браузер кастера должен отправлять защитные пакеты.")}</p>
+    </details>
     <MonitoringControls name={guest.name} value={preference} onChange={onMonitoringChange} />
     </div>
     {(quickControls || (!compact && primaryAction)) && <div className="source-card-actions">{!compact && primaryAction}{quickControls}</div>}

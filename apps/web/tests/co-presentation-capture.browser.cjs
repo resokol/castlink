@@ -1,7 +1,11 @@
 // Actual Chromium canvas -> production LocalVideoTrack capture helper -> decoded video.
 const assert=require('node:assert/strict'),fs=require('node:fs'),http=require('node:http'),path=require('node:path'),ts=require('typescript'),{chromium}=require('playwright');
 const web=path.resolve(__dirname,'..');
-const helper=ts.transpileModule(fs.readFileSync(path.join(web,'lib/co-presentation-client.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace(/import \{([^}]+)\} from ['"]livekit-client['"];?/,'const {$1}=window.LivekitClient;');
+const compile = name => ts.transpileModule(fs.readFileSync(path.join(web, 'lib', name), 'utf8'), {
+ compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 }
+}).outputText;
+const bearer = compile('session-http-bearer.ts');
+const helper=compile('co-presentation-client.ts').replace(/import \{([^}]+)\} from ['"]livekit-client['"];?/,'const {$1}=window.LivekitClient;');
 const pdfObjects=[
  '<< /Type /Catalog /Pages 2 0 R >>',
  '<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
@@ -12,7 +16,7 @@ const pdfObjects=[
 const streams=['1 1 1 rg 0 0 640 360 re f\n1 0 0 rg 40 40 560 280 re f\n0 0 0 rg BT /F1 50 Tf 60 180 Td (VISIBLE PDF SLIDE) Tj ET','1 1 1 rg 0 0 800 450 re f\n0 0 1 rg 20 20 760 410 re f\n1 1 1 rg BT /F1 60 Tf 60 220 Td (SECOND SLIDE) Tj ET'];
 for(const [index,object]of [[0,3],[1,6]])pdfObjects[object]=`<< /Length ${Buffer.byteLength(streams[index])} >>\nstream\n${streams[index]}\nendstream`;
 let pdf='%PDF-1.4\n';const offsets=[0];for(let index=0;index<pdfObjects.length;index++){offsets.push(Buffer.byteLength(pdf));pdf+=`${index+1} 0 obj\n${pdfObjects[index]}\nendobj\n`;}const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 8\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-const server=http.createServer((request,response)=>{if(request.url==='/slides.pdf'){response.setHeader('content-type','application/pdf');response.end(pdf);return;}if(['/pdf.mjs','/pdf.worker.mjs'].includes(request.url)){response.setHeader('content-type','text/javascript');response.end(fs.readFileSync(path.join(web,'node_modules/pdfjs-dist/build',request.url.slice(1))));return;}if(request.url==='/capture.mjs'){response.setHeader('content-type','text/javascript');response.end(helper);}else if(request.url==='/livekit.js'){response.setHeader('content-type','text/javascript');response.end(fs.readFileSync(path.join(web,'node_modules/livekit-client/dist/livekit-client.umd.js')));}else{response.setHeader('content-type','text/html');response.end('<!doctype html><script src="/livekit.js"></script><body></body>');}});
+const server=http.createServer((request,response)=>{if(request.url==='/slides.pdf'){response.setHeader('content-type','application/pdf');response.end(pdf);return;}if(['/pdf.mjs','/pdf.worker.mjs'].includes(request.url)){response.setHeader('content-type','text/javascript');response.end(fs.readFileSync(path.join(web,'node_modules/pdfjs-dist/build',request.url.slice(1))));return;}if(request.url==='/session-http-bearer'){response.setHeader('content-type','text/javascript');response.end(bearer);return;}if(request.url==='/capture.mjs'){response.setHeader('content-type','text/javascript');response.end(helper);}else if(request.url==='/livekit.js'){response.setHeader('content-type','text/javascript');response.end(fs.readFileSync(path.join(web,'node_modules/livekit-client/dist/livekit-client.umd.js')));}else{response.setHeader('content-type','text/html');response.end('<!doctype html><script src="/livekit.js"></script><body></body>');}});
 let browser;
 (async()=>{
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});

@@ -2,9 +2,9 @@
 # Manufacturer-only build. Docker and its image archive never enter the WSL OS.
 ARG WEB_IMAGE
 FROM ${WEB_IMAGE} AS web
-FROM docker.io/livekit/livekit-server@sha256:6fd3b7088874c4d119160dd688798dfec852bc014786d392caad15f6f63912a3 AS livekit
-FROM docker.io/library/caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d AS caddy
-FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS rootfs
+FROM docker.io/livekit/livekit-server@sha256:04668840140552c7e5d7faf28959cbf2256fb04ea641c4fd23ea69cbf3d7d105 AS livekit
+FROM docker.io/library/caddy@sha256:fc9cbc100585871d18d4e451cca7021785c90a7006087427ae5ceb3e4efe6424 AS caddy
+FROM ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289 AS rootfs
 ARG DEBIAN_FRONTEND=noninteractive
 # No service is started, database initialized or machine identity generated here.
 RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
@@ -42,7 +42,7 @@ ARG CASTLINK_VERSION
 RUN test -n "$CASTLINK_VERSION" && test "${#CASTLINK_SOURCE_COMMIT}" = 40 \
  && systemd-sysusers && chmod -R a+rX /opt/castlink/app \
  && chmod 0755 /usr/lib/castlink-server \
- && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82","server-wsl-v1.0.6-rc.1-dad063393b53"]}}\n' \
+ && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82","server-wsl-v1.0.6-rc.1-dad063393b53","server-wsl-v1.0.7-0d16de2e782c"]}}\n' \
       "$CASTLINK_VERSION" "$CASTLINK_SOURCE_COMMIT" "$CASTLINK_VERSION" "$(printf %.12s "$CASTLINK_SOURCE_COMMIT")" > /opt/castlink/release.json \
  && printf '[boot]\nsystemd=true\n\n[user]\ndefault=root\n\n[automount]\nenabled=false\n\n[interop]\nenabled=false\nappendWindowsPath=false\n' > /etc/wsl.conf \
  && dpkg-query -W -f='${source:Package}\t${source:Version}\n' | sort -u > /opt/castlink/packages.tsv \

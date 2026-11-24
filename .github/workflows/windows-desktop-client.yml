@@ -24,16 +24,16 @@ jobs:
         # Do not discover optional pwsh through stale user PATH entries.
         shell: powershell
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Verify client track and source branch
         run: node scripts/release-track.cjs metadata client "$env:GITHUB_SHA"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.1.1
         with:
-          version: 9.15.0
+          version: 12.23.0
           dest: 'D:\GitHub\CastLink-Internal\cache\pnpm-setup'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '24'
+          node-version: 26.13.1
           cache: pnpm
       - name: Verify independent release channels and website downloads
         run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
@@ -42,7 +42,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm --filter @castlink/desktop package:win
         id: artifacts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: CastLink-client-${{ github.sha }}
           path: ${{ steps.artifacts.outputs.artifactDirectory }}/*
@@ -54,13 +54,13 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
+          node-version: 26.13.1
       - name: Verify independent release channels and website downloads
         run: node --test scripts/tests/release-tracks.test.cjs scripts/tests/release-destination.test.cjs
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: CastLink-client-${{ github.sha }}
           path: ${{ runner.temp }}/client

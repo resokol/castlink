@@ -7,12 +7,12 @@ const { chromium } = require(process.env.CASTLINK_QA_PLAYWRIGHT || req.resolve('
 const out = process.env.CASTLINK_LAYOUT_QA_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-ui-layout-'));
 fs.mkdirSync(out, { recursive: true });
 const loader = path.join(out, 'ts-loader.cjs'), cssLoader = path.join(out, 'css-loader.cjs');
-fs.writeFileSync(loader, `const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
+fs.writeFileSync(loader, `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
 fs.writeFileSync(cssLoader, `module.exports=function(s){const names={},globals=[];s=s.replace(/:global\\(([^)]+)\\)/g,(_,v)=>'__GLOBAL_'+(globals.push(v)-1)+'__').replace(/\\.([a-zA-Z_][\\w-]*)/g,(_,v)=>'.'+(names[v]='qa_'+v)).replace(/__GLOBAL_(\\d+)__/g,(_,i)=>globals[i]);return 'const style=document.createElement("style");style.textContent='+JSON.stringify(s)+';document.head.append(style);export default '+JSON.stringify(names);};`);
 const proof = [], errors = [];
 let server, browser;
 async function bundle() {
-  const wp = req('next/dist/compiled/webpack/webpack'); wp.init();
+  const wp = req('next/dist/compiled/webpack/webpack');
   await new Promise((resolve, reject) => wp.webpack({ mode: 'development', entry: path.join(__dirname, 'fixtures/ui-layout-corrections.tsx'), devtool: false, output: { path: out, filename: 'bundle.js' }, resolve: { extensions: ['.ts', '.tsx', '.js', '.mjs'], alias: { '@': web }, modules: [path.join(web, 'node_modules'), 'node_modules'] }, module: { rules: [{ test: /\.tsx?$/, use: loader }, { test: /\.css$/, use: cssLoader }] }, plugins: [new wp.webpack.DefinePlugin({ 'process.env.NEXT_PUBLIC_BUILD_ID': JSON.stringify('development'), 'process.env.NEXT_PUBLIC_APP_VERSION': JSON.stringify('development'), 'process.env.NEXT_PUBLIC_PRODUCT_VERSION': JSON.stringify('development'), 'process.env.NEXT_PUBLIC_BUILD_NUMBER': JSON.stringify('development') })], optimization: { minimize: false } }, (error, stats) => error ? reject(error) : stats.hasErrors() ? reject(Error(stats.toString({ all: false, errors: true }))) : resolve()));
 }
 async function capture(page, name) { await page.screenshot({ path: path.join(out, name + '.png'), fullPage: true }); }

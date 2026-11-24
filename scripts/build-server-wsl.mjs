@@ -38,7 +38,7 @@ async function main(){
  execFileSync(process.env.CASTLINK_PYTHON||'python3',['scripts/tests/server-wsl-source-closure.test.py','--image',rootfs],{stdio:'inherit'});
  const upstreamOutput=path.join(output,'upstream');
  const upstreamArgs=['scripts/package-third-party-sources.py','--cache',path.join(output,'source-cache'),'--output',upstreamOutput];
- if(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE)upstreamArgs.push('--reuse-archive',path.resolve(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE));
+ if(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE)upstreamArgs.push('--seed-archive',path.resolve(process.env.CASTLINK_WSL_UPSTREAM_SOURCE_ARCHIVE));
  execFileSync(process.env.CASTLINK_PYTHON||'python3',upstreamArgs,{stdio:'inherit'});
  const container=await run(['create',rootfs],{capture:true});
  try{

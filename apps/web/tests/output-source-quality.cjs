@@ -17,7 +17,7 @@ async function check(source, bitrate) {
   const participant={identity:'guest-one',trackPublications:new Map([['camera',camera],['screen',screen]]),getTrackPublication(source){return this.trackPublications.get(source);}};
   class Room extends EventEmitter {
     constructor(options){super();this.localParticipant={identity:'output-viewer'};this.options=options;this.remoteParticipants=new Map([['guest-one',participant]]);rooms.push(this);}
-    async connect(){this.state='connected';} async startAudio(){} disconnect(){}
+    async connect(_url,_token,options){this.connectOptions=options;this.state='connected';} async startAudio(){} disconnect(){}
   }
   const saved={window:global.window,document:global.document,fetch:global.fetch};
   global.window={location:{href:'https://example.test/output/guest-one'},history:{replaceState(){}},setInterval:()=>1,clearInterval(){}};
@@ -36,6 +36,7 @@ async function check(source, bitrate) {
     for(let pass=0;pass<2;pass++){cursor=0;page.default();while(effects.length){const cleanup=effects.shift()();if(cleanup)cleanups.push(cleanup);}await settle();}
     const room=rooms.at(-1),wanted=source==='screen'?screen:camera,other=source==='screen'?camera:screen;
     assert.equal(room.options.adaptiveStream,false);
+    assert.equal(room.connectOptions.subscriberAllowPause,false,'the SFU should keep forwarding production video during congestion');
     assert.equal(wanted.isSubscribed,true);
     assert.equal(other.isSubscribed,false,'other source is explicitly kept unsubscribed');
     assert.equal(wanted.quality,2,'production output requests the highest available layer');

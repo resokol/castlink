@@ -18,19 +18,27 @@ const json=async response=>{assert.equal(response.status,200,await response.clon
  const command=extra=>({id:session.id,generation:session.generation,controlRevision:session.controlRevision,...extra});
  session=(await json(await post(command({action:'delegate',controllerIdentity:'guest-controller',controllerSid:'SID-controller',requireAcceptance:true})))).session;
  const revision=session.controlRevision;
- assert.equal(session.controllerAccepted,false,'new explicit recipient acceptance remains pending on server');
- assert.equal((await post(command({action:'navigate',revision:0,direction:'next'}),'controller')).status,403,'pending recipient cannot navigate through any client path');
- session=(await json(await post(command({action:'navigate',revision:0,direction:'next'})))).session;
+ assert.equal(session.controllerAccepted,true,'older senders receive an immediately active grant');
+ assert.equal((await post(command({action:'navigate',revision:0,direction:'next'}),'other')).status,403,'only the selected caster may use it');
+ session=(await json(await post(command({action:'navigate',revision:0,direction:'next'}),'controller'))).session;
  const pendingCommand=session.command.id;
  assert.equal((await post(command({action:'accept-control',generation:'stale-generation'}),'controller')).status,409,'another presentation generation cannot be accepted');
  assert.equal((await post(command({action:'accept-control'}),'other')).status,403,'another caster cannot accept for the recipient');
  assert.equal((await post(command({action:'accept-control',controlRevision:revision-1}),'controller')).status,409,'old grant cannot be accepted');
+ const saved=store.coPresentations('studio','room',association).find(entry=>entry.id===session.id);
+ saved.controllerAccepted=false; // An existing grant written by an older server.
+ const snapshot=(await json(await post({action:'read'},'controller'))).sessions.find(entry=>entry.id===session.id);
+ assert.equal(snapshot.controllerAccepted,true,'legacy readers see the existing grant as active without an acceptance RPC');
+ assert.equal(snapshot.controlRevision,revision);
+ assert.equal(snapshot.command.id,pendingCommand,'normalizing the grant preserves in-flight slide navigation');
  session=(await json(await post(command({action:'accept-control'}),'controller'))).session;
  assert.equal(session.controllerAccepted,true);assert.equal(session.controlRevision,revision,'acceptance does not rotate the grant');
  session=(await json(await post(command({action:'accept-control'}),'controller'))).session;
  assert.equal(session.controlRevision,revision,'repeated exact acceptance is idempotent');
  session=(await json(await post(command({action:'step-ack',commandId:pendingCommand,revision:session.revision,ok:true})))).session;
+ saved.controllerAccepted=false;
  session=(await json(await post(command({action:'navigate',revision:session.revision,direction:'previous'}),'controller'))).session;
+ assert.equal(session.controllerAccepted,true,'an older pending session accepts navigation immediately, even before a read');
  const releasedCommand=session.command.id;
 
  assert.equal((await post(command({action:'release-control'}),'other')).status,403);
@@ -43,6 +51,7 @@ const json=async response=>{assert.equal(response.status,200,await response.clon
  assert.equal((await post(command({action:'step-ack',commandId:releasedCommand,revision:session.revision,ok:true}))).status,409);
  session=(await json(await post(command({action:'delegate',controllerIdentity:'guest-controller',controllerSid:'SID-controller',requireAcceptance:true})))).session;
  live.get('guest-controller').sid='replacement';
+ assert.equal((await post(command({action:'navigate',direction:'next',revision:session.revision}),'controller')).status,403,'replacement SID does not inherit navigation');
  assert.equal((await post(command({action:'accept-control'}),'controller')).status,409,'replacement SID cannot accept the former connection grant');
  session=(await json(await post({action:'create',name:'Legacy.pdf',pages:2}))).session;
  session=(await json(await post(command({action:'ack',revision:0,page:1})))).session;
@@ -50,5 +59,5 @@ const json=async response=>{assert.equal(response.status,200,await response.clon
  assert.notEqual(session.controllerAccepted,false,'legacy delegation keeps existing behavior');
  session=(await json(await post(command({action:'navigate',revision:0,direction:'next'}),'other'))).session;
  assert.equal(session.page,2,'legacy controller navigation is unchanged');
- console.log('PASS recipient pending acceptance, exact grant accept/release, owner navigation, stale SID/replay denial and legacy compatibility');
+ console.log('PASS immediate delegation and navigation, legacy pending grants, exact release and old-client acknowledgments, stale SID and replay rejection');
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -47,4 +47,12 @@ export const entryMessages: Record<string, readonly [string, string]> = {
  'Не удалось проверить приглашение. Проверьте соединение и повторите.':['Could not check the invitation. Check your connection and try again.','无法验证邀请。请检查网络连接并重试。'],
  'Вход по названию комнаты':['Join by room name','按房间名称加入'],
  'Пароль гостей · необязательно':['Guest password · optional','嘉宾密码 · 可选'],
+ 'Источник презентации':['Presentation source','演示内容来源'],
+ 'Открыть PDF':['Open PDF','打开 PDF'],
+ 'Показать окно или вкладку':['Share a window or tab','共享窗口或标签页'],
+ 'Убрать презентацию':['Remove presentation','移除演示内容'],
+ 'Слайд {page} из {pages}':['Slide {page} of {pages}','第 {page} 张，共 {pages} 张'],
+ 'Выберите PDF размером до 1,5 ГБ.':['Choose a PDF of up to 1.5 GB.','请选择不超过 1.5 GB 的 PDF。'],
+ 'Захват окна или вкладки недоступен в этом браузере.':['This browser cannot capture a window or tab.','此浏览器无法捕获窗口或标签页。'],
+ 'Не удалось открыть выбранное окно или вкладку.':['Could not open the selected window or tab.','无法打开所选窗口或标签页。'],
 };

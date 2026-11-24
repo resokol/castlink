@@ -34,7 +34,7 @@ test('two release assets carry one current image/version; PS5 UTF8 and checksums
   assert.equal(release.buildNumber,product.buildNumber);
   assert.deepEqual(release.images,tags);
   for(const value of Object.values(release.imageIdentities)) assert.match(value,/^sha256:[a-f0-9]{64}$/);
-  assert.match(release.sourceReferences.postgres,/@sha256:721873/);
+  assert.equal(release.sourceReferences.postgres,'docker.io/library/postgres@sha256:9d9e487c1bd6413c52ccb3c02f46c8e37fa1e1d1a32a84519eb4e68d0ad1da30');
   assert.equal(release.imageArchive,'images.tar.gz');
   assert.equal(release.imageArchiveSha256,createHash('sha256').update(await fs.readFile(image)).digest('hex'));
   assert.ok(release.bundleFiles['scripts/windows-simple-easy-setup.ps1']);

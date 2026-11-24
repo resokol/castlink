@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { load } = require('./load-typescript.cjs');
 const processors = require('@livekit/track-processors');
-assert.equal(require('@livekit/track-processors/package.json').version, '0.8.2', 'review mask reuse against the pinned transformer when upgrading');
+assert.equal(require('@livekit/track-processors/package.json').version, '0.8.3', 'review mask reuse against the pinned transformer when upgrading');
 const originalPerformance = global.performance, originalVideoFrame = global.VideoFrame;
 let now = 0, current;
 global.performance = { now: () => now };
@@ -74,6 +74,6 @@ async function run(processor) {
     const again = await run(restarted);
     assert(again.inferences < before.inferences / 2, 'camera restart installs pacing on the replacement segmenter');
     watcher.stop();
-    console.log(`PASS pinned0.8.2 real transformer:120/120 composites, simulated80ms inference before=${before.inferences}/${before.elapsedMs.toFixed(0)}ms after=${after.inferences}/${after.elapsedMs.toFixed(0)}ms; mask reuse, timestamps, close and restart`);
+    console.log(`PASS pinned0.8.3 real transformer:120/120 composites, simulated80ms inference before=${before.inferences}/${before.elapsedMs.toFixed(0)}ms after=${after.inferences}/${after.elapsedMs.toFixed(0)}ms; mask reuse, timestamps, close and restart`);
   } finally { global.performance = originalPerformance; global.VideoFrame = originalVideoFrame; }
 })().catch(error => { console.error(error); process.exitCode = 1; });

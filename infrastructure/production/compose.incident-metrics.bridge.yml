@@ -1,0 +1,10 @@
+# Overlay for bridge-network self-hosted installations with a service named livekit.
+# docker compose -f compose.json -f compose.incident-metrics.bridge.yml up -d web livekit
+# The listener is internal to the LiveKit container. Do not use this overlay with host networking.
+services:
+  livekit:
+    environment:
+      LIVEKIT_PROMETHEUS_PORT: "6789"
+  web:
+    environment:
+      CASTLINK_LIVEKIT_METRICS_URL: http://livekit:6789/metrics

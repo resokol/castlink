@@ -4,7 +4,7 @@
 
 ## Запуск из исходников
 
-Нужны Node.js 22 и pnpm 9.15.0:
+Нужны Node.js 26.13.1 и pnpm 12.23.0:
 
 ```sh
 pnpm install --frozen-lockfile

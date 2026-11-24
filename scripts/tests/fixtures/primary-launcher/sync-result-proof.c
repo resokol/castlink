@@ -11,6 +11,7 @@ typedef unsigned DWORD;typedef unsigned HANDLE;
 #endif
 #define ERROR_BROKEN_PIPE 109
 struct worker {HANDLE output,error;struct {HANDLE hProcess;} process;uint64_t deadline;};
+static unsigned capture_reason,capture_code;
 static DWORD last,exit_code;static int consumed,exited,reaped,failed_reap,stderr_bytes,output_error,stderr_error,exit_on_peek;static uint64_t ticks;static unsigned sleeps;static unsigned declared=4;
 static uint64_t now(void){return ticks++;}static int node_alive(void){return exit_on_peek!=8||ticks<200;}static void Sleep(unsigned n){(void)n;ticks+=100;sleeps++;if(exit_on_peek>=4&&exit_on_peek<=7&&sleeps>=3){exited=1;if(exit_on_peek==7)stderr_bytes=1;}}
 static DWORD WaitForSingleObject(HANDLE h,unsigned n){assert(h==3);(void)n;last=997;return exit_on_peek==9?WAIT_FAILED:exited?WAIT_OBJECT_0:WAIT_TIMEOUT;}

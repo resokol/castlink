@@ -17,7 +17,7 @@ css = (root / "apps/web/node_modules/@livekit/components-styles/dist/general/ind
 markup = (root / "apps/web/tests/guest-controls-rendered.html").read_text()
 fit = subprocess.check_output([
     "node", "-e",
-    "const fs=require('fs'),ts=require('typescript');process.stdout.write(ts.transpileModule(fs.readFileSync('lib/video-fit.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)",
+    "const fs=require('fs'),ts=require('./tests/node_modules/typescript');process.stdout.write(ts.transpileModule(fs.readFileSync('lib/video-fit.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)",
 ], cwd=root / "apps/web", text=True)
 results = []
 failures = []

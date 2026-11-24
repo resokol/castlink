@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { open, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { Readable } from "node:stream";
 import { createGunzip, gzip } from "node:zlib";
 import { promisify } from "node:util";
 
@@ -87,20 +88,28 @@ export async function archiveTelemetryHour(hour: TelemetryHour) {
 }
 
 /** Open a logical hour once. A raw file descriptor remains valid if cleanup archives it mid-read. */
-export async function openTelemetryHour(hour: TelemetryHour, offset = 0) {
+export async function openTelemetryHour(hour: TelemetryHour, offset = 0, snapshot = false) {
   if (hour.raw) {
     try {
       const handle = await open(hour.raw, "r");
       const size = (await handle.stat()).size;
       if (offset > size) { await handle.close(); throw new Error("invalid_audio_cursor"); }
-      const input = handle.createReadStream({ start: offset });
+      if (snapshot && offset === size) {
+        await handle.close();
+        const input = Readable.from([]);
+        return { input, start: offset, close: () => input.destroy() };
+      }
+      const input = handle.createReadStream({ start: offset, ...(snapshot ? { end: size - 1 } : {}) });
       return { input, start: offset, close: () => input.destroy() };
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   }
   const base = hour.raw?.replace(/\.jsonl$/, "") ?? hour.gzip!.replace(/\.jsonl\.gz$/, "");
-  const index: ArchiveIndex = JSON.parse(await readFile(base + ".idx.json", "utf8"));
-  if (!Array.isArray(index.members) || !Number.isSafeInteger(index.rawBytes) || offset > index.rawBytes) throw new Error("invalid_audio_cursor");
-  const member = [...index.members].reverse().find(item => item.rawOffset <= offset) ?? { rawOffset: 0, gzipOffset: 0 };
+  let member = { rawOffset: 0, gzipOffset: 0 };
+  if (offset) {
+    const index: ArchiveIndex = JSON.parse(await readFile(base + ".idx.json", "utf8"));
+    if (!Array.isArray(index.members) || !Number.isSafeInteger(index.rawBytes) || offset > index.rawBytes) throw new Error("invalid_audio_cursor");
+    member = [...index.members].reverse().find(item => item.rawOffset <= offset) ?? member;
+  }
   const handle = await open(base + ".jsonl.gz", "r"), source = handle.createReadStream({ start: member.gzipOffset });
   const input = createGunzip();
   source.on("error", error => input.destroy(error)); source.pipe(input);

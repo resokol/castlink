@@ -26,8 +26,8 @@ function MediaProbe(){const video=useRef(null);useEffect(()=>{
 createRoot(document.getElementById('root')).render(<AppChrome><MediaProbe/></AppChrome>);
 `);
 const loader = path.join(temp, 'loader.cjs');
-fs.writeFileSync(loader, `const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
-const webpack = req('next/dist/compiled/webpack/webpack'); webpack.init();
+fs.writeFileSync(loader, `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
+const webpack = req('next/dist/compiled/webpack/webpack');
 let server, browser;
 const banner = '[data-design-preview-banner]';
 async function main() {

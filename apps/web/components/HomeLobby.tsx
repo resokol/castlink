@@ -192,6 +192,6 @@ export function HomeLobby({ hosted = false, roomCreationEnabled = false }: { hos
     <div className={styles.roles}>
       <section className={styles.role}><EntryIcon kind="studio"/><h2>{t("Я — студия")}</h2><p>{t("Создать эфир, пригласить кастеров и управлять комнатой.")}</p><button className={`${styles.primary} ${styles.full}`} onClick={()=>chooseRole("studio")}>{t("Войти как студия")}</button></section>
       <section className={styles.role}><EntryIcon kind="person"/><h2>{t("Я — кастер / гость")}</h2><p>{t("Подключиться к студии по приглашению.")}</p><button className={styles.full} onClick={()=>chooseRole("caster")}>{t("Войти как кастер")}</button></section>
-    </div><div className={styles.under}>{t("Есть приглашение? Откройте ссылку — CastLink сразу перейдёт к подключению.")}</div>
+    </div><div className={styles.under}><a className={styles.button} href="/record">{t("Записать выступление")}</a></div><div className={styles.under}>{t("Есть приглашение? Откройте ссылку — CastLink сразу перейдёт к подключению.")}</div>
   </EntryShell>;
 }

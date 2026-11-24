@@ -293,7 +293,13 @@ main:has(.studio-header) .panel { max-width:none; }
 .stats-filter-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--action-gap); }
 .stats-filter-grid label { display: grid; align-items: stretch; gap: 7px; min-width: 0; }
 .stats-toolbar select { min-width: 0; width: 100%; max-width: 100%; padding: 10px; color: #e2e8f0; background: #0f172a; border: 1px solid #475569; border-radius: 8px; }
+.room-media-diagnostics { margin-block: 16px; padding: 18px; overflow-wrap: anywhere; }
+.room-media-diagnostics h2 { margin: 0 0 12px; }
+.room-media-diagnostics details { padding-block: 9px; border-top: 1px solid var(--border, #475569); }
+.room-media-diagnostics summary { cursor: pointer; }
+.room-media-diagnostics p { margin-block: 8px; }
 .stats-periods { display: flex; gap: var(--action-gap); flex-wrap: wrap; }
+.episode-picker select { width: auto; max-width: 100%; min-width: 0; }
 .stats-periods button { background: var(--secondary-bg); }
 .stats-periods button[aria-pressed="true"] { background: var(--secondary-hover); border-color: var(--media-accent); }
 .stats-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 16px; }
@@ -1125,6 +1131,7 @@ body:has(.room-leave-button) { padding-bottom: 76px; }
 /* Compact conference tiles retain native frame fit; fullscreen is an explicit action. */
 .castlink-tile-shell { position:relative; min-width:0; min-height:0; width:100%; height:100%; }
 .castlink-tile-shell > .lk-participant-tile { width:100%; height:100%; min-height:0; }
+.monitor-video-pause { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); z-index:3; width:max-content; max-width:calc(100% - 16px); padding:4px 8px; border-radius:6px; background:#302511; color:#ffe2a1; font-size:12px; font-weight:600; text-align:center; pointer-events:none; }
 .guest-room-page .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:16/9; height:auto; }
 .guest-conference-grid [data-single-participant="true"] .lk-scroll-layout > .castlink-tile-shell { aspect-ratio:auto; height:100%; }
 .castlink-tile-fullscreen { position:absolute; right:6px; bottom:6px; z-index:4; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; min-height:32px; padding:0; border:1px solid #ffffff40; border-radius:9px; background:#101621b8; color:#fff; }
@@ -1353,6 +1360,8 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-pr
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-heading h2 { margin: 0; font-size: 15px; line-height: 1.4; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-heading .co-presentation-close { display: grid; place-items: center; min-width: 36px; min-height: 36px; padding: 7px; }
 html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .co-presentation-active { display: grid; gap: 10px; min-width: 0; margin-bottom: 12px; }
+.co-presentation-owner-trigger, .co-presentation-trigger, .co-presentation-navigation > .co-presentation-delegation { min-width: 0; max-width: 100%; }
+.co-presentation-control-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-presentation-heading-copy { flex:1; min-width:0; }
 .co-presentation-heading-copy h2 { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .co-presentation-grip { color:var(--muted); }
@@ -1637,12 +1646,6 @@ html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caste
 @media (max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse) {
   html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .caster-conference button.lk-button.guest-screen-share-button { min-height:44px; }
 }
-
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings { padding: 12px 14px; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings h2 { margin: 0 0 6px; font-size: 14px; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings label { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; font-size: 13px; cursor: pointer; }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; accent-color: var(--media-accent); }
-html .guest-room-page.guest-app-shell.graphite-workspace.caster-workspace .guest-settings-content .screen-share-settings p { margin: 2px 0 0; font-size: 12px; line-height: 1.5; }
 
 /* Remote PC: owner labels and explicit receiver commands preserve the media node. */
 .castlink-tile-shell[data-remote-pc-alias] .lk-participant-name { visibility: hidden; }

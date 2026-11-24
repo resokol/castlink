@@ -59,7 +59,7 @@ function Output(){
    if(snapshot&&data.snapshot.revision<snapshot.revision)return;
    snapshot=data.snapshot;controller.applySnapshot(snapshot!);setStatus(snapshot?.phase==="assigned"?"":"Ожидание кастера");
    if(connectedRoom!==data.room||room.state==="disconnected"){
-    if(!connection){connection=(async()=>{if(room.state!=="disconnected")await room.disconnect();if(stopped)return;await room.connect(getLiveKitUrl(),data.token,{autoSubscribe:false});connectedRoom=data.room;})().finally(()=>{connection=null;});}
+    if(!connection){connection=(async()=>{if(room.state!=="disconnected")await room.disconnect();if(stopped)return;await room.connect(getLiveKitUrl(),data.token,{autoSubscribe:false,subscriberAllowPause:false});connectedRoom=data.room;})().finally(()=>{connection=null;});}
     await connection;
    }reconcile();
   }catch{if(!stopped){setRotationTarget(null);controller.clear();setStatus("Выход временно недоступен");}}finally{clearTimeout(timeout);abort.signal.removeEventListener("abort",cancel);if(!stopped)timer=setTimeout(poll,1000);}};

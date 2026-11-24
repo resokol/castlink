@@ -36,15 +36,15 @@ jobs:
     env:
       UPDATER_VERSION: ${{ inputs.version || '1.0.0' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
-      - uses: actions/setup-python@v5
+          node-version: 26.13.1
+      - uses: actions/setup-python@v7.1.0
         with:
-          python-version: '3.12'
+          python-version: '3.15.2'
       - name: Package and publication API boundaries
         run: node --test scripts/tests/package-updater.test.mjs scripts/tests/publish-updater.test.mjs
       - name: Linux persistent updater and existing product update preservation
@@ -55,7 +55,7 @@ jobs:
         run: node --test apps/desktop/tests/updates.test.cjs apps/desktop/tests/persistent-updater.test.cjs apps/desktop/tests/updater-resources.test.cjs
       - name: Assemble and verify all eight exact-source assets
         run: node scripts/package-updater.mjs "$RUNNER_TEMP/updater-package" "$GITHUB_SHA" "$UPDATER_VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: castlink-updater-package-${{ github.sha }}
           path: ${{ runner.temp }}/updater-package/*
@@ -70,12 +70,12 @@ jobs:
     env:
       UPDATER_VERSION: ${{ inputs.version || '1.0.0' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
+          node-version: 26.13.1
       - name: Windows PowerShell 5.1 parser and synthetic local installations
         run: |
           $ErrorActionPreference='Stop'
@@ -112,13 +112,13 @@ jobs:
       CASTLINK_UPDATER_RESUME_RELEASE_ID: ${{ inputs.resume_release_id }}
       RESUME_RUN_ID: ${{ inputs.resume_run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '22'
-      - uses: actions/download-artifact@v4
+          node-version: 26.13.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: castlink-updater-package-${{ github.sha }}
           path: ${{ runner.temp }}/updater-package
@@ -131,7 +131,7 @@ jobs:
       # the previous run and/or the independently verified numeric release ID.
       - name: Recover durable publication intent
         if: ${{ github.run_attempt > 1 || inputs.resume_run_id != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.2
         with:
           name: castlink-updater-publication-receipt-${{ inputs.resume_run_id || github.run_id }}
           run-id: ${{ inputs.resume_run_id || github.run_id }}
@@ -141,7 +141,7 @@ jobs:
         run: node scripts/publish-updater.mjs "$RUNNER_TEMP/updater-package" "$GITHUB_SHA" "$UPDATER_VERSION" "$RUNNER_TEMP/updater-publication/publication-receipt.json"
       - name: Retain recovery intent even after an uncertain API result
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: castlink-updater-publication-receipt-${{ github.run_id }}
           path: ${{ runner.temp }}/updater-publication/publication-receipt.json

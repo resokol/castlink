@@ -10,8 +10,9 @@ async function fixturePdfVendor(directory) {
  await fs.mkdir(path.join(directory,'build'),{recursive:true});
  const worker='// explicit fixture PDF worker\n';
  await fs.writeFile(path.join(directory,'build/pdf.worker.min.mjs'),worker);
+ await fs.writeFile(path.join(directory,'build/pdf.renderer.min.mjs'),'// fixture PDF renderer');
  await fs.writeFile(path.join(directory,'LICENSE'),'Fixture PDF vendor license\n');
- await fs.writeFile(path.join(directory,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.4.299'}));
+ await fs.writeFile(path.join(directory,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.5.438'}));
  return worker;
 }
 
@@ -27,7 +28,7 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   await fs.mkdir(path.join(source,'apps/web/node_modules/ssh2'),{recursive:true});
   await fs.writeFile(path.join(source,'apps/web/node_modules/ssh2/LICENSE'),'SSH dependency license notice\n');
   await fs.mkdir(path.join(source,'scripts'),{recursive:true});
-  await fs.writeFile(path.join(source,'apps/web/package.json'),JSON.stringify({dependencies:{pg:'*',ssh2:'*','livekit-client':'*','pdfjs-dist':'6.4.299'}}));
+  await fs.writeFile(path.join(source,'apps/web/package.json'),JSON.stringify({dependencies:{pg:'*',ssh2:'*','livekit-client':'*','pdfjs-dist':'6.5.438'}}));
   await fs.mkdir(path.join(source,'apps/web/node_modules/livekit-client'),{recursive:true});
   await fs.writeFile(path.join(source,'apps/web/node_modules/livekit-client/package.json'),JSON.stringify({name:'livekit-client',version:'1.0.0',license:'Apache-2.0'}));
   await fs.writeFile(path.join(source,'apps/web/node_modules/livekit-client/LICENSE'),'Browser-only Apache notice\n');
@@ -36,7 +37,8 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
    'helpers/CastLink-PowerPoint-Windows.ps1':'# fixed Windows helper',
    'helpers/CastLink-PowerPoint-macOS.js':'// fixed macOS helper',
    'pdfjs/pdf.worker.min.mjs':'// compiled PDF worker',
-   'pdfjs/.version':'6.4.299',
+   'pdfjs/pdf.renderer.min.mjs':'// compiled PDF renderer',
+   'pdfjs/.version':'6.5.438',
    'pdfjs/LICENSE':'Apache PDF.js license',
    'pdfjs/cmaps/Adobe-Japan1-UCS2.bcmap':'binary CMap fixture',
    'pdfjs/cmaps/LICENSE':'CMap license',
@@ -57,8 +59,8 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   }
   await fs.writeFile(path.join(source,'apps/web/public/helpers/other.ps1'),'not allowlisted');
   const pdfVendor=path.join(source,'apps/web/node_modules/pdfjs-dist');await fs.mkdir(path.join(pdfVendor,'standard_fonts'),{recursive:true});await fs.mkdir(path.join(pdfVendor,'wasm'),{recursive:true});
-  for(const [name,bytes] of Object.entries(publicFiles)){if(!name.startsWith('pdfjs/')||name==='pdfjs/.version')continue;const relative=name==='pdfjs/pdf.worker.min.mjs'?'build/pdf.worker.min.mjs':name.slice(6);const file=path.join(pdfVendor,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
-  await fs.writeFile(path.join(pdfVendor,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.4.299',license:'Apache-2.0'}));
+  for(const [name,bytes] of Object.entries(publicFiles)){if(!name.startsWith('pdfjs/')||name==='pdfjs/.version')continue;const relative=name.endsWith('.min.mjs')?'build/'+path.basename(name):name.slice(6);const file=path.join(pdfVendor,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
+  await fs.writeFile(path.join(pdfVendor,'package.json'),JSON.stringify({name:'pdfjs-dist',version:'6.5.438',license:'Apache-2.0'}));
   await fs.writeFile(path.join(pdfVendor,'LICENSE'),publicFiles['pdfjs/LICENSE']);
   await fs.writeFile(path.join(pdfVendor,'standard_fonts/LICENSE_FOXIT'),publicFiles['pdfjs/standard_fonts/LICENSE_FOXIT']);
   await fs.writeFile(path.join(pdfVendor,'wasm/LICENSE_QCMS'),publicFiles['pdfjs/wasm/LICENSE_QCMS']);
@@ -97,8 +99,8 @@ test('runtime serves allowlisted PDF assets and excludes disabled native helper 
   for(const name of ['icons/keep.svg','helpers/unrelated.txt'])assert.equal(await fs.readFile(path.join(runtime,'apps/web/public',name),'utf8'),'unrelated public asset');
   for(const name of ['pdfjs/private.ts','pdfjs/worker.mjs.map','pdfjs/original.js','pdfjs/wasm/original-app.js','pdfjs/wasm/source.ts','pdfjs/cmaps/.env','pdfjs/helpers/arbitrary.ps1','helpers/other.ps1'])await assert.rejects(fs.access(path.join(runtime,'apps/web/public',name)));
   const inventory=JSON.parse(await fs.readFile(path.join(runtime,'third_party/npm/packages.json'),'utf8'));
-  const pdf=inventory.packages.find(p=>p.name==='pdfjs-dist');assert.equal(pdf.version,'6.4.299');assert.equal(pdf.license,'Apache-2.0');
-  for(const name of ['LICENSE','standard_fonts/LICENSE_FOXIT','wasm/LICENSE_QCMS'])assert.equal(await fs.readFile(path.join(runtime,'third_party/npm/pdfjs-dist@6.4.299',name),'utf8'),await fs.readFile(path.join(pdfVendor,name),'utf8'));
+  const pdf=inventory.packages.find(p=>p.name==='pdfjs-dist');assert.equal(pdf.version,'6.5.438');assert.equal(pdf.license,'Apache-2.0');
+  for(const name of ['LICENSE','standard_fonts/LICENSE_FOXIT','wasm/LICENSE_QCMS'])assert.equal(await fs.readFile(path.join(runtime,'third_party/npm/pdfjs-dist@6.5.438',name),'utf8'),await fs.readFile(path.join(pdfVendor,name),'utf8'));
 
  } finally {await fs.rm(runtime,{recursive:true,force:true});await fs.rm(source,{recursive:true,force:true});}
 });
@@ -129,7 +131,7 @@ test('disabled build preparation removes source public presentation downloads an
  const publicDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-disabled-public-'));
  const vendor=await fs.mkdtemp(path.join(os.tmpdir(),'castlink-explicit-pdf-vendor-'));
  try{
-  const disabled=['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs/pdf.worker.min.mjs','pdfjs/cmaps/legacy.bcmap'];
+  const disabled=['helpers/CastLink-PowerPoint-Windows.ps1','helpers/CastLink-PowerPoint-macOS.js','pdfjs/pdf.worker.min.mjs','pdfjs/pdf.renderer.min.mjs','pdfjs/cmaps/legacy.bcmap'];
   const retained=['icons/logo.svg','helpers/unrelated.txt'];
   for(const name of [...disabled,...retained]){const file=path.join(publicDirectory,name);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,'fixture');}
   await removePresentationAssets(publicDirectory);

@@ -11,6 +11,13 @@ view=recipientGrantTransition({...view,open:false},[newGrant]);assert.equal(view
 const render=(value,extra={})=>renderToStaticMarkup(React.createElement(RecipientSlideControls,{id:'recipient',sessions:[value],locale:'ru',busy:false,unavailable:false,reopen:0,action(){},...extra}));
 let html=render(session);assert.match(html,/popover="manual"/,'in-app top-layer card needs no browser popup activation');assert.match(html,/Deck.pptx/);assert.match(html,/>2 \/ 8</,'counter uses the rendered slide while a change is pending');assert.equal((html.match(/disabled=""/g)||[]).length,2,'pending render disables both navigation actions');assert.doesNotMatch(html,/Остановить|Передать|Вернуть управление/,'recipient has no owner actions');
 html=render({...session,page:3,renderedPage:3,renderedRevision:2});assert.equal((html.match(/disabled=""/g)||[]).length,0,'confirmed current grant can navigate');html=render({...session,renderedRevision:2},{unavailable:true});assert.equal((html.match(/disabled=""/g)||[]).length,2,'temporary control failure disables navigation');
+for(const [lastCommand,message] of [
+ [{status:'expired'},'Истекло время'],
+ [{status:'failed',error:'WINDOW_SLIDES_FOREGROUND'},'передний план'],
+ [{status:'failed'},'Переход не подтверждён'],
+]){
+ assert.ok(render({...session,renderedRevision:2,lastCommand}).includes(message), 'speaker sees the result of the last slide command: '+message);
+}
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const source=ts.createSourceFile('panel.tsx',fs.readFileSync(require.resolve('../components/CoPresentationPanel.tsx'),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let action;
 (function visit(node){if(ts.isBinaryExpression(node)&&node.left.getText(source)==='controlsAction.current')action=node.right;ts.forEachChild(node,visit);})(source);

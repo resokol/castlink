@@ -1,0 +1,19 @@
+.studio { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(205px, 1fr); gap: 20px; align-items: start; }
+.monitor { position: relative; overflow: hidden; border: 1px solid var(--entry-border); border-radius: 12px; background: #101316; }
+.monitor canvas, .playback { display: block; width: 100%; aspect-ratio: 16 / 9; }
+.placeholder { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: #bac4c9; background: #101316; padding: 16px; }
+.capture { position: absolute; pointer-events: none; opacity: 0; width: 2px; height: 2px; bottom: 0; left: 0; }
+.settings { padding: 16px; border: 1px solid var(--entry-border); border-radius: 12px; background: var(--entry-panel); display: grid; gap: 12px; }
+.settings :global(.media-device-picker) { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+.transport, .actions, .recording { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.transport { margin: 20px 0; }
+.recording { font-weight: 600; }
+.recording::before { content: ''; width: 9px; height: 9px; background: #e75553; border-radius: 50%; }
+.recording time { font-variant-numeric: tabular-nums; }
+.transport .stop { border-color: #b9504e; }
+.library { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--entry-border); }
+.library h2 { margin: 0; font-size: 21px; }
+.take { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 0; border-top: 1px solid var(--entry-border); }
+.take small { display: block; color: var(--entry-muted); }
+.playback { max-height: 65vh; background: #101316; }
+@media (max-width: 720px) { .studio { grid-template-columns: minmax(0, 1fr); } }

@@ -34,8 +34,8 @@ export function App() { return <I18nProvider><Probe /></I18nProvider>; }
 if (typeof window !== "undefined") hydrateRoot(document.getElementById("root"), <App />);
 `);
 const loader = path.join(temp, 'typescript-loader.cjs');
-fs.writeFileSync(loader, `const ts = require(${JSON.stringify(req.resolve('typescript'))});module.exports = function(source) {return ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;};`);
-const webpack = req('next/dist/compiled/webpack/webpack'); webpack.init();
+fs.writeFileSync(loader, `const ts = require(${JSON.stringify(require.resolve('typescript'))});module.exports = function(source) {return ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;};`);
+const webpack = req('next/dist/compiled/webpack/webpack');
 async function main() {
   await new Promise((resolve,reject)=>webpack.webpack({ mode:'development', entry, devtool:false, output:{path:temp,filename:'bundle.js'}, resolve:{extensions:['.ts','.tsx','.js'],alias:{'@':root,'react':path.dirname(req.resolve('react')),'react-dom':path.dirname(req.resolve('react-dom'))}}, module:{rules:[{test:/\.tsx?$/,use:loader}]}, optimization:{minimize:false}},(error,stats)=>error?reject(error):stats.hasErrors()?reject(Error(stats.toString({all:false,errors:true}))):resolve()));
   const {App} = load(entry);

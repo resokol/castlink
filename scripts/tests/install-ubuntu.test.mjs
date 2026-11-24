@@ -63,7 +63,7 @@ test('noninteractive install requires explicit password input and preserves exis
 });
 
 const terminalHarness=String.raw`
-import os,pty,select,sys,json,time
+import errno,os,pty,select,sys,json,time
 with open(sys.argv[1],encoding='utf8') as source: data=json.load(source)
 pid,master=pty.fork()
 if pid==0: os.execvpe('bash',['bash']+data['args'],os.environ)
@@ -72,7 +72,9 @@ prompts=[b'Room creation password (8-256 characters): ',b'Confirm room creation 
 while time.monotonic()<deadline:
  if select.select([master],[],[],0.1)[0]:
   try: chunk=os.read(master,65536)
-  except OSError: break
+  except OSError as error:
+   if error.errno != errno.EIO: raise
+   break
   if not chunk: break
   output+=chunk
   if stage<2 and prompts[stage] in output:
@@ -80,7 +82,11 @@ while time.monotonic()<deadline:
  else:
   done,status=os.waitpid(pid,os.WNOHANG)
   if done: print(json.dumps({'status':os.waitstatus_to_exitcode(status),'output':output.decode('utf8',errors='replace'),'prompts':stage}));sys.exit(0)
+# The slave PTY can close just before the kernel publishes the child's exit.
 done,status=os.waitpid(pid,os.WNOHANG)
+while not done and time.monotonic()<deadline:
+ time.sleep(0.01)
+ done,status=os.waitpid(pid,os.WNOHANG)
 if not done:
  os.kill(pid,9);os.waitpid(pid,0);raise RuntimeError('Installer terminal timed out')
 print(json.dumps({'status':os.waitstatus_to_exitcode(status),'output':output.decode('utf8',errors='replace'),'prompts':stage}))

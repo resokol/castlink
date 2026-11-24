@@ -4,6 +4,14 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const assets = path.join(__dirname, '../public/camera-effects');
 const provenance = JSON.parse(fs.readFileSync(path.join(assets, 'provenance.json'), 'utf8'));
+const processorRequire = require('node:module').createRequire(require.resolve('@livekit/track-processors/package.json'));
+const visionRoot = path.dirname(processorRequire.resolve('@mediapipe/tasks-vision'));
+const installed = JSON.parse(fs.readFileSync(path.join(visionRoot, 'package.json'), 'utf8'));
+assert.equal(provenance.wasm.version, installed.version, 'bundled JS and locally served WebAssembly must share the same MediaPipe release');
+for (const asset of provenance.assets) {
+  const upstream = fs.readFileSync(path.join(visionRoot, asset.path));
+  assert.equal(crypto.createHash('sha256').update(upstream).digest('hex'), asset.sha256, asset.path);
+}
 for (const asset of [...provenance.assets, provenance.model]) {
   const bytes = fs.readFileSync(path.join(assets, asset.path));
   assert.equal(bytes.length, asset.bytes, `${asset.path} required and complete`);

@@ -194,11 +194,39 @@ class SourceArchiveTest(unittest.TestCase):
         for incomplete in [files[:1], files[1:]]:
             with self.assertRaises(ValueError): sources.validate_runtime_sources([{'files': incomplete}], 'libreoffice\t4:7.4.7-1+deb12u14\n')
 
-    def test_pinned_office_supplement_covers_recorded_runtime_without_changing_primary(self):
+    def test_publisher_digest_without_size_materializes_and_verifies_archive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            data = b'real bytes from the recipe test'
+            cache = root/'cache'
+            cache.mkdir()
+            (cache/'source.bin').write_bytes(data)
+            pinned = {'url': 'https://example.org/src', 'path': 'source.bin', 'component': 'sample 1',
+                      'sha512': hashlib.sha512(data).hexdigest()}
+            manifest = {'schemaVersion': 2, 'files': [pinned]}
+            asset = sources.build(manifest, cache, root/'out')
+            sources.verify_source_archive(manifest, asset)
+            with tarfile.open(asset) as tar:
+                resolved = json.load(tar.extractfile('source-manifest.json'))['files'][0]
+            self.assertEqual(resolved, {**pinned, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)})
+            second = {**pinned, 'path': 'new-source.bin'}
+            sources.seed_cache_from_archive({'schemaVersion': 2, 'files': [pinned, second]}, root/'seed', asset, require_all=False)
+            self.assertFalse((root/'seed/new-source.bin').exists())
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                sources.verify_source_archive({'schemaVersion': 2, 'files': [{**pinned, 'sha512': '0'*128}]}, asset)
+            with self.assertRaisesRegex(ValueError, 'checksum/size mismatch'):
+                sources.seed_cache_from_archive({'schemaVersion': 2, 'files': [{**pinned, 'sha512': '0'*128}]}, root/'bad', asset, require_all=False)
+
+    def test_pinned_office_supplement_covers_recorded_runtime(self):
         root = pathlib.Path(__file__).parents[2]
         primary = json.loads((root/'distribution/third-party-sources.json').read_text(encoding='utf-8'))
         office = json.loads((root/'distribution/third-party-office-sources.json').read_text(encoding='utf-8'))
-        self.assertEqual(len(primary['files']), 1004)
+        sources.validate(primary)
+        self.assertEqual(office['nodeImage'], primary['nodeImage'])
+        self.assertIn(primary['nodeImage'], (root/'Dockerfile.web').read_text())
+        inputs = primary['runtimeInputs']
+        self.assertEqual({b['image'] for b in inputs['goBinaries']}, {'postgres', 'caddy', 'livekit'})
+        self.assertTrue(set(inputs['alpineImageRecipes']) <= {s['path'] for s in primary['files']})
         self.assertIn('https://github.com/resokol/castlink', primary['scope'])
         self.assertIn('MIT', primary['scope'])
         self.assertNotIn('private CastLink', primary['scope'])

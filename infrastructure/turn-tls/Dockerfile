@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/library/haproxy@sha256:5d97434a423c2533cfeb42874d45cf6d69a840b60334582dfbfd5008e94c80be
+FROM docker.io/library/haproxy@sha256:58706d9d772602f369bac3604be2303dce0ebc795d1178ac496eb1d0d2528a91
 ARG CASTLINK_SOURCE_COMMIT
 LABEL ru.castlink.image.owner="castlink" \
       ru.castlink.image.ownership="castlink-build-v1" \
@@ -7,7 +7,7 @@ LABEL ru.castlink.image.owner="castlink" \
       ru.castlink.image.stage="turntls-runtime"
 USER root
 RUN --mount=type=secret,id=proxy_ca,target=/run/proxy-ca,required=false \
-    if [ -s /run/proxy-ca ]; then \
+    set -eu; if [ -s /run/proxy-ca ]; then \
       cat /etc/ssl/cert.pem /run/proxy-ca > /tmp/build-ca.pem; \
       SSL_CERT_FILE=/tmp/build-ca.pem apk add --no-cache openssl; \
       rm /tmp/build-ca.pem; \

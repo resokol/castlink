@@ -1,13 +1,17 @@
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {operatorScripts} from '../prepare-web-runtime.mjs';
 
+const pgVersion=JSON.parse(readFileSync(new URL('../../apps/web/package.json', import.meta.url), 'utf8')).dependencies.pg;
 const [image,postgresImage]=process.argv.slice(2);
 if(!image||!postgresImage)throw Error('Usage: node scripts/tests/web-runtime-image.smoke.mjs BUILT_IMAGE POSTGRES_IMAGE');
 const name='castlink-runtime-smoke-'+randomUUID();
 const database=name+'-postgres',network=name+'-network',installationId=randomUUID(),nodeId='srv-'+installationId.replaceAll('-','');
-const docker=(args,options={})=>execFileSync('docker',args,{encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe'],...options});
+// Creating an isolated container can copy the full office runtime on a VFS-backed
+// Docker daemon. HTTP, database and converter readiness keep their own deadlines.
+const docker=(args,options={})=>execFileSync('docker',args,{encoding:'utf8',timeout:args[0]==='run'?180000:30000,stdio:['pipe','pipe','pipe'],...options});
 const converter=name+'-converter',socketVolume=name+'-socket';
 const converterRequest="const fs=require('node:fs'),http=require('node:http'),assert=require('node:assert/strict');try{fs.writeFileSync('/run/castlink-converter/readonly-probe','x');throw Error('Socket mount is writable')}catch(e){assert.equal(e.code,'EROFS')}const q=http.request({socketPath:'/run/castlink-converter/converter.sock',path:'/convert',method:'POST',headers:{'content-length':'3'}},r=>{let b='';r.on('data',x=>{b+=x;if(b.length>4096)q.destroy(Error('Unbounded response'))});r.on('end',()=>{assert.equal(r.statusCode,422);assert.equal(JSON.parse(b).code,'presentation-invalid-package');console.log('CONVERTER_READONLY_SOCKET_PASS')})});q.setTimeout(5000,()=>q.destroy(Error('Converter deadline')));q.on('error',e=>{console.error(e.message);process.exitCode=1});q.end('bad');";
 const converterBoundary="import os,socket\nfrom pathlib import Path\nassert os.getuid()==10001 and os.getgid()==10001\nassert not any(os.environ.get(k) for k in ['DATABASE_URL','LIVEKIT_API_SECRET','CASTLINK_SESSION_SECRET','CASTLINK_SETUP_TOKEN'])\nassert not Path('/data').exists()\ntry:\n Path('/app/readonly-probe').write_text('x')\n raise AssertionError('Runtime filesystem is writable')\nexcept OSError:pass\ns=socket.socket();s.settimeout(1)\nassert s.connect_ex(('1.1.1.1',443))!=0\ns.close()\nprint('CONVERTER_BOUNDARY_PASS')";
@@ -18,7 +22,7 @@ for(const file of ${JSON.stringify(operatorScripts)}) {
  const text=fs.readFileSync('/app/scripts/'+file,'utf8');
  for(const match of text.matchAll(/(?:from\\s+|import\\()(['"])(\\.\\/[^'"]+)\\1/g))if(!fs.existsSync(path.resolve('/app/scripts',match[2])))throw Error('Missing operator dependency');
 }
-if(requireWeb('pg/package.json').version!=='8.23.0')throw Error('pg missing');
+if(requireWeb('pg/package.json').version!==${JSON.stringify(pgVersion)})throw Error('pg missing');
 requireWeb('next');
 try {requireWeb.resolve('typescript');throw Error('TypeScript compiler shipped');}catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error;}
 if(!fs.existsSync('/app/LICENSE')||!fs.existsSync('/app/infrastructure/postgres/004_room_creator_access.sql'))throw Error('Runtime migration/notice missing');

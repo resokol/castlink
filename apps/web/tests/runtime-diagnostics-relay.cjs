@@ -6,6 +6,7 @@ const imports={'next/server':{NextResponse},'../../../../lib/super-admin-access'
   '../../../../lib/control-plane-store':{listControlNodes:async()=>[{nodeId,endpoint:'https://node.test'}]},
   '../../../../lib/node-request':{ownNodeId:()=> 'local',signedNodeFetch:async(endpoint,id,path)=>{assert.equal(endpoint,'https://node.test');assert.equal(id,'remote');remoteCalls++;lastPath=path;return relayData;}},
   '../../../../lib/node-history':{localNodeHistory:async params=>{localCalls++;assert.equal(params.get('diagnostics'),'runtime');assert.equal(params.get('room'),'media-tenant-one-Poker');return relayData.history;}},
+  '../../../../lib/room-diagnostics-export':{explicitDiagnosticsRange:()=>assert.fail('paged runtime history must not use episode bounds')},
   '../../../../lib/rate-limit':{consumeRateLimit:()=>({ok:true}),rateLimitHeaders:()=>({})}};
 const loaded={exports:{}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../app/api/super-admin/history/route.ts'),'utf8'),{

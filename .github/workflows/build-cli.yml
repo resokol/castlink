@@ -43,15 +43,15 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22.23.3
-      - uses: pnpm/action-setup@v4
+          node-version: 26.13.1
+      - uses: pnpm/action-setup@v6.1.1
         with:
-          version: 9.15.0
+          version: 12.23.0
           run_install: false
       - name: Check actual native runner and pinned build Node
         shell: bash
@@ -68,7 +68,7 @@ jobs:
           CLI_TARGET: ${{ matrix.target }}
         run: node scripts/ci-package-cli.mjs "$CLI_TARGET" "$RUNNER_TEMP/castlink-development-output"
       - name: Save private development archives and checksums (no server artifacts)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: development-NOT-INSTALLABLE-${{ matrix.target }}-${{ github.sha }}
           path: |

@@ -7,7 +7,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 root = Path(__file__).resolve().parents[3]
 out = Path(tempfile.mkdtemp(prefix='castlink-layout-qa-'))
 print('QA_OUTPUT',out,flush=True)
-compiled = subprocess.run(['node','-e',"const fs=require('fs'),ts=require('typescript'); process.stdout.write(ts.transpileModule(fs.readFileSync('lib/video-fit.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)"],cwd=root/'apps/web',capture_output=True,text=True,check=True).stdout
+compiled = subprocess.run(['node','-e',"const fs=require('fs'),ts=require('./tests/node_modules/typescript'); process.stdout.write(ts.transpileModule(fs.readFileSync('lib/video-fit.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)"],cwd=root/'apps/web',capture_output=True,text=True,check=True).stdout
 style = (root/'apps/web/node_modules/@livekit/components-styles/dist/general/index.css').as_uri()
 css = (root/'apps/web/app/globals.css').as_uri()
 head = '<meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><link rel="stylesheet" href="'+style+'"><link rel="stylesheet" href="'+css+'">'

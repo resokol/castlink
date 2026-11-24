@@ -11,6 +11,17 @@ const state = (id = 'deck:1:1') => ({ id, title: 'Deck', controller: 'You', page
   await adapter.update(state('deck:1:2'), true); assert.equal(shown.at(-1), 'deck:1:2');
   assert.deepEqual(opened, ['deck:1:1', 'deck:1:1', 'deck:1:2']);
   adapter.clear(); await new Promise(r => setImmediate(r)); assert.ok(hidden.includes('deck:1:2')); adapter.dispose();
+  const visibleGrants = [];
+  visible = true;
+  const existing = createCoPresentationControls({host:{},bridge,action(){},visibility:grant=>visibleGrants.push(grant)});
+  await existing.update(state());
+  assert.equal(existing.isVisible('deck:1:1'),true,'a native window can already be visible on the first update');
+  await existing.update(state());
+  visible = false;
+  await existing.update(state());
+  assert.deepEqual(visibleGrants,['deck:1:1',''],'poll detects external dismissal without reporting duplicate opens');
+  assert.equal(existing.isVisible('deck:1:1'),false);
+  existing.dispose();
   const explicitShows=[];let explicitVisible=false;
   const explicit=createCoPresentationControls({host:{},bridge:{...bridge,update:async()=>({visible:explicitVisible}),show:async s=>{explicitShows.push(s.id);explicitVisible=true;return{visible:true};}},action(){}});
   await explicit.update(state());await explicit.show();explicitVisible=false;
@@ -37,7 +48,7 @@ const state = (id = 'deck:1:1') => ({ id, title: 'Deck', controller: 'You', page
   const fallback = [], entryContext = { mounted:{current:true},recipientScope:{current:{}},currentControlsGrant:{current:'deck:1:1'},epoch:{current:1}, controls:{current:{show:async()=>true}}, recipientOnly:false, setNativeGrant:()=>fallback.push('clear'),setRecipientReopen:()=>fallback.push('recipient'), menu:{current:{showPopover:()=>fallback.push('owner')}} };
   const open = vm.runInNewContext(ts.transpileModule('('+showCurrent.getText(source)+')',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,entryContext);
   await open(); assert.deepEqual(fallback,[],'owner primary entry opens native directly');
-  entryContext.controls.current.show=async()=>false; await open(); assert.deepEqual(fallback,['clear','owner'],'native failure preserves owner import/actions popover');
+  entryContext.controls.current.show=async()=>false; await open(); assert.deepEqual(fallback,['owner'],'native failure preserves owner import/actions popover');
   entryContext.recipientOnly=true;await open();assert.equal(fallback.at(-1),'recipient','recipient gets usable inline fallback');
   for (const change of ['grant','scope','epoch','adapter','unmount']) {
     entryContext.mounted.current=true;entryContext.currentControlsGrant.current='deck:1:1';entryContext.epoch.current=1;

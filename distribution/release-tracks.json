@@ -4,6 +4,6 @@
   "tracks": {
     "client": { "version": "1.0.2", "branch": "main", "tagPrefix": "client-v" },
     "server-setup": { "version": "1.0.5", "branch": "main", "tagPrefix": "server-setup-v" },
-    "linux": { "version": "1.0.7", "branch": "main", "tagPrefix": "linux-v" }
+    "linux": { "version": "1.0.8", "branch": "main", "tagPrefix": "linux-v" }
   }
 }

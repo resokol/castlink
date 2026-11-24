@@ -18,7 +18,8 @@ function MonitorContent() {
   const { t, locale } = useI18n();
   const params = useSearchParams();
   const roomName = params.get("room") || "demo-room";
-  const [room] = useState(() => new Room({ adaptiveStream: true, dynacast: false }));
+  // LiveKit 1.13.11 signals congestion pauses on the dedicated subscriber transport.
+  const [room] = useState(() => new Room({ adaptiveStream: true, dynacast: false, singlePeerConnection: false }));
   const [status, setStatus] = useState("Подключение…");
   const [token, setToken] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -46,7 +47,7 @@ function MonitorContent() {
     let stopTelemetry: (() => void) | undefined;
     (async () => {
       try {
-        await room.connect(getLiveKitUrl(), token);
+        await room.connect(getLiveKitUrl(), token, { subscriberAllowPause: true });
         if (active) { stopTelemetry = startRoomTelemetry(room, roomName, token); setStatus("Онлайн · контроль конференции"); }
       } catch (e) {
         if (active) setStatus(e instanceof Error ? e.message : "Ошибка подключения");

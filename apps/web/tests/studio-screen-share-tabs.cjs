@@ -29,7 +29,7 @@ const context = {
   studioSettingsOpen: false, videoModeBusy: false, returnActive: true, previewReady: true,
 };
 for (const activeTab of ['studio', 'multiview', 'participants', 'statistics', 'servers', 'studio']) {
-  const sandbox = { ...context, activeTab };
+  const sandbox = { ...context, activeTab, result: undefined };
   vm.runInNewContext(code, sandbox);
   assert.equal(sandbox.result?.type, 'publishing-controls', `${activeTab}: publishing controls must remain mounted`);
   assert.equal(sandbox.result.props.screenShare?.type, 'screen-share', `${activeTab}: screen share must remain mounted`);

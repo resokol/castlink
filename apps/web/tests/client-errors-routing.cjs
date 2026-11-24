@@ -4,7 +4,7 @@ const {getMiddlewareMatchers}=require("next/dist/build/analysis/get-page-static-
 const {getMiddlewareRouteMatcher}=require("next/dist/shared/lib/router/utils/middleware-route-matcher");
 
 test("crash intake bypasses middleware body cloning without bypassing other API maintenance",()=>{
- const middleware=load("../middleware.ts",{"./lib/update-maintenance":{maintenanceResponse:()=>null}});
+ const middleware=load("../proxy.ts",{"./lib/update-maintenance":{maintenanceResponse:()=>null}});
  const match=getMiddlewareRouteMatcher(getMiddlewareMatchers(middleware.config.matcher,{}));
  for(const pathname of ["/api/client-errors","/api/client-errors/","/api/presentation-file","/api/presentation-file/"])assert.equal(match(pathname,{},{}),false,pathname);
  for(const pathname of ["/api","/api/version","/api/token","/api/client-errors-extra","/api/client-errors/child"])assert.equal(match(pathname,{},{}),true,pathname);

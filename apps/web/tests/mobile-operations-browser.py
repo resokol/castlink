@@ -9,9 +9,9 @@ options=webdriver.FirefoxOptions();options.add_argument('-headless');options.bin
 driver=webdriver.Firefox(service=Service(os.environ['CASTLINK_QA_GECKODRIVER']),options=options)
 driver.set_page_load_timeout(15);driver.set_script_timeout(10)
 css=(root/'apps/web/app/globals.css').as_uri()
-compile_js="const fs=require('fs'),ts=require('typescript');const s=fs.readFileSync('lib/fullscreen.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.fullscreen=exports;})();');"
+compile_js="const fs=require('fs'),ts=require('./tests/node_modules/typescript');const s=fs.readFileSync('lib/fullscreen.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.fullscreen=exports;})();');"
 fullscreen=subprocess.check_output(['node','-e',compile_js],cwd=root/'apps/web',text=True,encoding='utf-8')
-fit_js="const fs=require('fs'),ts=require('typescript');const s=fs.readFileSync('lib/video-fit.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.videoFit=exports;})();');"
+fit_js="const fs=require('fs'),ts=require('./tests/node_modules/typescript');const s=fs.readFileSync('lib/video-fit.ts','utf8');console.log('(function(){var exports={};'+ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText+';window.videoFit=exports;})();');"
 fit_script=subprocess.check_output(['node','-e',fit_js],cwd=root/'apps/web',text=True,encoding='utf-8')
 results=[]
 def page(html,width,height):

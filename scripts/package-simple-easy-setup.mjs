@@ -7,11 +7,11 @@ import releaseTracks from './release-track.cjs';
 import {buildServerBootstrap} from './package-server-bootstrap.mjs';
 async function sha256File(file){const hash=createHash('sha256');for await(const chunk of createReadStream(file))hash.update(chunk);return hash.digest('hex');}
 export const stockReferences = {
- postgres:'docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea',
- livekit:'docker.io/livekit/livekit-server@sha256:6fd3b7088874c4d119160dd688798dfec852bc014786d392caad15f6f63912a3',
- caddy:'docker.io/library/caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d'
+ postgres:'docker.io/library/postgres@sha256:9d9e487c1bd6413c52ccb3c02f46c8e37fa1e1d1a32a84519eb4e68d0ad1da30',
+ livekit:'docker.io/livekit/livekit-server@sha256:04668840140552c7e5d7faf28959cbf2256fb04ea641c4fd23ea69cbf3d7d105',
+ caddy:'docker.io/library/caddy@sha256:fc9cbc100585871d18d4e451cca7021785c90a7006087427ae5ceb3e4efe6424'
 };
-export const turnTlsBaseReference='docker.io/library/haproxy@sha256:5d97434a423c2533cfeb42874d45cf6d69a840b60334582dfbfd5008e94c80be';
+export const turnTlsBaseReference='docker.io/library/haproxy@sha256:58706d9d772602f369bac3604be2303dce0ebc795d1178ac496eb1d0d2528a91';
 export function imageReferences(commit) {
  if (!/^[a-f0-9]{40}$/.test(commit)) throw new Error('actual commit required');
  return Object.fromEntries(['web','postgres','livekit','caddy','turntls'].map(name=>[name,`castlink-easy-${name}:${commit}`]));

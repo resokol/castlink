@@ -21,15 +21,15 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22.23.3
-      - uses: pnpm/action-setup@v4
+          node-version: 26.13.1
+      - uses: pnpm/action-setup@v6.1.1
         with:
-          version: 9.15.0
+          version: 12.23.0
           run_install: false
       - name: Compile bounded CLI closure for kernel inventory only
         run: |
@@ -37,7 +37,7 @@ jobs:
           pnpm --filter @castlink/cli build
       - name: Compile CRT-free primary and audit static imports (never execute EXE)
         run: node scripts/build-windows-primary.mjs "${{ runner.temp }}\castlink-primary-kernel-${{ github.sha }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: private-primary-kernel-NOT-INSTALLABLE-${{ github.sha }}

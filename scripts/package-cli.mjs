@@ -7,10 +7,12 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
+export const NODE_RUNTIME_VERSION = '26.13.1';
+export const WINDOWS_NODE_SHA256 = 'f5109dc868ec38703ad8f305e0aceece717cb60d4889873f434017af4e96cccb';
 export const RUNTIMES = Object.freeze({
- 'win32-x64': Object.freeze({artifact:'node-v22.23.3-win-x64.zip',sha256:'2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71'}),
- 'darwin-arm64': Object.freeze({artifact:'node-v22.23.3-darwin-arm64.tar.gz',sha256:'23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53'}),
- 'darwin-x64': Object.freeze({artifact:'node-v22.23.3-darwin-x64.tar.gz',sha256:'8a677b0219178efd6eb0e475457c4afb452b521a92f6e67845a73bd85727f2a8'}),
+ 'win32-x64': Object.freeze({artifact:`node-v${NODE_RUNTIME_VERSION}-win-x64.zip`,binaryBytes:100089160,binarySha256:WINDOWS_NODE_SHA256,sha256:'e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f1f7'}),
+ 'darwin-arm64': Object.freeze({artifact:`node-v${NODE_RUNTIME_VERSION}-darwin-arm64.tar.gz`,binaryBytes:147366176,binarySha256:'266dec4dce3a6cdcf5cdc38722a00cf5ae6a12cc51068d2a227655bbb75751ec',sha256:'aec2514ea1ceb2ba52455e9ec65986f6749a06dd759e5db2a72e6889668c9735'}),
+ 'darwin-x64': Object.freeze({artifact:`node-v${NODE_RUNTIME_VERSION}-darwin-x64.tar.gz`,binaryBytes:150107376,binarySha256:'e85cb6dd5f916a2aa0d05a5874dcf7c69b1ebd7a5347d7ff912bb4d9339f5e23',sha256:'82bb96078a24ca50b9c9a38f2379e6be6d87171fcd400fc14c8934b3bce96e2f'}),
 });
 const MAX_FILE=128*1024*1024, MAX_CLI=16*1024*1024;
 const semver=/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/;
@@ -18,7 +20,27 @@ const sha=value=>createHash('sha256').update(value).digest('hex');
 function relative(name){if(typeof name!=='string'||!name||name.length>4096||/[:\\\x00-\x1f]/.test(name)||name.startsWith('/')||name.split('/').some(x=>!x||x==='.'||x==='..'))throw Error('Unsafe relative package path.');return name;}
 async function noLinks(p){let cursor=path.resolve(p);for(;;){const s=await lstat(cursor);if(s.isSymbolicLink())throw Error('Refusing symlink in input/output path.');const next=path.dirname(cursor);if(next===cursor)break;cursor=next;}}
 async function bytes(p,limit=MAX_FILE){await noLinks(p);const s=await lstat(p);if(!s.isFile()||s.size>limit)throw Error('Input must be a bounded regular file.');return readFile(p);}
-async function digest(p){await noLinks(p);const s=await lstat(p);if(!s.isFile()||s.size>MAX_FILE)throw Error('Input must be a bounded regular file.');const h=createHash('sha256');for await(const b of createReadStream(p))h.update(b);return h.digest('hex');}
+async function digest(p, runtimeRoot, target) {
+ await noLinks(p);
+ const s = await lstat(p);
+ if (!s.isFile()) throw Error('Input must be a bounded regular file.');
+ let pinned;
+ if (s.size > MAX_FILE) {
+  if (runtimeRoot) {
+   const arch = target ?? strictJson(await bytes(path.join(runtimeRoot,'cli-release.json'),1024*1024)).target;
+   if (arch === 'darwin-arm64' || arch === 'darwin-x64') pinned = RUNTIMES[arch];
+  }
+  if (!pinned || s.size !== pinned.binaryBytes) throw Error('Input must be a bounded regular file.');
+ }
+ const h = createHash('sha256');
+ for await (const block of createReadStream(p)) h.update(block);
+ const result = h.digest('hex');
+ if (pinned && result !== pinned.binarySha256) throw Error('Pinned executable checksum mismatch.');
+ return result;
+}
+function inventoryDigest(root, name, target) {
+ return digest(path.join(root, name), name === 'runtime/bin/node' ? root : undefined, target);
+}
 // Same duplicate-key boundary as CLI strict-json; kept package-only so the
 // developer packager never executes the compiled payload it is inspecting.
 function strictJson(data){
@@ -33,7 +55,7 @@ function fields(value,keys){if(!value||typeof value!=='object'||Array.isArray(va
 function arches(a){if(!Array.isArray(a)||!a.length||a.length>2||new Set(a).size!==a.length||a.some(x=>!['amd64','arm64'].includes(x)))throw Error('Invalid server architectures.');}
 export function serverManifest(m,architecture){
  fields(m,['schemaVersion','release','nodeVersion','architectures','images']);
- if(m.schemaVersion!==1||typeof m.release!=='string'||m.release.length>128||!semver.test(m.release)||m.nodeVersion!=='22.23.3')throw Error('Invalid server schema version/runtime.');
+ if(m.schemaVersion!==1||typeof m.release!=='string'||m.release.length>128||!semver.test(m.release)||!['22.23.3','26.13.1'].includes(m.nodeVersion))throw Error('Invalid server schema version/runtime.');
  arches(m.architectures);if(!m.architectures.includes(architecture))throw Error('Server architecture mismatch.');
  fields(m.images,['web','postgres','livekit','caddy']);for(const v of Object.values(m.images)){fields(v,['reference','architectures']);if(typeof v.reference!=='string'||v.reference.length>512||!/^[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}$/.test(v.reference))throw Error('Server image requires pinned digest.');arches(v.architectures);if(m.architectures.some(x=>!v.architectures.includes(x)))throw Error('Server image architecture mismatch.');}
 }
@@ -67,7 +89,7 @@ export async function writeLaunchers(root,target,pins){
 
 export async function verifyPackage(root){
  await noLinks(root);const sums=(await bytes(path.join(root,'SHA256SUMS'),1024*1024)).toString();const listed=[];
- for(const line of sums.trimEnd().split('\n')){const m=/^([a-f0-9]{64})  (.+)$/.exec(line);if(!m)throw Error('Invalid package integrity inventory.');const n=relative(m[2]);if(listed.includes(n)||await digest(path.join(root,n))!==m[1])throw Error('Package integrity checksum mismatch.');listed.push(n);}
+ for(const line of sums.trimEnd().split('\n')){const m=/^([a-f0-9]{64})  (.+)$/.exec(line);if(!m)throw Error('Invalid package integrity inventory.');const n=relative(m[2]);if(listed.includes(n)||await inventoryDigest(root,n)!==m[1])throw Error('Package integrity checksum mismatch.');listed.push(n);}
  if(JSON.stringify(listed.sort())!==JSON.stringify((await files(root)).filter(n=>n!=='SHA256SUMS')))throw Error('Package integrity inventory mismatch.');
  return true;
 }
@@ -85,19 +107,19 @@ export async function packageCli(options){
  try{await mkdir(destination,{mode:0o700});}catch(e){if(e.code==='EEXIST')throw Error('Output exists; refusing overwrite or partial output reuse.');throw Error('Cannot create development output.');}
  const rootName=`castlink-${pkg.version}-${target}`,root=path.join(destination,rootName);await mkdir(root);
  try{
-  await mkdir(path.join(root,'runtime'));archiveIO(['extract',path.resolve(runtimeArchive),runtime.artifact.replace(/\.(zip|tar\.gz)$/,''),path.join(root,'runtime'),target]);
+  await mkdir(path.join(root,'runtime'));archiveIO(['extract',path.resolve(runtimeArchive),runtime.artifact.replace(/\.(zip|tar\.gz)$/,''),path.join(root,'runtime'),target,String(runtime.binaryBytes)]);
   await put(root,'cli/package.json',JSON.stringify({name:'@castlink/cli',version:pkg.version,private:true,type:'module',license:'MIT'},null,2)+'\n');
   for(const [n,b] of Object.entries(contents))await put(root,'cli/'+n,b);
   await put(root,'server/release.json',serverBytes);
   await put(root,'LICENSE',await readFile(new URL('../LICENSE',import.meta.url)));
-  await put(root,'THIRD_PARTY_NOTICES',`Node.js 22.23.3: https://nodejs.org/dist/v22.23.3/\nThe complete original aggregate Node.js license and third-party notices are preserved in runtime/LICENSE.\nDocker Desktop is not included. Server container images are not included; their redistribution rights and notices are unverified.\nCastLink-owned source code: MIT; see LICENSE. Third-party runtime components retain their own licenses.\n`);
+  await put(root,'THIRD_PARTY_NOTICES',`Node.js 26.13.1: https://nodejs.org/dist/v26.13.1/\nThe complete original aggregate Node.js license and third-party notices are preserved in runtime/LICENSE.\nDocker Desktop is not included. Server container images are not included; their redistribution rights and notices are unverified.\nCastLink-owned source code: MIT; see LICENSE. Third-party runtime components retain their own licenses.\n`);
   await put(root,'DEVELOPMENT.txt',`DEVELOPMENT ONLY. CastLink-owned code is MIT licensed; signing, notarization and Windows/macOS acceptance remain unverified.\nBundled CLI/runtime only; server images are not included. Setup may need network and artifact access.\nServer manifest release: ${server.release}. Manifest-only; image availability and installability are unverified.\nSHA-256 detects corruption against the supplied launcher integrity roots; it is not an authenticated signature.\nLauncher pins runtime and integrity.mjs before Node execution; bootstrap pins metadata and all other payload files.\nLauncher/bootstrap and SHA256SUMS are excluded from bootstrap records to avoid cycles; SHA256SUMS inventories every other file including launcher/bootstrap.\nDeveloper host requires Node and Python 3. Launcher requires standard OS shasum (macOS) or certutil/findstr (Windows), and fails closed if checks fail.\n`);
-  const records={};for(const n of await files(root))records[n]=await digest(path.join(root,n));
-  const metadata={schemaVersion:1,cliVersion:pkg.version,target,distribution:'development-only',projectLicense:'MIT',signing:'unverified',platformAcceptance:'unverified',runtime:{version:'22.23.3',url:`https://nodejs.org/dist/v22.23.3/${runtime.artifact}`,sha256:runtime.sha256},server:{release:server.release,path:'server/release.json',sha256:sha(serverBytes),artifacts:'manifest-only'},files:records};
+  const records={};for(const n of await files(root))records[n]=await inventoryDigest(root,n,target);
+  const metadata={schemaVersion:1,cliVersion:pkg.version,target,distribution:'development-only',projectLicense:'MIT',signing:'unverified',platformAcceptance:'unverified',runtime:{version:'26.13.1',url:`https://nodejs.org/dist/v26.13.1/${runtime.artifact}`,sha256:runtime.sha256},server:{release:server.release,path:'server/release.json',sha256:sha(serverBytes),artifacts:'manifest-only'},files:records};
   await put(root,'cli-release.json',JSON.stringify(metadata,null,2)+'\n');records['cli-release.json']=await digest(path.join(root,'cli-release.json'));
   await put(root,'integrity.mjs',buildBootstrap(records));
   const runtimePath=target==='win32-x64'?'runtime/node.exe':'runtime/bin/node';await writeLaunchers(root,target,{runtime:records[runtimePath],bootstrap:await digest(path.join(root,'integrity.mjs'))});
-  const all=await files(root),lines=[];for(const n of all)lines.push(`${await digest(path.join(root,n))}  ${n}`);await put(root,'SHA256SUMS',lines.join('\n')+'\n');await verifyPackage(root);
+  const all=await files(root),lines=[];for(const n of all)lines.push(`${await inventoryDigest(root,n,target)}  ${n}`);await put(root,'SHA256SUMS',lines.join('\n')+'\n');await verifyPackage(root);
   const archive=path.join(destination,rootName+(target==='win32-x64'?'.zip':'.tar.gz'));archiveIO(['create',root,archive,target]);const archiveSha256=await digest(archive);await writeFile(archive+'.sha256',`${archiveSha256}  ${path.basename(archive)}\n`,{flag:'wx'});
   return {root,archive,archiveSha256,distribution:'development-only'};
  }catch(e){throw Error(`${e.message} Partial development output is retained; use a new output directory after diagnosis.`);}

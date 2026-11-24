@@ -53,11 +53,11 @@ test('Darwin launcher invocation keeps direct argv and default Unix escaping', a
 test('CI driver rejects a mismatched native runner and non-pinned build Node', async () => {
  const {assertNative} = await api();
  for (const [target, platform, arch] of [['win32-x64','win32','x64'],['darwin-arm64','darwin','arm64'],['darwin-x64','darwin','x64']]) {
-  assert.doesNotThrow(() => assertNative(target,{platform,arch,version:'v22.23.3'}));
-  assert.throws(() => assertNative(target,{platform:'linux',arch,version:'v22.23.3'}), /matching native runner/);
-  assert.throws(() => assertNative(target,{platform,arch,version:'v24.0.0'}), /22.23.3/);
+  assert.doesNotThrow(() => assertNative(target,{platform,arch,version:'v26.13.1'}));
+  assert.throws(() => assertNative(target,{platform:'linux',arch,version:'v26.13.1'}), /matching native runner/);
+  assert.throws(() => assertNative(target,{platform,arch,version:'v24.0.0'}), /26.13.1/);
  }
- assert.throws(() => assertNative('darwin-arm64',{platform:'darwin',arch:'x64',version:'v22.23.3'}), /matching native runner/);
+ assert.throws(() => assertNative('darwin-arm64',{platform:'darwin',arch:'x64',version:'v26.13.1'}), /matching native runner/);
  assert.throws(() => assertNative('linux-x64'), /Unsupported target/);
 });
 test('upstream checksum listing must match the checked runtime pin, uniquely', async () => {
@@ -86,7 +86,7 @@ test('archive smoke verifies companion checksum before extracting any payload', 
 test('CI fixture is conspicuously non-installable, versioned and credential-free', async () => {
  const fixture=JSON.parse(await readFile(new URL('../fixtures/ci-server-manifest.json',import.meta.url),'utf8'));
  assert.equal(fixture.release,'0.0.0-dev-ci-fixture-NOT-INSTALLABLE');
- assert.equal(fixture.nodeVersion,'22.23.3');
+ assert.equal(fixture.nodeVersion,'26.13.1');
  assert.deepEqual(fixture.architectures,['amd64','arm64']);
  for (const [name,image] of Object.entries(fixture.images)) {
   assert.equal(image.reference,`example.invalid/development-not-installable/${name}@sha256:${'0'.repeat(64)}`);
@@ -113,7 +113,7 @@ test('packaging CI fixture keeps non-installable release visible and original No
  const notices=await readFile(path.join(result.root,'THIRD_PARTY_NOTICES'),'utf8');
  assert.match(notices,/runtime\/LICENSE/);
  assert.match(notices,/Docker Desktop is not included/);
- assert.equal(createHash('sha256').update(await readFile(path.join(result.root,'runtime/LICENSE'))).digest('hex'),'8cc9bb466b19fc7e7cc99d03e9df1132021fda8b01eea2624c58bb372dbef576');
+ assert.equal(createHash('sha256').update(await readFile(path.join(result.root,'runtime/LICENSE'))).digest('hex'),'cbc91dba25c546898544155e1c0fce897f00e3f1df0afc795b8da891d38f92d9');
  assert.equal(await verifyPackage(result.root),true);
 });
 test('workflow is read-only, private-artifact-only with exact native runner matrix', async () => {
@@ -128,7 +128,7 @@ test('workflow is read-only, private-artifact-only with exact native runner matr
  assert.equal(job.if,"${{ github.event.repository.private }}");
  assert.deepEqual(job.strategy.matrix.include,[{target:'win32-x64',runner:'windows-2025'},{target:'darwin-arm64',runner:'macos-15'},{target:'darwin-x64',runner:'macos-15-intel'}]);
  const node=job.steps.find(step=>step.uses?.startsWith('actions/setup-node@'));
- assert.equal(node.with['node-version'],'22.23.3');
+ assert.equal(node.with['node-version'],'26.13.1');
  const text=await readFile(workflow,'utf8');
  assert.doesNotMatch(text,/secrets\.|gh release|packages: write|contents: write|pull_request|persist-credentials: true/);
  assert.match(text,/persist-credentials: false/);

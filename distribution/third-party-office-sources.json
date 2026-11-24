@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "scope": "Additional exact Debian corresponding-source inputs for LibreOffice Impress, Python conversion worker, fonts and their runtime dependencies; supplements the unchanged primary source sidecar.",
+  "scope": "Additional exact Debian corresponding-source inputs for the pinned LibreOffice Impress, Python conversion worker, fonts and their runtime dependencies. Supplements the primary source sidecar.",
   "supplements": "third-party-sources.json",
-  "nodeImage": "node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+  "nodeImage": "node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1",
   "runtimeDebianSources": [
     {
       "source": "abseil",
@@ -18,7 +18,7 @@
     },
     {
       "source": "apt",
-      "version": "2.6.1"
+      "version": "2.6.2"
     },
     {
       "source": "attr",
@@ -83,10 +83,6 @@
     {
       "source": "curl",
       "version": "7.88.1-10+deb12u15"
-    },
-    {
-      "source": "cyrus-sasl2",
-      "version": "2.1.28+dfsg-10"
     },
     {
       "source": "cyrus-sasl2",
@@ -186,7 +182,7 @@
     },
     {
       "source": "gpgme1.0",
-      "version": "1.18.0-3"
+      "version": "1.18.0-3+deb12u1"
     },
     {
       "source": "graphite2",
@@ -554,10 +550,6 @@
     },
     {
       "source": "openssl",
-      "version": "3.0.22-1~deb12u1"
-    },
-    {
-      "source": "openssl",
       "version": "3.0.22-1~deb12u2"
     },
     {
@@ -578,7 +570,7 @@
     },
     {
       "source": "perl",
-      "version": "5.36.0-7+deb12u3"
+      "version": "5.36.0-7+deb12u4"
     },
     {
       "source": "pinentry",
@@ -654,7 +646,7 @@
     },
     {
       "source": "tzdata",
-      "version": "2026c-0+deb12u1"
+      "version": "2026f-0+deb12u1"
     },
     {
       "source": "ucf",
@@ -900,27 +892,6 @@
       "sha256": "7a5a55d7123149a1b357f298cf895bd0a601e3a2807005ef6c95f3752803485f",
       "size": 488,
       "component": "curl 7.88.1-10+deb12u15"
-    },
-    {
-      "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg-10.debian.tar.xz",
-      "path": "debian/cyrus-sasl2_2.1.28+dfsg-10.debian.tar.xz",
-      "sha256": "8c94a1c1982a1603d13ef055b0d2511054db4a43cbb1224702f31e5d985136b1",
-      "size": 97056,
-      "component": "cyrus-sasl2 2.1.28+dfsg-10"
-    },
-    {
-      "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg-10.dsc",
-      "path": "debian/cyrus-sasl2_2.1.28+dfsg-10.dsc",
-      "sha256": "cb9c913a6f4716456c93ed205dfef84915a37cf2c994160564e8336e86831d7a",
-      "size": 3324,
-      "component": "cyrus-sasl2 2.1.28+dfsg-10"
-    },
-    {
-      "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg.orig.tar.xz",
-      "path": "debian/cyrus-sasl2_2.1.28+dfsg.orig.tar.xz",
-      "sha256": "a15886d7da5958bd27f35b7c871dd872f6dc5b9917c9b6b15e3de014c7dab3d9",
-      "size": 797472,
-      "component": "cyrus-sasl2 2.1.28+dfsg-10"
     },
     {
       "url": "https://security.debian.org/debian-security/pool/updates/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg-10+deb12u1.debian.tar.xz",
@@ -1175,32 +1146,32 @@
       "component": "glib2.0 2.74.6-2+deb12u9"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/g/gpgme1.0/gpgme1.0_1.18.0-3.debian.tar.xz",
-      "path": "debian/gpgme1.0_1.18.0-3.debian.tar.xz",
-      "sha256": "1cef1b54c5e68bf0779287662a482ca1f8d0d6166df7c6b25ddafab680dcdd80",
-      "size": 26436,
-      "component": "gpgme1.0 1.18.0-3"
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/g/gpgme1.0/gpgme1.0_1.18.0-3+deb12u1.debian.tar.xz",
+      "path": "debian/gpgme1.0_1.18.0-3+deb12u1.debian.tar.xz",
+      "sha256": "97f7225e7086ce54b38ce7808472eb402d31b8f8605eb1cc22ab7bde67b3e8cd",
+      "size": 27076,
+      "component": "gpgme1.0 1.18.0-3+deb12u1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/g/gpgme1.0/gpgme1.0_1.18.0-3.dsc",
-      "path": "debian/gpgme1.0_1.18.0-3.dsc",
-      "sha256": "568e0a8f342ab129c8761bbbd30e54934102914141b8e38c9f504be9d4d1de5a",
-      "size": 2258,
-      "component": "gpgme1.0 1.18.0-3"
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/g/gpgme1.0/gpgme1.0_1.18.0-3+deb12u1.dsc",
+      "path": "debian/gpgme1.0_1.18.0-3+deb12u1.dsc",
+      "sha256": "9ef494dfc8a55470fce45b555db3caf94f70fb0e831801934aba70926c68043d",
+      "size": 3048,
+      "component": "gpgme1.0 1.18.0-3+deb12u1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/g/gpgme1.0/gpgme1.0_1.18.0.orig.tar.bz2",
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/g/gpgme1.0/gpgme1.0_1.18.0.orig.tar.bz2",
       "path": "debian/gpgme1.0_1.18.0.orig.tar.bz2",
       "sha256": "361d4eae47ce925dba0ea569af40e7b52c645c4ae2e65e5621bf1b6cdd8b0e9e",
       "size": 1762323,
-      "component": "gpgme1.0 1.18.0-3"
+      "component": "gpgme1.0 1.18.0-3+deb12u1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/g/gpgme1.0/gpgme1.0_1.18.0.orig.tar.bz2.asc",
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/g/gpgme1.0/gpgme1.0_1.18.0.orig.tar.bz2.asc",
       "path": "debian/gpgme1.0_1.18.0.orig.tar.bz2.asc",
       "sha256": "61efa5372ea178285b3ebf8be8c26edac2ac883a9cd6085e4ad608b6c2f772b6",
       "size": 390,
-      "component": "gpgme1.0 1.18.0-3"
+      "component": "gpgme1.0 1.18.0-3+deb12u1"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/g/graphite2/graphite2_1.3.14-1+deb12u1.debian.tar.xz",
@@ -2706,34 +2677,6 @@
       "sha256": "1d95c400a3eae6730246614ef16883de3dbd1b14b01a1ebe3a9aa1ccad2c13ec",
       "size": 3727704,
       "component": "openldap 2.5.13+dfsg-5"
-    },
-    {
-      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22-1~deb12u1.debian.tar.xz",
-      "path": "debian/openssl_3.0.22-1~deb12u1.debian.tar.xz",
-      "sha256": "08ee68527218d6d9a0fa4741ec8ffef47646cdcad0ed0822b84bf11677c66108",
-      "size": 56848,
-      "component": "openssl 3.0.22-1~deb12u1"
-    },
-    {
-      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22-1~deb12u1.dsc",
-      "path": "debian/openssl_3.0.22-1~deb12u1.dsc",
-      "sha256": "9eb196075ff65fed9512c743d5ccf918b77c3c637f6d518e4be550cf9065c655",
-      "size": 2742,
-      "component": "openssl 3.0.22-1~deb12u1"
-    },
-    {
-      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22.orig.tar.gz",
-      "path": "debian/openssl_3.0.22.orig.tar.gz",
-      "sha256": "67ebca7e50d17383028045486653492195b83db95f8558709701bb47b5c1ef81",
-      "size": 15330396,
-      "component": "openssl 3.0.22-1~deb12u1"
-    },
-    {
-      "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22.orig.tar.gz.asc",
-      "path": "debian/openssl_3.0.22.orig.tar.gz.asc",
-      "sha256": "b0cc4a379a7731c3a74c349f6756d85253d83099fd63352cf12407bce4395d19",
-      "size": 931,
-      "component": "openssl 3.0.22-1~deb12u1"
     },
     {
       "url": "https://security.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.0.22-1~deb12u2.debian.tar.xz",

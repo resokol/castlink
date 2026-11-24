@@ -5,7 +5,7 @@ const { createRequire } = require('node:module'), { spawn } = require('node:chil
 const web = path.resolve(__dirname, '..'), req = createRequire(path.join(web, 'package.json'));
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'castlink-media-menus-'));
 const write = (name, value) => { const file = path.join(out, name); fs.writeFileSync(file, value); return file; };
-const loader = write('loader.cjs', `const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
+const loader = write('loader.cjs', `const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;`);
 const cssLoader = write('css-loader.cjs', `module.exports=s=>{const names=Object.fromEntries([...s.matchAll(/\\.([a-zA-Z_][\\w-]*)/g)].map(m=>[m[1],m[1]]));return 'const style=document.createElement("style");style.textContent='+JSON.stringify(s)+';document.head.append(style);export default '+JSON.stringify(names)};`);
 const i18n = write('i18n.ts', `export const useI18n=()=>({locale:'ru',t:(value:string)=>value});`);
 const entry = write('entry.tsx', `
@@ -20,7 +20,7 @@ return <main className="guest-room-page guest-app-shell graphite-workspace caste
 let server, chrome, socket;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 (async () => {
-  const webpack = req('next/dist/compiled/webpack/webpack'); webpack.init();
+  const webpack = req('next/dist/compiled/webpack/webpack');
   await new Promise((resolve, reject) => webpack.webpack({ mode: 'development', entry, devtool: false, output: { path: out, filename: 'bundle.js' }, resolve: { extensions: ['.ts','.tsx','.js','.mjs'], modules: [path.join(web, 'node_modules'), 'node_modules'], alias: { '@': web, [path.join(web, 'components/I18nProvider.tsx')]: i18n } }, module: { rules: [{ test: /\.tsx?$/, use: loader }, { test: /\.css$/, use: cssLoader }] }, optimization: { minimize: false } }, (error, stats) => error ? reject(error) : stats.hasErrors() ? reject(Error(stats.toString({ all: false, errors: true }))) : resolve()));
   server = http.createServer((request, response) => {
     const files = { '/bundle.js': path.join(out, 'bundle.js'), '/globals.css': path.join(web, 'app/globals.css'), '/graphite.css': path.join(web, 'app/graphite-workspace.css'), '/livekit.css': req.resolve('@livekit/components-styles') };

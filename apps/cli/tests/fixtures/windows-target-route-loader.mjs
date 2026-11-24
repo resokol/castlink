@@ -1,7 +1,7 @@
 // Test-only broker seam: actual fixed controller and Worker catalogs remain intact.
 // Synthetic win32/path/FS is a dispatch proof, never physical Windows readiness.
-export async function load(url,context,nextLoad){
- const result=await nextLoad(url,context);if(url!==new URL('../../dist/windows-database-worker.js',import.meta.url).href)return result;
+export function load(url,context,nextLoad){
+ const result=nextLoad(url,context);if(url!==new URL('../../dist/windows-database-worker.js',import.meta.url).href)return result;
  let source=String(result.source);
  if(!source.includes("import { Worker } from 'node:worker_threads';")||!source.includes('async function runFixedWindowsTarget('))throw Error('current fixed target controller fixture seam changed');
  source=source.replace("import { Worker } from 'node:worker_threads';",`import {Worker as ActualWorker} from 'node:worker_threads';

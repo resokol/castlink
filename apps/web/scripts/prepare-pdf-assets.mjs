@@ -14,7 +14,9 @@ export async function preparePdfAssets(publicDirectory=publicDefault,vendorDirec
   await removePresentationAssets(publicDirectory);
   const output=join(publicDirectory,'pdfjs');await mkdir(output,{recursive:true});
   const copy=async(source,target)=>{await mkdir(dirname(target),{recursive:true});await copyFile(source,target);};
-  await copy(join(vendorDirectory,'build/pdf.worker.min.mjs'),join(output,'pdf.worker.min.mjs'));
+  for (const name of ['pdf.worker.min.mjs', 'pdf.renderer.min.mjs']) {
+    await copy(join(vendorDirectory, 'build', name), join(output, name));
+  }
   await copy(join(vendorDirectory,'LICENSE'),join(output,'LICENSE'));
   const {version}=JSON.parse(await readFile(join(vendorDirectory,'package.json'),'utf8'));
   await writeFile(join(output,'.version'),version);

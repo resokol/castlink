@@ -21,6 +21,7 @@ import { ScreenShareButton } from "@/components/ScreenShareButton";
 import { GuestCameraButton } from "@/components/GuestCameraButton";
 import { RoomReactions } from "@/components/RoomReactions";
 import { RoomChat } from "@/components/RoomChat";
+import { MonitorVideoPauseBadge } from "./MonitorVideoPauseBadge";
 import type { RoomChatSession } from "@/lib/use-persistent-room-chat";
 import { useRoomContext, useEnsureTrackRef, type ParticipantTileProps, useTracks, ParticipantTile, AudioTrack, ControlBar, ChatToggle, LayoutContextProvider, useCreateLayoutContext } from "@livekit/components-react";
 function RotatedParticipantTile(props: ParticipantTileProps & {displayName?:string;readOnly?:boolean}) {
@@ -56,6 +57,7 @@ function RotatedParticipantTile(props: ParticipantTileProps & {displayName?:stri
   }, []);
   return <div className="castlink-tile-shell" tabIndex={grant || remoteInput.available ? 0 : undefined} aria-label={grant ? (locale === 'ru' ? 'Презентация: стрелки влево/вправо, щелчок — вперёд' : locale === 'en' ? 'Presentation: left/right arrows, click for next' : '演示：左右方向键，点击下一页') : undefined} onKeyDown={input} onClick={input} data-remote-pc-alias={!!props.displayName || undefined} data-presentation-controls={!!grant || undefined} data-local-camera={track.participant.isLocal && track.source === Track.Source.Camera || undefined} ref={shell}>
     <ParticipantTile {...props} ref={ref} />
+    {props.readOnly && <MonitorVideoPauseBadge connection={room.state} publication={track.publication} />}
     {props.displayName && <span className="remote-pc-owner-label">{props.displayName}</span>}
     <RemotePcTileControls control={remoteInput} />
     {!props.readOnly && track.participant.isLocal && track.source===Track.Source.ScreenShare && <RemotePcOwnerStatus room={room} />}

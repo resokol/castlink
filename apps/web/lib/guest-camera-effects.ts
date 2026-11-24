@@ -13,7 +13,7 @@ const unsupported = "Этот браузер не поддерживает эф�
 const failed = "Не удалось применить эффект фона камеры. Попробуйте отключить эффект или выбрать другое изображение.";
 const pacedSegmenters = new WeakSet<object>();
 
-/** Pinned track-processors 0.8.2 retains its WebGL mask when a result has no mask.
+/** Pinned track-processors 0.8.3 retains its WebGL mask when a result has no mask.
  * Budget only synchronous inference, keeping every frame on the compositor path.
  * maxFps in the upstream wrapper bounds only its canvas fallback, not inference.
  */

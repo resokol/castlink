@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, writeFile, readFile, readdir, copyFile, chmod, symlink, access, unlink} from 'node:fs/promises';
+import {mkdtemp, mkdir, writeFile, readFile, readdir, copyFile, chmod, symlink, access, unlink, truncate, rm} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const source = new URL('../package-cli.mjs', import.meta.url);
-const runtimeHash = target => ({'win32-x64':'2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71','darwin-arm64':'23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53','darwin-x64':'8a677b0219178efd6eb0e475457c4afb452b521a92f6e67845a73bd85727f2a8'})[target];
+const runtimeHash = target => ({'win32-x64':'e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f1f7','darwin-arm64':'aec2514ea1ceb2ba52455e9ec65986f6749a06dd759e5db2a72e6889668c9735','darwin-x64':'82bb96078a24ca50b9c9a38f2379e6be6d87171fcd400fc14c8934b3bce96e2f'})[target];
 const hash = b => createHash('sha256').update(b).digest('hex');
 async function api() { assert.ok(existsSync(source), 'offline package implementation is missing'); return import(source); }
 async function fixture() {
@@ -18,7 +18,7 @@ async function fixture() {
  await writeFile(path.join(dist,'other.js'),'export const value=1;\n');
  const cliPackage=path.join(base,'package.json');await writeFile(cliPackage,JSON.stringify({version:'0.1.0-dev',type:'module',private:true}));
  const serverManifest=path.join(base,'release.json');
- const server={schemaVersion:1,release:'1.2.3',nodeVersion:'22.23.3',architectures:['amd64','arm64'],images:Object.fromEntries(['web','postgres','livekit','caddy'].map(x=>[x,{reference:`example/${x}@sha256:${'a'.repeat(64)}`,architectures:['amd64','arm64']}]))};
+ const server={schemaVersion:1,release:'1.2.3',nodeVersion:'26.13.1',architectures:['amd64','arm64'],images:Object.fromEntries(['web','postgres','livekit','caddy'].map(x=>[x,{reference:`example/${x}@sha256:${'a'.repeat(64)}`,architectures:['amd64','arm64']}]))};
  await writeFile(serverManifest,JSON.stringify(server));
  return {base,dist,cliPackage,serverManifest,server,output:path.join(base,'output'),development:true};
 }
@@ -28,8 +28,23 @@ test('development mode is explicit and a bad runtime checksum writes no output',
  await assert.rejects(packageCli({...f,target:'win32-x64',runtimeArchive}),/checksum/i);
  assert.equal(existsSync(f.output),false);
 });
+test('large Darwin runtime exception requires the pinned bytes as well as the size', async t => {
+ const {verifyPackage,RUNTIMES}=await api();
+ const root=await mkdtemp(path.join(tmpdir(),'castlink-large-runtime-'));
+ t.after(()=>rm(root,{recursive:true,force:true}));
+ const binary=path.join(root,'runtime/bin/node');
+ await mkdir(path.dirname(binary),{recursive:true});
+ await writeFile(binary,'');
+ await writeFile(path.join(root,'cli-release.json'),JSON.stringify({target:'darwin-arm64'}));
+ const size=RUNTIMES['darwin-arm64'].binaryBytes;
+ await truncate(binary,size);
+ await writeFile(path.join(root,'SHA256SUMS'),'0'.repeat(64)+'  runtime/bin/node\n');
+ await assert.rejects(verifyPackage(root),/pinned executable checksum/i);
+ await truncate(binary,size+1);
+ await assert.rejects(verifyPackage(root),/bounded regular file/i);
+});
 test('all pinned upstream targets produce versioned development archives and complete ESM inventories',async()=>{
- const {packageCli,verifyPackage,RUNTIMES}=await api();
+ const {packageCli,verifyPackage,RUNTIMES,WINDOWS_NODE_SHA256}=await api();
  for(const target of Object.keys(RUNTIMES)){
   const f=await fixture(), runtimeArchive=`/tmp/castlink-${RUNTIMES[target].artifact}`;
   assert.ok(existsSync(runtimeArchive),'cached checksum-verified archive required for this layout proof');
@@ -41,9 +56,10 @@ test('all pinned upstream targets produce versioned development archives and com
   assert.equal(metadata.runtime.sha256,RUNTIMES[target].sha256);assert.equal(metadata.server.release,'1.2.3');
   assert.equal(JSON.parse(await readFile(path.join(r.root,'cli/package.json'),'utf8')).type,'module');
   assert.equal(await readFile(path.join(r.root,'cli/other.js'),'utf8'),'export const value=1;\n');
-  const license=await readFile(path.join(r.root,'runtime/LICENSE'));assert.ok(license.length>140000);assert.equal(hash(license),target==='win32-x64'?'8cc9bb466b19fc7e7cc99d03e9df1132021fda8b01eea2624c58bb372dbef576':'c738ae413cf561f174e34f6961f8ca458aae2369a73640dda6234c629b98bcc4');
+  const license=await readFile(path.join(r.root,'runtime/LICENSE'));assert.ok(license.length>140000);assert.equal(hash(license),target==='win32-x64'?'cbc91dba25c546898544155e1c0fce897f00e3f1df0afc795b8da891d38f92d9':'8e603aa87c70d36e497004f0dec63111511cb61b7d65ace12e10ea791599286c');
+  if(target==='win32-x64')assert.equal(hash(await readFile(path.join(r.root,'runtime/node.exe'))),WINDOWS_NODE_SHA256,'Windows primary must accept the exact executable from the pinned release archive');
   await verifyPackage(r.root);assert.equal(hash(await readFile(r.archive)),r.archiveSha256);
-  const schema=JSON.parse(await readFile(new URL('../../infrastructure/self-hosted/cli-release.schema.json',import.meta.url),'utf8'));assert.deepEqual(Object.keys(metadata).sort(),schema.required.slice().sort());assert.equal(schema.allOf.find(rule=>rule.if.properties.target.const===target).then.properties.runtime.properties.sha256.const,runtimeHash(target));
+  const schema=JSON.parse(await readFile(new URL('../../infrastructure/self-hosted/cli-release.schema.json',import.meta.url),'utf8'));assert.deepEqual(Object.keys(metadata).sort(),schema.required.slice().sort());assert.equal(schema.allOf.find(rule=>rule.if.properties.target.const===target).then.properties.runtime.oneOf.find(pin=>pin.properties.version.const===metadata.runtime.version).properties.sha256.const,runtimeHash(target));
   const inventory=spawnSync('python3',['-c',`import sys,zipfile,tarfile,json; p=sys.argv[1]; print(json.dumps(zipfile.ZipFile(p).namelist() if p.endswith('.zip') else tarfile.open(p).getnames()))`,r.archive],{encoding:'utf8'});
   assert.equal(inventory.status,0,inventory.stderr);const names=JSON.parse(inventory.stdout);
   assert.ok(names.includes(`${path.basename(r.root)}/cli/main.js`));assert.ok(names.every(n=>n.startsWith(path.basename(r.root)+'/')));
@@ -56,7 +72,7 @@ test('all pinned upstream targets produce versioned development archives and com
  }
 });
 test('unsafe dist content, server fields and output ancestors fail before output',async()=>{
- const {packageCli}=await api(), f=await fixture(); const runtimeArchive='/tmp/castlink-node-v22.23.3-darwin-arm64.tar.gz';
+ const {packageCli}=await api(), f=await fixture(); const runtimeArchive='/tmp/castlink-node-v26.13.1-darwin-arm64.tar.gz';
  await writeFile(path.join(f.dist,'.env'),'secret');await assert.rejects(packageCli({...f,target:'darwin-arm64',runtimeArchive}),/dist|unsupported/i);assert.equal(existsSync(f.output),false);
  const g=await fixture();g.server.extra=true;await writeFile(g.serverManifest,JSON.stringify(g.server));await assert.rejects(packageCli({...g,target:'darwin-arm64',runtimeArchive}),/schema|fields/i);
  const h=await fixture();await symlink(h.dist,path.join(h.base,'link'));await assert.rejects(packageCli({...h,dist:path.join(h.base,'link'),target:'darwin-arm64',runtimeArchive}),/symlink/i);
@@ -80,7 +96,7 @@ test('Linux fixture launcher uses bundled runtime outside cwd without global Nod
 test('duplicate escaped schema keys are refused before archive/output work',async()=>{
  const {packageCli}=await api(),f=await fixture();
  await writeFile(f.serverManifest,JSON.stringify(f.server).replace('"schemaVersion":1','"schemaVersion":0,"schema\\u0056ersion":1'));
- await assert.rejects(packageCli({...f,target:'darwin-arm64',runtimeArchive:'/tmp/castlink-node-v22.23.3-darwin-arm64.tar.gz'}),/duplicate/i);
+ await assert.rejects(packageCli({...f,target:'darwin-arm64',runtimeArchive:'/tmp/castlink-node-v26.13.1-darwin-arm64.tar.gz'}),/duplicate/i);
  assert.equal(existsSync(f.output),false);
 });
 test('developer archive interpreter uses Windows py -3 and Unix python3 with fixed argv prefixes',async()=>{

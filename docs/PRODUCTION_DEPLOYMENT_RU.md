@@ -26,7 +26,7 @@
 
 Сделать установку и обновление воспроизводимыми и убрать зависимость от набора ручных команд конкретного VPS.
 
-Эта схема не меняет существующую сетевую архитектуру LiveKit/Caddy/HAProxy. Production compose в `infrastructure/production` управляет web + PostgreSQL; медиасервисы остаются отдельным слоем.
+Эта схема не меняет существующую сетевую архитектуру LiveKit/Caddy/HAProxy. Production compose в `infrastructure/production` управляет web + PostgreSQL; медиасервисы остаются отдельным слоем. Порядок включения и отката защиты на пути от камеры к медиасерверу приведён в [руководстве по FlexFEC](LIVEKIT_FLEXFEC_RU.md).
 
 ## Файлы
 
