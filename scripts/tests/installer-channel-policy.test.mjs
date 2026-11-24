@@ -6,9 +6,10 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = relativePath => readFileSync(path.join(root, relativePath), 'utf8');
-const stableLinux = 'linux-v1.0.7-ac9c234c72b0';
-const windowsWsl = 'server-wsl-v1.0.7-0d16de2e782c';
-const stableClient = 'client-v1.0.1-079fd0f9d4b1';
+const stableLinux = 'linux-v1.0.8-4e31afea73ae';
+const windowsWsl = 'server-wsl-v1.0.8-1afa39b54dd7';
+const previousWsl = 'server-wsl-v1.0.7-0d16de2e782c';
+const stableClient = 'client-v1.0.2-1dff0538526c';
 const legacyDocker = 'server-setup-v1.0.4-079fd0f9d4b1';
 
 test('product catalogs give primary WSL2, Linux and Client channels before Docker Legacy', () => {
@@ -20,7 +21,7 @@ test('product catalogs give primary WSL2, Linux and Client channels before Docke
     const legacyHeading = content.indexOf('## Legacy');
     assert.ok(legacyHeading > content.indexOf(windowsWsl) && legacyHeading > content.indexOf(stableLinux), file);
     const wslSection = content.slice(0, legacyHeading);
-    assert.match(wslSection, /1\.0\.7/);
+    assert.match(wslSection, /1\.0\.8/);
     assert.ok(!wslSection.includes('CastLink-Windows.zip'), `${file}: Docker ZIP must not be in main product list`);
     assert.ok(content.slice(legacyHeading).includes('/' + legacyDocker + '/CastLink-Windows.zip'), `${file}: legacy ZIP retained`);
   }
@@ -36,11 +37,12 @@ test('the Linux workflow cannot dispatch a new Windows Docker server-setup relea
   assert.match(yaml, /packages-windows:\s*\n[\s\S]*?if:\s*\$\{\{ inputs\.track == 'linux'/);
 });
 
-test('localized READMEs link the new stable WSL2 release and retain the supported prior RC upgrade source', () => {
+test('localized READMEs link the new stable WSL2 release and retain the supported stable and RC upgrade sources', () => {
   for (const file of ['README.md', 'README.ru.md', 'README.en.md', 'README.zh-CN.md']) {
     const content = read(file);
     assert.ok(content.includes('SUPPORTED_INSTALLERS.md'), file);
-    assert.ok(content.includes(windowsWsl), file);
+    assert.ok(content.includes('/' + windowsWsl + '/install-server-windows.ps1'), file);
+    assert.ok(content.includes(previousWsl), file);
     assert.ok(content.includes('1.0.6-rc.1'), file);
     assert.ok(content.includes('Legacy'), file);
   }
@@ -53,7 +55,8 @@ test('server guides stay consistent about WSL2 primary and legacy Docker', () =>
   for (const file of ['distribution/SERVER_INSTALL.md', 'distribution/docs/en/SERVER_INSTALL.md', 'distribution/docs/zh-CN/SERVER_INSTALL.md']) {
     const content = read(file);
     assert.ok(content.includes('SUPPORTED_INSTALLERS.md'), file);
-    assert.ok(content.includes(windowsWsl), file);
+    assert.ok(content.includes('/' + windowsWsl + '/CastLink-Server-WSL-Maintenance.zip'), file);
+    assert.ok(content.includes(previousWsl), file);
     assert.ok(content.includes('1.0.6-rc.1'), file);
     assert.ok(content.includes('Legacy'), file);
   }
