@@ -1,25 +1,83 @@
-name: WSL 1.0.8 isolated rootfs upgrade proof
+name: WSL 1.0.8 upgrade, native control and verified draft
 on:
   push:
     branches: [ops/server-wsl-runtime-108]
 permissions:
   contents: read
   actions: read
+env:
+  FACTORY_RUN: '45344824789'
+  FACTORY_SHA: '1afa39b54dd70de3b8cc9629814af66a482f7866'
 jobs:
   isolated-runtime:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    env:
-      FACTORY_RUN: '44820441013'
-      FACTORY_SHA: '0d16de2e782cd2e847e9824024c5b788a080a59b'
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Verify exact release and boot rootfs with loopback-only networking
+      - name: Boot published 1.0.7, migrate to exact candidate and check preserved state
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash ops/server-wsl-runtime-108/test-runtime.sh
       - uses: actions/upload-artifact@v7.0.2
-        if: success() && env.FACTORY_RUN != ''
         with:
           name: wsl-1.0.8-runtime-proof
           path: ${{ runner.temp }}/runtime-proof.json
+          if-no-files-found: error
+  native-package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Verify and compile the actual packaged controls under Windows PowerShell
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $p=Join-Path $env:RUNNER_TEMP 'actual-wsl-package'
+          gh run download $env:FACTORY_RUN -R resokol/castlink -n ('castlink-server-wsl-install-'+$env:FACTORY_SHA) -D $p
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          & ./ops/server-wsl-runtime-108/native-package.ps1 -CandidateDirectory $p -ExpectedSource $env:FACTORY_SHA -ScratchRoot $env:RUNNER_TEMP
+  publish:
+    needs: [isolated-runtime, native-package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    permissions:
+      contents: write
+      actions: read
+    env:
+      ARTIFACT_ID: '14898063606'
+      ARTIFACT_SHA256: '26f86ac9190a049a7d175fec818832d2a02b50540275e21371de372c89e988cf'
+      ARTIFACT_SIZE: '3658803576'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Verify factory artifact metadata, original ZIP digest and exact package inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ops/server-wsl-runtime-108/download-candidate.sh
+      - name: Verify, upload and read back the complete draft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYNOTE'
+          import hashlib,json,os
+          from pathlib import Path
+          run=Path(os.environ['RUNNER_TEMP'])
+          pkg=run/'wsl-final-package'
+          m=json.loads((pkg/'manifest.json').read_bytes())
+          body=Path('ops/server-wsl-runtime-108/notes.md').read_text().rstrip()
+          sums=hashlib.sha256((pkg/'SHA256SUMS').read_bytes()).hexdigest()
+          body+='\n\n## Файлы выпуска\n\n'
+          body+=f"Сборка `{m['releaseTag']}` · исходный коммит `{m['sourceCommit']}`.\n\n"
+          body+='| Файл | SHA-256 |\n| --- | --- |\n'
+          for entry in (m['rootfs'],m['sources'],m['upstreamSources'],dict(file='SHA256SUMS',sha256=sums)):
+              body+=f"| `{entry['file']}` | `{entry['sha256']}` |\n"
+          (run/'publication-notes.md').write_text(body)
+          PYNOTE
+          python3 ops/server-wsl-runtime-108/publisher.py draft "$RUNNER_TEMP/wsl-final-package" "$RUNNER_TEMP/publication-notes.md" "$RUNNER_TEMP/receipt.json"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: wsl-1.0.8-publication-proof
+          path: ${{ runner.temp }}/receipt.json
+          if-no-files-found: warn
