@@ -278,7 +278,7 @@
     },
     {
       "source": "libeot",
-      "version": "0.01-5"
+      "version": "0.01-5+deb12u1"
     },
     {
       "source": "libepoxy",
@@ -1559,25 +1559,25 @@
       "component": "libdeflate 1.14-1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/libe/libeot/libeot_0.01-5.debian.tar.xz",
-      "path": "debian/libeot_0.01-5.debian.tar.xz",
-      "sha256": "e6f5685fee36d82d31e1d2b2334314098b8bac7b87de59ee89809795f85b87c5",
-      "size": 7492,
-      "component": "libeot 0.01-5"
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/libe/libeot/libeot_0.01-5+deb12u1.debian.tar.xz",
+      "path": "debian/libeot_0.01-5+deb12u1.debian.tar.xz",
+      "sha256": "55a43a22f652656412cafaab1cc9da832f574a678faf8b4de734009d4a41b095",
+      "size": 8696,
+      "component": "libeot 0.01-5+deb12u1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/libe/libeot/libeot_0.01-5.dsc",
-      "path": "debian/libeot_0.01-5.dsc",
-      "sha256": "71933404d061aeffe2c0e5da353ef7c5146fd061131b0a8c31257b16b080cab6",
-      "size": 1949,
-      "component": "libeot 0.01-5"
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/libe/libeot/libeot_0.01-5+deb12u1.dsc",
+      "path": "debian/libeot_0.01-5+deb12u1.dsc",
+      "sha256": "eef981e5c5845c45b6e0e8e00f64762374f8618d2050a4a91fd54dd2858fdaf5",
+      "size": 2140,
+      "component": "libeot 0.01-5+deb12u1"
     },
     {
-      "url": "https://deb.debian.org/debian/pool/main/libe/libeot/libeot_0.01.orig.tar.bz2",
+      "url": "https://deb.debian.org/debian-security/pool/updates/main/libe/libeot/libeot_0.01.orig.tar.bz2",
       "path": "debian/libeot_0.01.orig.tar.bz2",
       "sha256": "cf5091fa8e7dcdbe667335eb90a2cfdd0a3fe8f8c7c8d1ece44d9d055736a06a",
       "size": 260288,
-      "component": "libeot 0.01-5"
+      "component": "libeot 0.01-5+deb12u1"
     },
     {
       "url": "https://deb.debian.org/debian/pool/main/libe/libepoxy/libepoxy_1.5.10-1.debian.tar.xz",
