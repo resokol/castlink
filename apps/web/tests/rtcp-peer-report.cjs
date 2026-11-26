@@ -33,6 +33,15 @@ const sr = { id: "SR", localId: "inbound", type: "remote-outbound-rtp", timestam
 const sr1 = observePeerReport("in", down, sr);
 const sr2 = observePeerReport("in", { ...down, timestamp: 18000 }, { ...sr, timestamp: 17000, reportsSent: 13, packetsSent: 55 }, sr1.marker);
 assert.deepEqual(sr2.report, { kind: "remote-outbound-rtp", fresh: true, ageMs: 1000, bytesSent: 45678, packetsSent: 55 });
+const sent = { ...sr, timestamp: 17000, remoteTimestamp: 2001, reportsSent: 13, bytesSent: 55678, packetsSent: 55 };
+const egress = observePeerReport("in", { ...down, timestamp: 18000 }, sent, sr1.marker);
+assert.equal(egress.report.egressKbps, 40, "LiveKit egress uses the elapsed time on its own sender-report clock");
+assert.equal(egress.report.egressIntervalMs, 2000);
+for (const override of [{ remoteTimestamp: 0 }, { remoteTimestamp: undefined }, { remoteTimestamp: 20001 }, { bytesSent: 1 }, { reportsSent: 11 }]) {
+  assert.equal(observePeerReport("in", { ...down, timestamp: 18000 }, { ...sent, ...override }, sr1.marker).report.egressKbps, undefined);
+}
+assert.equal(sanitizePeerReport({ ...egress.report, fresh: false }, "in").egressKbps, undefined);
+assert.equal(sanitizePeerReport({ ...egress.report, egressIntervalMs: 2 }, "in").egressKbps, undefined);
 assert.equal(observePeerReport("in", { ...down, packetsReceived: 1, timestamp: 18000 },
   { ...sr, timestamp: 17000, reportsSent: 13 }, sr1.marker).report.fresh, false);
 assert.equal(sanitizePeerReport({ ...fresh.report, ageMs: 6001 }, "out").fresh, false);

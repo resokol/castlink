@@ -153,4 +153,57 @@ assert.equal(bounded.findings[0].lastAt, 1190000);
 assert.equal(diagnose([{ ...good, videoDiagnosticsLimited: true }]).coverage.limited, true);
 assert.equal(diagnose([{ ...good, at: 60000 }, bad]).coverage.limited, true);
 assert.deepEqual(diagnose([]).findings, []);
+
+const layerReport = (direction, width, height, bitrateKbps, more = {}) =>
+  video(direction, { width, height, bitrateKbps, codec: 'video/H264', ...more });
+function layerWindow(at, { track = 'TRACK', control = true, small = false, legacy = false, requestedQuality = 'high', requestedShortSide } = {}) {
+  const pub = layerReport('out', 1920, 1080, 3475);
+  const sub = layerReport('in', 640, 360, 120, { video: { trackSid: track, requestedQuality, requestedShortSide },
+    peerReport: { kind: 'remote-outbound-rtp', fresh: true, ageMs: 100, egressKbps: 126, egressIntervalMs: 1800 } });
+  const reference = small ? layerReport('in', 640, 360, 380) : layerReport('in', 1920, 1080, 3474);
+  if (legacy) for (const stream of [pub, sub, reference]) delete stream.video;
+  return [
+    sample(at, 'guest', [pub, { ...pub, id: 'out-lower', width: 640, height: 360, bitrateKbps: 60 }], { role: 'guest' }),
+    sample(at + 200, 'studio', [sub], { role: 'studio' }),
+    ...(control ? [sample(at + 400, 'output', [reference], { role: 'output' })] : []),
+  ];
+}
+const layerDrop = only([...layerWindow(4100), ...layerWindow(6100)], 'receiver-layer');
+assert.equal(layerDrop.receiver, 'studio');
+assert.equal(layerDrop.confidence, 'observed');
+assert.equal(layerDrop.videoLayers.trackSid, 'TRACK');
+assert.equal(layerDrop.videoLayers.publisher.kbps, 3475, 'compare a layer, not the sum of simulcast encodings');
+assert.equal(layerDrop.videoLayers.receiver.height, 360);
+assert.equal(layerDrop.videoLayers.receiver.requestedQuality, 'high');
+assert.equal(layerDrop.videoLayers.receiver.sfuEgressKbps, 126);
+assert.equal(layerDrop.videoLayers.control.height, 1080);
+assert.equal(layerDrop.videoLayers.control.identity, 'output');
+for (const size of [undefined, 0, 360, 1080]) {
+  const findings = diagnose([4100, 6100].flatMap(at => layerWindow(at, { requestedQuality: 'adaptive', requestedShortSide: size }))).findings;
+  assert.equal(findings.some(f => f.code === 'receiver-layer'), size === 1080);
+}
+const lossOnBoth = [4100, 6100].flatMap(at => layerWindow(at).map(row => row.role === 'guest' ? row : {
+  ...row, streams: row.streams.map(v => ({ ...v, lossPct: row.role === 'output' ? 8 : 12.6 })),
+}));
+const comparisonWithLoss = diagnose(lossOnBoth).findings.find(f => f.code === 'receiver-layer');
+assert.equal(comparisonWithLoss.evidence.lossPct, 12.6);
+assert.equal(comparisonWithLoss.evidence.controlReceiverLossPct, 8, 'a control with the high layer can still be losing packets');
+const archivedLayers = [4100, 6100, 8100].flatMap((at, i) => layerWindow(at).map(row => {
+  if (row.role !== 'studio') return row;
+  const [stream] = row.streams;
+  return { ...row, streams: [{ ...stream, bytes: 20000 + 25000 * i, video: { ...stream.video, statsAt: at },
+    peerReport: { kind: 'remote-outbound-rtp', fresh: i > 0, ageMs: 150, bytesSent: 50000 + 25000 * i } }] };
+}));
+const historicalEgress = only(archivedLayers, 'receiver-layer').videoLayers.receiver;
+assert.equal(historicalEgress.sfuEgressKbps, 100);
+assert.equal(historicalEgress.sfuEgressIntervalMs, 2000);
+assert.equal(historicalEgress.sfuEgressClock, 'rtcp-receipt');
+assert.equal(only([...layerWindow(4100, { legacy: true }), ...layerWindow(6100, { legacy: true })], 'receiver-layer').confidence, 'likely');
+for (const options of [{ track: 'DIFFERENT' }, { control: false }, { small: true }, { requestedQuality: 'low' }]) {
+  assert.equal(diagnose([...layerWindow(4100, options), ...layerWindow(6100, options)]).findings.length, 0);
+}
+assert.equal(diagnose(layerWindow(4100)).findings.length, 0, 'one sample may be a layer transition');
+const sameResolution = [4100, 6100].flatMap(at => layerWindow(at).map(row => row.role === 'studio'
+  ? { ...row, streams: row.streams.map(v => ({ ...v, width: 1920, height: 1080 })) } : row));
+assert.equal(diagnose(sameResolution).findings.length, 0, 'bitrate alone does not identify the spatial layer');
 console.log('PASS room media diagnosis, limits, endpoint attribution, capture-clock isolation, resets and legacy records');

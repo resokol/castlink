@@ -54,6 +54,7 @@ import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
 import { reportedStudioVideoCodecs, supportedStudioVideoCodecs, DEFAULT_STUDIO_VIDEO_CODEC, DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
+import { createStudioPreviewRoom } from "@/lib/studio-preview-room";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
@@ -72,7 +73,7 @@ import { toggleElementFullscreen } from "@/lib/fullscreen";
 import { readGuestReceiveBitrate, type GuestReceiveCounters } from "@/lib/guest-receive-bitrate";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AudioPresets, Room, RoomEvent, Track, VideoQuality, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteVideoTrack, type RemoteTrackPublication } from "livekit-client";
+import { AudioPresets, Room, RoomEvent, Track, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteVideoTrack, type RemoteTrackPublication } from "livekit-client";
 
 type GuestStat = {
   identity: string;
@@ -184,7 +185,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [roomPasswordSet, setRoomPasswordSet] = useState(false);
   const [roomAccessVersion, setRoomAccessVersion] = useState(0);
   const [viewAccess, setViewAccess] = useState("");
-  const room = useMemo(() => new Room({ adaptiveStream: false, dynacast: false }), [studioId, roomName]);
+  const room = useMemo(createStudioPreviewRoom, [studioId, roomName]);
   const connectedStudioRoomRef = useRef<Room | null>(null);
   const { studioOnly, setStudioOnly } = useRoomMode(roomName, studioId);
   const [modeBusy, setModeBusy] = useState(false);
@@ -1518,7 +1519,6 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     for (const publication of participant.trackPublications.values()) {
       if (publication.kind === Track.Kind.Video || publication.kind === Track.Kind.Audio) {
         publication.setSubscribed(true);
-        if (publication.kind === Track.Kind.Video) publication.setVideoQuality(VideoQuality.HIGH);
       }
     }
     monitoring.apply();

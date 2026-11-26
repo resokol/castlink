@@ -42,6 +42,20 @@ assert.equal(many.finish().total, 16);
 assert.equal(many.finish().periods.length, 10);
 assert.equal(many.finish().periods[0].lossPct, 18);
 
+const high = { trackSid: "TR_layer", codec: "video/H264", width: 1920, height: 1080, bitrateKbps: 3400 };
+const low = { ...high, width: 640, height: 360, bitrateKbps: 250, bytes: 2000 };
+const highBefore = sample(1000, [video(0, high)], { role: "studio" });
+const lowAfter = sample(3000, [video(0, low)], { role: "studio" });
+const transition = connectionProblemPeriods(start, now);
+transition.add(lowAfter, highBefore);
+assert.equal(transition.finish().periods[0]?.videoLayerDrop, true, "suggest a studio downshift even when neither sample reports loss");
+for (const stream of [{ ...low, video: { requestedQuality: "adaptive", requestedShortSide: 360 } }, { ...low, trackSid: "TR_other" }, { ...low, codec: "video/VP9" },
+  { ...low, width: high.width, height: high.height }, { ...low, video: { requestedQuality: "low" } }]) {
+  const unrelated = connectionProblemPeriods(start, now);
+  unrelated.add({ ...lowAfter, streams: [video(0, stream)] }, highBefore);
+  assert.equal(unrelated.finish().total, 0);
+}
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "castlink-suggest-"));
 process.env.STUDIOLINK_STATS_DIR = dir;
 const { roomDirectory, readHistory } = load("../lib/telemetry-store.ts");

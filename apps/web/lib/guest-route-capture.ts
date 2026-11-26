@@ -1,7 +1,7 @@
 import { RoomEvent, Track, type LocalVideoTrack, type Room } from "livekit-client";
 import { guestCameraSource } from "./guest-camera-source";
 import { telemetryContext } from "./telemetry-context";
-import { parseGuestCameraCapture, parseActualCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
+import { AUTO_GUEST_CAMERA_LIMITS, parseGuestCameraCapture, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
 import type { GuestChoices } from "./guest-media";
 
 type Snapshot = { intent: string; preferences: string; identity: string; constraints: MediaTrackConstraints };
@@ -66,9 +66,12 @@ export async function prepareGuestRouteChange(room: Room, settings: {
   const track = participant.getTrackPublication(Track.Source.Camera)?.track as LocalVideoTrack | undefined;
   const source = track ? guestCameraSource(track) : undefined;
   const actual = source && participant.isCameraEnabled ? parseActualCameraCapture(source.getSettings()) : undefined;
-  const snapshot = actual ? {
+  const limits = staffGuestCameraCapture(participant.metadata).cameraCapture ? undefined : AUTO_GUEST_CAMERA_LIMITS;
+  const snapshot = actual && (!limits || (actual.width <= limits.width && actual.height <= limits.height && actual.frameRate <= limits.frameRate)) ? {
     identity, intent: beforeIntent, preferences: beforePreferences,
-    constraints: { ...(source?.getSettings().deviceId ? { deviceId: { exact: source.getSettings().deviceId } } : {}), width: { ideal: actual.width }, height: { ideal: actual.height }, frameRate: { ideal: actual.frameRate }, resizeMode: { ideal: "none" } } as MediaTrackConstraints,
+    constraints: { ...(source?.getSettings().deviceId ? { deviceId: { exact: source.getSettings().deviceId } } : {}),
+      width: { ideal: actual.width, max: limits?.width }, height: { ideal: actual.height, max: limits?.height },
+      frameRate: { ideal: actual.frameRate, max: limits?.frameRate }, resizeMode: { ideal: "none" } } as MediaTrackConstraints,
   } : undefined;
   const commit = (accept: () => boolean = () => true) => {
     if (!valid() || intent(participant.metadata) !== beforeIntent || preferences(settings.choices()) !== beforePreferences) throw new Error("Настройки камеры изменились. Повторите смену маршрута.");

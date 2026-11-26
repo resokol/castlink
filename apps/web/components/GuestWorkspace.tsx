@@ -25,7 +25,7 @@ import { GuestDeviceRequests } from "@/components/GuestDeviceRequests";
 import { switchGuestCameraDevice } from "@/lib/guest-device-switch";
 import { GuestCodecCameraButton } from "@/components/GuestCodecCameraButton";
 import { applyGuestCameraHeight, applyGuestCameraHeightInTask, enqueueGuestCameraTask, guestCameraCaptureState, switchGuestCameraCapture, guestCameraCodecState, setGuestCameraEnabled, switchGuestCameraCodec, watchGuestCameraHeight } from "@/lib/guest-video-codec";
-import { staffGuestCameraCapture, type GuestCameraCapture } from "@/lib/guest-capture-settings";
+import type { GuestCameraCapture } from "@/lib/guest-capture-settings";
 import type { StudioVideoCodec } from "@/lib/video-quality";
 import { GuestMicrophoneButton } from "@/components/GuestMicrophoneButton";
 import { enqueueGuestMicrophoneTask, guestAudioProfile, guestAudioProcessingMatches, guestNoiseSuppressionState, setGuestMicrophoneEnabled, switchGuestMicrophoneProfile, type GuestAudioProfile } from "@/lib/guest-audio";
@@ -167,7 +167,7 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       if (snapshot) queueMicrotask(clearTransferSnapshot);
     } catch {}
   }, [params]);
-  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: DEFAULT_GUEST_VIDEO_BITRATE_KBPS * 1000, maxFramerate: 30 }, degradationPreference: "maintain-resolution" } }));
+  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: DEFAULT_GUEST_VIDEO_BITRATE_KBPS * 1000 }, degradationPreference: "maintain-resolution" } }));
   useEffect(() => {
     workspaceMounted.current = true;
     if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
@@ -519,7 +519,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
   settingsCallbacks.current = { onConnectedSettings, onFailedSettings };
   const joinedRoute = useRef<{ selected: GuestConnectionRoute; active: "normal" | "relay" }>({ selected: "auto", active: "normal" });
   videoEnabledRef.current = videoEnabled;
-  useEffect(() => watchGuestVideoBitrate(room,onDeviceError, () => !!staffGuestCameraCapture(room.localParticipant.metadata).cameraCapture || !!choicesRef.current?.cameraFrameRate && choicesRef.current.cameraFrameRate !== "auto"),[room,onDeviceError]);
+  useEffect(() => watchGuestVideoBitrate(room, onDeviceError), [room, onDeviceError]);
   useEffect(() => watchGuestCameraOutbound(room), [room]);
   useEffect(() => {
     if (!connected || room.state !== "connected") return;

@@ -52,7 +52,13 @@ const renew=f=>{global.fetch=async()=>({ok:true,json:async()=>({token:token(f.ro
  fallback.native.getSettings=()=>({deviceId:'fallback-camera',width:640,height:480,frameRate:30});
  await video.applyGuestCameraHeight(fallback.room,()=>true,choices);
  assert.equal(fallback.native.applied.deviceId,undefined,'automatic fallback never reapplies exact unplugged device');
- assert.equal(fallback.native.applied.width,undefined,'automatic fallback chooses its own native dimensions');
+ assert.equal(fallback.native.applied.width.exact,undefined,'automatic fallback chooses its own native dimensions');
+ assert.deepEqual(fallback.native.applied.width,{ideal:1920,max:1920},'automatic fallback keeps the Full HD ceiling');
+ const oversized=fixture(3840,2160,120);await renew(oversized);
+ assert.equal(route.guestRouteCaptureConstraints(oversized.room,choices),undefined,'Auto does not restore prior settings above the cap');
+ oversized.room.localParticipant.metadata=JSON.stringify({role:'guest',studioId:'studio',cameraCapture:{mode:'custom',resolution:'3840x2160',frameRate:'highest'}});
+ await renew(oversized);
+ assert.equal(route.guestRouteCaptureConstraints(oversized.room,choices).width.ideal,3840,'advanced studio settings can still preserve a custom mode');
  const stable=fixture(1920,1080,25);await renew(stable);
  const prior=route.guestRouteCaptureConstraints(stable.room,choices);
  global.fetch=async()=>({ok:true,json:async()=>({token:token(metadata),identity:'guest-one'})});

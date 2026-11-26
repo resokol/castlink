@@ -21,7 +21,13 @@ assert.match(render({ ...evidence, node: { samples: [{ at: 123456, livekit: "ok"
 
 const start = Date.parse("2026-10-02T14:00:00"), end = start + 120000;
 const episode = { firstAt: start + 25000, lastAt: start + 37000, from: start + 17000, to: start + 45000,
-  lossPct: 7.4, concealedPct: 9.1, freezes: 2, reconnect: true, poorQuality: true };
+  lossPct: 7.4, concealedPct: 9.1, freezes: 2, reconnect: true, poorQuality: true, videoLayerDrop: true };
+const highLayer = { at: episode.firstAt, width: 1920, height: 1080, kbps: 3475 };
+const layerFinding = { code: "receiver-layer", source: "caster", receiver: "studio", kind: "video",
+  firstAt: episode.firstAt, lastAt: episode.lastAt, confidence: "observed", evidence: {},
+  videoLayers: { trackSid: "TR_cam", publisher: highLayer, control: { ...highLayer, identity: "output" },
+    receiver: { at: episode.firstAt, width: 640, height: 360, kbps: 120, requestedQuality: "high", sfuEgressKbps: 126, sfuEgressIntervalMs: 1800 } },
+};
 let history = { from: start, to: end, retainedFrom: start, series: [], connections: [],
   problemPeriods: { total: 11, periods: [episode] } };
 function nodes(item) {
@@ -66,7 +72,8 @@ global.fetch = async (url, options) => {
   requests.push(url);
   assert.equal(options.credentials, "same-origin");
   const params = url.searchParams, to = Number(params.get("to"));
-  const report = { sampleCount: 0, complete: true, sfu: { samples: [] }, diagnosis: { findings: [], coverage: { evaluable: 0 } } };
+  const report = { sampleCount: 0, complete: true, sfu: { samples: [] },
+    diagnosis: { findings: params.has("from") ? [layerFinding] : [], coverage: { evaluable: 0 } } };
   if (params.has("minute")) {
     const minute = Number(params.get("minute"));
     return Response.json({ ...report, minute, from: minute, to: Math.min(to, minute + 59999), incident: evidence });
@@ -83,7 +90,7 @@ function checkUrl(url, mode, scope) {
 (async () => {
   const markup = renderToStaticMarkup(panel());
   for (const text of ["Peak packet loss 7.4%", "Peak audio concealment 9.1%", "2 new freezes",
-    "Reconnect", "Poor connection quality", "out of 11"]) assert.ok(markup.includes(text), text);
+    "Reconnect", "Poor connection quality", "Resolution and bitrate dropped in the studio", "out of 11"]) assert.ok(markup.includes(text), text);
   const time = at => new Date(at).toLocaleString("en", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   assert.ok(markup.includes(time(episode.firstAt) + " — " + time(episode.lastAt)));
   assert.equal(requests.length, 0);
@@ -91,6 +98,9 @@ function checkUrl(url, mode, scope) {
   await tick();
   const scope = { from: String(episode.from), to: String(episode.to) };
   checkUrl(requests.at(-1), "analysis", scope);
+  const review = renderToStaticMarkup(panel());
+  for (const text of ["The studio received a lower video layer", "640×360 · 120 kbit/s", "1920×1080 · 3,475 kbit/s",
+    "Comparison receiver", "LiveKit → studio via RTCP · 126 kbit/s over 1.8 s"]) assert.ok(review.includes(text), text);
 
   // The polling result moves forward and the selected episode drops out of the list.
   history = { ...history, from: start + 15000, to: end + 15000, problemPeriods: { total: 0, periods: [] } };

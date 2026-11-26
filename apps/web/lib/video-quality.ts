@@ -93,9 +93,9 @@ function hasLegacySvcEncodings(encodings: readonly RTCRtpEncodingParameters[]) {
 
 /** Apply an aggregate simulcast ceiling or an inclusive SVC ceiling. */
 export function capStudioVideoEncodings<T extends RTCRtpEncodingParameters>(
-  encodings: T[], bitrateKbps: number, fps: number, allowCaptureFrameRate = false,
+  encodings: T[], bitrateKbps: number, fps: number | undefined, allowCaptureFrameRate = false,
 ): T[] {
-  if (!isValidStudioVideoBitrateKbps(bitrateKbps) || !(allowCaptureFrameRate ? Number.isFinite(fps) && fps > 0 && fps <= 1000 : STUDIO_FRAME_RATES.includes(fps as StudioFrameRate))) {
+  if (!isValidStudioVideoBitrateKbps(bitrateKbps) || !(allowCaptureFrameRate ? fps === undefined || Number.isFinite(fps) && fps > 0 && fps <= 1000 : STUDIO_FRAME_RATES.includes(fps as StudioFrameRate))) {
     throw new Error("Некорректный битрейт или частота кадров Studio Return");
   }
   if (!encodings.length) return encodings;
@@ -119,13 +119,13 @@ export function capStudioVideoEncodings<T extends RTCRtpEncodingParameters>(
   });
 }
 
-export function studioVideoEncodingsMatch(encodings: readonly RTCRtpEncodingParameters[], bitrateKbps: number, fps: number) {
+export function studioVideoEncodingsMatch(encodings: readonly RTCRtpEncodingParameters[], bitrateKbps: number, fps: number | undefined) {
   if (!encodings.length) return false;
   const total = hasLegacySvcEncodings(encodings) ? Number(encodings[0].maxBitrate || 0) : encodings.reduce((sum, encoding) => sum + Number(encoding.maxBitrate || 0), 0);
   return Math.abs(total - bitrateKbps * 1000) <= 1 && encodings.every(encoding => encoding.maxFramerate === fps);
 }
 
-export async function applyStudioSenderQuality(sender: RTCRtpSender, bitrateKbps: number, fps: number, allowCaptureFrameRate = false) {
+export async function applyStudioSenderQuality(sender: RTCRtpSender, bitrateKbps: number, fps: number | undefined, allowCaptureFrameRate = false) {
   for (let attempt = 0; ; attempt++) {
     const parameters = sender.getParameters();
     if (!parameters.encodings?.length) throw new Error("LiveKit не предоставил параметры кодирования видеопотока");

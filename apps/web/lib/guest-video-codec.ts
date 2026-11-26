@@ -1,7 +1,7 @@
 import { guestRouteCaptureConstraints } from "./guest-route-capture";
 import { guestCameraSource } from "./guest-camera-source";
 import { RoomEvent, Track, type LocalVideoTrack, type Room, type TrackPublishOptions, type VideoCaptureOptions } from "livekit-client";
-import { applyGuestCaptureConstraints, applyPreferredGuestCameraCapture, effectiveGuestCameraCapture, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
+import { applyGuestCaptureConstraints, applyPreferredGuestCameraCapture, cameraFrameRate, effectiveGuestCameraCapture, guestCameraConstraints, parseActualCameraCapture, staffGuestCameraCapture, type GuestCameraCapture, type GuestCameraPreferences } from "./guest-capture-settings";
 import type { GuestChoices } from "./guest-media";
 import { defaultGuestVideoCodec, guestVideoBitrate, isStudioVideoCodec, STUDIO_VIDEO_CODECS, type StudioVideoCodec } from "./video-quality";
 
@@ -25,7 +25,7 @@ export function guestCameraPublishOptions(room: Room, codec: StudioVideoCodec, p
   return { ...prior, source: Track.Source.Camera, videoCodec: codec, simulcast: codec !== "av1" && codec !== "vp9",
     // Clear former SVC options when returning to an ordinary simulcast codec.
     scalabilityMode: (codec === "av1" || codec === "vp9") ? "L3T3_KEY" : undefined, backupCodec: (codec === "av1" || codec === "vp9" || codec === "h265") ? false : undefined,
-    videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000, maxFramerate: prior.videoEncoding?.maxFramerate || 30 } };
+    videoEncoding: { ...prior.videoEncoding, maxBitrate: guestVideoBitrate(room.localParticipant.metadata) * 1000 } };
 }
 
 async function applyRoomCameraCapture(room: Room, track: MediaStreamTrack, preferences: GuestCameraPreferences | undefined, valid: () => boolean) {
@@ -124,13 +124,13 @@ export function setGuestCameraEnabled(room: Room, enabled: boolean, choices: () 
     const valid = () => isCurrent() && room.state === "connected" && room.localParticipant.sid === participantSid;
     if (enabled && codec !== "vp8") assertSupported(codec);
     const selected = effectiveGuestCameraCapture(room.localParticipant.metadata, current);
-    const base = guestRouteCaptureConstraints(room, current) || guestCameraConstraints(selected);
-    // LiveKit forwards the flattened resolution to getUserMedia. Supplying a
-    // height-only object also overrides its default 16:9 capture preset.
+    const retained = guestRouteCaptureConstraints(room, current);
+    const base = retained || guestCameraConstraints(selected);
+    // LiveKit flattens the resolution into getUserMedia constraints.
     const capture = { ...(base.deviceId ? { deviceId: base.deviceId } : current.videoDeviceId ? { deviceId: current.videoDeviceId } : {}), resolution: base } as unknown as VideoCaptureOptions;
     const publish = guestCameraPublishOptions(room, codec);
-    const frameRate = typeof base.frameRate === "object" ? Number(base.frameRate.ideal) : 30;
-    publish.videoEncoding = { ...publish.videoEncoding!, maxFramerate: frameRate || 30 };
+    const frameRate = typeof base.frameRate === "object" ? cameraFrameRate(base.frameRate.ideal) : undefined;
+    if (frameRate) publish.videoEncoding!.maxFramerate = frameRate;
     const publication = await room.localParticipant.setCameraEnabled(enabled, enabled ? capture : undefined, enabled ? publish : undefined);
     const track = publication?.track as LocalVideoTrack | undefined;
     if (!valid()) {
