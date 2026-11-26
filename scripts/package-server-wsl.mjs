@@ -47,7 +47,7 @@ with tarfile.open(archive,'r:gz') as source:
  value=json.loads(selected['opt/castlink/release.json'])
  if value.get('version')!=version or value.get('commit')!=commit or value.get('buildId')!=version+'-'+commit[:12]:
   raise ValueError('Embedded runtime release/version/commit mismatch')
- if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7']}:
+ if value.get('lifecycle')!={'schemaVersion':1,'runtimeContract':'castlink-wsl-pg16-v1','postgresMajor':16,'supportedSources':['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925']}:
   raise ValueError('Embedded lifecycle compatibility contract mismatch')
  if runtime_hashes!={'usr/local/bin/castlink-server':runtime_hash,'usr/local/bin/castlink-server-maintenance':helper_hash}:
   raise ValueError('Embedded lifecycle helper inventory mismatch')
@@ -157,7 +157,7 @@ export async function assembleWslPackage({root=process.cwd(),output,rootfs,sourc
   const source=path.join(root,'scripts',file==='install-server-windows.template.ps1'?'install-server-windows.ps1':file),stat=await fs.lstat(source);if(!stat.isFile()||stat.isSymbolicLink()||stat.size<=0||stat.size>4194304)throw Error('Invalid lifecycle helper');
   helpers.push({file,sha256:await hashFile(source),size:stat.size});
  }
- const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7'],applicationMigrations:'runtime-bootstrap-v1',helpers};
+ const lifecycle={schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:16,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925'],applicationMigrations:'runtime-bootstrap-v1',helpers};
  const rootfsName='CastLink-Server-WSL-amd64.tar.gz',sourcesName='CastLink-Server-WSL-Sources.tar.gz';
  const manifest={schemaVersion:1,channel:'server-wsl',version,releaseTag:`server-wsl-v${version}-${commit.slice(0,12)}`,repository,architecture:'amd64',sourceCommit:commit,
   rootfs:{file:rootfsName,sha256:await hashFile(rootfs),size:(await fs.stat(rootfs)).size,expandedBytes:audited.expandedBytes},

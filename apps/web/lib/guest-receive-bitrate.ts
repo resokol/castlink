@@ -24,3 +24,8 @@ export function readGuestReceiveBitrate(state: GuestReceiveCounters, track: obje
   for (const id of previous.keys()) if (!seen.has(id)) previous.delete(id);
   return measured ? Math.round(total) : null;
 }
+
+export type OutputTrackRate = {
+  receiver: string; participant: string; trackSid: string; kbps: number; ttlMs: number;
+};
+export type OutputRateSnapshot = { requestedAt: number; rates: OutputTrackRate[] };

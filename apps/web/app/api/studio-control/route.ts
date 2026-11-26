@@ -1,4 +1,5 @@
 import {sourceSessionMoved} from "../../../lib/reserve-source";
+import { liveOutputRates } from "../../../lib/live-telemetry-cache";
 import { DiagnosticRoomConflict } from "../../../lib/media-room-association";
 import { NextRequest, NextResponse } from "next/server";
 import { isStudio, sameOrigin } from "@/lib/access";
@@ -36,7 +37,8 @@ export async function GET(request: NextRequest) {
   if (!validStudioRoom(room) || !validStudioClient(clientId)) return NextResponse.json({ error: "Некорректная комната или клиент" }, { status: 400 });
   if (!(await authorizedRoom(room, studioId))) return NextResponse.json({ error: "Комната не найдена" }, { status: 404 });
   const state = await readStudioState(stateRoom);
-  return NextResponse.json(snapshot(state, admin || moderator || request.nextUrl.searchParams.get("mode") === "admin" ? "admin-readonly" : clientId, moderator, owner && request.nextUrl.searchParams.get("mode") !== "admin"), { headers: noStore });
+  return NextResponse.json({ ...snapshot(state, admin || moderator || request.nextUrl.searchParams.get("mode") === "admin" ? "admin-readonly" : clientId, moderator, owner && request.nextUrl.searchParams.get("mode") !== "admin"),
+    ...(request.nextUrl.searchParams.get("outputRates") === "1" ? { outputRates: liveOutputRates(stateRoom) } : {}) }, { headers: noStore });
 }
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Недопустимый источник запроса" }, { status: 403 });

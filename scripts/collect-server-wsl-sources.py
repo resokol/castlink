@@ -17,7 +17,7 @@ def collect(destination):
         if not name or not version or name.startswith('-') or any(c in name + version for c in '\r\n\0'):
             raise ValueError('Invalid installed source package identity')
         subprocess.run(['apt-get', '--download-only', 'source', '--', name + '=' + version],
-                       cwd=destination, stdin=subprocess.DEVNULL, check=True)
+                       cwd=destination, stdin=subprocess.DEVNULL, check=True, timeout=600)
     files = {}
     for entry in sorted(destination.iterdir()):
         if not entry.is_file() or entry.is_symlink():
