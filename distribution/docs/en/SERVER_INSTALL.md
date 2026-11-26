@@ -2,7 +2,7 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](SERVER_INSTALL.md) · [简体中文](../zh-CN/SERVER_INSTALL.md)
 
-This guide covers Linux **1.0.9** and Windows/WSL **1.0.9**; legacy Docker Server Setup remains a separate track. The current Windows Client is **1.0.3**. Available packages, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925).
+This guide covers Linux **1.0.9** and Windows/WSL **1.0.9**; legacy Docker Server Setup remains a separate track. The current Windows Client is **1.0.3**. Available packages, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-2dbe8bc0271c).
 
 **Primary Windows server route:** WSL2 without Docker Desktop. The stable Windows/WSL2 server version is **1.0.9**. The former Windows/Docker/SSH EasySetup is **Legacy** for existing deployments; Linux/VPS retains its independent stable Docker Engine/Compose installer. [Supported installers and migration limits](../../SUPPORTED_INSTALLERS.md).
 
@@ -20,10 +20,10 @@ Ubuntu22.04/24.04 amd64 is supported. The Linux channel adds a self-contained
 `install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.9 asset URL, rather than global `releases/latest`:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-The **linux-v1.0.9-35dbb73b5925** bootstrap asks for the
+The **linux-v1.0.9-2dbe8bc0271c** bootstrap asks for the
 server address and room creation password, stores its package/configuration at
 `/opt/castlink-server`, loads bundled images and runs the existing Linux installer.
 `--install-runtime` authorizes prerequisites and starting Docker; otherwise Docker

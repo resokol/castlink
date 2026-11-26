@@ -4,7 +4,7 @@
 
 **Основная линейка:** Windows 11 / WSL2 без Docker Desktop, Linux Ubuntu / VPS через Docker/Compose и отдельный Windows Client. Windows/Docker EasySetup — **Legacy**, только для существующих установок. WSL2 — основное Windows-направление со стабильной версией 1.0.9. [Каналы и ограничения перехода](SUPPORTED_INSTALLERS.md).
 
-Руководство для Linux **1.0.9** и Windows/WSL **1.0.9**; прежний Docker Server Setup остаётся отдельным направлением. Windows Client — **1.0.3**. Доступные пакеты, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925).
+Руководство для Linux **1.0.9** и Windows/WSL **1.0.9**; прежний Docker Server Setup остаётся отдельным направлением. Windows Client — **1.0.3**. Доступные пакеты, точные source/build ID и контрольные суммы указаны в [каталоге продуктов](PRODUCTS.md). [Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-2dbe8bc0271c).
 
 В серверном выпуске **1.0.2** впервые появились [Linux одной командой, история показателей и журнал за 24 часа](RELEASE_NOTES_1_0_2.md). Прежний Windows Server Setup с Docker Desktop оставлен в Legacy. WSL2 — основной путь для нового Windows-сервера; версия 1.0.9 использует отдельный стабильный тег. Автоматический перенос Docker → WSL2 не поддерживается.
 
@@ -20,10 +20,10 @@
 `install-server.sh` с закреплёнными версией и SHA256 архива. Выберите закреплённый asset выпуска 1.0.9 (не общий `releases/latest`) и выполните:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang ru
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-Скрипт из **linux-v1.0.9-35dbb73b5925** запросит адрес и отдельный пароль создания комнат, сохранит
+Скрипт из **linux-v1.0.9-2dbe8bc0271c** запросит адрес и отдельный пароль создания комнат, сохранит
 пакет/настройки в `/opt/castlink-server`, загрузит включённые образы и запустит
 существующий Linux installer. `--install-runtime` разрешает установку зависимостей
 и запуск Docker; без этого флага требуется готовый Docker/Compose. Домен, DNS и

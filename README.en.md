@@ -122,7 +122,7 @@ Supports **Ubuntu 22.04 / 24.04, x86-64/amd64**. Connect over SSH with a user wh
 ### 1. Run one command
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
 This pinned **1.0.9** installer verifies the server archive, installs required Docker Engine/Compose and Python, and uses **`/opt/castlink-server`**.

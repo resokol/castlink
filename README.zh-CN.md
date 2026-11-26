@@ -122,7 +122,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 ### 1. 执行一条命令
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
 固定版本 **1.0.9** 安装程序会校验服务器压缩包，安装所需的 Docker Engine/Compose 和 Python，并将安装保存在 **`/opt/castlink-server`**。

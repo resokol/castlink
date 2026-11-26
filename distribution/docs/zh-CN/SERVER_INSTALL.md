@@ -2,7 +2,7 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](../en/SERVER_INSTALL.md) · [简体中文](SERVER_INSTALL.md)
 
-本指南适用于 Linux **1.0.9** 和 Windows/WSL **1.0.9**；旧 Docker Server Setup 保留为独立通道。Windows Client 版本为 **1.0.3**。可用软件包、准确的源代码与构建编号及校验值见[产品目录](PRODUCTS.md)。[Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925)。
+本指南适用于 Linux **1.0.9** 和 Windows/WSL **1.0.9**；旧 Docker Server Setup 保留为独立通道。Windows Client 版本为 **1.0.3**。可用软件包、准确的源代码与构建编号及校验值见[产品目录](PRODUCTS.md)。[Windows/WSL2 1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux 1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-2dbe8bc0271c)。
 
 **Windows 服务器主要方向：** WSL2，无需 Docker Desktop。Windows/WSL2 稳定服务器版本为 **1.0.9**。旧版 Windows/Docker/SSH EasySetup 归为 **Legacy**，仅用于现有部署；Linux/VPS 继续使用独立的稳定 Docker Engine/Compose 安装程序。[渠道和迁移限制](../../SUPPORTED_INSTALLERS.md)。
 
@@ -20,10 +20,10 @@
 压缩包 SHA256。使用以下 1.0.9 的准确下载地址，不使用全局 `releases/latest`：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
-**linux-v1.0.9-35dbb73b5925** 安装器询问服务器地址及创建房间密码，
+**linux-v1.0.9-2dbe8bc0271c** 安装器询问服务器地址及创建房间密码，
 将软件包和配置保存在 `/opt/castlink-server`，载入附带镜像并运行现有 Linux 安装流程。
 `--install-runtime` 允许安装依赖及启动 Docker；不加此参数则需要可用的 Docker/Compose。
 DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模式](LINUX_MANUAL.md)。

@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = relativePath => readFileSync(path.join(root, relativePath), 'utf8');
-const stableLinux = 'linux-v1.0.9-35dbb73b5925';
+const stableLinux = 'linux-v1.0.9-2dbe8bc0271c';
 const windowsWsl = 'server-wsl-v1.0.9-35dbb73b5925';
 const previousWsl = 'server-wsl-v1.0.8-1afa39b54dd7';
 const stableClient = 'client-v1.0.3-35dbb73b5925';

@@ -7,7 +7,7 @@
 | Назначение | Рекомендуемый пакет | Текущий публичный выпуск | Статус самого артефакта |
 | --- | --- | --- | --- |
 | Windows 11 server | `server-wsl`: `install-server-windows.ps1` + средства обслуживания | [1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) | стабильный выпуск; WSL2 — основное направление Windows |
-| Ubuntu Linux/VPS server | `linux`: `install-server.sh` + Docker/Compose | [1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925) | стабильный выпуск |
+| Ubuntu Linux/VPS server | `linux`: `install-server.sh` + Docker/Compose | [1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-2dbe8bc0271c) | стабильный выпуск |
 | Windows caster/studio client | `client`: отдельный `setup.exe` | [1.0.3](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) | стабильный выпуск; **не** устанавливает сервер |
 
 См. [каталог пакетов](PRODUCTS.md), [установку Windows/Ubuntu](../README.md), [обслуживание сервера](SERVER_INSTALL.md). Все версии и хеши берите из **своего** конкретного релиза, а не общего `releases/latest`.

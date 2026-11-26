@@ -11,7 +11,7 @@
 全新安装可使用本发行版的独立加载脚本：
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang zh-CN
 ```
 
 脚本验证固定归档，询问地址及单独的创建房间密码，并将软件包和数据保存在 `/opt/castlink-server`。`--install-runtime` 允许准备 Python/Docker/Compose；不加该参数时需先准备依赖。重复运行不会更新或重启已完成的安装。已有服务器请使用正常 `update` 命令及原数据目录。[详细说明与 24 小时图表](SERVER_INSTALL.md)。
@@ -33,14 +33,14 @@ docker compose version
 
 预期结果为 `x86_64`、Python 3.8+、`linux` 和符合要求的 Compose 版本。为端口以及镜像、数据库、备份预留空间。首次测试建议有 20 GB 可用磁盘，但这不是经过测量的最低要求。
 
-下方固定的 Linux 版本为 **1.0.9**，源提交为 `35dbb73b5925797e753d395843a37f39c23f579d`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
+下方固定的 Linux 版本为 **1.0.9**，源提交为 `2dbe8bc0271c1cfca648d95bae76aa1a7b3d1a22`。归档与校验和必须来自同一发行版本。每个版本解压到新目录，与持久数据分开：
 
 发行版文件在 [resokol/castlink](https://github.com/resokol/castlink/releases) 公开提供，下载无需登录。以下示例使用 `curl` 和准确的 Linux 标签。旧版内嵌的 `castlink-releases` 链接会重定向到同一个仓库。
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.9-35dbb73b5925'
+RELEASE_TAG='linux-v1.0.9-2dbe8bc0271c'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"

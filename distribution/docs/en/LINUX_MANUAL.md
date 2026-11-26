@@ -11,7 +11,7 @@ The new interactive steps below describe CLI **1.0.4**: `init` defaults to quick
 A new installation can use this release’s standalone bootstrap:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
 It verifies the pinned archive, asks for the address and a separate room creation password, and keeps its package and data in `/opt/castlink-server`. `--install-runtime` permits Python/Docker/Compose preparation; otherwise prerequisites must be ready. Rerunning does not update or restart a completed installation. Use the normal `update` command and original data directory for an existing server. [Details and 24-hour charts](SERVER_INSTALL.md).
@@ -33,14 +33,14 @@ docker compose version
 
 Expect `x86_64`, Python 3.8+, `linux` and a suitable Compose version. Allow free ports and disk space for images, the database and backups. 20 GB free is an initial test guideline, not a measured minimum.
 
-The Linux release pinned below is **1.0.9**, source commit `35dbb73b5925797e753d395843a37f39c23f579d`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
+The Linux release pinned below is **1.0.9**, source commit `2dbe8bc0271c1cfca648d95bae76aa1a7b3d1a22`. Download the archive and checksums from one release. Extract each release into a new folder, separate from persistent data:
 
 Release files are public in [resokol/castlink](https://github.com/resokol/castlink/releases); downloading does not require signing in. This example uses `curl` and an exact Linux tag. Old embedded `castlink-releases` links redirect to this same repository.
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.9-35dbb73b5925'
+RELEASE_TAG='linux-v1.0.9-2dbe8bc0271c'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"

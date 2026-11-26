@@ -11,7 +11,7 @@
 Для новой установки можно использовать отдельный загрузчик этого же выпуска:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang ru
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-2dbe8bc0271c/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
 Он проверяет закреплённый архив, запрашивает адрес и отдельный пароль создания комнат, сохраняет пакет и данные в `/opt/castlink-server`. Флаг `--install-runtime` разрешает подготовку Python/Docker/Compose; без него зависимости должны быть готовы. Повтор не обновляет и не перезапускает завершённую установку. Для существующего сервера используйте штатный `update` и его прежний каталог данных. [Подробности и графики за 24 часа](SERVER_INSTALL.md).
@@ -33,14 +33,14 @@ docker compose version
 
 Ожидаются `x86_64`, Python 3.8+, `linux` и подходящая версия Compose. Нужны свободные порты и место для образов, БД и резервных копий; 20 ГБ свободного диска — ориентир первого теста, а не измеренный минимум.
 
-Ниже закреплён Linux-выпуск **1.0.9**, исходный коммит `35dbb73b5925797e753d395843a37f39c23f579d`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
+Ниже закреплён Linux-выпуск **1.0.9**, исходный коммит `2dbe8bc0271c1cfca648d95bae76aa1a7b3d1a22`. Скачивайте архив и суммы из одного выпуска. Для каждого выпуска создавайте новую папку отдельно от постоянных данных:
 
 Файлы выпуска общедоступны в [resokol/castlink](https://github.com/resokol/castlink/releases); вход в GitHub для скачивания не нужен. Пример использует `curl` и точный тег Linux. Старые встроенные ссылки с `castlink-releases` работают через перенаправление в этот же репозиторий.
 
 ```bash
 set -euo pipefail
 umask 077
-RELEASE_TAG='linux-v1.0.9-35dbb73b5925'
+RELEASE_TAG='linux-v1.0.9-2dbe8bc0271c'
 mkdir -p /opt/castlink-releases
 cd /opt/castlink-releases
 mkdir "$RELEASE_TAG"
