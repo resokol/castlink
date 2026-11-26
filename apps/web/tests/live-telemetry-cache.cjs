@@ -12,3 +12,18 @@ const {rememberLiveSample,latestLiveSamples,resetLiveTelemetryForTests}=require(
  assert.equal((await latestLiveSamples("bulk",async()=>[])).size,4096,"live cache is bounded");
  resetLiveTelemetryForTests();console.log("PASS: shared bounded topology cache, one cold seed, monotonic rename and room isolation");
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
+{
+  const { liveOutputRates } = require("../lib/live-telemetry-cache.ts");
+  const stream = (trackSid, kind, source, bitrateKbps) => ({ trackSid, participant: "guest-live", direction: "in", kind, source, bitrateKbps });
+  const streams = [stream("cam","video","camera",3000),stream("cam","video","camera",40),stream("mic","audio","microphone",0),
+    stream("screen","video","screen_share",9000),stream("new","video","camera",null)];
+  const sample = (identity, role, room = "out-qa") => ({ identity, role, room, state: "connected", streams, at: 1000 });
+  rememberLiveSample(sample("obs","output")); rememberLiveSample(sample("vmix","output"));
+  rememberLiveSample(sample("studio","studio")); rememberLiveSample(sample("monitor","monitor")); rememberLiveSample(sample("other","output","other-qa"));
+  const rows=liveOutputRates("out-qa",3000);
+  assert.deepEqual(rows.map(r=>[r.receiver,r.trackSid,r.kbps,r.ttlMs]),[["obs","cam",3040,6000],["obs","mic",0,6000],["vmix","cam",3040,6000],["vmix","mic",0,6000]]);
+  rememberLiveSample({...sample("obs","output"),state:"disconnected",at:3100});
+  assert.equal(liveOutputRates("out-qa",3200).filter(r=>r.receiver==="obs").length,0);
+  assert.deepEqual(liveOutputRates("out-qa",9000),[]);
+}

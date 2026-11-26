@@ -42,7 +42,7 @@ ARG CASTLINK_VERSION
 RUN test -n "$CASTLINK_VERSION" && test "${#CASTLINK_SOURCE_COMMIT}" = 40 \
  && systemd-sysusers && chmod -R a+rX /opt/castlink/app \
  && chmod 0755 /usr/lib/castlink-server \
- && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82","server-wsl-v1.0.6-rc.1-dad063393b53","server-wsl-v1.0.7-0d16de2e782c","server-wsl-v1.0.8-1afa39b54dd7"]}}\n' \
+ && printf '{"schemaVersion":1,"version":"%s","commit":"%s","buildId":"%s-%s","lifecycle":{"schemaVersion":1,"runtimeContract":"castlink-wsl-pg16-v1","postgresMajor":16,"supportedSources":["server-wsl-v1.0.5-rc.1-085b087a2458","server-wsl-v1.0.5-rc.2-af3e309d0926","server-wsl-v1.0.5-rc.3-95ec46463c82","server-wsl-v1.0.6-rc.1-dad063393b53","server-wsl-v1.0.7-0d16de2e782c","server-wsl-v1.0.8-1afa39b54dd7","server-wsl-v1.0.9-35dbb73b5925"]}}\n' \
       "$CASTLINK_VERSION" "$CASTLINK_SOURCE_COMMIT" "$CASTLINK_VERSION" "$(printf %.12s "$CASTLINK_SOURCE_COMMIT")" > /opt/castlink/release.json \
  && printf '[boot]\nsystemd=true\n\n[user]\ndefault=root\n\n[automount]\nenabled=false\n\n[interop]\nenabled=false\nappendWindowsPath=false\n' > /etc/wsl.conf \
  && dpkg-query -W -f='${source:Package}\t${source:Version}\n' | sort -u > /opt/castlink/packages.tsv \
@@ -58,5 +58,9 @@ CMD ["/sbin/init"]
 # Matching Ubuntu source archives are a separate optional download for users.
 # They are mandatory inputs to release packaging. No source collection on a PC.
 FROM rootfs AS sources
-RUN python3 /usr/lib/castlink-server/collect-sources.py /opt/castlink-sources \
+# Prefer the nearby Ubuntu archive on hosted Azure builders. Keep the original
+# signed source indexes available for the exact versions installed in rootfs.
+RUN for suite in noble noble-updates noble-backports noble-security; do printf 'deb-src [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://azure.archive.ubuntu.com/ubuntu %s main restricted universe multiverse\n' "$suite"; done > /etc/apt/sources.list.d/00-castlink-factory.list \
+ && apt-get -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/00-castlink-factory.list -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=false -o Acquire::Retries=2 -o Acquire::https::Timeout=30 update \
+ && python3 /usr/lib/castlink-server/collect-sources.py /opt/castlink-sources \
  && tar -czf /opt/CastLink-Server-WSL-Sources.tar.gz -C /opt/castlink-sources .

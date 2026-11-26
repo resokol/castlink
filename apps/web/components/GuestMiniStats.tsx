@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type { OutputRateSnapshot } from "@/lib/guest-receive-bitrate";
 import type { GuestUplink } from "@/lib/guest-camera-outbound";
 import { formatPacketLoss, type PacketLoss } from "@/lib/guest-network-stats";
 import { useI18n } from "./I18nProvider";
@@ -9,6 +10,9 @@ import { positionStudioConsolePopover } from "./studio-console-popover-position"
 import styles from "./GuestVideoCard.module.css";
 
 export type GuestMiniStatsData = {
+  identity?: string;
+  cameraSid?: string;
+  microphoneSid?: string;
   name?: string;
   receiveVideoKbps?: number | null;
   receiveAudioKbps?: number | null;
@@ -58,15 +62,15 @@ export function useGuestStatsFreshness(guest: GuestMiniStatsData) {
   const stability = grades.includes("Плохая") ? "Плохая" : grades.includes("Средняя") ? "Средняя"
     : measured && upstream && Object.values(upstream).some(leg => leg.active) && grades.every(grade => grade === "Хорошая") ? "Хорошая" : null;
   return {
-    uplink: upstream, stability,
+    now, uplink: upstream, stability,
     fresh: sampledAt != null && sampledAt > 0 && now - sampledAt < 8000,
     measured,
   };
 }
 
-export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
+export function GuestMiniStats({ guest, outputSnapshot }: { guest: GuestMiniStatsData; outputSnapshot?: OutputRateSnapshot }) {
   const { t, locale } = useI18n();
-  const { fresh, measured, uplink, stability } = useGuestStatsFreshness(guest);
+  const { now, measured, uplink, stability } = useGuestStatsFreshness(guest);
   const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null), popup = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -78,8 +82,16 @@ export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
     return () => { window.removeEventListener("resize", positionHelp); window.removeEventListener("scroll", positionHelp, true); };
   }, [helpOpen]);
   const quality = !stability ? "unknown" : stability === "Хорошая" ? "good" : stability === "Средняя" ? "mid" : "bad";
-  const bitrate = (value: number | null | undefined, enabled: boolean) => fresh && enabled && value != null && Number.isFinite(value) && value >= 0
-    ? `${value.toLocaleString(locale)} ${t("кбит/с")}` : "—";
+  const outputBitrate = (sid?: string) => {
+    const snapshot = outputSnapshot;
+    if (!sid || !snapshot) return "—";
+    const values = snapshot.rates.filter(rate => rate.trackSid === sid && rate.participant === guest.identity
+      && now < snapshot.requestedAt + rate.ttlMs).map(rate => rate.kbps);
+    if (!values.length) return "—";
+    const low = Math.min(...values), high = Math.max(...values);
+    const range = low === high ? low.toLocaleString(locale) : `${low.toLocaleString(locale)}–${high.toLocaleString(locale)}`;
+    return `${range} ${t("кбит/с")}`;
+  };
   const lossText = (value: PacketLoss | null | undefined) => {
     const formatted = formatPacketLoss(value, locale);
     return formatted == null ? "—" : t("{loss} пак.", { loss: formatted });
@@ -89,8 +101,8 @@ export function GuestMiniStats({ guest }: { guest: GuestMiniStatsData }) {
     loss: lossText(guest.currentLoss), jitter: metric(guest.jitterMs), rtt: metric(guest.rttMs),
   }) : t("Нет свежего замера соединения");
   return <><dl className={styles.miniStats} aria-label={t("Статистика соединения")}>
-    <div title={t("Измеренный приём камеры этой студией; без аудио")}><dt>{t("Приём видео")}</dt><dd>{bitrate(guest.receiveVideoKbps, guest.camera)}</dd></div>
-    <div title={t("Измеренный приём микрофона этой студией; без видео")}><dt>{t("Приём аудио")}</dt><dd>{bitrate(guest.receiveAudioKbps, guest.microphone)}</dd></div>
+    <div title={t("Приём камеры на выходе OBS/vMix. Для нескольких выходов показан диапазон. Прочерк — нет свежего замера.")}><dt>{t("Видео OBS/vMix")}</dt><dd>{outputBitrate(guest.cameraSid)}</dd></div>
+    <div title={t("Приём микрофона на выходе OBS/vMix. Для нескольких выходов показан диапазон. Прочерк — нет свежего замера.")}><dt>{t("Аудио OBS/vMix")}</dt><dd>{outputBitrate(guest.microphoneSid)}</dd></div>
     <div><dt>{t("Сеть")}</dt><dd className={styles.network} data-quality={quality}>
       <button ref={trigger} type="button" data-network-help-toggle="true" className={styles.networkHelpToggle} popoverTarget={menuId}
         aria-haspopup="dialog" aria-expanded={helpOpen} aria-controls={menuId}

@@ -4776,7 +4776,7 @@ React-страница /admin. Интерфейс и связи с компон�
 
 Экспортируемые символы: `runtime`, `dynamic`, `GET`, `POST`.
 
-Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
+Читает/импортирует: [`apps/web/lib/access.ts`](../../apps/web/lib/access.ts), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/media-room-association.ts`](../../apps/web/lib/media-room-association.ts), [`apps/web/lib/moderator-access.ts`](../../apps/web/lib/moderator-access.ts), [`apps/web/lib/rate-limit.ts`](../../apps/web/lib/rate-limit.ts), [`apps/web/lib/reserve-source.ts`](../../apps/web/lib/reserve-source.ts), [`apps/web/lib/room-admin.ts`](../../apps/web/lib/room-admin.ts), [`apps/web/lib/room-store.ts`](../../apps/web/lib/room-store.ts), [`apps/web/lib/room-studio-access.ts`](../../apps/web/lib/room-studio-access.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts), [`apps/web/lib/studio-scope.ts`](../../apps/web/lib/studio-scope.ts).
 
 Библиотеки/Node: `next/server`.
 
@@ -5794,7 +5794,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestMiniStatsData`, `GuestStatsClock`, `useGuestStatsFreshness`, `GuestMiniStats`, `GuestUplinkDetails`.
 
-Читает/импортирует: [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts), [`apps/web/lib/guest-camera-outbound.ts`](../../apps/web/lib/guest-camera-outbound.ts), [`apps/web/lib/guest-network-stats.ts`](../../apps/web/lib/guest-network-stats.ts).
+Читает/импортирует: [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts), [`apps/web/lib/guest-camera-outbound.ts`](../../apps/web/lib/guest-camera-outbound.ts), [`apps/web/lib/guest-network-stats.ts`](../../apps/web/lib/guest-network-stats.ts), [`apps/web/lib/guest-receive-bitrate.ts`](../../apps/web/lib/guest-receive-bitrate.ts).
 
 Библиотеки/Node: `react`.
 
@@ -5912,7 +5912,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `GuestVideoCardData`, `GuestVideoCard`.
 
-Читает/импортирует: [`apps/web/components/GuestMiniStats.tsx`](../../apps/web/components/GuestMiniStats.tsx), [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts), [`apps/web/lib/guest-network-stats.ts`](../../apps/web/lib/guest-network-stats.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
+Читает/импортирует: [`apps/web/components/GuestMiniStats.tsx`](../../apps/web/components/GuestMiniStats.tsx), [`apps/web/components/GuestVideoCard.module.css`](../../apps/web/components/GuestVideoCard.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/MonitoringControls.tsx`](../../apps/web/components/MonitoringControls.tsx), [`apps/web/components/ParticipantRenameButton.tsx`](../../apps/web/components/ParticipantRenameButton.tsx), [`apps/web/components/StudioConsoleIcon.tsx`](../../apps/web/components/StudioConsoleIcon.tsx), [`apps/web/components/studio-console-popover-position.ts`](../../apps/web/components/studio-console-popover-position.ts), [`apps/web/lib/guest-network-stats.ts`](../../apps/web/lib/guest-network-stats.ts), [`apps/web/lib/guest-receive-bitrate.ts`](../../apps/web/lib/guest-receive-bitrate.ts), [`apps/web/lib/i18n/workspaces.ts`](../../apps/web/lib/i18n/workspaces.ts), [`apps/web/lib/personal-monitoring.ts`](../../apps/web/lib/personal-monitoring.ts), [`apps/web/lib/video-quality.ts`](../../apps/web/lib/video-quality.ts).
 
 Библиотеки/Node: `react`.
 
@@ -7887,9 +7887,9 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `GuestReceiveCounters`, `readGuestReceiveBitrate`.
+Экспортируемые символы: `GuestReceiveCounters`, `readGuestReceiveBitrate`, `OutputTrackRate`, `OutputRateSnapshot`.
 
-Используют: [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/tests/guest-receive-bitrate.cjs`](../../apps/web/tests/guest-receive-bitrate.cjs).
+Используют: [`apps/web/components/GuestMiniStats.tsx`](../../apps/web/components/GuestMiniStats.tsx), [`apps/web/components/GuestVideoCard.tsx`](../../apps/web/components/GuestVideoCard.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/tests/guest-receive-bitrate.cjs`](../../apps/web/tests/guest-receive-bitrate.cjs).
 
 ### apps/web/lib/guest-resume.ts
 
@@ -8157,11 +8157,11 @@ Optional Electron STOP bridge: version detection, capture generation, single-fli
 
 Ограниченный общий cache последних RTC samples для быстрого обзора нод.
 
-Экспортируемые символы: `rememberLiveSample`, `latestLiveSamples`, `resetLiveTelemetryForTests`.
+Экспортируемые символы: `rememberLiveSample`, `latestLiveSamples`, `resetLiveTelemetryForTests`, `liveOutputRates`.
 
-Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/guest-receive-bitrate.ts`](../../apps/web/lib/guest-receive-bitrate.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
-Используют: [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/tests/live-telemetry-cache.cjs`](../../apps/web/tests/live-telemetry-cache.cjs).
+Используют: [`apps/web/app/api/studio-control/route.ts`](../../apps/web/app/api/studio-control/route.ts), [`apps/web/lib/node-topology.ts`](../../apps/web/lib/node-topology.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/tests/live-telemetry-cache.cjs`](../../apps/web/tests/live-telemetry-cache.cjs), [`apps/web/tests/studio-output-api.cjs`](../../apps/web/tests/studio-output-api.cjs).
 
 ### apps/web/lib/livekit-url.ts
 
@@ -14948,7 +14948,7 @@ vm.runInNewContext(transpile(`, `node:assert/strict`, `node:crypto`, `node:fs`, 
 
 Проверка/тестовый инструмент. PASS studio output API admin authorization, restricted denial, primary lease retained
 
-Читает/импортирует: [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts).
+Читает/импортирует: [`apps/web/lib/live-telemetry-cache.ts`](../../apps/web/lib/live-telemetry-cache.ts), [`apps/web/lib/studio-control.ts`](../../apps/web/lib/studio-control.ts).
 
 Библиотеки/Node: `node:assert/strict`, `node:fs`, `node:os`, `node:path`, `node:vm`, `typescript`.
 

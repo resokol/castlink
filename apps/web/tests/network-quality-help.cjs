@@ -46,3 +46,15 @@ assert.match(stale, /data-quality="unknown"/, 'fresh audio must not keep a stale
 assert.match(stale, /Нет свежего замера соединения/);
 assert.match(stale, /0,03% \/ 3\u00a0000 пак/, 'historical losses remain visible when the current camera measurement expires');
 console.log('PASS: per-guest disclosures, percentage thresholds, current/session history, RU/EN/zh percent-first copy and independent six-second camera freshness');
+
+const outputGuest = { ...guest, identity: "guest-live", cameraSid: "cam-new", microphoneSid: "mic" };
+const renderOutput = (rates, requestedAt = Date.now()) => renderToStaticMarkup(React.createElement(GuestMiniStats, { guest: outputGuest, outputSnapshot: { rates, requestedAt } }));
+const rate = (receiver, trackSid, kbps, participant = outputGuest.identity) => ({ receiver, participant, trackSid, kbps, ttlMs: 8000 });
+const rates = [rate("obs", "cam-new", 3210), rate("vmix", "cam-new", 2840), rate("obs", "mic", 0),
+  rate("other", "cam-old", 666), rate("another", "mic", 999, "guest-other")];
+const output = renderOutput(rates).replace(/[\u00a0\u202f ]/g, "");
+assert.match(output, /2840–3210кбит\/с/);
+assert.match(output, />0кбит\/с</);
+assert.doesNotMatch(output, /4000кбит|128кбит|666кбит|999кбит/);
+assert.doesNotMatch(renderOutput([], Date.now()), /кбит\/с/);
+assert.doesNotMatch(renderOutput(rates, Date.now() - 8100), /кбит\/с/);

@@ -11,6 +11,7 @@ import { StudioConsoleIcon } from "./StudioConsoleIcon";
 import styles from "./GuestVideoCard.module.css";
 import { positionStudioConsolePopover } from "./studio-console-popover-position";
 import { formatPacketLoss } from "@/lib/guest-network-stats";
+import type { OutputRateSnapshot } from "@/lib/guest-receive-bitrate";
 import { GuestMiniStats, GuestStatsClock, GuestUplinkDetails, useGuestStatsFreshness, type GuestMiniStatsData } from "./GuestMiniStats";
 
 export type GuestVideoCardData = GuestMiniStatsData & {
@@ -34,6 +35,7 @@ export type GuestVideoCardData = GuestMiniStatsData & {
 
 export function GuestVideoCard({
   guest,
+  outputSnapshot,
   focused = true,
   onSelect,
   roomName,
@@ -58,6 +60,7 @@ export function GuestVideoCard({
   onMonitoringChange,
 }: {
   guest: GuestVideoCardData;
+  outputSnapshot?: OutputRateSnapshot;
   focused?: boolean;
   onSelect?: () => void;
   roomName: string;
@@ -110,7 +113,7 @@ export function GuestVideoCard({
       aria-label={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} title={`${t(copied ? "Скопировано" : "Копировать URL")}: ${guest.name}`} data-copied={copied || undefined}>
       <StudioConsoleIcon kind={copied ? "check" : "copy"} width={16} height={16}/><span className={styles.copyStatus} role="status">{copied ? t("Скопировано") : ""}</span>
     </button>}</div>
-    <GuestMiniStats guest={guest} />
+    <GuestMiniStats guest={guest} outputSnapshot={outputSnapshot} />
     <div className={styles.feedback}>{feedback}</div>
     <div ref={popup} id={menuId} className={styles.advancedSurface} popover={compact ? "auto" : undefined} role={compact ? "dialog" : undefined} aria-labelledby={compact ? `${menuId}-title` : undefined} onToggle={event => {
       if (event.target !== event.currentTarget) return;

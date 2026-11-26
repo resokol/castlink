@@ -70,7 +70,7 @@ import { outputQualityRecipients, parseGuestClientInfo } from "@/lib/guest-media
 import { GUEST_CAMERA_OUTBOUND_TOPIC, parseGuestCameraOutbound, freshGuestCameraOutboundBitrate, freshGuestUplink, type GuestUplink, type ReceivedGuestCameraOutbound } from "@/lib/guest-camera-outbound";
 import { bindStudioRoomLifecycle } from "@/lib/studio-room-lifecycle";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
-import { readGuestReceiveBitrate, type GuestReceiveCounters } from "@/lib/guest-receive-bitrate";
+import { readGuestReceiveBitrate, type GuestReceiveCounters, type OutputRateSnapshot } from "@/lib/guest-receive-bitrate";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AudioPresets, Room, RoomEvent, Track, type LocalAudioTrack, type LocalVideoTrack, type RemoteAudioTrack, type RemoteVideoTrack, type RemoteTrackPublication } from "livekit-client";
@@ -78,6 +78,8 @@ import { AudioPresets, Room, RoomEvent, Track, type LocalAudioTrack, type LocalV
 type GuestStat = {
   identity: string;
   participantSid: string;
+  cameraSid?: string;
+  microphoneSid?: string;
   name: string;
   resolution: string;
   bitrateKbps: number;
@@ -374,6 +376,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
     } catch (e) { alert(translateWorkspaceMessage(t, e instanceof Error ? e.message : "Ошибка отключения")); }
   };
   const [status, setStatus] = useState("Подключение…");
+  const [outputSnapshot, setOutputSnapshot] = useState<OutputRateSnapshot>();
+  useEffect(() => setOutputSnapshot(undefined), [room, roomName, studioId]);
   const [guests, setGuests] = useState<GuestStat[]>([]);
   const [copied, setCopied] = useState<string>();
   const [receiveSettings, setReceiveSettings] = useState<Record<string, number>>({});
@@ -659,6 +663,8 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
         rows.push({
           identity: participant.identity,
           participantSid: participant.sid,
+          cameraSid: cameraPub?.trackSid,
+          microphoneSid: micPub?.trackSid,
           name: participant.name || participant.identity.replace(/^guest-/, ""),
           resolution,
           bitrateKbps,
@@ -1340,9 +1346,11 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
       if (stopped || transferLeavingRef.current || applyingControlRef.current || pollInFlight) return;
       pollInFlight = true;
       try {
-        const response = await fetch(`/api/studio-control?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+        const requestedAt = Date.now();
+        const response = await fetch(`/api/studio-control?studioId=${encodeURIComponent(studioId)}&room=${encodeURIComponent(roomName)}&clientId=${encodeURIComponent(studioClientId)}&outputRates=1`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
         const data = await readControlResponse(response, "Не удалось проверить управление Studio Panel");
         if (stopped || transferLeavingRef.current) return;
+        setOutputSnapshot({ requestedAt, rates: Array.isArray(data.outputRates) ? data.outputRates : [] });
         setControlPollError("");
         const primaryOnline = Boolean(data.primaryOnline);
         studioPrimaryOnlineRef.current = primaryOnline;
@@ -1814,6 +1822,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
           feedback={<>{activity?.pending && <small role="status">{t("Ожидаем подтверждение гостя…")}</small>}{activity?.error && <small role="alert">{translateWorkspaceMessage(t, activity.error)}</small>}{guestMediaRequests[g.identity]?.message && <small role={guestMediaRequests[g.identity]?.error ? "alert" : "status"}>{translateManagementMessage(guestMediaRequests[g.identity].message || "", t)}</small>}</>}
           mediaControls={<><GuestCameraResolutionControl room={room} studioId={studioId} roomName={roomName} identity={g.identity} />{studioRole !== "moderator" && <StudioCasterImageControls room={room} studioId={studioId} roomName={roomName} identity={g.identity} />}{controls}{studioRole === "primary" && <StudioGuestRoleControls studioId={studioId} roomName={roomName} identity={g.identity} participantSid={room.remoteParticipants.get(g.identity)?.sid || ""} />}<div className="source-card-actions">{!simpleRoom && <><select aria-label={t("Комната для {name}", { name: g.name })} value={moveTargets[g.identity] || ""} onChange={event => setMoveTargets(value => ({ ...value, [g.identity]: event.target.value }))}><option value="">{t("Перевести в комнату…")}</option>{rooms.filter(name => name !== roomName).map(name => <option key={name}>{name}</option>)}</select><button disabled={!moveTargets[g.identity]} onClick={() => void moveGuest(g.identity, moveTargets[g.identity])}>{t("Перевести")}</button></>}<button onClick={() => void kick(g.identity, g.name)}>{t("Отключить гостя")}</button><button onClick={() => void refreshGuest(g.identity)}>{t("↻ Обновить")}</button></div></>}
           guest={g}
+          outputSnapshot={outputSnapshot}
           studioId={studioId}
           roomName={roomName}
           outputUrl={outputUrl(g.identity)}
