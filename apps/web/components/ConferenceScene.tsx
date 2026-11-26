@@ -2,12 +2,13 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { RoomEvent, type Room } from 'livekit-client';
+import { RoomEvent, type Room, type TrackPublication } from 'livekit-client';
 import { useI18n } from './I18nProvider';
 import { advanceSpeaker, primarySceneSource, sceneGallery, sceneRail, sceneSplit, SPEAKER_HOLD_MS, type SceneSource, type SpeakerState } from '@/lib/conference-scene';
+import { preferSourceResolution } from '@/lib/adaptive-preview-room';
 import styles from './ConferenceScene.module.css';
 
-export type ConferenceSceneItem = SceneSource & { node: ReactNode; hidden?: boolean; secondaryOnly?: boolean };
+export type ConferenceSceneItem = SceneSource & { node: ReactNode; primaryVideo?: TrackPublication; hidden?: boolean; secondaryOnly?: boolean };
 const STORAGE = 'castlink.conference-scene.v1';
 const MOBILE_SCENE = '(max-width:700px), (max-height:600px) and (orientation:landscape) and (pointer:coarse)';
 const copy = {
@@ -99,6 +100,8 @@ export function ConferenceScene({ items, room, className = '', controlsTarget, m
   const gallery = sceneGallery(visibleItems.length,size.width,size.height,portrait);
   const railCount = Math.max(1,others.length);
   const focusedMode = mode === 'speaker' && !!focused;
+  const primaryVideo = focusedMode ? focused.primaryVideo : undefined;
+  useEffect(() => primaryVideo && preferSourceResolution(primaryVideo), [primaryVideo]);
   const solo = focusedMode && others.length === 0;
   const resizable = focusedMode && !solo && !mobile;
   const allocation = resizable ? split : 0.76;

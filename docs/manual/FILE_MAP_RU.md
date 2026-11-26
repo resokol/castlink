@@ -5508,7 +5508,7 @@ React-страница /watch. Интерфейс и связи с компон�
 
 Экспортируемые символы: `ConferenceSceneItem`, `ConferenceScene`.
 
-Читает/импортирует: [`apps/web/components/ConferenceScene.module.css`](../../apps/web/components/ConferenceScene.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts).
+Читает/импортирует: [`apps/web/components/ConferenceScene.module.css`](../../apps/web/components/ConferenceScene.module.css), [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/lib/adaptive-preview-room.ts`](../../apps/web/lib/adaptive-preview-room.ts), [`apps/web/lib/conference-scene.ts`](../../apps/web/lib/conference-scene.ts).
 
 Библиотеки/Node: `livekit-client`, `react`, `react-dom`.
 
@@ -7069,11 +7069,11 @@ Startup-валидация persistent storage и room backend.
 
 Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
 
-Экспортируемые символы: `previewShortSide`, `createAdaptivePreviewRoom`.
+Экспортируемые символы: `previewShortSide`, `preferSourceResolution`, `createAdaptivePreviewRoom`.
 
 Библиотеки/Node: `livekit-client`.
 
-Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+Используют: [`apps/web/components/ConferenceScene.tsx`](../../apps/web/components/ConferenceScene.tsx), [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioWorkspace.tsx`](../../apps/web/components/StudioWorkspace.tsx), [`apps/web/lib/rtc-telemetry.ts`](../../apps/web/lib/rtc-telemetry.ts), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
 
 ### apps/web/lib/app-update.ts
 
@@ -11227,7 +11227,7 @@ React-жизненный цикл поворота: metadata и resize → ге�
 
 Проверка/тестовый инструмент. Сценарии и утверждения следует читать в исходнике; отсутствие реального браузера/БД нельзя считать end-to-end проверкой.
 
-Экспортируемые символы: `useI18n`, `RoomEvent`.
+Экспортируемые символы: `useI18n`, `RoomEvent`, `TrackEvent`, `Room`.
 
 Библиотеки/Node: `${path.join(web, `, `node:assert/strict`, `node:fs`, `node:module`, `node:os`, `node:path`, `react`, `react-dom/client`.
 
