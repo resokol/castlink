@@ -2,9 +2,9 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](SERVER_INSTALL.md) · [简体中文](../zh-CN/SERVER_INSTALL.md)
 
-This guide covers Linux **1.0.8** and Windows/WSL **1.0.8**; legacy Docker Server Setup remains a separate track. The current Windows Client is **1.0.2**. Available packages, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [Windows/WSL2 1.0.8](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.8-1afa39b54dd7) · [Linux 1.0.8](https://github.com/resokol/castlink/releases/tag/linux-v1.0.8-4e31afea73ae).
+This guide covers Linux **1.0.10** and Windows/WSL **1.0.10**; legacy Docker Server Setup remains a separate track. The current Windows Client is **1.0.3**. Available packages, exact source/build IDs and checksums are listed in the [product catalog](PRODUCTS.md). [Windows/WSL2 1.0.10](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.10-890a903d51f9) · [Linux 1.0.10](https://github.com/resokol/castlink/releases/tag/linux-v1.0.10-890a903d51f9).
 
-**Primary Windows server route:** WSL2 without Docker Desktop. The stable Windows/WSL2 server version is **1.0.8**. The former Windows/Docker/SSH EasySetup is **Legacy** for existing deployments; Linux/VPS retains its independent stable Docker Engine/Compose installer. [Supported installers and migration limits](../../SUPPORTED_INSTALLERS.md).
+**Primary Windows server route:** WSL2 without Docker Desktop. The stable Windows/WSL2 server version is **1.0.10**. The former Windows/Docker/SSH EasySetup is **Legacy** for existing deployments; Linux/VPS retains its independent stable Docker Engine/Compose installer. [Supported installers and migration limits](../../SUPPORTED_INSTALLERS.md).
 
 Server **1.0.2** introduced [one-command Linux installation, 24-hour metric history and an event journal](RELEASE_NOTES_1_0_2.md). Historical Windows/Docker packages are retained unchanged; automatic Docker → WSL2 migration is not supported.
 
@@ -14,16 +14,16 @@ Update the server off air through an explicit update action, selecting the exist
 
 ## Ubuntu Linux
 
-The command below installs stable **1.0.8**. For step-by-step Windows and Linux installation, see the [main guide](../../../README.en.md).
+The command below installs stable **1.0.10**. For step-by-step Windows and Linux installation, see the [main guide](../../../README.en.md).
 
 Ubuntu22.04/24.04 amd64 is supported. The Linux channel adds a self-contained
-`install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.8 asset URL, rather than global `releases/latest`:
+`install-server.sh` pinned to its release and archive SHA256. Use this exact 1.0.10 asset URL, rather than global `releases/latest`:
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/install-server.sh | sudo bash -s -- --install-runtime --lang en
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.10-890a903d51f9/install-server.sh | sudo bash -s -- --install-runtime --lang en
 ```
 
-The **linux-v1.0.8-4e31afea73ae** bootstrap asks for the
+The **linux-v1.0.10-890a903d51f9** bootstrap asks for the
 server address and room creation password, stores its package/configuration at
 `/opt/castlink-server`, loads bundled images and runs the existing Linux installer.
 `--install-runtime` authorizes prerequisites and starting Docker; otherwise Docker
@@ -38,7 +38,7 @@ locations. Unattended setup supports `--config` and
 
 ## Docker-free Windows/WSL2 — primary Windows server route
 
-The [stable 1.0.8 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.8-1afa39b54dd7) uses its own server-wsl release channel. See [installation steps and limitations](../../../README.en.md#windows-11-server).
+The [stable 1.0.10 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.10-890a903d51f9) uses its own server-wsl release channel. See [installation steps and limitations](../../../README.en.md#windows-11-server).
 
 Requires Windows11 x64 build22621+, WSL2 version2.4.13+, and virtualization. The
 separate `server-wsl-v…` channel provides `install-server-windows.ps1` and a ready
@@ -80,13 +80,13 @@ logon after explicit consent. An explicit `Stop` preserves the stopped state.
 
 ### Maintenance: update, remove and restore
 
-Download [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/CastLink-Server-WSL-Maintenance.zip) from **that same release**, extract the entire ZIP and double-click **CastLink-Maintenance.cmd**. [SHA256](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/SHA256SUMS). The new panel's **Maintenance** button opens the same tool. Version 1.0.5-rc.1 needs this separate tool; its original installer does not update itself.
+Download [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.10-890a903d51f9/CastLink-Server-WSL-Maintenance.zip) from **that same release**, extract the entire ZIP and double-click **CastLink-Maintenance.cmd**. [SHA256](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.10-890a903d51f9/SHA256SUMS). The new panel's **Maintenance** button opens the same tool. Version 1.0.5-rc.1 needs this separate tool; its original installer does not update itself.
 
 **Select and update.** Select the exact server by address and folder; do not silently choose the first of several. An incomplete installation may have an unknown address, so check its folder. Select a target release, click **Check** and review current/target versions and required/free space. The tool downloads and verifies the needed files before stopping services. Checking never starts an update; prereleases require explicit selection. The normal window does not ask you to type SHA256 values or an opaque WSL ID.
 
-Click **Update** only outside a broadcast: the server stops during transfer and readiness checks. The confirmation displays the selected address, version and folder and can be cancelled. Supported source releases are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53` and `server-wsl-v1.0.7-0d16de2e782c`. Other source versions, Docker migration and a different PostgreSQL major are unsupported. Repair an incomplete source with its original release, or remove it through this tool; Update does not pretend it is ready.
+Click **Update** only outside a broadcast: the server stops during transfer and readiness checks. The confirmation displays the selected address, version and folder and can be cancelled. Supported source releases are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c` and `server-wsl-v1.0.8-1afa39b54dd7`. Other source versions, Docker migration and a different PostgreSQL major are unsupported. Repair an incomplete source with its original release, or remove it through this tool; Update does not pretend it is ready.
 
-To update a stable 1.0.7 installation to 1.0.8, use the maintenance ZIP from the 1.0.8 release. Select the existing installation off air and check the installed and target versions.
+To update a stable 1.0.8 installation to 1.0.10, use the maintenance ZIP from the 1.0.10 release. Select the existing installation off air and check the installed and target versions.
 
 A supported upgrade preserves server UUID, rooms/history, passwords, domain, TLS material and network settings. Successful updates remove the temporary transfer and the old owned distribution: **no permanent automatic backup remains**. Failures retain needed recovery evidence. On success, click **Open server panel**, then reload both studio and caster pages.
 
