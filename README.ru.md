@@ -2,7 +2,7 @@
 
 # CastLink
 
-**Сервер 1.0.8** включает управление слайдами спикером, предпросмотр слайдов, локальную запись и диагностику соединения. Выберите пакет Windows/WSL2 или Linux и проверьте файлы по его `SHA256SUMS`. Версия Windows Client — **1.0.2**.
+**Сервер 1.0.9** подбирает качество студийного превью по размеру окна и запрашивает камеру кастера до 1080p при 60 кадрах/с. По статистике трека можно сравнить отправку кастера и приём студии. Выберите пакет Windows/WSL2 или Linux и проверьте файлы по его `SHA256SUMS`. Версия Windows Client — **1.0.3**.
 
 Подключайте удалённых участников через браузер и получайте отдельные аудио- и видеопотоки для OBS или vMix.
 
@@ -10,12 +10,12 @@
 
 | Где устанавливаем | Что использовать |
 | --- | --- |
-| [Windows 11](#сервер-на-windows-11) | Полный установщик без Docker Desktop. **1.0.8** — стабильный выпуск. |
-| [Ubuntu Linux / VPS](#сервер-на-linux-ubuntu) | Одна команда `curl`. Версия **1.0.8** — стабильный выпуск. |
+| [Windows 11](#сервер-на-windows-11) | Полный установщик без Docker Desktop. **1.0.9** — стабильный выпуск. |
+| [Ubuntu Linux / VPS](#сервер-на-linux-ubuntu) | Одна команда `curl`. Версия **1.0.9** — стабильный выпуск. |
 
-**Поддерживаемые направления:** для нового Windows-сервера рекомендую **WSL2 без Docker Desktop**; для Ubuntu/VPS — Linux Server. Старый Windows/Docker EasySetup переведён в **Legacy** и сохранён для существующих установок. Windows/WSL2 и Linux используют стабильную серверную версию **1.0.8** и отдельные установщики. [Статусы и ограничения](distribution/SUPPORTED_INSTALLERS.md).
+**Поддерживаемые направления:** для нового Windows-сервера рекомендую **WSL2 без Docker Desktop**; для Ubuntu/VPS — Linux Server. Старый Windows/Docker EasySetup переведён в **Legacy** и сохранён для существующих установок. Windows/WSL2 и Linux используют стабильную серверную версию **1.0.9** и отдельные установщики. [Статусы и ограничения](distribution/SUPPORTED_INSTALLERS.md).
 
-Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.2-1dff0538526c/CastLink-Client-1.0.2-1dff0538526c-setup.exe) — отдельное приложение, он не устанавливает сервер.
+Если нужно только подключиться к чужому серверу, достаточно браузера. [Windows-клиент](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe) — отдельное приложение, он не устанавливает сервер.
 
 **Обновления без повторного скачивания инструментов:** один раз подключите [CastLink Updater](distribution/UPDATER.md) на каждом компьютере. В Windows используйте ярлык **Update CastLink** для Client и WSL2; в Linux — `castlink check-updates` и `castlink update`. Применение требует вашего подтверждения.
 
@@ -53,7 +53,7 @@ wsl --version
 
 ### 1. Скачайте установщик
 
-**[Скачать install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/install-server-windows.ps1)**
+**[Скачать install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/install-server-windows.ps1)**
 
 Это полный установщик: необходимые серверные файлы он скачает сам. Hotfix, исходники и остальные архивы вручную скачивать не нужно.
 
@@ -94,18 +94,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 Проверьте подключение с другого устройства. Для проверки интернета используйте, например, телефон с мобильной сетью, а не только Wi-Fi сервера.
 
-**Версия сервера:** стабильная **1.0.8**. Для существующего сервера используйте обслуживание ниже, а не повторную установку поверх данных. [Выпуск](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.8-1afa39b54dd7) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/SHA256SUMS).
+**Версия сервера:** стабильная **1.0.9**. Для существующего сервера используйте обслуживание ниже, а не повторную установку поверх данных. [Выпуск](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/SHA256SUMS).
 
 ### Обновить, удалить или восстановить WSL-сервер
 
-1. Скачайте [ZIP обслуживания](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/CastLink-Server-WSL-Maintenance.zip), распакуйте его и дважды нажмите **CastLink-Maintenance.cmd**. В новой панели этот же инструмент открывает кнопка **«Обслуживание»**; для старой 1.0.5-rc.1 нужен отдельный ZIP.
-2. Выберите сервер по адресу и папке, затем целевую версию **1.0.8**. Нажмите **«Проверить»**, сверьте текущую/целевую версии и свободное место, затем **«Обновить»**. Обновление прерывает работу: выполняйте его только вне эфира. Подтвердите показанный сервер; вводить контрольную сумму или имя WSL вручную не нужно.
+1. Скачайте [ZIP обслуживания](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/CastLink-Server-WSL-Maintenance.zip), распакуйте его и дважды нажмите **CastLink-Maintenance.cmd**. В новой панели этот же инструмент открывает кнопка **«Обслуживание»**; для старой 1.0.5-rc.1 нужен отдельный ZIP.
+2. Выберите сервер по адресу и папке, затем целевую версию **1.0.9**. Нажмите **«Проверить»**, сверьте текущую/целевую версии и свободное место, затем **«Обновить»**. Обновление прерывает работу: выполняйте его только вне эфира. Подтвердите показанный сервер; вводить контрольную сумму или имя WSL вручную не нужно.
 3. Для удаления выберите **«Сохранить архив перед удалением»** либо **«Безвозвратно удалить сервер и данные»**, затем **«Удалить»**. Сохранённый архив — **папка** с полным экспортом и файлами восстановления, а не ZIP статистики; он содержит учётные данные. Храните папку целиком и приватно.
 4. **«Восстановить»** использует эту папку и новую, ещё не существующую папку установки внутри `%LOCALAPPDATA%\CastLinkServer`. После прерывания операции выберите тот же сервер и **«Завершить / восстановить операцию»**. После успеха нажмите **«Открыть панель сервера»**.
 
-Поддерживаются обновления WSL-выпусков `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53` и `server-wsl-v1.0.7-0d16de2e782c`. Комнаты, история, пароли, адрес и сертификаты сохраняются при поддерживаемом обновлении; постоянная автоматическая резервная копия после успеха не остаётся. Перенос данных из Docker не поддерживается. [Подробности](distribution/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/SHA256SUMS).
+Поддерживаются обновления WSL-выпусков `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c` и `server-wsl-v1.0.8-1afa39b54dd7`. Комнаты, история, пароли, адрес и сертификаты сохраняются при поддерживаемом обновлении; постоянная автоматическая резервная копия после успеха не остаётся. Перенос данных из Docker не поддерживается. [Подробности](distribution/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/SHA256SUMS).
 
-Для обновления стабильной установки 1.0.7 до 1.0.8 используйте ZIP обслуживания из выпуска 1.0.8. Вне эфира выберите существующую установку и проверьте исходную и целевую версии.
+Для обновления стабильной установки 1.0.8 до 1.0.9 используйте ZIP обслуживания из выпуска 1.0.9. Вне эфира выберите существующую установку и проверьте исходную и целевую версии.
 
 ## Сервер на Linux Ubuntu
 
@@ -114,10 +114,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 ### 1. Выполните одну команду
 
 ```bash
-curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/install-server.sh | sudo bash -s -- --install-runtime --lang ru
+curl -fsSL https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh | sudo bash -s -- --install-runtime --lang ru
 ```
 
-Команда скачивает закреплённый установщик **1.0.8**. Он проверяет серверный архив, устанавливает необходимые Docker Engine/Compose и Python, сохраняет установку в **`/opt/castlink-server`**.
+Команда скачивает закреплённый установщик **1.0.9**. Он проверяет серверный архив, устанавливает необходимые Docker Engine/Compose и Python, сохраняет установку в **`/opt/castlink-server`**.
 
 Если получаете `curl: command not found`, сначала выполните:
 

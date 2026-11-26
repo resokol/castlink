@@ -2,7 +2,7 @@
 
 # CastLink 软件包
 
-**服务器 1.0.8** 新增演讲者幻灯片控制、幻灯片预览、本地录制和连接诊断。请选择 Windows/WSL2 或 Linux 软件包，并使用该版本的 `SHA256SUMS` 校验文件。Windows Client 版本为 **1.0.2**。
+**服务器 1.0.9** 根据显示尺寸调整演播室预览画质，并请求最高 1080p、60 帧/秒的主播摄像头视频。可通过轨道统计对比主播发送与演播室接收的数据。请选择 Windows/WSL2 或 Linux 软件包，并使用该版本的 `SHA256SUMS` 校验文件。Windows Client 版本为 **1.0.3**。
 
 主要方向：**Windows 11 服务器使用 WSL2（无需 Docker Desktop）**、**Ubuntu/Linux 服务器**和单独的 **Windows 客户端**。[安装渠道及迁移限制](../../SUPPORTED_INSTALLERS.md)。
 
@@ -10,14 +10,14 @@
 
 | CastLink | 用途 | 下载 |
 | --- | --- | --- |
-| Windows Server / WSL2 | Windows 11 推荐方案；稳定版 **1.0.8** | [1.0.8](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.8-1afa39b54dd7) · [安装脚本](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/install-server-windows.ps1) · [维护 ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.8-1afa39b54dd7/SHA256SUMS) |
-| Linux Ubuntu | Ubuntu/VPS 独立服务器，使用 Docker Engine/Compose | [1.0.8](https://github.com/resokol/castlink/releases/tag/linux-v1.0.8-4e31afea73ae) · [安装脚本](https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/SHA256SUMS) |
-| Windows Client | 单独的主播/演播室应用，不安装服务器 | [1.0.2](https://github.com/resokol/castlink/releases/tag/client-v1.0.2-1dff0538526c) · [安装程序](https://github.com/resokol/castlink/releases/download/client-v1.0.2-1dff0538526c/CastLink-Client-1.0.2-1dff0538526c-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.2-1dff0538526c/SHA256SUMS) |
+| Windows Server / WSL2 | Windows 11 推荐方案；稳定版 **1.0.9** | [1.0.9](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [安装脚本](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/install-server-windows.ps1) · [维护 ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.9-35dbb73b5925/SHA256SUMS) |
+| Linux Ubuntu | Ubuntu/VPS 独立服务器，使用 Docker Engine/Compose | [1.0.9](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925) · [安装脚本](https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/SHA256SUMS) |
+| Windows Client | 单独的主播/演播室应用，不安装服务器 | [1.0.3](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [安装程序](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/SHA256SUMS) |
 
 <a id="updater"></a>
 ## 永久更新工具 1.0.0
 
-适用于受支持 Client、Windows/WSL2 与 Linux 安装的独立工具。在**每台电脑上安装一次**，然后使用固定快捷方式或命令。当前产品版本为 Client **1.0.2** 和 Server **1.0.8**。检查不会应用更新，应用需要确认。
+适用于受支持 Client、Windows/WSL2 与 Linux 安装的独立工具。在**每台电脑上安装一次**，然后使用固定快捷方式或命令。当前产品版本为 Client **1.0.3** 和 Server **1.0.9**。检查不会应用更新，应用需要确认。
 
 [Windows 安装程序](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux 安装程序](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [分步指南](UPDATER.md)。稳定发行版：[`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836)，源代码 `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`。[Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS)。更新工具渠道独立于服务器和 Client 渠道。
 
@@ -35,11 +35,11 @@
 
 Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Windows/WSL build: `1.0.8-1afa39b54dd7` · source: `1afa39b54dd70de3b8cc9629814af66a482f7866`
+Windows/WSL build: `1.0.9-35dbb73b5925` · source: `35dbb73b5925797e753d395843a37f39c23f579d`
 
-Linux build: `1.0.8-4e31afea73ae` · source: `4e31afea73aeae479f43c1df62c35bd6c66949cb`
+Linux build: `1.0.9-35dbb73b5925` · source: `35dbb73b5925797e753d395843a37f39c23f579d`
 
-Client build: `1.0.2-1dff0538526c` · source: `1dff0538526c6df29eb32797388460178ff0ea9c`
+Client build: `1.0.3-35dbb73b5925` · source: `35dbb73b5925797e753d395843a37f39c23f579d`
 
 **1.0.6:** 演播室统计新增视频诊断 → JSON：发送和接收历史以及可用的帧和卡顿计数。 [发行说明](RELEASE_NOTES_1_0_6.md).
 
@@ -49,13 +49,13 @@ Client build: `1.0.2-1dff0538526c` · source: `1dff0538526c6df29eb32797388460178
 
 **1.0.3：**降噪与回声消除使用同一开关，默认关闭；主控演播室可在主播卡片中切换。 [1.0.3](RELEASE_NOTES_1_0_3.md).
 
-**服务器 1.0.2：**Super Admin 提供 24 小时指标历史与事件日志，重启后数据保留。Linux 还包含用于单命令安装的 [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.8-4e31afea73ae/install-server.sh)。[安装说明](SERVER_INSTALL.md) · [1.0.2 发行说明](RELEASE_NOTES_1_0_2.md)。
+**服务器 1.0.2：**Super Admin 提供 24 小时指标历史与事件日志，重启后数据保留。Linux 还包含用于单命令安装的 [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.9-35dbb73b5925/install-server.sh)。[安装说明](SERVER_INSTALL.md) · [1.0.2 发行说明](RELEASE_NOTES_1_0_2.md)。
 
-Windows/WSL2 是主要 Windows 服务器渠道；稳定服务器版本为 1.0.8。请使用同一版本的维护 ZIP 包，在停播时更新原有 WSL 安装，然后刷新演播室和主播页面。旧版 Windows/Docker Server Setup 归为 Legacy。
+Windows/WSL2 是主要 Windows 服务器渠道；稳定服务器版本为 1.0.9。请使用同一版本的维护 ZIP 包，在停播时更新原有 WSL 安装，然后刷新演播室和主播页面。旧版 Windows/Docker Server Setup 归为 Legacy。
 
-**更新现有服务器：**请在停播时用对应维护工具及原数据目录将 WSL2 或 Linux 更新至 1.0.8；Legacy Windows/Docker 保持 1.0.4。连接恢复要求两台服务器均使用 1.0.1 或更高版本。Windows Client 为 1.0.2；请使用其内置更新检查。如果旧版 Client 无法找到发行版，请通过上方链接手动下载 1.0.2 安装程序一次，并验证 SHA256SUMS。[连接恢复](GUIDE.md#server-pair-recovery) · [更新日志](../../../CHANGELOG.md)。
+**更新现有服务器：**请在停播时用对应维护工具及原数据目录将 WSL2 或 Linux 更新至 1.0.9；Legacy Windows/Docker 保持 1.0.4。连接恢复要求两台服务器均使用 1.0.1 或更高版本。Windows Client 为 1.0.3；请使用其内置更新检查。如果旧版 Client 无法找到发行版，请通过上方链接手动下载 1.0.3 安装程序一次，并验证 SHA256SUMS。[连接恢复](GUIDE.md#server-pair-recovery) · [更新日志](../../../CHANGELOG.md)。
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.2-1dff0538526c) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.8-1afa39b54dd7) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.8-4e31afea73ae) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.9-35dbb73b5925) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.9-35dbb73b5925) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
 
 服务器 1.0.4 源代码：[发行版](https://github.com/resokol/castlink/releases/tag/source-v1.0.4-079fd0f9d4b1) · [准确提交](https://github.com/resokol/castlink/tree/079fd0f9d4b18215274ff401ba584435e263994f) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/SHA256SUMS)。源代码采用 MIT 许可；源码归档不是安装程序。当前开发：[main 分支](https://github.com/resokol/castlink/tree/main)。
 
