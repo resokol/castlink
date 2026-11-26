@@ -6,7 +6,7 @@
 
 This page retains instructions for the former Windows/Docker/SSH EasySetup. For a new server, use the [current Windows/Ubuntu installation guide](../../../README.en.md) and [exact package catalog](PRODUCTS.md). Windows/Docker remains Legacy 1.0.4; Client is at 1.0.3.
 
-The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the current stable server version is 1.0.9. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
+The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the current stable server version is 1.0.10. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
 
 CastLink has one public repository, [resokol/castlink](https://github.com/resokol/castlink), for its MIT-licensed source, releases and instructions. Archives and `SHA256SUMS` do not require separately granted access. The former name `resokol/castlink-releases` redirects here for compatibility with old links and installers; it is not a separate mirror. A shared `releases/latest` does not select all three products.
 
