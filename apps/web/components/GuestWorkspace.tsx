@@ -38,6 +38,7 @@ import { guestClientInfoRecipients, type GuestChoices } from "@/lib/guest-media"
 import { MediaDevicePicker } from "@/components/MediaDevicePicker";
 import { useRoomMode } from "@/lib/room-mode";
 import { toggleElementFullscreen } from "@/lib/fullscreen";
+import { createAdaptivePreviewRoom } from "@/lib/adaptive-preview-room";
 import { watchStudioVideo } from "@/lib/studio-video-recovery";
 import { DEFAULT_GUEST_VIDEO_BITRATE_KBPS, guestCameraHeight } from "@/lib/video-quality";
 import { watchGuestVideoBitrate } from "@/lib/guest-video-bitrate";
@@ -54,7 +55,7 @@ import { initialRecoveryStatus, nextRecoveryStatus, recoveryBadge, type Recovery
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StartAudio, RoomContext } from "@livekit/components-react";
-import { DisconnectReason, Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
+import { DisconnectReason, type Room, RoomEvent, Track } from "livekit-client";
 
 
 export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "/room", onLeave, personalInvite, initialEntrySettings }: { initialRoomName: string; initialStudioId: string; entryPath?: string; onLeave?: () => void; personalInvite?: string; initialEntrySettings?: GuestEntrySettings }) {
@@ -167,7 +168,14 @@ export function GuestWorkspace({ initialRoomName, initialStudioId, entryPath = "
       if (snapshot) queueMicrotask(clearTransferSnapshot);
     } catch {}
   }, [params]);
-  const [room] = useState(() => new Room({ adaptiveStream: false, dynacast: true, publishDefaults: { simulcast: true, videoEncoding: { maxBitrate: DEFAULT_GUEST_VIDEO_BITRATE_KBPS * 1000 }, degradationPreference: "maintain-resolution" } }));
+  const [room] = useState(() => createAdaptivePreviewRoom({
+    dynacast: true,
+    publishDefaults: {
+      simulcast: true,
+      videoEncoding: { maxBitrate: DEFAULT_GUEST_VIDEO_BITRATE_KBPS * 1000 },
+      degradationPreference: "maintain-resolution",
+    },
+  }));
   useEffect(() => {
     workspaceMounted.current = true;
     if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
@@ -652,15 +660,6 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
     room.on(RoomEvent.Reconnected, reconnected);
     let stopTelemetry: (() => void) | undefined;
     const stopVideoRecovery = watchStudioVideo(room, identity => videoEnabledRef.current(identity));
-    const forceStudioHigh = (publication: RemoteTrackPublication) => {
-      if (publication.kind !== Track.Kind.Video) return;
-      publication.setVideoQuality(VideoQuality.HIGH);
-      publication.setVideoDimensions({ width: 1920, height: 1080 });
-    };
-    const onPublished = (publication: RemoteTrackPublication, participant: { identity: string }) => {
-      if (participant.identity.startsWith("studio-panel-")) forceStudioHigh(publication);
-    };
-    room.on(RoomEvent.TrackPublished, onPublished);
     const refreshRemotes = () => onRemoteChange((v) => v + 1);
     room.on(RoomEvent.ParticipantConnected, refreshRemotes);
     room.on(RoomEvent.ParticipantDisconnected, refreshRemotes);
@@ -686,11 +685,6 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
         joinedRoute.current = { selected, active: activeRoute };
         await room.startAudio().catch(() => undefined);
         stopTelemetry = startRoomTelemetry(room, room.name, token);
-        for (const participant of room.remoteParticipants.values()) {
-          for (const publication of participant.trackPublications.values()) {
-            if (participant.identity.startsWith("studio-panel-")) forceStudioHigh(publication);
-          }
-        }
         const generation = mediaGeneration.current;
         await enqueueGuestMicrophoneTask(room, async () => {
           if (!active || generation !== mediaGeneration.current) return;
@@ -740,7 +734,7 @@ function RoomConnector({ stopSessionRef, microphoneMuteEpochRef, privateReplyBus
       return connectionTasks.current.catch(() => undefined);
     };
     if (stopSessionRef) stopSessionRef.current = stopSession;
-    return () => { if (stopSessionRef?.current === stopSession) stopSessionRef.current = undefined; active = false; mediaGeneration.current++; window.clearTimeout(connectTimer); if (recoveredTimer) clearTimeout(recoveredTimer); stopVideoRecovery(); room.off(RoomEvent.Disconnected, disconnected); room.off(RoomEvent.Reconnecting, reconnecting); room.off(RoomEvent.Reconnected, reconnected); stopTelemetry?.(); room.off(RoomEvent.TrackPublished, onPublished); room.off(RoomEvent.ParticipantConnected, refreshRemotes); room.off(RoomEvent.ParticipantDisconnected, refreshRemotes); room.off(RoomEvent.TrackSubscribed, refreshRemotes); if (started) connectionTasks.current = connectionTasks.current.catch(() => undefined).then(() => enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); })); };
+    return () => { if (stopSessionRef?.current === stopSession) stopSessionRef.current = undefined; active = false; mediaGeneration.current++; window.clearTimeout(connectTimer); if (recoveredTimer) clearTimeout(recoveredTimer); stopVideoRecovery(); room.off(RoomEvent.Disconnected, disconnected); room.off(RoomEvent.Reconnecting, reconnecting); room.off(RoomEvent.Reconnected, reconnected); stopTelemetry?.(); room.off(RoomEvent.ParticipantConnected, refreshRemotes); room.off(RoomEvent.ParticipantDisconnected, refreshRemotes); room.off(RoomEvent.TrackSubscribed, refreshRemotes); if (started) connectionTasks.current = connectionTasks.current.catch(() => undefined).then(() => enqueueGuestMicrophoneTask(room, async () => { await room.disconnect(); })); };
   }, [room, token, attempt, connectionRoutes, choicesRef, mediaGeneration, onConnectionStatus, onRemoteChange, onRemoved]);
   useEffect(() => {
     if (!connected || room.state !== "connected") return;

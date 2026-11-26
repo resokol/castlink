@@ -1,16 +1,17 @@
-import { Room, RoomEvent, TrackEvent, type RemoteTrackPublication } from "livekit-client";
+import { Room, RoomEvent, TrackEvent, type RemoteTrackPublication, type RoomOptions } from "livekit-client";
 
 // The SDK's videoQuality getter defaults to HIGH even when it signals dimensions.
 const previewRequests = new WeakMap<RemoteTrackPublication, number>();
 
-export function studioPreviewShortSide(publication: RemoteTrackPublication) {
+export function previewShortSide(publication: RemoteTrackPublication) {
   return previewRequests.get(publication);
 }
 
-export function createStudioPreviewRoom() {
+export function createAdaptivePreviewRoom(options: Partial<RoomOptions> = {}) {
   const room = new Room({
-    adaptiveStream: { pixelDensity: "screen", pauseVideoInBackground: false },
     dynacast: false,
+    ...options,
+    adaptiveStream: { pixelDensity: "screen", pauseVideoInBackground: false },
   });
   room.on(RoomEvent.TrackSubscribed, (track, publication) => {
     if (track.kind !== "video") return;

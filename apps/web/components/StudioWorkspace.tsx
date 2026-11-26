@@ -54,7 +54,7 @@ import { RoomInviteButton } from "@/components/RoomInviteButton";
 import { useRoomMode } from "@/lib/room-mode";
 import { reportedStudioVideoCodecs, supportedStudioVideoCodecs, DEFAULT_STUDIO_VIDEO_CODEC, DEFAULT_STUDIO_VIDEO_BITRATE_KBPS, STUDIO_FRAME_RATES, applyStudioSenderQuality, assertStudioVideoCodecSupported, assertPublishedStudioVideoCodec, isStudioVideoCodec, isValidStudioVideoBitrateKbps, studioVideoEncodingsMatch, studioVideoConstraints, studioVideoPublishOptions, videoBitrateOptions, type StudioFrameRate, type StudioVideoCodec } from "@/lib/video-quality";
 import { getLiveKitUrl } from "@/lib/livekit-url";
-import { createStudioPreviewRoom } from "@/lib/studio-preview-room";
+import { createAdaptivePreviewRoom } from "@/lib/adaptive-preview-room";
 import { usePersonalMonitoring, defaultMonitor, type MonitorPreference } from "@/lib/personal-monitoring";
 import { MonitoringControls } from "@/components/MonitoringControls";
 import { StatisticsDashboard } from "@/components/StatisticsDashboard";
@@ -187,7 +187,7 @@ function StudioContent({ studioId, initialRoom, transferSnapshot, entryPath = "/
   const [roomPasswordSet, setRoomPasswordSet] = useState(false);
   const [roomAccessVersion, setRoomAccessVersion] = useState(0);
   const [viewAccess, setViewAccess] = useState("");
-  const room = useMemo(createStudioPreviewRoom, [studioId, roomName]);
+  const room = useMemo(createAdaptivePreviewRoom, [studioId, roomName]);
   const connectedStudioRoomRef = useRef<Room | null>(null);
   const { studioOnly, setStudioOnly } = useRoomMode(roomName, studioId);
   const [modeBusy, setModeBusy] = useState(false);

@@ -14,7 +14,7 @@ async function tick(delay) {
   assert.ok(entry, `timer ${delay} exists`); timers.delete(entry[0]); await entry[1].fn();
 }
 let frames = 10; const changes = [];
-const publication = { kind: 'video', trackSid: 'video', isDesired: true, isMuted: false,
+const publication = { kind: 'video', trackSid: 'video', isDesired: true, isEnabled: true, isMuted: false,
   track: { getRTCStatsReport: async () => new Map([['in', { type: 'inbound-rtp', kind: 'video', framesDecoded: frames }]]) },
   setSubscribed(value) { this.isDesired = value; changes.push(value); },
 };
@@ -31,7 +31,10 @@ const room = { state: 'connected', remoteParticipants: new Map([['studio', parti
   publication.isMuted = false; publication.isDesired = false;
   for (let i = 0; i < 5; i++) await tick(5000);
   assert.equal(changes.length, 2, 'disabled video stays disabled');
-  publication.isDesired = true;
+  publication.isDesired = true; publication.isEnabled = false;
+  for (let i = 0; i < 5; i++) await tick(5000);
+  assert.equal(changes.length, 2, 'hidden adaptive video stays subscribed without decoder recovery');
+  publication.isEnabled = true;
   for (let i = 0; i < 4; i++) await tick(5000);
   assert.equal(changes.length, 3); videoEnabled = false; await tick(250);
   assert.equal(changes.length, 3, 'disable during recovery must not resubscribe');
