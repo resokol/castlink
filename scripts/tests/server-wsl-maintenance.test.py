@@ -165,6 +165,15 @@ class TransferTest(unittest.TestCase):
                          [*STABLE_107['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
         self.assert_preserved_upgrade(previous, candidate)
 
+    def test_published_108_upgrade_preserves_installation(self):
+        previous = {**STABLE_107, 'version': '1.0.8', 'commit': '1afa39b54dd70de3b8cc9629814af66a482f7866',
+                    'buildId': '1.0.8-1afa39b54dd7', 'lifecycle': {**STABLE_107['lifecycle'], 'supportedSources':
+                        [*STABLE_107['lifecycle']['supportedSources'], 'server-wsl-v1.0.7-0d16de2e782c']}}
+        candidate = {**previous, 'version': '1.0.9', 'commit': 'b'*40, 'buildId': '1.0.9-'+'b'*12,
+                     'lifecycle': {**previous['lifecycle'], 'supportedSources':
+                         [*previous['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
+        self.assert_preserved_upgrade(previous, candidate)
+
     def assert_preserved_upgrade(self, previous, candidate):
         self.source=self.fixture('published-source', previous)
         (self.target/'opt/castlink/release.json').write_text(json.dumps(candidate))

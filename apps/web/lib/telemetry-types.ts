@@ -16,6 +16,7 @@ export type StreamStat = {
 export type RtcpPeerReport = {
   kind: "remote-inbound-rtp" | "remote-outbound-rtp"; fresh: boolean; ageMs: number;
   fractionLost?: number; packetsSent?: number; bytesSent?: number;
+  egressKbps?: number; egressIntervalMs?: number;
 };
 
 /** Cumulative RTC counters; seconds remain seconds as defined by getStats. */
@@ -33,6 +34,9 @@ export type VideoDiagnostic = {
   publicationMuted: boolean | null; trackMuted: boolean | null;
   mediaTrackEnabled: boolean | null; mediaTrackMuted: boolean | null;
   mediaTrackReadyState: "live" | "ended" | null;
+  requestedQuality?: "low" | "medium" | "high" | "adaptive";
+  requestedShortSide?: number;
+  receiverStreamState?: "active" | "paused";
 };
 
 export type AudioTrackDiagnostic = {
@@ -137,6 +141,7 @@ export type ConnectionHistory = {
 export type ConnectionProblemPeriod = {
   firstAt: number; lastAt: number; from: number; to: number;
   lossPct: number; concealedPct: number; freezes: number; reconnect: boolean; poorQuality: boolean;
+  videoLayerDrop?: boolean;
 };
 
 export type HistoryResponse = {

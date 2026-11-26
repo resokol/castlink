@@ -13,11 +13,13 @@ const advice: Record<RoomMediaFindingCode, [string, string]> = {
   "sender-loss": ["Потери от отправителя до медиасервера", "Проверьте сеть отправителя и загрузку его исходящего канала. Сравните с другими отправителями в эту же минуту."],
   "receiver-decode": ["Приёмник не успевает декодировать видео", "На приёмнике проверьте нагрузку на процессор и видеокарту. Попробуйте меньший видеослой."],
   "receiver-path": ["Ухудшение на пути к приёмнику", "Проверьте сеть приёмника, Wi-Fi и входящий трафик. Сравните с другим приёмником этого потока."],
+  "receiver-layer": ["Студия получила более низкий видеослой", "Другой приёмник одновременно получил больший слой. Причина выбора слоя для студии требует данных о подписке LiveKit."],
   "shared-path": ["Один поток ухудшился у нескольких приёмников", "Сопоставьте исходящий поток отправителя и загрузку медиасервера в указанный интервал."],
   "unlocalized": ["Сторона сбоя не определена", "Сравните тот же поток у отправителя и других приёмников. Для анализа выберите все роли и сессии."],
 };
 const metrics: Partial<Record<keyof RoomMediaFinding["evidence"], string>> = {
-  lossPct: "Потери, %", senderLossPct: "Потери до сервера, %", jitterMs: "Джиттер, мс",
+  lossPct: "Потери, %", controlReceiverLossPct: "Потери у контрольного приёмника, %",
+  senderLossPct: "Потери до сервера, %", jitterMs: "Джиттер, мс",
   droppedPct: "Отброшено кадров, %", freezes: "Новых зависаний за интервал", concealedPct: "Замещено аудиосэмплов, %",
   healthyReceivers: "Приёмников без этого симптома", affectedReceivers: "Затронуто приёмников",
   fps: "Кадров/с", outboundKbps: "Отправка, кбит/с", encodeMsPerFrame: "Кодирование, мс/кадр",
@@ -97,6 +99,7 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
     selected.freezes > 0 && t("Новых зависаний за один интервал трека: до {count}", { count: selected.freezes }),
     selected.reconnect && t("Переподключение"),
     selected.poorQuality && t("Низкое качество связи"),
+    selected.videoLayerDrop && t("В студии снизились разрешение и битрейт"),
   ].filter(Boolean).join(" · ");
   const result = report && <div aria-live="polite">
     {review?.episode && <h3 tabIndex={-1} ref={episodeHeading}>{t("Диагностика выбранного эпизода")}</h3>}
@@ -118,6 +121,9 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
     {report.diagnosis.findings.map((f, index) => {
       const [title, action] = advice[f.code] ?? advice.unlocalized;
       const cpu = report.serverLoad?.overlaps.find(overlap => overlap.findingIndex === index);
+      const layers = f.videoLayers;
+      const cameraMeasurement = (layer: NonNullable<RoomMediaFinding["videoLayers"]>["receiver"]) =>
+        t("{width}×{height} · {rate} кбит/с", { width: layer.width, height: layer.height, rate: Math.round(layer.kbps).toLocaleString(locale) });
       return <details key={index} open={index === 0}>
         <summary><strong>{t(title)}</strong> · {name(f.source)}{f.receiver && <> → {name(f.receiver)}</>} · {time(f.firstAt)}</summary>
         <p>{t(confidence[f.confidence])} · {t(f.kind === "audio" ? "Аудио" : "Видео")}{f.mediaSource && <> · {f.mediaSource}</>} · {time(f.firstAt)} — {time(f.lastAt)}</p>
@@ -126,6 +132,24 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
           const value = f.evidence[k as keyof typeof f.evidence];
           return value === undefined ? [] : [t(label) + " " + value.toLocaleString(locale, { maximumFractionDigits: 1 })];
         }).join(" · ")}</p>
+        {layers && <>
+          <dl>
+            <dt>{t("Отправитель")} · {name(f.source)} · {time(layers.publisher.at)}</dt>
+            <dd>{cameraMeasurement(layers.publisher)}</dd>
+            <dt>{t("Приём в студии")} · {time(layers.receiver.at)}</dt>
+            <dd>{cameraMeasurement(layers.receiver)}</dd>
+            <dt>{t("Контрольный приёмник")} · {name(layers.control.identity)} · {time(layers.control.at)}</dt>
+            <dd>{cameraMeasurement(layers.control)}</dd>
+          </dl>
+          {layers.receiver.requestedQuality === "high" && <p>{t("Максимальное качество подписки в студии — высокое.")}</p>}
+          <p>{layers.receiver.sfuEgressKbps === undefined ? t("Битрейт отправки LiveKit за этот момент отсутствует в отчётах RTCP.")
+            : t(layers.receiver.sfuEgressClock === "rtcp-receipt" ? "LiveKit → студия по времени получения RTCP · около {rate} кбит/с за {seconds} с"
+              : "LiveKit → студия по RTCP · {rate} кбит/с за {seconds} с", {
+              rate: Math.round(layers.receiver.sfuEgressKbps).toLocaleString(locale),
+              seconds: ((layers.receiver.sfuEgressIntervalMs ?? 0) / 1000).toLocaleString(locale, { maximumFractionDigits: 2 }),
+            })}</p>
+          {!layers.trackSid && <p>{t("В записи нет ID трека. Сопоставление по отправителю, источнику и кодеку.")}</p>}
+        </>}
         {cpu && <p>{t("В {time} одновременно наблюдалась высокая нагрузка узла (до {peak}% CPU). Проверьте процессы узла за этот интервал.", {
           time: time(cpu.at), peak: Math.round(cpu.peakPercent),
         })}</p>}

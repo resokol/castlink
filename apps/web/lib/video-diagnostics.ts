@@ -1,11 +1,28 @@
-import type { TelemetrySample, VideoDiagnostic } from "./telemetry-types";
+import type { StreamStat, TelemetrySample, VideoDiagnostic } from "./telemetry-types";
+
+export type VideoLayerMeasurement = { codec: string; width: number; height: number; kbps: number; requestedQuality?: VideoDiagnostic["requestedQuality"]; requestedShortSide?: number };
+
+export function videoLayerMeasurement(stream: StreamStat): VideoLayerMeasurement | undefined {
+  const { width, height, codec, bitrateKbps } = stream;
+  if (!codec || !width || width < 0 || !height || height < 0 || !bitrateKbps || bitrateKbps < 0) return;
+  return { codec: codec.toLowerCase(), width, height, kbps: bitrateKbps,
+    ...(stream.video?.requestedQuality ? { requestedQuality: stream.video.requestedQuality } : {}),
+    ...(stream.video?.requestedShortSide !== undefined ? { requestedShortSide: stream.video.requestedShortSide } : {}) };
+}
+
+export function substantiallyLowerLayer(low: VideoLayerMeasurement, high: VideoLayerMeasurement) {
+  // Compare against a larger layer only when the preview actually requested that size.
+  if (low.requestedQuality === "adaptive" && (low.requestedShortSide ?? 0) < Math.min(high.width, high.height)) return false;
+  return low.codec === high.codec && low.width < high.width && low.height < high.height &&
+    2 * low.width * low.height <= high.width * high.height && 2 * low.kbps <= high.kbps;
+}
 
 const counters = ["statsAt", "framesSent", "framesEncoded", "framesReceived", "framesDecoded", "framesDropped",
   "keyFramesEncoded", "keyFramesDecoded", "freezeCount", "totalFreezesDuration", "totalEncodeTime", "totalDecodeTime",
   "totalPacketSendDelay", "packetsSent", "packetsReceived", "nackCount", "pliCount", "firCount",
   "jitterBufferDelay", "jitterBufferEmittedCount", "captureFrames", "captureFps", "availableOutgoingBitrate"] as const;
 const states = ["publicationMuted", "trackMuted", "mediaTrackEnabled", "mediaTrackMuted"] as const;
-type TrackState = Partial<Pick<VideoDiagnostic, "trackSid" | "mediaTrackReadyState" | typeof states[number]>>;
+type TrackState = Partial<Pick<VideoDiagnostic, "trackSid" | "mediaTrackReadyState" | "requestedQuality" | "requestedShortSide" | "receiverStreamState" | typeof states[number]>>;
 
 /** Only operational scalars: never store raw RTC reports, device IDs, labels, SDP or addresses. */
 export function sanitizeVideoDiagnostic(value: unknown): VideoDiagnostic | undefined {
@@ -18,6 +35,9 @@ export function sanitizeVideoDiagnostic(value: unknown): VideoDiagnostic | undef
   for (const key of states) result[key] = typeof v[key] === "boolean" ? v[key] : null;
   result.trackSid = typeof v.trackSid === "string" && /^[a-zA-Z0-9_-]{1,160}$/.test(v.trackSid) ? v.trackSid : null;
   result.mediaTrackReadyState = v.mediaTrackReadyState === "live" || v.mediaTrackReadyState === "ended" ? v.mediaTrackReadyState : null;
+  if (v.requestedQuality === "adaptive" && typeof v.requestedShortSide === "number" && Number.isSafeInteger(v.requestedShortSide) && v.requestedShortSide >= 0 && v.requestedShortSide <= 32768) result.requestedShortSide = v.requestedShortSide;
+  if (v.requestedQuality === "adaptive" || v.requestedQuality === "low" || v.requestedQuality === "medium" || v.requestedQuality === "high") result.requestedQuality = v.requestedQuality;
+  if (v.receiverStreamState === "active" || v.receiverStreamState === "paused") result.receiverStreamState = v.receiverStreamState;
   return result as VideoDiagnostic;
 }
 

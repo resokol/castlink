@@ -1,9 +1,16 @@
 import type { StreamStat, TelemetrySample } from "./telemetry-types";
+import { substantiallyLowerLayer, videoLayerMeasurement, type VideoLayerMeasurement } from "./video-diagnostics";
 
 export type RoomMediaFindingCode = "sender-cpu" | "sender-bandwidth" | "sender-loss" |
-  "receiver-decode" | "receiver-path" | "shared-path" | "unlocalized";
+  "receiver-decode" | "receiver-path" | "receiver-layer" | "shared-path" | "unlocalized";
 
-type Evidence = Partial<Record<"lossPct" | "concealedPct" | "freezes" | "droppedPct" | "healthyReceivers" |
+type VideoLayer = VideoLayerMeasurement & { at: number;
+  requestedQuality?: NonNullable<StreamStat["video"]>["requestedQuality"]; sfuEgressKbps?: number; sfuEgressIntervalMs?: number;
+  sfuEgressClock?: "sender" | "rtcp-receipt" };
+type VideoLayerComparison = { trackSid: string | null; publisher: VideoLayer; receiver: VideoLayer;
+  control: VideoLayer & { identity: string } };
+
+type Evidence = Partial<Record<"lossPct" | "controlReceiverLossPct" | "concealedPct" | "freezes" | "droppedPct" | "healthyReceivers" |
   "affectedReceivers" | "senderLossPct" | "sfuEgressPacketsDelta" | "sfuEgressBytesDelta" | "decodedFrames" | "receivedFrames" | "decodeMsPerFrame" | "outboundKbps" | "availableOutgoingKbps" | "encodeMsPerFrame" | "fps" | "jitterMs", number>>;
 
 export type RoomMediaFinding = {
@@ -12,6 +19,7 @@ export type RoomMediaFinding = {
   confidence: "observed" | "likely" | "unknown";
   source: string; mediaSource: string; kind: StreamStat["kind"]; receiver: string | null;
   firstAt: number; lastAt: number; intervals: number; evidence: Evidence; receivers: string[];
+  videoLayers?: VideoLayerComparison;
 };
 
 export type RoomMediaDiagnosis = {
@@ -31,12 +39,13 @@ const MAX_FINDINGS = 48;
 type Observation = {
   at: number; source: string; mediaSource: string; kind: StreamStat["kind"];
   receiver: string | null; session: string; publication: string; inactive: boolean; active: boolean; pixels?: number;
+  role: TelemetrySample["role"]; trackSid: string | null; layer?: VideoLayer; videoSources: number;
   cpu: boolean; bandwidth: boolean; decode: boolean; slowDecode: boolean; allSenderReportsFresh: boolean; evidence: Evidence;
 };
 
 type Bucket = { count: number; groups: Map<string, Map<string, Observation[]>> };
 type Baseline = { at: number; rtcAt?: number; bytes?: number; freeze?: number; received?: number; decoded?: number;
-  dropped?: number; encoded?: number; encodeTime?: number; decodeTime?: number; peerPackets?: number; peerBytes?: number };
+  dropped?: number; encoded?: number; encodeTime?: number; decodeTime?: number; peerPackets?: number; peerBytes?: number; peerArrival?: number };
 
 function metric(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
@@ -80,6 +89,20 @@ function sameSymptom(a: Evidence, b: Evidence) {
     ((a.droppedPct ?? 0) >= 20 && (b.droppedPct ?? 0) >= 20);
 }
 
+function compareVideoLayers(obs: Observation, sender: Observation | undefined, peers: Iterable<Observation>): VideoLayerComparison | undefined {
+  const low = obs.layer, high = sender?.layer;
+  if (obs.role !== "studio" || !low || !high || sender?.inactive || obs.videoSources !== 1 ||
+      low.requestedQuality === "low" || low.requestedQuality === "medium" || !substantiallyLowerLayer(low, high)) return;
+  // A simultaneous high-resolution receipt confirms the larger layer made it
+  // through the SFU. A high encoder bitrate alone only proves an attempted send.
+  for (const peer of peers) {
+    if (peer.receiver && peer.receiver !== obs.receiver && !peer.inactive && peer.videoSources === 1 &&
+        peer.layer?.width === high.width && peer.layer.height === high.height && substantiallyLowerLayer(low, peer.layer)) {
+      return { trackSid: obs.trackSid, publisher: high, receiver: low, control: { ...peer.layer, identity: peer.receiver } };
+    }
+  }
+}
+
 /** Feed one room in archive order. finish() flushes the last comparison window. */
 export function createRoomMediaDiagnosis() {
   const coverage: RoomMediaDiagnosis["coverage"] = { samples: 0, firstAt: null, lastAt: null, participants: 0,
@@ -90,10 +113,11 @@ export function createRoomMediaDiagnosis() {
   const findings: { finding: RoomMediaFinding; scope: string; lastTick: number }[] = [];
   let room: string | undefined, newestTick = -Infinity, processed = -Infinity;
 
-  function record(code: RoomMediaFindingCode, obs: Observation, evidence: Evidence, affected: string[], receiver = obs.receiver) {
+  function record(code: RoomMediaFindingCode, obs: Observation, evidence: Evidence, affected: string[], receiver = obs.receiver,
+    videoLayers?: VideoLayerComparison) {
     const side = code.startsWith("sender-") ? "sender" : code.startsWith("receiver-") ? "receiver" :
       code === "shared-path" ? "shared" : "unknown";
-    const confidence = side === "sender" ? "observed" : side === "unknown" ? "unknown" : "likely";
+    const confidence = side === "sender" || videoLayers?.trackSid ? "observed" : side === "unknown" ? "unknown" : "likely";
     const tick = Math.floor(obs.at / MATCH_MS);
     const scope = JSON.stringify([code, obs.publication, receiver, receiver === null && obs.receiver !== null ? null : obs.session]);
     const entry = findings.find(row => row.scope === scope && obs.at - row.finding.lastAt <= MAX_COUNTER_GAP);
@@ -103,6 +127,15 @@ export function createRoomMediaDiagnosis() {
       if (entry.lastTick !== tick) entry.finding.intervals++;
       entry.lastTick = tick;
       mergeEvidence(entry.finding.evidence, evidence);
+      if (videoLayers) {
+        const previous = entry.finding.videoLayers;
+        const hasEgress = videoLayers.receiver.sfuEgressKbps !== undefined;
+        const previousHasEgress = previous?.receiver.sfuEgressKbps !== undefined;
+        if (!previous || (hasEgress && !previousHasEgress) ||
+            (hasEgress === previousHasEgress && videoLayers.receiver.kbps < previous.receiver.kbps)) {
+          entry.finding.videoLayers = videoLayers;
+        }
+      }
       for (const identity of affected) {
         if (entry.finding.receivers.length >= 8) break;
         if (!entry.finding.receivers.includes(identity)) entry.finding.receivers.push(identity);
@@ -116,11 +149,13 @@ export function createRoomMediaDiagnosis() {
       coverage.limited = true;
     }
     findings.push({ scope, lastTick: tick, finding: { code, side, confidence, source: obs.source, mediaSource: obs.mediaSource,
-      kind: obs.kind, receiver, firstAt: obs.at, lastAt: obs.at, intervals: 1, evidence: { ...evidence }, receivers: affected.slice(0, 8) } });
+      kind: obs.kind, receiver, firstAt: obs.at, lastAt: obs.at, intervals: 1, evidence: { ...evidence }, receivers: affected.slice(0, 8),
+      ...(videoLayers ? { videoLayers } : {}) } });
   }
 
   function compare(obs: Observation, neighbors: Map<string, Observation[]>[]) {
-    if (obs.inactive || (!obs.cpu && !obs.bandwidth && !hasSymptom(obs))) return;
+    const symptom = hasSymptom(obs);
+    if (obs.inactive || (!obs.cpu && !obs.bandwidth && !symptom && !(obs.role === "studio" && obs.layer))) return;
     // Choose one closest observation per identity across adjacent windows. A
     // second SSRC, tab or reconnect from the same receiver is never a peer.
     const nearest = new Map<string, Observation>();
@@ -153,6 +188,13 @@ export function createRoomMediaDiagnosis() {
     }
     const sender = nearest.get("");
     if (sender?.inactive) return;
+    const layers = compareVideoLayers(obs, sender, nearest.values());
+    if (layers) {
+      const controlReceiverLossPct = nearest.get(layers.control.identity)?.evidence.lossPct;
+      const evidence = { ...obs.evidence, ...(controlReceiverLossPct !== undefined ? { controlReceiverLossPct } : {}) };
+      record("receiver-layer", obs, evidence, [obs.receiver], obs.receiver, layers);
+    }
+    if (!symptom) return;
     if (sender?.evidence.outboundKbps !== undefined) evidence.outboundKbps = sender.evidence.outboundKbps;
     if (sender?.evidence.lossPct !== undefined && (sender.allSenderReportsFresh || sender.evidence.lossPct > 0)) {
       evidence.senderLossPct = sender.evidence.lossPct;
@@ -189,7 +231,7 @@ export function createRoomMediaDiagnosis() {
     const key = JSON.stringify([obs.session, obs.publication, obs.receiver, stream.id, reconnects]);
     const before = baselines.get(key);
     const inactive = track?.publicationMuted || track?.trackMuted || track?.mediaTrackEnabled === false ||
-      track?.mediaTrackMuted || track?.mediaTrackReadyState === "ended";
+      track?.mediaTrackMuted || track?.mediaTrackReadyState === "ended" || video?.receiverStreamState === "paused";
     if (inactive) {
       if (!before || before.at <= obs.at) baselines.delete(key);
       return;
@@ -202,6 +244,7 @@ export function createRoomMediaDiagnosis() {
       freeze: metric(video?.freezeCount ?? stream.freezes), received: metric(video?.framesReceived),
       decoded: metric(video?.framesDecoded), dropped: metric(video?.framesDropped),
       encoded: metric(video?.framesEncoded), encodeTime: metric(video?.totalEncodeTime), decodeTime: metric(video?.totalDecodeTime) };
+    if (sr && next.rtcAt !== undefined) next.peerArrival = metric(next.rtcAt - sr.ageMs);
     const inSequence = !before || next.at > before.at;
     if (before && next.at < before.at) coverage.limited = true;
     if ((stream.kind === "video" || sr) && inSequence) {
@@ -227,6 +270,26 @@ export function createRoomMediaDiagnosis() {
     if (!obs.receiver && !active && rate === 0) return;
     obs.active ||= active;
     if (active && stream.width && stream.height) obs.pixels = Math.max(obs.pixels ?? 0, stream.width * stream.height);
+    const layer = stream.kind === "video" ? videoLayerMeasurement(stream) : undefined;
+    if (layer) {
+      obs.videoSources++;
+      const current = obs.layer;
+      if (!current || layer.width * layer.height > current.width * current.height ||
+          (layer.width === current.width && layer.height === current.height && layer.kbps > current.kbps)) {
+        const measurement: VideoLayer = { ...layer, at: obs.at,
+          ...(video?.requestedQuality ? { requestedQuality: video.requestedQuality } : {}) };
+        if (sr?.fresh && sr.egressKbps !== undefined && sr.egressIntervalMs !== undefined) {
+          Object.assign(measurement, { sfuEgressKbps: sr.egressKbps, sfuEgressIntervalMs: sr.egressIntervalMs, sfuEgressClock: "sender" });
+        } else if (sr?.fresh) {
+          // Older clients saved RTCP receipt age rather than the SFU clock.
+          const interval = change("peerArrival"), sent = change("peerBytes");
+          if (sent !== undefined && interval !== undefined && interval >= 250 && interval <= MAX_COUNTER_GAP && sent * 8 / interval <= 1e6) {
+            Object.assign(measurement, { sfuEgressKbps: sent * 8 / interval, sfuEgressIntervalMs: interval, sfuEgressClock: "rtcp-receipt" });
+          }
+        }
+        obs.layer = measurement;
+      }
+    }
     const rr = stream.peerReport;
     const freshFraction = !obs.receiver && rr?.kind === "remote-inbound-rtp" && rr.fresh &&
       rr.ageMs <= MATCH_MS ? metric(rr.fractionLost) : undefined;
@@ -298,11 +361,13 @@ export function createRoomMediaDiagnosis() {
       const receiver = stream.direction === "in" ? sample.identity : null;
       const source = receiver ? stream.participant : sample.identity;
       if (!source || receiver === source) continue;
-      const publication = JSON.stringify([source, stream.kind, stream.source, stream.trackSid || stream.video?.trackSid || null]);
+      const trackSid = stream.trackSid || stream.video?.trackSid || null;
+      const publication = JSON.stringify([source, stream.kind, stream.source, trackSid]);
       let obs = publications.get(publication);
       if (!obs) {
         obs = { at: sample.at, source, mediaSource: stream.source, kind: stream.kind, receiver, session: sample.session,
-          publication, inactive: true, active: false, cpu: false, bandwidth: false, decode: false, slowDecode: false, allSenderReportsFresh: true, evidence: {} };
+          publication, role: sample.role, trackSid, videoSources: 0, inactive: true, active: false,
+          cpu: false, bandwidth: false, decode: false, slowDecode: false, allSenderReportsFresh: true, evidence: {} };
         publications.set(publication, obs);
       }
       if (stream.video) coverage.detailedVideo++;
@@ -335,7 +400,8 @@ export function createRoomMediaDiagnosis() {
       }
       return finding;
     });
-    return { coverage: { ...coverage }, findings: results.sort((a, b) => b.lastAt - a.lastAt) };
+    return { coverage: { ...coverage }, findings: results.filter(f => f.code !== "receiver-layer" || f.intervals >= 2)
+      .sort((a, b) => b.lastAt - a.lastAt) };
   }
 
   return { add, finish };

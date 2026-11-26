@@ -3,7 +3,8 @@ import type { RtcpPeerReport, StreamStat } from "./telemetry-types";
 const maxAgeMs = 6000;
 type Direction = StreamStat["direction"];
 type RtcStat = Record<string, any>;
-export type RtcpReportMarker = { id: string; ssrc: unknown; at: number; reports: number | null; localPackets: number | null; peerPackets: number | null; lost: number | null };
+export type RtcpReportMarker = { id: string; ssrc: unknown; at: number; reports: number | null; localPackets: number | null;
+  peerPackets: number | null; peerBytes: number | null; peerAt: number | null; lost: number | null };
 
 function nonnegative(value: unknown, maximum = Number.MAX_SAFE_INTEGER) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= maximum ? value : null;
@@ -16,13 +17,17 @@ export function sanitizePeerReport(raw: unknown, direction: Direction): RtcpPeer
   const ageMs = nonnegative(r.ageMs);
   if (r.kind !== kind || typeof r.fresh !== "boolean" || ageMs === null) return undefined;
   const fractionLost = nonnegative(r.fractionLost, 1), bytesSent = nonnegative(r.bytesSent), packetsSent = nonnegative(r.packetsSent);
-  return { kind, fresh: r.fresh && ageMs <= maxAgeMs, ageMs,
+  const fresh = r.fresh && ageMs <= maxAgeMs;
+  const egressKbps = nonnegative(r.egressKbps, 1e6), egressIntervalMs = nonnegative(r.egressIntervalMs, 8000);
+  return { kind, fresh, ageMs,
     ...(direction === "out" && fractionLost !== null ? { fractionLost } : {}),
     ...(direction === "in" && bytesSent !== null && Number.isSafeInteger(bytesSent) ? { bytesSent } : {}),
-    ...(direction === "in" && packetsSent !== null && Number.isSafeInteger(packetsSent) ? { packetsSent } : {}) };
+    ...(direction === "in" && packetsSent !== null && Number.isSafeInteger(packetsSent) ? { packetsSent } : {}),
+    ...(direction === "in" && fresh && egressKbps !== null && egressIntervalMs !== null && egressIntervalMs >= 250
+      ? { egressKbps, egressIntervalMs } : {}) };
 }
 
-/** The remote timestamp is local RTCP receipt time. Never compare the peer's remoteTimestamp to a local clock. */
+/** Use local receipt time for freshness, and differences on the peer's own clock for its sending rate. */
 export function observePeerReport(direction: Direction, local: RtcStat, remote: RtcStat | undefined, previous?: RtcpReportMarker) {
   const kind = direction === "out" ? "remote-inbound-rtp" : "remote-outbound-rtp";
   const localKind = local.kind ?? local.mediaType, remoteKind = remote?.kind ?? remote?.mediaType;
@@ -37,14 +42,19 @@ export function observePeerReport(direction: Direction, local: RtcStat, remote: 
   const reports = nonnegative(direction === "out" ? remote.reportsReceived : remote.reportsSent);
   const marker: RtcpReportMarker = { id: remote.id, ssrc: local.ssrc, at, reports,
     localPackets: nonnegative(direction === "out" ? local.packetsSent : local.packetsReceived),
-    peerPackets: nonnegative(remote.packetsSent), lost: nonnegative(remote.packetsLost) };
+    peerPackets: nonnegative(remote.packetsSent), peerBytes: nonnegative(remote.bytesSent),
+    peerAt: nonnegative(remote.remoteTimestamp), lost: nonnegative(remote.packetsLost) };
   const fresh = !!previous && marker.id === previous.id && marker.ssrc === previous.ssrc &&
     at > previous.at && at - previous.at <= 10_000 && ageMs <= maxAgeMs &&
     (reports === null || previous.reports === null || reports > previous.reports) &&
     (marker.localPackets === null || previous.localPackets === null || marker.localPackets >= previous.localPackets) &&
     (marker.peerPackets === null || previous.peerPackets === null || marker.peerPackets >= previous.peerPackets);
+  const egressIntervalMs = direction === "in" && fresh && previous?.peerAt != null && marker.peerAt !== null
+    ? marker.peerAt - previous.peerAt : undefined;
+  const egressKbps = egressIntervalMs && previous?.peerBytes != null && marker.peerBytes !== null && marker.peerBytes >= previous.peerBytes
+    ? (marker.peerBytes - previous.peerBytes) * 8 / egressIntervalMs : undefined;
   const report = sanitizePeerReport({ kind, fresh, ageMs, fractionLost: remote.fractionLost,
-    packetsSent: remote.packetsSent, bytesSent: remote.bytesSent }, direction)!;
+    packetsSent: remote.packetsSent, bytesSent: remote.bytesSent, egressKbps, egressIntervalMs }, direction)!;
   let lossPct: number | null = null;
   if (direction === "out" && fresh && previous) {
     if (report.fractionLost !== undefined) lossPct = report.fractionLost * 100;

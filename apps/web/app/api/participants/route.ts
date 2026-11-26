@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     }
     if (action === "video-resolution") {
       if (!identity.startsWith("guest-")) return NextResponse.json({ error: "Разрешение доступно только для гостевой камеры" }, { status: 403 });
-      if (height !== 720 && height !== 1080) return NextResponse.json({ error: "Некорректное разрешение камеры" }, { status: 400 });
+      if (height !== "auto" && height !== 720 && height !== 1080) return NextResponse.json({ error: "Некорректное разрешение камеры" }, { status: 400 });
       if (typeof participantSid !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(participantSid)) return NextResponse.json({ error: "Некорректная сессия кастера" }, { status: 400 });
       const lk = client();
       let participant;
@@ -159,8 +159,10 @@ export async function POST(request: NextRequest) {
       try { metadata = JSON.parse(participant.metadata || "{}"); }
       catch { return new NextResponse(null, { status: 403 }); }
       if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.role !== "guest" || metadata.studioId !== studioId) return new NextResponse(null, { status: 403 });
-      const updatedMetadata = { ...metadata, videoHeight: height };
-      delete updatedMetadata.cameraCapture; // Explicit quick preset replaces custom dimensions/FPS.
+      const updatedMetadata = { ...metadata };
+      if (height === "auto") delete updatedMetadata.videoHeight;
+      else updatedMetadata.videoHeight = height;
+      delete updatedMetadata.cameraCapture;
       await lk.updateParticipant(mediaRoom, identity, { metadata: JSON.stringify(updatedMetadata) });
       rememberGuestSessionSettings(studioId, record, identity, updatedMetadata);
       return NextResponse.json({ ok: true, requested: true, participantSid, height }, { headers: { "Cache-Control": "no-store" } });

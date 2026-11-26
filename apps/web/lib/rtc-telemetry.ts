@@ -4,11 +4,12 @@ import { retainSessionHttpBearer, sessionHttpBearer } from "./session-http-beare
 import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { publishRoomOutboundStats } from "./room-outbound-stats";
+import { studioPreviewShortSide } from "./studio-preview-room";
 import { readTrackStats } from "./media-stats";
 import { observePeerReport, type RtcpReportMarker } from "./rtcp-peer-report";
 import { videoDiagnostic, telemetryBody } from "./video-diagnostics";
 import { telemetryContext } from "./telemetry-context";
-import { Room, RoomEvent, Track, type LocalAudioTrack } from "livekit-client";
+import { Room, RoomEvent, Track, VideoQuality, type LocalAudioTrack } from "livekit-client";
 import type { AudioPlaybackDiagnostic, StreamStat, TelemetrySample, StudioMediaDiagnostic } from "./telemetry-types";
 import { audioReceiveDiagnostic, sanitizeAudioPlayback, sanitizeAudioTrack, type AudioCounters } from "./audio-diagnostics";
 
@@ -136,6 +137,11 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
         const transport = stats.find((s) => s.type === "transport" && s.selectedCandidatePairId);
         const pair = (transport && report.get(transport.selectedCandidatePairId)) || stats.find((s) => s.type === "candidate-pair" && s.state === "succeeded" && (s.nominated || s.selected));
         const candidate = pair ? report.get(pair.localCandidateId) : undefined;
+        const quality = direction === "in" && "videoQuality" in publication ? publication.videoQuality : undefined;
+        const adaptive = direction === "in" && "isAdaptiveStream" in track && track.isAdaptiveStream === true;
+        const requestedQuality = adaptive ? "adaptive" : quality === undefined ? undefined : quality === VideoQuality.HIGH ? "high" :
+          quality === VideoQuality.MEDIUM ? "medium" : quality === VideoQuality.LOW ? "low" : undefined;
+        const streamState = direction === "in" ? track.streamState : undefined;
         let mediaTrack: MediaStreamTrack | undefined, capture: MediaTrackSettings | undefined;
         try { mediaTrack = track.mediaStreamTrack; } catch { /* Keep RTP stats if capture became unavailable. */ }
         if (publication.kind === Track.Kind.Audio) {
@@ -189,6 +195,9 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
               trackSid: publication.trackSid, publicationMuted: publication.isMuted, trackMuted: track.isMuted,
               mediaTrackEnabled: mediaTrack?.enabled, mediaTrackMuted: mediaTrack?.muted,
               mediaTrackReadyState: mediaTrack?.readyState,
+              requestedQuality,
+              requestedShortSide: adaptive && "videoQuality" in publication ? studioPreviewShortSide(publication) : undefined,
+              receiverStreamState: streamState === "active" || streamState === "paused" ? streamState : undefined,
             }) } : {}),
           });
         }

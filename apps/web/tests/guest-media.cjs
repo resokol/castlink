@@ -12,18 +12,20 @@ const audioOnly = guestCaptureConstraints({...base, videoEnabled:false});
 assert.equal(audioOnly.video, false); assert.deepEqual(audioOnly.audio, {deviceId:{exact:'mic'}, autoGainControl:false, echoCancellation:false, noiseSuppression:false, voiceIsolation:false});
 const videoOnly = guestCaptureConstraints({...base, audioEnabled:false});
 assert.equal(videoOnly.audio, false); assert.equal(videoOnly.video.deviceId.exact, 'cam');
-assert.equal(videoOnly.video.width, undefined, 'guest capture must not force a 16:9 width/crop');
-assert.equal(videoOnly.video.height.ideal, 1080, "legacy local guest height cannot override the native-aspect default");
+assert.deepEqual(videoOnly.video.width, {ideal:1920,max:1920}, 'Auto caps the width at Full HD');
+assert.deepEqual(videoOnly.video.height, {ideal:1080,max:1080}, 'Auto caps the height at Full HD');
+assert.equal(videoOnly.video.width.exact, undefined, 'Auto can start a lower-resolution device');
 assert.equal(videoOnly.video.resizeMode.ideal, 'none');
 const hd = guestCaptureConstraints({...base, height:1080, audioEnabled:false});
-assert.equal(hd.video.width, undefined); assert.equal(hd.video.height.ideal, 1080);
+assert.deepEqual(hd.video, videoOnly.video, 'the legacy height does not override Auto');
 for (const cameraResolution of ['auto', '720p', '1080p']) for (const cameraFrameRate of ['auto', '15', '30', '50', '60']) {
   const requested = guestCaptureConstraints({ ...base, cameraResolution, cameraFrameRate }).video;
-  assert.equal(requested.height.ideal, cameraResolution === '720p' ? 720 : 1080);
-  assert.equal(requested.width, undefined, 'preferences retain native camera aspect ratio');
-  assert.equal(requested.frameRate.ideal, cameraFrameRate === 'auto' ? 30 : Number(cameraFrameRate));
+  assert.equal(requested.height.ideal, cameraResolution === 'auto' ? videoOnly.video.height.ideal : Number.parseInt(cameraResolution));
+  if (cameraResolution !== 'auto') assert.equal(requested.width, undefined, 'manual height retains native camera aspect ratio');
+  if (cameraFrameRate === 'auto') assert.equal(requested.frameRate.ideal,60,'Auto targets at most 60 FPS');
+  else assert.equal(requested.frameRate.ideal, Number(cameraFrameRate));
   assert.equal(requested.frameRate.exact, undefined, 'unsupported FPS can negotiate a supported rate');
-  assert.equal(requested.frameRate.max, undefined, 'FPS is a preference, never a mandatory limit');
+  assert.equal(requested.frameRate.max, 60, 'ordinary presets can negotiate down within the 60 FPS limit');
 }
 const defaults = guestCaptureConstraints(base); assert.ok(defaults.audio); assert.ok(defaults.video);
 const primary = { identity: 'studio-panel-main', metadata: JSON.stringify({ role:'studio-panel', accessRole:'admin' }) };

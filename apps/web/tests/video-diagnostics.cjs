@@ -43,7 +43,8 @@ const report=(direction)=>new Map([
 ]);
 const publication=(sid,direction)=>({kind:'video',source:'camera',trackSid:sid,isMuted:false,track:{isMuted:false,
  mediaStreamTrack:{enabled:true,muted:false,readyState:'live'},getRTCStatsReport:async()=>{reads++;return report(direction);}}});
-const local=publication('TR_local','out'),remote=publication('TR_remote','in');
+const local=publication('TR_local','out'),remote=Object.assign(publication('TR_remote','in'),{videoQuality:2});
+remote.track.streamState='active';
 const room=Object.assign(new EventEmitter(),{state:'connected',localParticipant:{identity:'guest-local',name:'Local',isLocal:true,
  trackPublications:new Map([['local',local]])},remoteParticipants:new Map([['studio',{identity:'studio-panel-main',name:'Studio',isLocal:false,trackPublications:new Map([['remote',remote]])}]])});
 const settle=async()=>{for(let i=0;i<40;i++)await Promise.resolve();};
@@ -57,6 +58,9 @@ const settle=async()=>{for(let i=0;i<40;i++)await Promise.resolve();};
  assert.equal(incoming.video.framesDecoded,100);assert.equal(incoming.video.totalDecodeTime,0.2);
  assert.equal(incoming.video.captureFrames,null,'receiver must not claim local capture data');
  assert.equal(incoming.video.mediaTrackReadyState,'live');assert.equal(timers.length,1);
+ assert.equal(incoming.video.requestedQuality,'high');
+ assert.equal(incoming.video.receiverStreamState,'active');
+ assert.equal(out.video.requestedQuality,undefined);
  local.trackSid='TR_replacement';await timers.pop().callback();
  assert.equal(samples.at(-1).streams.find(s=>s.direction==='out').video.trackSid,'TR_replacement','publication changes remain distinguishable');
  stop();stop=undefined;assert.equal(samples.at(-1).state,'disconnected');

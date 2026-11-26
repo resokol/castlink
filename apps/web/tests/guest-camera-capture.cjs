@@ -16,8 +16,7 @@ for (const value of [null, [], {}, { ...custom, mode: "bad" }, { ...custom, reso
 const state = { audioProfile: "speech", connectionRoute: "normal", cameraCapture: custom, cameraCaptureSupported: true, actualCameraCapture: { width: 1280, height: 720, frameRate: 30 } };
 assert.deepEqual(protocol.parseGuestMediaSettingsState(state), state);
 assert.equal(protocol.parseGuestMediaSettingsState({ ...state, actualCameraCapture: { width: Infinity, height: 720, frameRate: 30 } }), undefined);
-assert.equal(media.guestCaptureConstraints({ height: 720, cameraCapture: custom, audioEnabled: false }).video.width, undefined);
-assert.deepEqual(media.guestCaptureConstraints({ height: 720, cameraCapture: custom, audioEnabled: false }).video.height, { ideal: 1080 }, "guest-local custom dimensions cannot override default staff preview");
+assert.deepEqual(media.guestCaptureConstraints({ height: 720, cameraCapture: custom, audioEnabled: false }).video, media.guestCaptureConstraints({ height: 720, audioEnabled: false }).video, "guest-local custom dimensions cannot override Auto preview");
 assert.deepEqual(capture.guestCameraConstraints({ cameraCapture: { ...custom, mode: "device" } }), { resizeMode: { ideal: "none" } });
 function makeRoom(enabled = true, selected = custom) {
   const room = { state: "connected", calls: [], fail: false };
