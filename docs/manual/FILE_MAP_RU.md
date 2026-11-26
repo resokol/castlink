@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2097**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2098**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -6416,7 +6416,7 @@ UI gate только по отдельной Super Admin сессии; прав�
 
 Экспортируемые символы: `RoomMediaDiagnostics`.
 
-Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/IncidentMinuteEvidence.tsx`](../../apps/web/components/IncidentMinuteEvidence.tsx), [`apps/web/lib/room-diagnostics-download.ts`](../../apps/web/lib/room-diagnostics-download.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/components/I18nProvider.tsx`](../../apps/web/components/I18nProvider.tsx), [`apps/web/components/IncidentMinuteEvidence.tsx`](../../apps/web/components/IncidentMinuteEvidence.tsx), [`apps/web/lib/connection-verdicts.ts`](../../apps/web/lib/connection-verdicts.ts), [`apps/web/lib/room-diagnostics-download.ts`](../../apps/web/lib/room-diagnostics-download.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `, String(from));
     if (minute !== undefined) url.searchParams.set(`, `react`.
@@ -7045,7 +7045,7 @@ Startup-валидация persistent storage и room backend.
 
 Переменные окружения (только имена): `NEXT_RUNTIME`.
 
-## apps/web/lib · 248 файлов
+## apps/web/lib · 249 файлов
 
 ### apps/web/lib/access.ts
 
@@ -7454,6 +7454,18 @@ Startup-валидация persistent storage и room backend.
 Библиотеки/Node: `livekit-client`.
 
 Используют: [`apps/web/components/GuestWorkspace.tsx`](../../apps/web/components/GuestWorkspace.tsx), [`apps/web/components/StudioGuestMediaControls.tsx`](../../apps/web/components/StudioGuestMediaControls.tsx), [`apps/web/lib/connection-route-config.ts`](../../apps/web/lib/connection-route-config.ts), [`apps/web/lib/guest-media-control.ts`](../../apps/web/lib/guest-media-control.ts), [`apps/web/lib/guest-media.ts`](../../apps/web/lib/guest-media.ts), [`apps/web/tests/connection-route.cjs`](../../apps/web/tests/connection-route.cjs), [`apps/web/tests/guest-workspace-media.cjs`](../../apps/web/tests/guest-workspace-media.cjs).
+
+### apps/web/lib/connection-verdicts.ts
+
+[`apps/web/lib/connection-verdicts.ts`](../../apps/web/lib/connection-verdicts.ts)
+
+Модуль приложения; публичные символы и прямые зависимости перечислены ниже.
+
+Экспортируемые символы: `findingLocation`, `ConnectionVerdict`, `connectionVerdicts`.
+
+Читает/импортирует: [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts).
+
+Используют: [`apps/web/components/RoomMediaDiagnostics.tsx`](../../apps/web/components/RoomMediaDiagnostics.tsx), [`apps/web/lib/room-diagnostics-export.ts`](../../apps/web/lib/room-diagnostics-export.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts).
 
 ### apps/web/lib/control-plane-client.ts
 
@@ -9073,7 +9085,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `explicitDiagnosticsRange`, `roomDiagnosticsResponse`.
 
-Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/diagnostic-record-lines.ts`](../../apps/web/lib/diagnostic-record-lines.ts), [`apps/web/lib/incident-minute.ts`](../../apps/web/lib/incident-minute.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/room-server-load.ts`](../../apps/web/lib/room-server-load.ts), [`apps/web/lib/room-sfu-evidence.ts`](../../apps/web/lib/room-sfu-evidence.ts), [`apps/web/lib/runtime-diagnostics.ts`](../../apps/web/lib/runtime-diagnostics.ts), [`apps/web/lib/telemetry-archives.ts`](../../apps/web/lib/telemetry-archives.ts), [`apps/web/lib/telemetry-sanitize.ts`](../../apps/web/lib/telemetry-sanitize.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/audio-diagnostics.ts`](../../apps/web/lib/audio-diagnostics.ts), [`apps/web/lib/connection-verdicts.ts`](../../apps/web/lib/connection-verdicts.ts), [`apps/web/lib/diagnostic-record-lines.ts`](../../apps/web/lib/diagnostic-record-lines.ts), [`apps/web/lib/incident-minute.ts`](../../apps/web/lib/incident-minute.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/room-server-load.ts`](../../apps/web/lib/room-server-load.ts), [`apps/web/lib/room-sfu-evidence.ts`](../../apps/web/lib/room-sfu-evidence.ts), [`apps/web/lib/runtime-diagnostics.ts`](../../apps/web/lib/runtime-diagnostics.ts), [`apps/web/lib/telemetry-archives.ts`](../../apps/web/lib/telemetry-archives.ts), [`apps/web/lib/telemetry-sanitize.ts`](../../apps/web/lib/telemetry-sanitize.ts), [`apps/web/lib/telemetry-store.ts`](../../apps/web/lib/telemetry-store.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Библиотеки/Node: `)!, rawTo = params.get(`, `)) return undefined;
   const rawFrom = params.get(`, `);
@@ -9089,7 +9101,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Экспортируемые символы: `RoomDiagnosticsScope`, `NodeCpuSample`, `RoomServerLoad`, `RoomDiagnosticsReport`.
 
-Читает/импортирует: [`apps/web/lib/incident-minute.ts`](../../apps/web/lib/incident-minute.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/room-sfu-evidence.ts`](../../apps/web/lib/room-sfu-evidence.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
+Читает/импортирует: [`apps/web/lib/connection-verdicts.ts`](../../apps/web/lib/connection-verdicts.ts), [`apps/web/lib/incident-minute.ts`](../../apps/web/lib/incident-minute.ts), [`apps/web/lib/room-media-diagnosis.ts`](../../apps/web/lib/room-media-diagnosis.ts), [`apps/web/lib/room-sfu-evidence.ts`](../../apps/web/lib/room-sfu-evidence.ts), [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts).
 
 Используют: [`apps/web/components/RoomMediaDiagnostics.tsx`](../../apps/web/components/RoomMediaDiagnostics.tsx), [`apps/web/lib/room-diagnostics-export.ts`](../../apps/web/lib/room-diagnostics-export.ts), [`apps/web/lib/room-server-load.ts`](../../apps/web/lib/room-server-load.ts).
 
@@ -9103,7 +9115,7 @@ Node-local PostgreSQL backend комнат, транзакции, установ
 
 Читает/импортирует: [`apps/web/lib/telemetry-types.ts`](../../apps/web/lib/telemetry-types.ts), [`apps/web/lib/video-diagnostics.ts`](../../apps/web/lib/video-diagnostics.ts).
 
-Используют: [`apps/web/components/RoomMediaDiagnostics.tsx`](../../apps/web/components/RoomMediaDiagnostics.tsx), [`apps/web/lib/room-diagnostics-export.ts`](../../apps/web/lib/room-diagnostics-export.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-server-load.ts`](../../apps/web/lib/room-server-load.ts).
+Используют: [`apps/web/components/RoomMediaDiagnostics.tsx`](../../apps/web/components/RoomMediaDiagnostics.tsx), [`apps/web/lib/connection-verdicts.ts`](../../apps/web/lib/connection-verdicts.ts), [`apps/web/lib/room-diagnostics-export.ts`](../../apps/web/lib/room-diagnostics-export.ts), [`apps/web/lib/room-diagnostics-types.ts`](../../apps/web/lib/room-diagnostics-types.ts), [`apps/web/lib/room-server-load.ts`](../../apps/web/lib/room-server-load.ts).
 
 ### apps/web/lib/room-mode.ts
 

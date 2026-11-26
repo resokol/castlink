@@ -27,7 +27,9 @@ async function main() {
   // One sustained episode. Isolated spikes and gaps > 22.5 seconds cannot create an episode.
   for (const [offset, cpu] of [[-15000, 99], [0, 85], [15000, 90], [30000, 100], [45000, 22],
     [60000, 90], [75000, null], [90000, 95], [121000, 93], [136000, 96], [151000, 80]]) {
-    assert.equal(store.appendSample(sample(offset, cpu)), true);
+    const monitor = sample(offset, cpu);
+    if (offset === 15000 || offset === 30000) monitor.services.livekit = "unavailable";
+    assert.equal(store.appendSample(monitor), true);
   }
   const findings = [
     { firstAt: base + 1000, lastAt: base + 16000 }, // two measured anchors within the episode
@@ -48,6 +50,8 @@ async function main() {
   const ordinary = await (await roomDiagnosticsResponse("room", query)).json();
   assert.equal(ordinary.serverLoad.reason, "platform-access-required", "query nodeId cannot grant host metrics");
   const platform = await (await roomDiagnosticsResponse("room", query, undefined, "verified-node")).json();
+  assert.deepEqual(platform.verdicts, [{location:"inside", reason:"livekit-api-check-failed", at:base+30000}]);
+  assert.deepEqual(ordinary.verdicts, [{location:"unknown", reason:"insufficient-data"}]);
   assert.equal(platform.serverLoad.observedSamples, 160);
   query.set("diagnostics", "full");
   const originalRead = store.readCpuSamples.bind(store);
@@ -55,6 +59,7 @@ async function main() {
   store.readCpuSamples = (...args) => { reads++; return originalRead(...args); };
   const full = await (await roomDiagnosticsResponse("room", query, undefined, "verified-node")).text();
   const lines = full.trim().split("\n").map(line => JSON.parse(line));
+  assert.deepEqual(lines.at(-1).verdicts, platform.verdicts);
   assert.deepEqual(lines.at(-1).serverLoad, platform.serverLoad);
   const cpuRecords = lines.filter(record => record.type === "server-load-sample").map(record => record.sample);
   assert.ok(cpuRecords.length > 120 && cpuRecords.length > platform.serverLoad.samples.length);

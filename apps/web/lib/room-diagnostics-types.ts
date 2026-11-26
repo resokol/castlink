@@ -34,6 +34,7 @@ export type RoomDiagnosticsReport = RoomDiagnosticsScope & {
   firstAt: number | null;
   lastAt: number | null;
   diagnosis: RoomMediaDiagnosis;
+  verdicts?: import("./connection-verdicts").ConnectionVerdict[];
   sfu: RoomSfuEvidenceHistory;
   serverLoad: RoomServerLoad;
   incident?: import("./incident-minute").MinuteEvidence;

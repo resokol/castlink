@@ -184,7 +184,7 @@ export class ServerObservabilityStore {
     const latest = samples.at(-1) || null;
     return { ...aggregateMonitorSamples(samples.filter(sample => sample.at > this.clock() - windowMs), windowMs, 720, this.clock()), latest, windowMs, storage: this.storage() };
   }
-  /** Historical room reports may read CPU only. Keep the SQL projection independent of other node metrics. */
+  /** Platform reports expose CPU and the timestamp of the last failed LiveKit API check. */
   readCpuSamples(from: number, to: number) {
     const samples: { at: number; cpuPercent: number | null }[] = [];
     try { lstatSync(this.filename); }
@@ -195,13 +195,16 @@ export class ServerObservabilityStore {
       const now = this.clock();
       const rows = db.prepare(`SELECT at, CASE WHEN json_valid(payload) THEN
         CASE WHEN json_type(payload,'$.cpuPercent') IN ('integer','real') THEN json_extract(payload,'$.cpuPercent') END
-        END AS cpu FROM metrics WHERE at>? AND at>=? AND at<=? ORDER BY at LIMIT ?`)
+        END AS cpu, CASE WHEN json_valid(payload) THEN json_extract(payload,'$.services.livekit') = 'unavailable'
+        END AS failedCheck FROM metrics WHERE at>? AND at>=? AND at<=? ORDER BY at LIMIT ?`)
         .all(now - OBSERVABILITY_RETENTION_MS, from, Math.min(to, now), this.metricLimit);
+      let lastFailedCheckAt: number | undefined;
       for (const row of rows) {
+        if (row.failedCheck === 1) lastFailedCheckAt = Number(row.at);
         const cpu = row.cpu;
         samples.push({ at: Number(row.at), cpuPercent: typeof cpu === "number" && Number.isFinite(cpu) && cpu >= 0 && cpu <= 100 ? cpu : null });
       }
-      return { samples, available: true };
+      return { samples, available: true, lastFailedCheckAt };
     } catch { return { samples, available: false }; }
   }
   /** Minute-only projection for authenticated platform incident reports. */

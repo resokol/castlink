@@ -1,4 +1,10 @@
 export const incidentMessages: Record<string, readonly [string, string]> = {
+  "Где возникла проблема": ["Where the problem occurred", "故障位置"],
+  "Проблема до CastLink": ["Problem before CastLink", "CastLink 上游出现问题"],
+  "Проблема в CastLink": ["Problem in CastLink", "CastLink 内部出现问题"],
+  "Вероятная проблема после CastLink": ["Likely problem after CastLink", "CastLink 下游可能出现问题"],
+  "Место сбоя не определено": ["Problem location undetermined", "无法确定故障位置"],
+  "Серверная проверка API LiveKit завершилась ошибкой. Влияние на передачу медиа требует отдельной проверки.": ["The server’s LiveKit API check failed. Its impact on media delivery still needs verification.", "服务器的 LiveKit API 检查失败。尚需确认是否影响媒体传输。"],
   "Эпизоды с признаками сбоя · местное время": ["Suggested connection episodes · local time", "疑似连接故障时段 · 当地时间"],
   "На этом узле автоматический поиск эпизодов недоступен.": ["Automatic episode detection is unavailable on this node.", "此节点不支持自动检测故障时段。"],
   "За выбранный период с этими фильтрами нет замеров.": ["No measurements match these filters in the selected period.", "所选时段内没有符合筛选条件的测量。"],

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { connectionVerdicts, findingLocation } from "../lib/connection-verdicts";
 import { IncidentMinuteEvidence } from "./IncidentMinuteEvidence";
 import { useI18n } from "./I18nProvider";
 import { downloadRoomDiagnostics } from "../lib/room-diagnostics-download";
@@ -27,6 +28,7 @@ const metrics: Partial<Record<keyof RoomMediaFinding["evidence"], string>> = {
   availableOutgoingKbps: "Доступная скорость отправки, кбит/с", sfuEgressPacketsDelta: "Пакетов отправлено LiveKit между отчётами",
   sfuEgressBytesDelta: "Байтов отправлено LiveKit между отчётами",
 };
+const locationLabels = { before: "Проблема до CastLink", after: "Вероятная проблема после CastLink", unknown: "Место сбоя не определено" };
 const confidence = { observed: "Зафиксировано измерением", likely: "Вероятная причина", unknown: "Недостаточно данных" };
 
 function episodeKey(p: ConnectionProblemPeriod) {
@@ -104,6 +106,20 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
   const result = report && <div aria-live="polite">
     {review?.episode && <h3 tabIndex={-1} ref={episodeHeading}>{t("Диагностика выбранного эпизода")}</h3>}
     <p>{time(report.from)} — {time(report.to)} · {t("Замеров: {count}", { count: report.sampleCount })}</p>
+    <h3>{t("Где возникла проблема")}</h3>
+    <ul>{(report.verdicts ?? connectionVerdicts(report.diagnosis, report.complete,
+      report.incident?.node.samples.filter(sample => sample.livekit === "unavailable").at(-1)?.at)).map(verdict => {
+      if (verdict.location === "inside") return <li key="inside"><strong>{t("Проблема в CastLink")}</strong> · {time(verdict.at)}
+        <div>{t("Серверная проверка API LiveKit завершилась ошибкой. Влияние на передачу медиа требует отдельной проверки.")}</div></li>;
+      if (!("findingIndex" in verdict)) return <li key={verdict.location}>{t(verdict.location === "clear"
+        ? "В доступных измерениях признаки сбоя не выявлены." : "Недостаточно сопоставимых измерений для диагноза.")}</li>;
+      const finding = report.diagnosis.findings[verdict.findingIndex];
+      if (!finding) return null;
+      const label = locationLabels[verdict.location];
+      return <li key={verdict.location}><strong>{t(label)}</strong> · {t(finding.kind === "audio" ? "Аудио" : "Видео")} · {name(finding.source)}
+        {finding.receiver && <> → {name(finding.receiver)}</>} · {time(finding.lastAt)}
+        <div>{t((advice[finding.code] ?? advice.unlocalized)[0])}</div></li>;
+    })}</ul>
     {review?.episode && <button onClick={() => downloadRoomDiagnostics(urlAt({ from: report.from, to: report.to }).href)}>{t("Скачать диагностику этого эпизода")}</button>}
     {report.minute !== undefined && <button onClick={() => downloadRoomDiagnostics(urlAt({ minute: report.minute, to: report.to }).href)}>{t("Скачать диагностику этой минуты")}</button>}
     {(!report.complete || report.sfu.clippedSnapshots > 0 || report.diagnosis.coverage.limited) && <p>{t("Часть истории или сравнений недоступна. Подробности есть в конце выгрузки.")}</p>}
@@ -116,8 +132,6 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
         samples: report.serverLoad.observedSamples, threshold: report.serverLoad.thresholdPercent,
         seconds: report.serverLoad.qualifyingSpanMs / 1000, count: report.serverLoad.elevated.length,
       })}</p>}
-    {!report.diagnosis.findings.length && <p>{t(report.diagnosis.coverage.evaluable
-      ? "В доступных измерениях признаки сбоя не выявлены." : "Недостаточно сопоставимых измерений для диагноза.")}</p>}
     {report.diagnosis.findings.map((f, index) => {
       const [title, action] = advice[f.code] ?? advice.unlocalized;
       const cpu = report.serverLoad?.overlaps.find(overlap => overlap.findingIndex === index);
@@ -125,7 +139,7 @@ export function RoomMediaDiagnostics({ statsUrl, start, cutoff, connections, fil
       const cameraMeasurement = (layer: NonNullable<RoomMediaFinding["videoLayers"]>["receiver"]) =>
         t("{width}×{height} · {rate} кбит/с", { width: layer.width, height: layer.height, rate: Math.round(layer.kbps).toLocaleString(locale) });
       return <details key={index} open={index === 0}>
-        <summary><strong>{t(title)}</strong> · {name(f.source)}{f.receiver && <> → {name(f.receiver)}</>} · {time(f.firstAt)}</summary>
+        <summary><strong>{t(locationLabels[findingLocation(f.code)])}</strong> · {t(title)} · {name(f.source)}{f.receiver && <> → {name(f.receiver)}</>} · {time(f.firstAt)}</summary>
         <p>{t(confidence[f.confidence])} · {t(f.kind === "audio" ? "Аудио" : "Видео")}{f.mediaSource && <> · {f.mediaSource}</>} · {time(f.firstAt)} — {time(f.lastAt)}</p>
         {f.receivers?.some(id => id !== f.receiver) && <p>{t("Приёмники")} · {f.receivers.map(name).join(", ")}</p>}
         <p className="muted">{Object.entries(metrics).flatMap(([k, label]) => {

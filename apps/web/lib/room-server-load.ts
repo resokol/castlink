@@ -6,7 +6,7 @@ type FindingTimes = Pick<RoomMediaFinding, "firstAt" | "lastAt">;
 
 /** OS CPU as visible to the node monitor, on the same node clock as the telemetry receipt time.
  * Its persisted rows do not contain cgroup scope or per-process/SFU CPU. */
-export async function readRoomServerLoad(from: number, to: number, findings: FindingTimes[], platform: boolean): Promise<{ summary: RoomServerLoad; originals: NodeCpuSample[] }> {
+export async function readRoomServerLoad(from: number, to: number, findings: FindingTimes[], platform: boolean): Promise<{ summary: RoomServerLoad; originals: NodeCpuSample[]; lastFailedCheckAt?: number }> {
   const result: RoomServerLoad = {
     source: "node-monitor", scope: "node-os", clock: "node-unix-ms",
     thresholdPercent: 85, qualifyingSpanMs: 30_000, maxSampleGapMs: 22_500, storedSamples: 0, observedSamples: 0,
@@ -15,7 +15,7 @@ export async function readRoomServerLoad(from: number, to: number, findings: Fin
   const unavailable = (reason: NonNullable<RoomServerLoad["reason"]>) => ({ summary: { ...result, reason }, originals: [] });
   if (!platform) return unavailable("platform-access-required");
 
-  let history: { samples: NodeCpuSample[]; available: boolean };
+  let history: { samples: NodeCpuSample[]; available: boolean; lastFailedCheckAt?: number };
   try {
     const { serverObservabilityStore } = await import("./server-observability-store");
     history = serverObservabilityStore().readCpuSamples(from, to);
@@ -51,5 +51,5 @@ export async function readRoomServerLoad(from: number, to: number, findings: Fin
   finishRun();
   result.limited ||= result.samples.length < result.observedSamples;
   if (!result.observedSamples) result.reason = "no-observations";
-  return { summary: result, originals: history.samples };
+  return { summary: result, originals: history.samples, lastFailedCheckAt: history.lastFailedCheckAt };
 }

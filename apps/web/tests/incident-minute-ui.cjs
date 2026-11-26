@@ -99,7 +99,7 @@ function checkUrl(url, mode, scope) {
   const scope = { from: String(episode.from), to: String(episode.to) };
   checkUrl(requests.at(-1), "analysis", scope);
   const review = renderToStaticMarkup(panel());
-  for (const text of ["The studio received a lower video layer", "640×360 · 120 kbit/s", "1920×1080 · 3,475 kbit/s",
+  for (const text of ["Where the problem occurred", "Problem location undetermined", "The studio received a lower video layer", "640×360 · 120 kbit/s", "1920×1080 · 3,475 kbit/s",
     "Comparison receiver", "LiveKit → studio via RTCP · 126 kbit/s over 1.8 s"]) assert.ok(review.includes(text), text);
 
   // The polling result moves forward and the selected episode drops out of the list.
