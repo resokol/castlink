@@ -16,7 +16,10 @@ import {createRoot} from 'react-dom/client';
 import {ConferenceScene} from '${path.join(web, 'components/ConferenceScene.tsx')}';
 export const useI18n = () => ({locale:'ru'});
 export const RoomEvent = {ActiveSpeakersChanged:'speakers',ParticipantDisconnected:'disconnected'};
+export const TrackEvent = {Subscribed:'subscribed',Unsubscribed:'unsubscribed'};
+export class Room {}
 const listeners = new Map();
+const high = new Map();window.qaHigh=high;
 const room = {activeSpeakers:[],on(event, fn){if(!listeners.has(event))listeners.set(event,new Set());listeners.get(event).add(fn)},off(event, fn){listeners.get(event)?.delete(fn)}};
 window.qaSpeak = identity => {room.activeSpeakers=[{identity,isMicrophoneEnabled:true}];listeners.get('speakers')?.forEach(fn=>fn())};
 const sources = [
@@ -24,10 +27,15 @@ const sources = [
  {id:'alice',identity:'alice',kind:'camera',name:'Анна'},
  {id:'bob',identity:'bob',kind:'camera',name:'Борис'},
 ];
+const publications = new Map(sources.map(({id})=>[id,{
+ dimensions:{width:1920,height:1080},
+ videoTrack:{isAdaptiveStream:true,observeElementInfo(hint){high.set(id,hint)},stopObservingElementInfo(hint){if(high.get(id)===hint)high.delete(id)}},
+ on(){},off(){},
+}]));
 function App(){
  const [removed,setRemoved]=React.useState('');window.qaRemove=setRemoved;
  const items=sources.filter(source=>source.id!==removed).map(source=>({...source,node:<div className="qa-media"><video data-video={source.id}/><span>{source.name}</span></div>}));
- return <><section id="viewer"><ConferenceScene items={items} room={room}/></section><section id="other"><ConferenceScene items={items} room={room}/></section></>;
+ return <><section id="viewer"><ConferenceScene items={items.map(item=>({...item,primaryVideo:publications.get(item.id)}))} room={room}/></section><section id="other"><ConferenceScene items={items} room={room}/></section></>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `);
@@ -46,7 +54,7 @@ let browser;
   const viewer=page.locator('#viewer');
   const pin=id=>viewer.locator(`[data-scene-pin="${id}"]`);
   const primary=async()=>viewer.locator('[data-scene-primary] video').getAttribute('data-video');
-  const expectPrimary=async id=>{await page.waitForFunction(id=>document.querySelector('#viewer [data-scene-primary] video')?.dataset.video===id,id);assert.equal(await primary(),id);checks++};
+  const expectPrimary=async id=>{await page.waitForFunction(id=>window.qaHigh.size===1 && window.qaHigh.get(id)?.width()===1920 && !document.fullscreenElement,id);await page.waitForFunction(id=>document.querySelector('#viewer [data-scene-primary] video')?.dataset.video===id,id);assert.equal(await primary(),id);checks++};
   await expectPrimary('screen');
   assert.equal(await viewer.locator('[data-scene-pin][aria-pressed="true"]').count(),0);checks++;
   await page.evaluate(()=>window.qaNodes=[...document.querySelectorAll('#viewer video')]);
@@ -60,7 +68,7 @@ let browser;
   await pin('bob').click();await expectPrimary('bob');assert.equal(await pin('alice').getAttribute('aria-pressed'),'false');checks++;
   await pin('bob').focus();await page.keyboard.press('Enter');await expectPrimary('screen');
   await pin('alice').click();await expectPrimary('alice');
-  await viewer.getByRole('button',{name:'Плитка',exact:true}).click();assert.equal(await viewer.locator('[data-scene-pin]').count(),0);checks++;
+  await viewer.getByRole('button',{name:'Плитка',exact:true}).click();assert.equal(await viewer.locator('[data-scene-pin]').count(),0);await page.waitForFunction(()=>window.qaHigh.size===0);checks++;
   await viewer.getByRole('button',{name:'Окно',exact:true}).click();await expectPrimary('alice');
   assert(await page.evaluate(()=>window.qaNodes.every((node,i)=>node===document.querySelectorAll('#viewer video')[i])));checks++;
   await page.evaluate(()=>window.qaRemove('alice'));await expectPrimary('screen');

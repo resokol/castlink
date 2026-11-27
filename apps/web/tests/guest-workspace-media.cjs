@@ -28,7 +28,7 @@ const sessionMetadata=JSON.stringify({role:"guest",studioId:"test-studio",roomDi
 const sessionJwt=(metadata=sessionMetadata,exp=2000000000)=>"header."+Buffer.from(JSON.stringify({iss:"test",sub:"guest-test",exp,video:{room:"test-room"},metadata})).toString("base64url")+".signature";
 const routeTokens=new WeakMap();
 class Room extends EventEmitter{
-  constructor(){super();latestRoom=this;this.state='disconnected';this.remoteParticipants=new Map();this.name='test-room';this.calls=[];this.publications={};this.activeDevices={audioinput:'default',videoinput:'system-cam'};
+  constructor(options){super();this.options=options;latestRoom=this;this.state='disconnected';this.remoteParticipants=new Map();this.name='test-room';this.calls=[];this.publications={};this.activeDevices={audioinput:'default',videoinput:'system-cam'};
     const room=this;
     this.localParticipant={
       sid:'PA-0', identity:'guest-test', metadata:sessionMetadata,
@@ -107,6 +107,7 @@ Module._load=function(name,...rest){
   if(name in mocked)return mocked[name];
   return originalLoad.call(this,name,...rest);
 };
+mocked['@/lib/adaptive-preview-room']=require('../lib/adaptive-preview-room.ts');
 mocked['@/lib/guest-video-codec']=require('../lib/guest-video-codec.ts');
 mocked['@/components/GuestCodecCameraButton']={GuestCodecCameraButton:component};
 mocked['@/lib/connection-route']=require('../lib/connection-route.ts');
@@ -140,6 +141,9 @@ function settings(room,patch,overrides={},sender=undefined){const now=Date.now()
   tree=workspace.render(props);await settle();tree=workspace.render(props);let connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);await settle();
   tree=workspace.render(props);connectorNode=nodes(tree).find(node=>node.type===RoomConnector);connector.render(connectorNode.props);
   const room=latestRoom;
+  assert.deepEqual(room.options.adaptiveStream,{pixelDensity:'screen',pauseVideoInBackground:false});
+  assert.equal(room.options.dynacast,true);
+  assert.equal(room.options.publishDefaults.simulcast,true);
   assert.equal(nodes(tree).some(node=>node.type===PresentationControls),false,'presentation controls are removed from the guest UI');
   assert.equal(room.publications.microphone,undefined);assert.equal(room.publications.camera,undefined);
   assert.equal(room.dataCalls?.length||0,0,'hardware details are never broadcast without an authorized studio recipient');

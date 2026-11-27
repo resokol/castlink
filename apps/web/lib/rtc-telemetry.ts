@@ -4,7 +4,7 @@ import { retainSessionHttpBearer, sessionHttpBearer } from "./session-http-beare
 import { refreshGuestResumeToken } from "./guest-resume";
 import { startBrowserRuntimeDiagnostics } from "./browser-runtime-diagnostics";
 import { publishRoomOutboundStats } from "./room-outbound-stats";
-import { studioPreviewShortSide } from "./studio-preview-room";
+import { previewShortSide } from "./adaptive-preview-room";
 import { readTrackStats } from "./media-stats";
 import { observePeerReport, type RtcpReportMarker } from "./rtcp-peer-report";
 import { videoDiagnostic, telemetryBody } from "./video-diagnostics";
@@ -196,7 +196,7 @@ export function startRoomTelemetry(room: Room, roomName: string, initialToken: s
               mediaTrackEnabled: mediaTrack?.enabled, mediaTrackMuted: mediaTrack?.muted,
               mediaTrackReadyState: mediaTrack?.readyState,
               requestedQuality,
-              requestedShortSide: adaptive && "videoQuality" in publication ? studioPreviewShortSide(publication) : undefined,
+              requestedShortSide: adaptive && "videoQuality" in publication ? previewShortSide(publication) : undefined,
               receiverStreamState: streamState === "active" || streamState === "paused" ? streamState : undefined,
             }) } : {}),
           });

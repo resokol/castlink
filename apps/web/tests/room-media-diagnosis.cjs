@@ -62,6 +62,22 @@ only([bad, sample(5000, 'watcher-b', [video('in', { lossPct: null })])], 'unloca
 only([bad, sample(5000, 'watcher-b', [video('in', {}, { publicationMuted: true })])], 'unlocalized');
 only([bad, sample(5000, 'watcher-b', [video('in', { fps: 0, bitrateKbps: 0 })])], 'unlocalized');
 
+// Loss during a receiver reconnect while an independent receiver keeps the same stream.
+const reconnecting = { ...bad, state: 'signalReconnecting' };
+const reconnectFinding = only([reconnecting, good], 'receiver-path');
+assert.equal(reconnectFinding.evidence.receiverReconnecting, 1);
+only([reconnecting], 'unlocalized');
+const { connectionVerdicts } = load('../lib/connection-verdicts.ts');
+const conclusions = rows => connectionVerdicts(diagnose(rows), true);
+assert.deepEqual(conclusions([reconnecting, good]), [{location:'after', findingIndex:0}]);
+assert.deepEqual(conclusions([bad]), [{location:'unknown', findingIndex:0}]);
+assert.deepEqual(conclusions([cpu]), [{location:'before', findingIndex:0}]);
+assert.deepEqual(conclusions([good]), [{location:'clear', reason:'no-symptoms'}]);
+assert.deepEqual(conclusions([]), [{location:'unknown', reason:'insufficient-data'}]);
+assert.deepEqual(conclusions([{ ...good, state:'reconnecting' }]), conclusions([]));
+assert.deepEqual(connectionVerdicts(diagnose([good]), false), conclusions([]));
+assert.deepEqual(connectionVerdicts({ findings:[isolated, cpuFinding, reconnectFinding], coverage:{} }, true, 5000),
+  [{location:'inside', reason:'livekit-api-check-failed', at:5000}, {location:'after', findingIndex:0}, {location:'before', findingIndex:1}]);
 const senderRR = { kind: 'remote-inbound-rtp', fresh: true, ageMs: 300, fractionLost: 0 };
 const sender = sample(5000, 'guest', [video('out', { peerReport: senderRR })]);
 const sfuReport = (packetsSent, bytesSent) => ({ kind: 'remote-outbound-rtp', fresh: true, ageMs: 150, packetsSent, bytesSent });

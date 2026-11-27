@@ -1,3 +1,4 @@
+import { connectionVerdicts } from "./connection-verdicts";
 import { createMinuteEvidence, incidentNode } from "./incident-minute";
 import { readRoomServerLoad } from "./room-server-load";
 import { storedLines } from "./diagnostic-record-lines";
@@ -151,7 +152,7 @@ async function* diagnosticRecords(scope: RoomDiagnosticsScope, full: boolean, si
   const sfu = next.value;
   signal.throwIfAborted();
   const findings = diagnosis.finish();
-  const { summary: serverLoad, originals } = await readRoomServerLoad(scope.from, scope.to, findings.findings, platform);
+  const { summary: serverLoad, originals, lastFailedCheckAt } = await readRoomServerLoad(scope.from, scope.to, findings.findings, platform);
   signal.throwIfAborted();
   if (full) {
     for (const sample of originals) {
@@ -162,7 +163,8 @@ async function* diagnosticRecords(scope: RoomDiagnosticsScope, full: boolean, si
   const incident = minuteEvidence?.finish(await incidentNode(scope.from, scope.to, platform));
   const complete = incident?.node.reason !== "storage-unavailable" && !skippedRecords && !unreadableHours && !sfu.skippedRecords && !sfu.unreadableHours &&
     sfu.reason !== "storage-unavailable" && serverLoad.reason !== "storage-unavailable";
-  yield { type: "summary", ...scope, firstAt, lastAt, sampleCount, skippedRecords, unreadableHours, complete, diagnosis: findings, sfu, serverLoad, ...(incident ? { incident } : {}) };
+  const verdicts = connectionVerdicts(findings, complete, lastFailedCheckAt);
+  yield { type: "summary", verdicts, ...scope, firstAt, lastAt, sampleCount, skippedRecords, unreadableHours, complete, diagnosis: findings, sfu, serverLoad, ...(incident ? { incident } : {}) };
 }
 
 function attachment(scope: RoomDiagnosticsScope, explicitRange: boolean) {

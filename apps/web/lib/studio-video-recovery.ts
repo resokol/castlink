@@ -15,13 +15,13 @@ export function watchStudioVideo(room: Room, videoEnabled: (identity: string) =>
         for (const participant of room.remoteParticipants.values()) {
           if (!participant.identity.startsWith("studio-panel-") || !videoEnabled(participant.identity)) continue;
           for (const pub of participant.videoTrackPublications.values()) {
-            if (pub.kind !== Track.Kind.Video || !pub.isDesired || pub.isMuted || !pub.track) continue;
+            if (pub.kind !== Track.Kind.Video || !pub.isDesired || !pub.isEnabled || pub.isMuted || !pub.track) continue;
             present.add(pub.trackSid);
             const track = pub.track;
             const report: RTCStatsReport | undefined = await readTrackStats(track, "getRTCStatsReport");
             if (stopped) return;
             if (room.state !== ConnectionState.Connected || !videoEnabled(participant.identity) ||
-                !pub.isDesired || pub.isMuted || pub.track !== track ||
+                !pub.isDesired || !pub.isEnabled || pub.isMuted || pub.track !== track ||
                 participant.videoTrackPublications.get(pub.trackSid) !== pub) continue;
             let frames: number | undefined;
             report?.forEach(s => { if (s.type === "inbound-rtp" && (s.kind === "video" || s.mediaType === "video")) frames = s.framesDecoded; });

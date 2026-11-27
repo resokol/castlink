@@ -11,7 +11,7 @@ type VideoLayerComparison = { trackSid: string | null; publisher: VideoLayer; re
   control: VideoLayer & { identity: string } };
 
 type Evidence = Partial<Record<"lossPct" | "controlReceiverLossPct" | "concealedPct" | "freezes" | "droppedPct" | "healthyReceivers" |
-  "affectedReceivers" | "senderLossPct" | "sfuEgressPacketsDelta" | "sfuEgressBytesDelta" | "decodedFrames" | "receivedFrames" | "decodeMsPerFrame" | "outboundKbps" | "availableOutgoingKbps" | "encodeMsPerFrame" | "fps" | "jitterMs", number>>;
+  "affectedReceivers" | "receiverReconnecting" | "senderLossPct" | "sfuEgressPacketsDelta" | "sfuEgressBytesDelta" | "decodedFrames" | "receivedFrames" | "decodeMsPerFrame" | "outboundKbps" | "availableOutgoingKbps" | "encodeMsPerFrame" | "fps" | "jitterMs", number>>;
 
 export type RoomMediaFinding = {
   code: RoomMediaFindingCode;
@@ -25,7 +25,7 @@ export type RoomMediaFinding = {
 export type RoomMediaDiagnosis = {
   coverage: {
     samples: number; firstAt: number | null; lastAt: number | null; participants: number;
-    inbound: number; outbound: number; evaluable: number; detailedVideo: number; limited: boolean;
+    inbound: number; outbound: number; evaluable: number; detailedVideo: number; limited: boolean; reconnecting?: boolean;
   };
   findings: RoomMediaFinding[];
 };
@@ -342,6 +342,7 @@ export function createRoomMediaDiagnosis() {
     room ??= sample.room;
     if (sample.room !== room) return;
     coverage.samples++;
+    if (sample.state === "signalReconnecting" || sample.state === "reconnecting") coverage.reconnecting = true;
     coverage.firstAt = Math.min(coverage.firstAt ?? sample.at, sample.at);
     coverage.lastAt = Math.max(coverage.lastAt ?? sample.at, sample.at);
     if (identities.size < 1024) identities.add(sample.identity);
@@ -370,6 +371,7 @@ export function createRoomMediaDiagnosis() {
           cpu: false, bandwidth: false, decode: false, slowDecode: false, allSenderReportsFresh: true, evidence: {} };
         publications.set(publication, obs);
       }
+      if (receiver && (sample.state === "signalReconnecting" || sample.state === "reconnecting")) obs.evidence.receiverReconnecting = 1;
       if (stream.video) coverage.detailedVideo++;
       readLayer(obs, stream, sample.reconnects);
     }
@@ -395,7 +397,8 @@ export function createRoomMediaDiagnosis() {
     const results = findings.map(({ finding }): RoomMediaFinding => {
       // A brief upstream impairment can reach different simulcast layers or
       // receiver sampling windows at different times. Require repeat evidence.
-      if (finding.code === "receiver-path" && finding.intervals < 2) {
+      if (finding.code === "receiver-path" && finding.intervals < 2 &&
+          !(finding.evidence.receiverReconnecting && finding.evidence.healthyReceivers)) {
         return { ...finding, code: "unlocalized", side: "unknown", confidence: "unknown" };
       }
       return finding;

@@ -100,6 +100,7 @@ function RoomConferenceContent({ chatSession, studioOnly, onLeave, readOnly = fa
     identity: owner.identity,
     kind: track.source === Track.Source.ScreenShare ? 'screen' : 'camera',
     node: <RotatedParticipantTile readOnly={readOnly} trackRef={track} displayName={owner!==track.participant ? owner.name||owner.identity : undefined} />,
+    primaryVideo: workspaceLayout && !readOnly && !track.participant.isLocal ? track.publication : undefined,
     secondaryOnly: workspaceLayout && studioOnly && track.participant.isLocal && track.source === Track.Source.Camera,
     hidden: workspaceLayout && track.participant.isLocal && track.source === Track.Source.Camera && !selfPreviewVisible,
   }));
