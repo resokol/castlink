@@ -2,7 +2,7 @@
   "name": "studiolink",
   "private": true,
   "license": "MIT",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "buildNumber": "10",
   "packageManager": "pnpm@12.23.0",
   "engines": { "node": ">=22.13.0" },

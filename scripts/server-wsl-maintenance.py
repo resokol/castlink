@@ -30,7 +30,7 @@ SUPPORTED_SOURCES = frozenset(('server-wsl-v1.0.5-rc.1-085b087a2458',
                                'server-wsl-v1.0.5-rc.2-af3e309d0926',
                                'server-wsl-v1.0.5-rc.3-95ec46463c82',
                                'server-wsl-v1.0.6-rc.1-dad063393b53',
-                               'server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925'))
+                               'server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925','server-wsl-v1.0.10-890a903d51f9'))
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_ENTRIES = 100000
 MAX_BYTES = 1024 ** 4
