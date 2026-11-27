@@ -6,9 +6,9 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = relativePath => readFileSync(path.join(root, relativePath), 'utf8');
-const stableLinux = 'linux-v1.0.10-890a903d51f9';
-const windowsWsl = 'server-wsl-v1.0.10-890a903d51f9';
-const previousWsl = 'server-wsl-v1.0.8-1afa39b54dd7';
+const stableLinux = 'linux-v1.0.11-508042e07f6d';
+const windowsWsl = 'server-wsl-v1.0.11-508042e07f6d';
+const previousWsl = 'server-wsl-v1.0.10-890a903d51f9';
 const stableClient = 'client-v1.0.3-35dbb73b5925';
 const legacyDocker = 'server-setup-v1.0.4-079fd0f9d4b1';
 
@@ -21,7 +21,7 @@ test('product catalogs give primary WSL2, Linux and Client channels before Docke
     const legacyHeading = content.indexOf('## Legacy');
     assert.ok(legacyHeading > content.indexOf(windowsWsl) && legacyHeading > content.indexOf(stableLinux), file);
     const wslSection = content.slice(0, legacyHeading);
-    assert.match(wslSection, /1\.0\.10/);
+    assert.match(wslSection, /1\.0\.11/);
     assert.ok(!wslSection.includes('CastLink-Windows.zip'), `${file}: Docker ZIP must not be in main product list`);
     assert.ok(content.slice(legacyHeading).includes('/' + legacyDocker + '/CastLink-Windows.zip'), `${file}: legacy ZIP retained`);
   }
