@@ -6,13 +6,13 @@
 
 | Назначение | Рекомендуемый пакет | Текущий публичный выпуск | Статус самого артефакта |
 | --- | --- | --- | --- |
-| Windows 11 server | `server-wsl`: `install-server-windows.ps1` + средства обслуживания | [1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) | стабильный выпуск; WSL2 — основное направление Windows |
+| Windows 11 server | `server-wsl`: `install-server-windows.ps1` + средства обслуживания | [1.0.12](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) | стабильный выпуск; WSL2 — основное направление Windows |
 | Ubuntu Linux/VPS server | `linux`: `install-server.sh` + Docker/Compose | [1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) | стабильный выпуск |
 | Windows caster/studio client | `client`: отдельный `setup.exe` | [1.0.3](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) | стабильный выпуск; **не** устанавливает сервер |
 
 См. [каталог пакетов](PRODUCTS.md), [установку Windows/Ubuntu](../README.md), [обслуживание сервера](SERVER_INSTALL.md). Все версии и хеши берите из **своего** конкретного релиза, а не общего `releases/latest`.
 
-**Статус WSL2:** стабильный выпуск **1.0.11** имеет собственные тег, пакет и SHA256. Исторический `1.0.6-rc.1` сохраняет статус prerelease; его архивы и теги не меняются. Обслуживание 1.0.11 поддерживает исходные выпуски `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c` и `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925`, `server-wsl-v1.0.10-890a903d51f9`; используйте новый инструмент 1.0.11 и прежнюю установку.
+**Статус WSL2:** стабильный выпуск **1.0.12** имеет собственные тег, пакет и SHA256. Исторический `1.0.6-rc.1` сохраняет статус prerelease; его архивы и теги не меняются. Обслуживание 1.0.12 поддерживает исходные выпуски `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c` и `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925`, `server-wsl-v1.0.10-890a903d51f9`, `server-wsl-v1.0.11-508042e07f6d`; используйте новый инструмент 1.0.12 и прежнюю установку.
 
 ## Windows/Docker Server Setup — Legacy
 

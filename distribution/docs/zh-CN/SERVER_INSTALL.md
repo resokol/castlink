@@ -2,9 +2,9 @@
 
 [Русский](../../SERVER_INSTALL.md) · [English](../en/SERVER_INSTALL.md) · [简体中文](SERVER_INSTALL.md)
 
-本指南适用于 Linux **1.0.11** 和 Windows/WSL **1.0.11**；旧 Docker Server Setup 保留为独立通道。Windows Client 版本为 **1.0.3**。可用软件包、准确的源代码与构建编号及校验值见[产品目录](PRODUCTS.md)。[Windows/WSL2 1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Linux 1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d)。
+本指南适用于 Linux **1.0.11** 和 Windows/WSL **1.0.12**；旧 Docker Server Setup 保留为独立通道。Windows Client 版本为 **1.0.3**。可用软件包、准确的源代码与构建编号及校验值见[产品目录](PRODUCTS.md)。[Windows/WSL2 1.0.12](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Linux 1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d)。
 
-**Windows 服务器主要方向：** WSL2，无需 Docker Desktop。Windows/WSL2 稳定服务器版本为 **1.0.11**。旧版 Windows/Docker/SSH EasySetup 归为 **Legacy**，仅用于现有部署；Linux/VPS 继续使用独立的稳定 Docker Engine/Compose 安装程序。[渠道和迁移限制](../../SUPPORTED_INSTALLERS.md)。
+**Windows 服务器主要方向：** WSL2，无需 Docker Desktop。Windows/WSL2 稳定服务器版本为 **1.0.12**。旧版 Windows/Docker/SSH EasySetup 归为 **Legacy**，仅用于现有部署；Linux/VPS 继续使用独立的稳定 Docker Engine/Compose 安装程序。[渠道和迁移限制](../../SUPPORTED_INSTALLERS.md)。
 
 服务器 **1.0.2** 首次引入[Linux 单命令安装、24 小时指标历史及事件日志](RELEASE_NOTES_1_0_2.md)。保留旧版 Windows/Docker 包，不支持 Docker → WSL2 自动迁移。
 
@@ -35,7 +35,7 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 
 ## 无 Docker 的 Windows/WSL2 — 主要 Windows 服务器方案
 
-[稳定版 1.0.11 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d)使用独立的 server-wsl 发行渠道。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
+[稳定版 1.0.12 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd)使用独立的 server-wsl 发行渠道。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。
 
 需要 Windows11 x64 build22621+、WSL2 版本2.4.13+ 及虚拟化。
 独立 `server-wsl-v…` 通道提供 `install-server-windows.ps1` 和预构建 Ubuntu 服务器系统。
@@ -69,13 +69,13 @@ HTTPS/数据库就绪不代表已验证外部媒体通话。
 
 ### 维护：更新、删除及恢复
 
-从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS)。新面板的**维护**按钮打开同一工具。旧版 1.0.5-rc.1 需要此独立工具，其原安装程序不会自行更新。
+在 Windows 服务器 1.0.12 的面板中，点击**维护**即可打开 CastLink Updater 并选中该服务器。安装更新需另行确认。 如需删除或恢复服务器，请使用独立的维护 ZIP 包。 从**同一发行版**下载 [CastLink-Server-WSL-Maintenance.zip](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/CastLink-Server-WSL-Maintenance.zip)，完整解压并双击 **CastLink-Maintenance.cmd**。[SHA256](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/SHA256SUMS)。
 
 **选择与更新。** 按地址和文件夹选择确切的服务器，不要默认选择多个安装中的第一个。不完整安装的地址可能未知，请核对文件夹。选择目标版本，点击**检查**，核对当前/目标版本及所需/可用空间。工具在停止服务前下载并验证所需文件。检查不会自动开始更新，预发布版本必须明确选择。正常窗口无需输入 SHA256 或不透明的 WSL 标识。
 
-请仅在非直播时点击**更新**：迁移和就绪检查期间服务器会停止。确认对话框显示所选地址、版本和文件夹，也可取消。支持的来源版本为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` 及 `server-wsl-v1.0.10-890a903d51f9`。不支持其他来源版本、迁移 Docker 或跨 PostgreSQL 主版本更新。不完整来源需用原版本修复，或通过此工具删除；更新不会将其假定为就绪。
+请仅在非直播时点击**更新**：迁移和就绪检查期间服务器会停止。确认对话框显示所选地址、版本和文件夹，也可取消。支持的来源版本为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` 及 `server-wsl-v1.0.10-890a903d51f9`, `server-wsl-v1.0.11-508042e07f6d`。不支持其他来源版本、迁移 Docker 或跨 PostgreSQL 主版本更新。不完整来源需用原版本修复，或通过此工具删除；更新不会将其假定为就绪。
 
-若要从任一已发布的 Windows/WSL 服务器版本（含 RC）直接升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.11。
+若要从任一已发布的 Windows/WSL 服务器版本（含 RC）直接升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.12。
 
 受支持的升级保留服务器 UUID、房间及历史、密码、域名、TLS 材料和网络设置。成功后删除临时迁移副本和旧的专属发行版，**不会保留永久自动备份**；失败时保留所需恢复依据。成功后点击**打开服务器面板**，并刷新导播及嘉宾页面。
 

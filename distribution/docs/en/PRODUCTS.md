@@ -2,7 +2,7 @@
 
 # CastLink packages
 
-**Server 1.0.11** requests the highest quality for the caster’s main video in a normal window. Thumbnails adapt to their display size. Connection diagnostics report the affected part of the path, participant and time. Choose the Windows/WSL2 or Linux package and verify its files against its `SHA256SUMS`. The Windows Client version is **1.0.3**.
+Since **1.0.11**, the server requests the highest quality for the caster’s main video in a normal window. Thumbnails adapt to their display size. Connection diagnostics report the affected part of the path, participant and time. Choose the Windows/WSL2 or Linux package and verify its files against its `SHA256SUMS`. The Windows Client version is **1.0.3**.
 
 Primary products: **Windows Server on WSL2 (no Docker Desktop)**, **Ubuntu/Linux Server** and a separate **Windows Client**. See [supported installation channels and migration limitations](../../SUPPORTED_INSTALLERS.md).
 
@@ -10,14 +10,14 @@ Primary products: **Windows Server on WSL2 (no Docker Desktop)**, **Ubuntu/Linux
 
 | CastLink | Purpose | Download |
 | --- | --- | --- |
-| Windows Server / WSL2 | Recommended Windows 11 server route; stable **1.0.11** | [1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Installer](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/install-server-windows.ps1) · [Maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS) |
+| Windows Server / WSL2 | Recommended Windows 11 server route; stable **1.0.12** | [1.0.12](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Installer](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/install-server-windows.ps1) · [Maintenance ZIP](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/SHA256SUMS) |
 | Linux Ubuntu | Independent Ubuntu/VPS server using Docker Engine/Compose | [1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Installer](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/SHA256SUMS) |
 | Windows Client | Separate caster/studio application; does not install a server | [1.0.3](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Installer](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/SHA256SUMS) |
 
 <a id="updater"></a>
 ## Persistent updater 1.0.0
 
-A separate tool for supported Client, Windows/WSL2 and Linux installations. Install it **once on each computer**, then use the permanent shortcut or command; the current product versions are Client **1.0.3** and Server **1.0.11**. Checking does not apply an update; applying requires confirmation.
+A separate tool for supported Client, Windows/WSL2 and Linux installations. Install it **once on each computer**, then use the permanent shortcut or command; the current product versions are Client **1.0.3** and Windows/WSL2 **1.0.12**, Linux **1.0.11**. Checking does not apply an update; applying requires confirmation.
 
 [Windows installer](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Linux installer](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Step-by-step guide](UPDATER.md). Stable release: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). The updater channel is independent of server and Client channels.
 
@@ -35,7 +35,7 @@ Verify the selected release’s SHA256SUMS before running it. EXEs are unsigned.
 
 Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Windows/WSL build: `1.0.11-508042e07f6d` · source: `508042e07f6dae18fb0fd353f65e0057ade8ffc5`
+Windows/WSL build: `1.0.12-af092db44bcd` · source: `af092db44bcd00ead745d23089a04d741cfb4d3e`
 
 Linux build: `1.0.11-508042e07f6d` · source: `508042e07f6dae18fb0fd353f65e0057ade8ffc5`
 
@@ -51,11 +51,11 @@ Source 1.0.7: [web / Windows](https://github.com/resokol/castlink/tree/0d16de2e7
 
 **Server 1.0.2:** 24-hour metric history and an event journal in Super Admin survive restarts. Linux also includes [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/install-server.sh) for one-command installation. [Instructions](SERVER_INSTALL.md) · [1.0.2 release notes](RELEASE_NOTES_1_0_2.md).
 
-Windows/WSL2 is the primary Windows server channel. Its stable server version is 1.0.11. Update existing WSL installations with the matching maintenance ZIP off air, then reload studio and caster pages. Old Windows/Docker Server Setup is Legacy.
+In the 1.0.12 Windows server panel, click **Maintenance** to open CastLink Updater for that server. Installing an update requires separate confirmation.
 
-**Updating existing servers:** update WSL2 or Linux to 1.0.11 off air using its own maintenance tool and existing data directory. Legacy Windows/Docker remains at 1.0.4. Connection recovery requires 1.0.1 or later on both servers. Windows Client is 1.0.3; use its built-in update check. If an older Client cannot find the release, download the 1.0.3 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
+**Updating existing servers:** update WSL2 to 1.0.12 or Linux to 1.0.11 off air using its own maintenance tool and existing data directory. Legacy Windows/Docker remains at 1.0.4. Connection recovery requires 1.0.1 or later on both servers. Windows Client is 1.0.3; use its built-in update check. If an older Client cannot find the release, download the 1.0.3 installer manually once using the link above and verify SHA256SUMS. [Connection recovery](GUIDE.md#server-pair-recovery) · [Changelog](../../../CHANGELOG.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
 
 Server 1.0.4 source: [release](https://github.com/resokol/castlink/releases/tag/source-v1.0.4-079fd0f9d4b1) · [exact commit](https://github.com/resokol/castlink/tree/079fd0f9d4b18215274ff401ba584435e263994f) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/SHA256SUMS). The source is MIT-licensed; its archive is not an installer. Current development: [main branch](https://github.com/resokol/castlink/tree/main).
 

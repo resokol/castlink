@@ -15,7 +15,7 @@
 
 ---
 
-**服务器 1.0.11** 在普通窗口中也会为主播的主画面请求最高画质，缩略图按显示尺寸选择画质。连接诊断现可显示故障区段、参与者和时间。 请选择 Windows/WSL2 或 Linux 软件包，并使用该版本的 `SHA256SUMS` 校验文件。Windows Client 版本为 **1.0.3**。
+自 **1.0.11** 起，服务器在普通窗口中也会为主播的主画面请求最高画质，缩略图按显示尺寸选择画质。连接诊断现可显示故障区段、参与者和时间。 请选择 Windows/WSL2 或 Linux 软件包，并使用该版本的 `SHA256SUMS` 校验文件。Windows Client 版本为 **1.0.3**。
 
 让远程嘉宾通过浏览器接入，为 OBS 或 vMix 提供独立的音视频流。
 
@@ -23,10 +23,10 @@
 
 | 系统 | 安装方式 |
 | --- | --- |
-| Windows 11 | 完整稳定版 **1.0.11** 安装程序，无需 Docker Desktop。 |
+| Windows 11 | 完整稳定版 **1.0.12** 安装程序，无需 Docker Desktop。 |
 | Ubuntu Linux / VPS | 一条 `curl` 命令，稳定版 **1.0.11**。 |
 
-**主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。Windows/WSL2 与 Linux 使用稳定服务器版本 **1.0.11**，安装程序分别提供。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
+**主要安装方向：**新的 Windows 11 服务器采用 **WSL2（无需 Docker Desktop）**，Ubuntu/VPS 使用独立 Linux 安装包。旧 Windows/Docker EasySetup 已归为 **Legacy**，仅供现有安装维护。当前稳定版为 Windows/WSL2 **1.0.12** 和 Linux **1.0.11**。[安装渠道与迁移限制](distribution/SUPPORTED_INSTALLERS.md)。
 
 如果只是连接别人的服务器，使用浏览器即可。[Windows 客户端](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe)是独立应用，不会安装服务器。
 
@@ -63,7 +63,7 @@ wsl --version
 
 ### 1. 下载
 
-**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/install-server-windows.ps1)**
+**[下载 install-server-windows.ps1](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/install-server-windows.ps1)**
 
 安装程序会自动下载服务器文件，无需单独下载补丁或源码压缩包。
 
@@ -102,18 +102,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 
 面板提供启动、停止、统计信息和 **24 小时 ZIP 导出**。关闭窗口会隐藏到系统托盘；停止服务器请点击 **Stop services**。请用另一台设备测试；验证公网访问时，可用手机移动网络。
 
-**服务器版本：**稳定版 **1.0.11**。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS)。
+**服务器版本：**稳定版 **1.0.12**。已有服务器应使用下方维护工具，请勿覆盖安装其数据。[发布页面](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/SHA256SUMS)。
 
 ### 更新、删除或恢复 WSL 服务器
 
-1. 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。新面板的**维护**按钮打开同一工具；旧版 1.0.5-rc.1 需要单独下载 ZIP。
-2. 按地址和文件夹选择服务器，再选择目标版本 **1.0.11**。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
+1. 在 Windows 服务器 1.0.12 的面板中，点击**维护**即可打开 CastLink Updater 并选中该服务器。安装更新需另行确认。 如需删除或恢复服务器，请使用独立的维护 ZIP 包。 下载[维护 ZIP 包](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/CastLink-Server-WSL-Maintenance.zip)，解压并双击 **CastLink-Maintenance.cmd**。
+2. 按地址和文件夹选择服务器，再选择目标版本 **1.0.12**。点击**检查**，核对当前版本、目标版本及磁盘空间，再点击**更新**。更新会中断服务，请避开直播时段。确认对话框中显示的服务器，无需手动输入校验值或 WSL 标识。
 3. 删除时选择**删除前保留可恢复归档**或**永久删除服务器和数据**，再点击**删除**。保存的归档是包含完整导出和恢复辅助文件的**文件夹**，不是统计 ZIP。它含有凭据，请完整、私密地保存。
 4. **恢复**使用此归档文件夹，以及 `%LOCALAPPDATA%\CastLinkServer` 下尚不存在的新安装文件夹。操作中断后，选择同一服务器并点击**恢复事务**。成功后使用**打开服务器面板**。
 
-支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` 及 `server-wsl-v1.0.10-890a903d51f9`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS)。
+支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` 及 `server-wsl-v1.0.10-890a903d51f9`, `server-wsl-v1.0.11-508042e07f6d`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/SHA256SUMS)。
 
-若要从任一已发布的 Windows/WSL 服务器版本（含 RC）直接升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.11。
+若要从任一已发布的 Windows/WSL 服务器版本（含 RC）直接升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.12。
 
 ## Ubuntu Linux 服务器
 

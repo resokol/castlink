@@ -2,9 +2,9 @@
 
 # CastLink: installation and operation
 
-This is the CastLink operation guide. Choose Windows 11/WSL2 or Ubuntu/Linux for a new server; Windows/Docker Server Setup is retained as Legacy for existing installations. Windows Client is a separate product at **1.0.3**. Exact releases, source/build IDs and SHA256 are listed in the [catalog](PRODUCTS.md); [Windows/WSL2 1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Linux 1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d).
+This is the CastLink operation guide. Choose Windows 11/WSL2 or Ubuntu/Linux for a new server; Windows/Docker Server Setup is retained as Legacy for existing installations. Windows Client is a separate product at **1.0.3**. Exact releases, source/build IDs and SHA256 are listed in the [catalog](PRODUCTS.md); [Windows/WSL2 1.0.12](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Linux 1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d).
 
-The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the current stable server version is 1.0.11. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
+The server retains 24-hour metric history and an event journal; Linux supports one-command installation. WSL2 is the primary Windows route without Docker Desktop; the current stable server version is 1.0.12. Automatic Docker → WSL2 migration is unsupported. [Channels and limitations](../../SUPPORTED_INSTALLERS.md).
 
 Ordinary participants need a supported browser and HTTPS. Windows Client joins an existing server; WSL2 and Linux install a server.
 
