@@ -1,5 +1,11 @@
 # Changelog
 
+## CastLink Server 1.0.11 — 2026-11-27
+
+- **Русский.** В режиме «Окно» основное видео у кастера запрашивает максимальное доступное качество. Миниатюры подбирают слой по размеру. В диагностике связи видны участок сбоя, участник и время. Все ранее опубликованные серверы Windows/WSL2, включая RC, можно обновить до 1.0.11 за один шаг. [Обновление](distribution/UPDATER.md)
+- **English.** In Window view, the caster’s main video requests the highest available quality. Thumbnails adapt to their display size. Connection diagnostics show the affected part of the path, participant and time. Every previously published Windows/WSL2 server release, including RCs, can update directly to 1.0.11. [Update guide](distribution/docs/en/UPDATER.md)
+- **简体中文。** 在窗口模式下，主播的主画面请求最高可用画质，缩略图按显示尺寸选择画质。连接诊断显示故障区段、参与者和时间。所有此前发布的 Windows/WSL2 服务器版本（包括 RC）均可直接升级到 1.0.11。[更新指南](distribution/docs/zh-CN/UPDATER.md)
+
 ## Updater 1.0.0 — 2026-11-21 — постоянная точка обновления / Persistent update entry point / 永久更新入口
 
 - RU: CastLink Updater подключается один раз на каждом компьютере: ярлык **Update CastLink** для Windows Client/WSL2 и команды `castlink check-updates`, `castlink update`, `castlink updates` для Linux. Инструмент обновляет собственный проверяемый код и выбирает стабильный совместимый выпуск продукта. Проверка и подключение не перезапускают сервер; применение требует подтверждения. Client остаётся 1.0.1, серверы — 1.0.7; Legacy Docker не мигрирует автоматически. [Инструкция](distribution/UPDATER.md).
