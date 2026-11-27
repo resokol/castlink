@@ -7,6 +7,8 @@ $root=Join-Path $ScratchRoot ('castlink-retention-fixture-'+[guid]::NewGuid().To
 $originalLocal=$env:LOCALAPPDATA;$originalWindows=$env:WINDIR
 $env:LOCALAPPDATA=$root;if(-not $env:WINDIR){$env:WINDIR=$root}
 [void][IO.Directory]::CreateDirectory((Join-Path $root 'CastLinkServer'))
+# Real installations persist canonical roots; TEMP may use an 8.3 alias on CI.
+$root=(Get-Item -LiteralPath $root).FullName;$env:LOCALAPPDATA=$root
 $base=Join-Path $root 'CastLinkServer';$installation=Join-Path $base 'fixture';[void][IO.Directory]::CreateDirectory($installation)
 $state=[pscustomobject]@{schemaVersion=1;installationId=('a'*32);rootPath=$installation;repository='resokol/castlink';releaseTag='server-wsl-v1.0.11-aaaaaaaaaaaa';rootfsSha256=('b'*64);phase='ready'}
 function Entry([string]$Version,[string]$Commit){
