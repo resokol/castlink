@@ -1,0 +1,47 @@
+name: Stage verified Windows WSL 1.0.11 files
+on:
+  push:
+    branches: [ops/server-wsl-111-draft]
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+    env:
+      FACTORY_RUN: '45959108461'
+      FACTORY_SHA: '508042e07f6dae18fb0fd353f65e0057ade8ffc5'
+      ARTIFACT_ID: '15180278412'
+      ARTIFACT_SHA256: '242af8ae2a96dd4f55f804cc991407129a5bd7fd2191608731119904bf9d3040'
+      ARTIFACT_SIZE: '3658980710'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify original ZIP digest and the exact factory identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ops/server-wsl-111/download-candidate.sh
+      - name: Check Windows QA against the identical package and verify all draft assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          p=pathlib.Path('ops/server-wsl-111')
+          f=pathlib.Path(os.environ['RUNNER_TEMP'])/'wsl-final-package'
+          e=json.loads((p/'native-gate.json').read_bytes())
+          assert e['sha']==os.environ['FACTORY_SHA'] and e['run']==os.environ['FACTORY_RUN']
+          assert e['sums']==hashlib.sha256((f/'SHA256SUMS').read_bytes()).hexdigest()
+          PY
+          python3 ops/server-wsl-111/publisher.py draft "$RUNNER_TEMP/wsl-final-package" ops/server-wsl-111/notes.md "$RUNNER_TEMP/stage-receipt.json"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: wsl-111-stage-receipt
+          path: ${{ runner.temp }}/stage-receipt.json
+          if-no-files-found: error
+          retention-days: 7
