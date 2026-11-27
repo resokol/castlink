@@ -398,6 +398,8 @@ function Prepare-CastlinkNativePanel([string]$Root, $State, $Status, [string]$Di
     if ($Status.buildId -cne ($State.releaseTag -creplace '^server-wsl-v','') -or $Status.ready -ne $true) { throw 'Native panel requires a verified matching ready server.' }
     Build-CastlinkNativePanelHost $panelRoot $hostPath
     $binding = [ordered]@{installationId=$State.installationId;installRoot=$Root;origin=$Status.origin;expectedBuildId=$Status.buildId;sourceScriptPath=$stagedInstaller;expectedInstallerSha256=$installerHash}
+    $updaterEntry = $bundle.files | Where-Object { $_.file -ceq 'castlink-updater.ps1' }
+    if ($updaterEntry) { $binding.expectedUpdaterSha256 = $updaterEntry.sha256 }
     Write-CastlinkPrivateFile $bindingPath ($binding | ConvertTo-Json)
     $panel = [pscustomobject]@{schemaVersion=1;hostPath=$hostPath;bindingPath=$bindingPath;hostSha256=(Get-FileHash -LiteralPath $hostPath -Algorithm SHA256).Hash.ToLowerInvariant();bindingSha256=(Get-FileHash -LiteralPath $bindingPath -Algorithm SHA256).Hash.ToLowerInvariant();manifestSha256=$script:PackagedManifestSha256}
     $State | Add-Member NoteProperty nativePanel $panel -Force

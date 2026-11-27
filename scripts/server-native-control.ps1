@@ -29,11 +29,24 @@ function Get-CastlinkPersistentUpdater([string]$Directory=(Join-Path $env:LOCALA
   if($receipt.schemaVersion -ne 1 -or $receipt.repository -cne 'resokol/castlink' -or $receipt.ownerSid -cne $sid -or $receipt.bootstrapSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $receipt.bootstrapSha256){throw 'Persistent updater registration checksum mismatch'}
   return $scriptPath
 }
-function Open-CastlinkNativeMaintenance([string]$InstallRoot,[string]$Language,[string]$Fallback){
+function Open-CastlinkNativeMaintenance($Binding,[string]$Language){
   if($Language -cnotin @('ru','en','zh-CN')){throw 'Unsupported updater language'}
-  $updater=Get-CastlinkPersistentUpdater;$quote={param($v) "'"+$v.Replace("'","''")+"'"}
-  if($updater){$code='& '+(& $quote $updater)+' -InstallRoot '+(& $quote $InstallRoot)+' -Language '+(& $quote $Language)}else{$code='& '+(& $quote $Fallback)+' -InstallRoot '+(& $quote $InstallRoot)+' -Lang '+(& $quote $Language)}
-  $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code));Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList ('-NoLogo -NoProfile -STA -ExecutionPolicy Bypass -EncodedCommand '+$encoded)|Out-Null
+  $powershell=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'
+  $updater=Get-CastlinkPersistentUpdater
+  if(-not $updater){
+    $bundled=Join-Path $Binding.installRoot 'native-panel/castlink-updater.ps1'
+    . (Join-Path $PSScriptRoot 'server-native-monitor.ps1')
+    Assert-CastlinkMonitorPlainPath $bundled
+    if($Binding.expectedUpdaterSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $bundled -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Binding.expectedUpdaterSha256){
+      throw 'Packaged updater checksum mismatch'
+    }
+    & $powershell -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File $bundled -Install -Language $Language
+    if($LASTEXITCODE -ne 0){throw 'CastLink Updater registration failed'}
+    $updater=Get-CastlinkPersistentUpdater
+    if(-not $updater){throw 'CastLink Updater registration is missing'}
+  }
+  $arguments='-NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$updater+'" -InstallRoot "'+$Binding.installRoot+'" -Language '+$Language
+  Start-Process -FilePath $powershell -ArgumentList $arguments | Out-Null
 }
 
 function Get-CastlinkNativePanelText([string]$Key,[string]$Language='ru') {
@@ -266,14 +279,10 @@ function Show-CastlinkNativePanel([string]$BindingFile,[bool]$StartServer=$false
     $menu=New-Object Windows.Forms.ContextMenuStrip;$trayOpen=$menu.Items.Add('Открыть панель');$trayExit=$menu.Items.Add('Остановить и выйти');$tray.ContextMenuStrip=$menu;$tray.Visible=$true
     $state=[pscustomobject]@{language=$language;view=$view;snapshot=$null;control=$null;pendingControl='';monitor=$null;export=$null;pendingExport='';monitorFailed=$false;notice='';next=[datetime]::UtcNow;closing=$false;canClose=$false;lastStoppedAt=$null;maintenance=$false}
     $window.Tag=$state
-    if(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'server-wsl-maintenance-ui.ps1')){
-      $maintenanceButton=New-Object Windows.Controls.Button;$maintenanceButton.Content=Get-CastlinkNativePanelText maintenance $language;$maintenanceButton.MinHeight=36;$maintenanceButton.Margin='0,8,0,0';$view.root.Children.Insert(0,$maintenanceButton);$view.maintenance=$maintenanceButton
-      $maintenanceScript=Join-Path $PSScriptRoot 'server-wsl-maintenance-ui.ps1'
-      $maintenanceButton.Add_Click({
-        if($state.control -or $state.export -or $state.monitor){return}
-        try{$helpers.'Open-CastlinkNativeMaintenance'($binding.installRoot,$state.language,$maintenanceScript)}catch{$state.notice=$_.Exception.Message}
-      }.GetNewClosure())
-    }
+    $maintenanceButton=New-Object Windows.Controls.Button;$maintenanceButton.Content=Get-CastlinkNativePanelText maintenance $language;$maintenanceButton.MinHeight=36;$maintenanceButton.Margin='0,8,0,0';$view.root.Children.Insert(0,$maintenanceButton);$view.maintenance=$maintenanceButton
+    $maintenanceButton.Add_Click({
+      try{$helpers.'Open-CastlinkNativeMaintenance'($binding,$state.language)}catch{$state.notice=$_.Exception.Message}
+    }.GetNewClosure())
     $restore={$window.Show();$window.WindowState='Normal';$null=$window.Activate();$handle=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle;$null=[CastLinkControl.Native]::SetForegroundWindow($handle)}.GetNewClosure()
     $window.Add_SourceInitialized({
       $hwnd=(New-Object Windows.Interop.WindowInteropHelper($window)).Handle
