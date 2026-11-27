@@ -111,9 +111,9 @@ The panel provides service controls, statistics and **Export ZIP for 24 hours**.
 3. To remove it, choose **Keep a restorable archive before removing** or **Permanently erase server and data**, then **Remove**. The saved archive is a **folder** containing a full export and restore helpers, not a statistics ZIP. It contains credentials; keep the whole folder private.
 4. **Restore** uses that archive folder and a new installation folder that does not yet exist under `%LOCALAPPDATA%\CastLinkServer`. After an interruption, select the same server and **Recover transaction**. On success, use **Open server panel**.
 
-Supported upgrade sources are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c` and `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925`, `server-wsl-v1.0.10-890a903d51f9`. Supported updates preserve rooms, history, passwords, address and certificates; successful updates leave no permanent automatic backup. Migration from Docker is unsupported. [Details](distribution/docs/en/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS).
+Supported upgrade sources are `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`, `server-wsl-v1.0.5-rc.3-95ec46463c82`, `server-wsl-v1.0.6-rc.1-dad063393b53`, `server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` and `server-wsl-v1.0.10-890a903d51f9`. Supported updates preserve rooms, history, passwords, address and certificates; successful updates leave no permanent automatic backup. Migration from Docker is unsupported. [Details](distribution/docs/en/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS).
 
-To upgrade from 1.0.10, open CastLink Updater, select the installed Windows/WSL server and check for updates. Apply 1.0.11 off air.
+To upgrade directly from any released Windows/WSL server version, including an RC, open CastLink Updater, select the installed Windows/WSL server and check for updates. Apply 1.0.11 off air.
 
 ## Ubuntu Linux server
 

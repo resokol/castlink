@@ -111,9 +111,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-server-windows
 3. 删除时选择**删除前保留可恢复归档**或**永久删除服务器和数据**，再点击**删除**。保存的归档是包含完整导出和恢复辅助文件的**文件夹**，不是统计 ZIP。它含有凭据，请完整、私密地保存。
 4. **恢复**使用此归档文件夹，以及 `%LOCALAPPDATA%\CastLinkServer` 下尚不存在的新安装文件夹。操作中断后，选择同一服务器并点击**恢复事务**。成功后使用**打开服务器面板**。
 
-支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c` 及 `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925`, `server-wsl-v1.0.10-890a903d51f9`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS)。
+支持的升级来源为 `server-wsl-v1.0.5-rc.1-085b087a2458`, `server-wsl-v1.0.5-rc.2-af3e309d0926`、`server-wsl-v1.0.5-rc.3-95ec46463c82`、`server-wsl-v1.0.6-rc.1-dad063393b53`、`server-wsl-v1.0.7-0d16de2e782c`, `server-wsl-v1.0.8-1afa39b54dd7`, `server-wsl-v1.0.9-35dbb73b5925` 及 `server-wsl-v1.0.10-890a903d51f9`。受支持的更新保留房间、历史、密码、地址和证书；成功后不会保留永久自动备份。不支持从 Docker 迁移数据。[详细说明](distribution/docs/zh-CN/SERVER_INSTALL.md) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS)。
 
-要从 1.0.10 升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.11。
+若要从任一已发布的 Windows/WSL 服务器版本（含 RC）直接升级，请打开 CastLink Updater，选择已安装的 Windows/WSL 服务器并检查更新。在非直播期间应用 1.0.11。
 
 ## Ubuntu Linux 服务器
 
