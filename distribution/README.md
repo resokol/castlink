@@ -2,9 +2,9 @@
 
 # CastLink: установка и работа
 
-Руководство по работе с CastLink. Для новой установки выберите Windows 11/WSL2 или Ubuntu/Linux; Windows/Docker Server Setup сохранён как Legacy для действующих установок. Windows Client — отдельный продукт версии **1.0.3**. Точные выпуски, source/build ID и SHA256 указаны в [каталоге](PRODUCTS.md); [Windows/WSL2 1.0.10](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.10-890a903d51f9) · [Linux 1.0.10](https://github.com/resokol/castlink/releases/tag/linux-v1.0.10-890a903d51f9).
+Руководство по работе с CastLink. Для новой установки выберите Windows 11/WSL2 или Ubuntu/Linux; Windows/Docker Server Setup сохранён как Legacy для действующих установок. Windows Client — отдельный продукт версии **1.0.3**. Точные выпуски, source/build ID и SHA256 указаны в [каталоге](PRODUCTS.md); [Windows/WSL2 1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Linux 1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d).
 
-Сервер хранит историю показателей и журнал за 24 часа; Linux поддерживает установку одной командой. WSL2 — основное Windows-направление без Docker Desktop; текущая стабильная серверная версия — 1.0.10. Не переносите Docker-данные автоматически в WSL2. [Каналы и ограничения](SUPPORTED_INSTALLERS.md).
+Сервер хранит историю показателей и журнал за 24 часа; Linux поддерживает установку одной командой. WSL2 — основное Windows-направление без Docker Desktop; текущая стабильная серверная версия — 1.0.11. Не переносите Docker-данные автоматически в WSL2. [Каналы и ограничения](SUPPORTED_INSTALLERS.md).
 
 Для обычного подключения участнику достаточно поддерживаемого браузера и HTTPS. Windows Client подключается к существующему серверу; WSL2 и Linux устанавливают сервер.
 
@@ -114,7 +114,7 @@ PDF/PPTX и листание слайдов описаны [отдельно](PR
 | --- | --- |
 | [CastLink-Client-1.0.3-35dbb73b5925-setup.exe](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/SHA256SUMS) | Windows-клиент студии и кастера; подключается к существующему серверу, Docker не нужен |
 | [CastLink-Windows.zip](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/CastLink-Windows.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-setup-v1.0.4-079fd0f9d4b1/SHA256SUMS) | Графический мастер `EasySetup.exe` и консольный вариант `EasySetup-Console.cmd`; установка локально или на VPS |
-| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.10-890a903d51f9/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.10-890a903d51f9/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
+| [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/SHA256SUMS) | Самостоятельный серверный пакет для Linux Ubuntu без Windows-мастера. Для установки по SSH из Windows мастер использует Linux-зависимость из своего Server Setup выпуска. |
 
 [Все выпуски и примечания к ним](https://github.com/resokol/castlink/releases). Берите файлы и контрольные суммы из одного выпуска. Мастер проверяет скачиваемые пакеты автоматически. Для ручной проверки Windows ZIP выполните в PowerShell:
 
