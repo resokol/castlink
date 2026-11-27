@@ -737,7 +737,7 @@ function Get-CastlinkRetentionReferences {
                     if(-not (Test-Path -LiteralPath $journal)){throw 'Unrecorded lifecycle transaction; cleanup deferred'}
                     $j=Read-CastlinkRetentionJson $journal
                     if($j.phase -cnotin @('completed','removed','rolled-back','restored')){throw 'Pending lifecycle transaction; cleanup deferred'}
-                    if($j.phase -ceq 'completed' -and $j.kind -ceq 'update' -and $j.sourceRoot -and $j.source.installationId){$retired[$j.sourceRoot]=$j.source.installationId}
+                    if($j.phase -ceq 'completed' -and $j.kind -ceq 'update' -and $j.sourceRoot -and $j.source.installationId){$retired[(Assert-CastlinkRetentionPath $j.sourceRoot)]=$j.source.installationId}
                 }
                 continue
             }

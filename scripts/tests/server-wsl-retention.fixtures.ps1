@@ -44,6 +44,9 @@ try{
  [IO.File]::WriteAllText((Join-Path $pending 'journal.json'),('{"phase":"completed","kind":"update","sourceRoot":'+(ConvertTo-Json $neighbor -Compress)+',"source":{"installationId":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}'))
  $retiredPlan=@(Get-CastlinkRetentionPlan $installation $state $record)
  Assert ($retiredPlan.Count -eq 1) ('completed update proves retired source no longer protects every old cache; '+(@{planCount=$retiredPlan.Count;references=@(Get-CastlinkRetentionReferences);sourceRoot=(Read-CastlinkRetentionJson (Join-Path $pending 'journal.json')).sourceRoot;neighbor=$neighbor;actualNeighbor=(Get-Item -LiteralPath $neighbor).FullName}|ConvertTo-Json -Depth 8 -Compress))
+ $retiredJournal=Read-CastlinkRetentionJson (Join-Path $pending 'journal.json');$retiredJournal.sourceRoot=Join-Path $base './neighbor'
+ [IO.File]::WriteAllText((Join-Path $pending 'journal.json'),($retiredJournal|ConvertTo-Json -Depth 8))
+ Assert (@(Get-CastlinkRetentionPlan $installation $state $record).Count -eq 1) 'retired source path aliases must use the same canonical identity as discovered installations'
  [IO.File]::Delete((Join-Path $neighbor 'installation.json'))
  $entries[0].files[0].path=Join-Path $root 'manual-backup.tar';[IO.File]::WriteAllText($entries[0].files[0].path,'manual')
  Refuses {Get-CastlinkRetentionPlan $installation $state $record}
