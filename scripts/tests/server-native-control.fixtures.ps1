@@ -63,6 +63,36 @@ foreach($locale in @('ru','en','zh-CN')){if((Get-CastlinkNativePanelText export 
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('castlink-native-fixture-'+[guid]::NewGuid().ToString('N'))
 $null=[IO.Directory]::CreateDirectory($temporary)
 try{
+  # Exercise the click handler's launch with a real child PowerShell and isolated product paths.
+  & {
+    $product=Join-Path $temporary "server O'Brien & Co"
+    $panel=Join-Path $product 'native-panel'
+    $null=[IO.Directory]::CreateDirectory($panel)
+    $stub=Join-Path $panel 'castlink-updater.ps1'
+    $mark=Join-Path $panel 'registered'
+    [IO.File]::WriteAllText($stub,@'
+param([switch]$Install,[string]$Language)
+if(-not $Install -or $Language -cne 'ru'){exit 1}
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'registered'),'ok')
+'@)
+    $binding=[pscustomobject]@{installRoot=$product;expectedUpdaterSha256=('0'*64)}
+    function Get-CastlinkPersistentUpdater { if(Test-Path -LiteralPath $mark){return $stub} }
+    $calls=New-Object Collections.ArrayList
+    function Start-Process($FilePath,$ArgumentList) { $null=$calls.Add($ArgumentList) }
+    $rejected=$false
+    try{Open-CastlinkNativeMaintenance $binding ru}catch{if($_.Exception.Message -notmatch 'checksum'){throw};$rejected=$true}
+    if(-not $rejected -or (Test-Path -LiteralPath $mark) -or $calls.Count){throw 'Unverified updater ran'}
+    $binding.expectedUpdaterSha256=(Get-FileHash $stub).Hash.ToLowerInvariant()
+    Open-CastlinkNativeMaintenance $binding ru
+    if(-not (Test-Path -LiteralPath $mark)){throw 'First maintenance click skipped registration'}
+    $binding.expectedUpdaterSha256='invalid'
+    Open-CastlinkNativeMaintenance $binding en
+    if($calls.Count -ne 2){throw 'Maintenance did not launch once per click'}
+    foreach($i in 0,1){
+      $suffix='-File "'+$stub+'" -InstallRoot "'+$product+'" -Language '+@('ru','en')[$i]
+      if(-not $calls[$i].EndsWith($suffix)){throw 'Maintenance did not open the selected installation'}
+    }
+  }
   $fake=Join-Path $temporary 'fake-worker.ps1'
   [IO.File]::WriteAllText($fake,@'
 param([switch]$FunctionsOnly)

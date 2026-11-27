@@ -517,8 +517,10 @@ function Set-CLMNativeBindings($Ctx,$State,$Status,[string]$Cache,[string]$Insta
  if((Get-CLMHash $Ctx.nativeHostStage) -cne $Ctx.nativeHostHash){throw 'Compiled native panel stage checksum mismatch'}
  $hostPath=Join-Path $panelRoot $bundle.host;if(Test-Path -LiteralPath $hostPath){if((Get-CLMHash $hostPath) -cne $Ctx.nativeHostHash){throw 'Unrecorded native panel host differs; preserved'}}else{[IO.File]::Copy($Ctx.nativeHostStage,$hostPath,$false)}
  $stagedInstaller=Join-Path $root 'install-server-windows.ps1';$binding=[pscustomobject][ordered]@{installationId=$State.installationId;installRoot=$root;origin=$Status.origin;expectedBuildId=$Status.buildId;sourceScriptPath=$stagedInstaller;expectedInstallerSha256=(Get-CLMHash $stagedInstaller)}
+ $updaterEntry=$bundle.files | Where-Object { $_.file -ceq 'castlink-updater.ps1' }
+ if($updaterEntry){$binding | Add-Member NoteProperty expectedUpdaterSha256 $updaterEntry.sha256}
  $bindingPath=Join-Path $panelRoot $bundle.binding
- if(Test-Path -LiteralPath $bindingPath){$existing=Read-CLMJson $bindingPath;if(@($existing.PSObject.Properties).Count -ne 6){throw 'Unrecorded binding collision'};foreach($p in $binding.PSObject.Properties){if($existing.($p.Name) -cne $p.Value){throw 'Unrecorded binding differs; preserved'}}}else{Write-CLMJson $bindingPath $binding}
+ if(Test-Path -LiteralPath $bindingPath){$existing=Read-CLMJson $bindingPath;if(@($existing.PSObject.Properties).Count -ne @($binding.PSObject.Properties).Count){throw 'Unrecorded binding collision'};foreach($p in $binding.PSObject.Properties){if($existing.($p.Name) -cne $p.Value){throw 'Unrecorded binding differs; preserved'}}}else{Write-CLMJson $bindingPath $binding}
  $receipt=[pscustomobject]@{schemaVersion=1;hostPath=$hostPath;bindingPath=$bindingPath;hostSha256=$Ctx.nativeHostHash;bindingSha256=(Get-CLMHash $bindingPath);manifestSha256=$Pin};$State|Add-Member NoteProperty nativePanel $receipt -Force;Write-CLMJson (Join-Path $root 'installation.json') $State
  return $State
 }
