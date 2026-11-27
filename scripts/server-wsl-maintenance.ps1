@@ -42,7 +42,7 @@ function Get-CastlinkMaintenanceInstallations([string]$Base=(Join-Path $env:LOCA
  # Host receipts only: never launch a distribution while populating the picker.
  if(-not (Test-Path -LiteralPath $Base)){return @()};$pending=New-Object Collections.Generic.Queue[string];$pending.Enqueue((Assert-CLMPath $Base));$seen=@{}
  while($pending.Count){$r=$pending.Dequeue();if(Test-Path -LiteralPath (Join-Path $r 'installation.json')){try{$actual=Get-CLMRoot $r;$s=Read-CLMReceipt $actual;if(-not $seen.ContainsKey($s.installationId)){$seen[$s.installationId]=$true;$domain='?';if($s.nativePanel -and (Test-Path -LiteralPath $s.nativePanel.bindingPath)){if((Get-CLMHash $s.nativePanel.bindingPath) -ceq $s.nativePanel.bindingSha256){$domain=(Read-CLMJson $s.nativePanel.bindingPath).origin}};[pscustomobject]@{root=$r;activeRoot=$actual;domain=$domain;version=$s.releaseTag;state=$s.phase;distroName=$s.distroName}}}catch{}}
-  foreach($d in Get-ChildItem -LiteralPath $r -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$pending.Enqueue($d.FullName)}
+  foreach($d in Get-ChildItem -LiteralPath $r -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','retention-packages') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$pending.Enqueue($d.FullName)}
  }
 }
 function Initialize-CLMTransport {
@@ -296,12 +296,17 @@ function Get-CastlinkWslReleaseChoices {
   foreach($r in @($values)){if($r.draft -or $r.tag_name -cnotmatch '^server-wsl-v[0-9][A-Za-z0-9.+-]*$'){continue};$a=@($r.assets|Where-Object {$_.name -ceq 'manifest.json'});if($a.Count -ne 1 -or $a[0].digest -cnotmatch '^sha256:[a-f0-9]{64}$' -or $a[0].size -le 0 -or $a[0].size -gt 1048576){continue};[pscustomobject]@{releaseTag=$r.tag_name;prerelease=[bool]$r.prerelease;manifestSha256=$a[0].digest.Substring(7);manifestSize=[long]$a[0].size;label=($r.tag_name+$(if($r.prerelease){' (prerelease)'}else{''}))}}
  }finally{if($reader){$reader.Dispose()};if($response){$response.Dispose()}}
 }
-function Receive-CastlinkWslReleaseManifest($Choice){
+function Receive-CastlinkWslReleaseManifest($Choice,[string]$InstallRoot){
+ if(-not $InstallRoot){throw 'Select an exact installation before choosing a release'}
+ $state=Read-CLMReceipt (Get-CLMRoot $InstallRoot);$iid=if($state.logicalInstallationId){$state.logicalInstallationId}else{$state.installationId};if($iid -cnotmatch '^[a-f0-9]{32}$'){throw 'Invalid package installation namespace'}
+ $lease=Enter-CLMPackageLease
+ try{
  if($Choice.releaseTag -cnotmatch '^server-wsl-v[0-9][A-Za-z0-9.+-]*$' -or $Choice.manifestSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid explicit release selection'}
- $cache=Join-Path $env:LOCALAPPDATA ('CastLinkServer\lifecycle-packages\'+$Choice.releaseTag+'-'+$Choice.manifestSha256.Substring(0,12));Protect-CLMDirectory $cache;$p=Join-Path $cache 'manifest.json'
+ $cache=Join-Path $env:LOCALAPPDATA ('CastLinkServer/retention-packages/'+$iid+'/'+$Choice.releaseTag+'-'+$Choice.manifestSha256.Substring(0,12));Protect-CLMDirectory $cache;$p=Join-Path $cache 'manifest.json'
  if(-not (Test-Path -LiteralPath $p)){Receive-CLMAsset ('https://github.com/resokol/castlink/releases/download/'+$Choice.releaseTag+'/manifest.json') $p $Choice.manifestSize}
  if((Get-CLMHash $p) -cne $Choice.manifestSha256){throw 'Selected release manifest checksum mismatch'}
  return [pscustomobject]@{directory=$cache;manifestSha256=$Choice.manifestSha256;releaseTag=$Choice.releaseTag}
+ }finally{$lease.Dispose()}
 }
 function Copy-CLMTaskForValidation($Task){
  # Keep CIM trigger metadata intact; normalize only enabled state for validating an owned disabled task.
@@ -437,6 +442,14 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
    return $Ctx.candidate
   }
   'PublishCandidateTask' {
+   # The new pinned installer carries host housekeeping. This is independent of
+   # optional sign-in autostart; the former generation's task is retired below.
+   $retentionState=Read-CLMReceipt $Ctx.candidateRoot
+   $retentionModule=Import-CLMInstaller (Join-Path $Ctx.candidateRoot 'install-server-windows.ps1')
+   $retentionDirectory=if($Ctx.targetDirectory){$Ctx.targetDirectory}else{Join-Path $Ctx.candidateRoot 'release'}
+   $previousRoot=if($Ctx.kind -ceq 'update'){$Ctx.sourceRoot}else{''}
+   $previousPin=if($Ctx.sourceManifest){Get-CLMHash $Ctx.sourceManifest}else{''}
+   Invoke-CLMInstaller $retentionModule {param($d);if(Get-Command Register-CastlinkRetention -ErrorAction SilentlyContinue){Register-CastlinkRetention $d.root $d.s $d.directory $d.previous $d.previousPin}} @{root=$Ctx.candidateRoot;s=$retentionState;directory=$retentionDirectory;previous=$previousRoot;previousPin=$previousPin}
    if($Ctx.task.exists){
     $s=Read-CLMReceipt $Ctx.candidateRoot;$p=Join-Path $Ctx.candidateRoot 'install-server-windows.ps1';$m=Import-CLMInstaller $p
     $spec=Invoke-CLMInstaller $m {param($d);Get-CastlinkLogonTaskSpec $d.root $d.s $d.installer} @{root=$Ctx.candidateRoot;s=$s;installer=$p}
@@ -456,13 +469,23 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
   'DiscardCandidate' {$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--unregister',$Ctx.candidate.distroName)}
   'TerminateCandidate' {$null=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--terminate',$Ctx.candidate.distroName);$names=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--list','--running','--quiet');if(($names -replace "`0",'').Split("`n").Trim() -ccontains $Ctx.candidate.distroName){throw 'Candidate termination not confirmed'}}
   'ResumeSource' {Invoke-CLMInstaller $Ctx.sourceModule {param($d);Start-CastlinkKeepalive $d.root $d.s} @{root=$Ctx.sourceRoot;s=$Ctx.source};$null=Invoke-CLMWsl $Ctx.source @('/usr/local/bin/castlink-server','start')}
-  'CleanupSource' {Invoke-CLMDefaultAdapter 'UnregisterSource' $Ctx $null;Remove-CLMOwnedFiles $Ctx}
+  'CleanupSource' {
+   Invoke-CLMDefaultAdapter 'UnregisterSource' $Ctx $null
+   $preserve=@();$retention=if($Ctx.candidateRoot){Join-Path $Ctx.candidateRoot 'disk-retention.json'}else{''}
+   if($retention -and (Test-Path -LiteralPath $retention)){
+    $r=Read-CLMJson $retention 4194304
+    if($r.owner -cne 'castlink-wsl-retention-v1' -or $r.installationId -cne $Ctx.candidate.installationId -or $r.rootPath -cne $Ctx.candidateRoot){throw 'Candidate retention ownership mismatch'}
+    foreach($set in @($r.releases)){foreach($f in @($set.files)){$preserve+=@($f.path)}}
+   }
+   Remove-CLMOwnedFiles $Ctx $preserve
+  }
   'PreflightEntryPoint' {Get-CLMOwnedFiles $Ctx;Assert-CLMEntryPoint $Ctx}
   'PrepareEntryPoint' {Prepare-CLMEntryPoint $Ctx}
   'PublishEntryPoint' {Publish-CLMEntryPoint $Ctx}
   'RemoveOwnedFiles' {Remove-CLMOwnedFiles $Ctx}
   'CloseSourcePanel' {Close-CLMSourcePanel $Ctx}
   'UnregisterSource' {
+   Invoke-CLMInstaller $Ctx.sourceModule {param($d);if(Get-Command Unregister-CastlinkRetention -ErrorAction SilentlyContinue){Unregister-CastlinkRetention $d.root $d.s}} @{root=$Ctx.sourceRoot;s=$Ctx.source}
    # Reverify complete task evidence immediately before deletion, ownership before unregister.
    $all=Invoke-CLMProcess (Join-Path $env:WINDIR 'System32\wsl.exe') @('--list','--quiet');$exists=($all -replace "`0",'').Split("`n").Trim() -ccontains $Ctx.source.distroName
    if($exists){Assert-CLMGuestMarker $Ctx.source}
@@ -490,7 +513,7 @@ function Invoke-CLMDefaultAdapter([string]$Name,$Ctx,$Data){
     $status=Invoke-CLMWsl $s @('/usr/local/bin/castlink-server','status')|ConvertFrom-Json
     if(-not $status.ready -or $status.buildId -cne ($s.releaseTag -replace '^server-wsl-v','')){throw 'Restored same-release readiness mismatch'}
     $pin=if($Ctx.originalSource.releaseTag -ceq $script:CLMLegacyTag){$script:CLMLegacyManifest}else{$Ctx.originalSource.nativePanel.manifestSha256};$s=Set-CLMNativeBindings $Ctx $s $status $cache (Join-Path $cache 'install-server-windows.ps1') $pin $m
-    $s.phase='ready'
+    $s.phase='ready';Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $s
     if(-not $s.desiredRunning){Stop-CLMServices $s;Invoke-CLMInstaller $m {param($d);Stop-CastlinkKeepalive $d.root $d.s} @{root=$Ctx.sourceRoot;s=$s}}else{Invoke-CLMInstaller $m {param($d);Start-CastlinkKeepalive $d.root $d.s} @{root=$Ctx.sourceRoot;s=$s}}
     Invoke-CLMDefaultAdapter 'PublishCandidateTask' $Ctx $null
    }
@@ -546,7 +569,7 @@ function Get-CLMOwnedFiles($Ctx){
  if($Ctx.source.nativePanel){foreach($pair in @(@($Ctx.source.nativePanel.hostPath,$Ctx.source.nativePanel.hostSha256),@($Ctx.source.nativePanel.bindingPath,$Ctx.source.nativePanel.bindingSha256))){$p=Assert-CLMPath $pair[0];if(-not $p.StartsWith((Join-Path $Ctx.sourceRoot 'native-panel')+'\',[StringComparison]::OrdinalIgnoreCase) -or (Get-CLMHash $p) -cne $pair[1]){throw 'Source panel ownership mismatch'};$known[$p]=$pair[1]}}
  $Ctx.ownedFiles=@($known.GetEnumerator()|ForEach-Object {[pscustomobject]@{path=$_.Key;sha256=$_.Value}})
 }
-function Remove-CLMOwnedFiles($Ctx){foreach($e in @($Ctx.ownedFiles)){if(Test-Path -LiteralPath $e.path){if((Get-CLMHash $e.path) -cne $e.sha256){throw 'Owned cleanup file changed; preserved for inspection'};Remove-Item -LiteralPath $e.path -Force}}}
+function Remove-CLMOwnedFiles($Ctx,[string[]]$Preserve=@()){foreach($e in @($Ctx.ownedFiles)){if($e.path -cin $Preserve){continue};if(Test-Path -LiteralPath $e.path){if((Get-CLMHash $e.path) -cne $e.sha256){throw 'Owned cleanup file changed; preserved for inspection'};Remove-Item -LiteralPath $e.path -Force}}}
 function Assert-CLMEntryPoint($Ctx){
  $p=Join-Path $Ctx.selectedRoot 'CastLinkServer.lnk';$Ctx.entryPointBeforeHash=$null
  if(Test-Path -LiteralPath $p){$v=Read-CLMJson (Join-Path $Ctx.selectedRoot 'active-generation.json');if(-not $v.entryPointHash -or (Get-CLMHash $p) -cne $v.entryPointHash){throw 'Unknown server shortcut exists; it was preserved'};$Ctx.entryPointBeforeHash=$v.entryPointHash}
@@ -662,7 +685,7 @@ function Start-CLMRestore([string]$Root,[string]$BundleDirectory,[scriptblock]$A
  try{Write-CLMJson (Join-Path $Root 'installation.json') $source;Save-CLMJournal $ctx 'restore-prepared';Write-CLMJson (Join-Path $Root 'maintenance-transaction.json') ([ordered]@{schemaVersion=1;selectedRoot=$Root;id=$ctx.id;journal=$ctx.journal});return Complete-CLMRestore $ctx}finally{$lease.Dispose()}
 }
 function Invoke-CLMAdapter($Ctx,[string]$Name,$Data=$null){if($Ctx.adapter){return & $Ctx.adapter $Name $Ctx $Data};return Invoke-CLMDefaultAdapter $Name $Ctx $Data}
-function Save-CLMJournal($Ctx,[string]$Phase){$Ctx.phase=$Phase;$saved=@{};foreach($k in $Ctx.Keys){if($k -notin @('adapter','progress','sourceModule')){$saved[$k]=$Ctx[$k]}};Write-CLMJson $Ctx.journal $saved; if($Ctx.progress){& $Ctx.progress $Phase|Out-Null}}
+function Save-CLMJournal($Ctx,[string]$Phase){$Ctx.retentionManaged=$true;$Ctx.phase=$Phase;$saved=@{};foreach($k in $Ctx.Keys){if($k -notin @('adapter','progress','sourceModule')){$saved[$k]=$Ctx[$k]}};Write-CLMJson $Ctx.journal $saved; if($Ctx.progress){& $Ctx.progress $Phase|Out-Null}}
 function Get-CLMJournal([string]$Root){$Root=Assert-CLMPath $Root;$p=Join-Path $Root 'maintenance-transaction.json';if(-not (Test-Path -LiteralPath $p)){throw 'No maintenance journal for selected server'};$v=Read-CLMJson $p;if($v.schemaVersion -ne 1 -or $v.selectedRoot -cne $Root){throw 'Invalid maintenance journal pointer'};$j=Read-CLMJson $v.journal;if($j.schemaVersion -ne 1 -or $j.selectedRoot -cne $Root -or $j.id -cne $v.id -or $j.journal -cne $v.journal){throw 'Maintenance journal identity mismatch'};return $j}
 function Complete-CLMUpdate($Ctx){
  # Commit intent is durable BEFORE any entry point/task or gate can expose candidate.
@@ -729,6 +752,11 @@ function Complete-CLMRemove($Ctx){
  if($Ctx.bundleDirectory){if((Get-CLMHash (Join-Path $Ctx.bundleDirectory 'bundle.json')) -cne $Ctx.bundleManifestHash){throw 'Validated removal bundle changed; source preserved'};$null=Read-CLMBundle $Ctx.bundleDirectory}
  Save-CLMJournal $Ctx 'unregister-source';Invoke-CLMAdapter $Ctx 'UnregisterSource'|Out-Null;Invoke-CLMAdapter $Ctx 'RemoveOwnedFiles'|Out-Null;$removed=Copy-CLMObject $Ctx.source;$removed.phase='removed';Write-CLMJson (Join-Path $Ctx.sourceRoot 'installation.json') $removed;Save-CLMJournal $Ctx 'removed';return $Ctx
 }
+function Enter-CLMPackageLease {
+ $base=Assert-CLMPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer');if(-not (Test-Path -LiteralPath $base)){Protect-CLMDirectory $base}
+ $path=Assert-CLMPath (Join-Path $base '.package-operation.lock')
+ try{return [IO.File]::Open($path,'OpenOrCreate','ReadWrite','None')}catch{throw 'Another CastLink shared package operation is running'}
+}
 function Invoke-CastlinkMaintenance {
  [CmdletBinding()]param([Parameter(Position=0)][ValidateSet('List','Check','Update','Remove','Restore','Recover')][string]$Action='List',[Parameter(Position=1)][string]$InstallRoot,[string]$TargetDirectory,[string]$ExpectedManifestSha256,[string]$Confirmation,[string]$BundleDirectory,[switch]$EraseData,[scriptblock]$Adapter,[scriptblock]$Progress)
  if($Action -ceq 'Remove' -and -not $BundleDirectory -and -not $EraseData){throw 'Choose an archive directory or explicit -EraseData'}
@@ -743,6 +771,7 @@ function Invoke-CastlinkMaintenance {
   if($Action -cne 'Check'){
    try{$locks.Add([IO.File]::Open((Join-Path $selected 'maintenance.lock'),'OpenOrCreate','ReadWrite','None'));$locks.Add([IO.File]::Open((Join-Path $root 'operation.lock'),'OpenOrCreate','ReadWrite','None'))}catch{throw 'Maintenance/operation lock is owned by another process'}
   }
+  $locks.Add((Enter-CLMPackageLease))
   if($Action -ceq 'Recover' -and $old.kind -ceq 'restore'){$ctx.source=$old.source}else{$ctx.source=Invoke-CLMAdapter $ctx 'VerifySource'}
   if($Action -ceq 'Recover'){
    if($old.kind -cne 'restore' -and ($ctx.source.installationId -cne $old.source.installationId -or $ctx.source.releaseTag -cne $old.source.releaseTag -or $ctx.source.rootfsSha256 -cne $old.source.rootfsSha256)){throw 'Recovery source identity changed; preserved for manual inspection'}

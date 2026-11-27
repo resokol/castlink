@@ -47,6 +47,78 @@ class Engine:
 
 
 class ParentOwnership(unittest.TestCase):
+    def test_versioned_web_sibling_does_not_pin_known_expired_images(self):
+        old = 'castlink-easy-web:' + SOURCE; current = 'castlink-easy-web:' + 'b' * 40
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / 'main'; folder.mkdir(); sibling = Path(d) / 'sibling'; sibling.mkdir()
+            old_entry = {'tag': old, 'id': iid('a')}; current_entry = {'tag': current, 'id': iid('b')}
+            m.write_private(sibling / '.castlink-retention.json', {'schemaVersion': 1, 'current': [current_entry], 'previous': [],
+                'owned': [old_entry, current_entry], 'directoryIdentity': {}, 'daemonId': 'engine',
+                'successfulVersions': [{'version': '1.0.11', 'commit': 'b' * 40, 'images': [current_entry]}],
+                'imageVersions': [dict(old_entry, version='1.0.8'), dict(current_entry, version='1.0.11')]})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [dict(old_entry, version='1.0.8')]})
+            old_image, current_image = image('a'), image('b')
+            old_image['RootFS'] = {'Layers': [iid('1')]}; current_image['RootFS'] = {'Layers': [iid('2')]}
+            engine = Engine([old_image, current_image], {old: iid('a'), current: iid('b')})
+            with patch.object(m, 'docker', side_effect=engine):m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'web': current}}})
+            self.assertIn(['image', 'rm', '--no-prune', old], engine.calls)
+
+    def test_web_sibling_loaded_owned_staging_is_protected_without_containers(self):
+        old = 'castlink-easy-web:' + SOURCE
+        current = 'castlink-easy-web:' + 'b' * 40
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / 'main'; folder.mkdir(); sibling = Path(d) / 'sibling'; sibling.mkdir()
+            entry = {'tag': old, 'id': iid('a')}
+            m.write_private(sibling / '.castlink-retention.json', {'schemaVersion': 1, 'current': [], 'previous': [],
+                'owned': [entry], 'directoryIdentity': {}, 'daemonId': 'engine'})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [dict(entry, version='1.0.8')]})
+            old_image, current_image = image('a'), image('b')
+            old_image['RootFS'] = {'Layers': [iid('1')]}; current_image['RootFS'] = {'Layers': [iid('2')]}
+            engine = Engine([old_image, current_image], {old: iid('a'), current: iid('b')})
+            with patch.object(m, 'docker', side_effect=engine):
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'web': current}}})
+            self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
+
+    def test_sibling_unknown_staged_image_is_protected_before_container_creation(self):
+        old = 'castlink-easy-web:' + SOURCE
+        current = 'castlink-easy-web:' + 'b' * 40
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / 'main'; folder.mkdir(); sibling = Path(d) / 'sibling'; sibling.mkdir()
+            entry = {'tag': old, 'id': iid('a')}
+            m.write_private(sibling / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [entry]})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [dict(entry, version='1.0.8')]})
+            old_image, current_image = image('a'), image('b')
+            old_image['RootFS'] = {'Layers': [iid('1')]}; current_image['RootFS'] = {'Layers': [iid('2')]}
+            engine = Engine([old_image, current_image], {old: iid('a'), current: iid('b')})
+            with patch.object(m, 'docker', side_effect=engine):
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'web': current}}})
+            self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
+
+    def test_semantic_retirement_removes_only_obsolete_successful_builds(self):
+        images = []
+        tags = {}
+        for index, char in enumerate('abcdef1'):
+            info = image(char, marked=False); info['RootFS'] = {'Layers': [iid(char)]}
+            images.append(info); tags['castlink-easy-web:' + char * 40] = iid(char)
+        engine = Engine(images, tags)
+        with tempfile.TemporaryDirectory() as d, patch.object(m, 'docker', side_effect=engine):
+            folder = Path(d)
+            versions = [('a', '1.0.8'), ('b', '1.0.10'), ('c', '1.0.9'), ('d', '1.0.10'), ('e', '1.0.11')]
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [
+                {'tag': tag, 'id': identity} for tag, identity in tags.items()]})
+            for char, version in versions:
+                release = {'version': version, 'commit': char * 40, 'images': {'web': 'castlink-easy-web:' + char * 40}}
+                m.remember_successful_release(folder, release)
+            # Unknown candidate and a future successful build are staging roots.
+            receipt = m.image_receipt(folder)
+            receipt['images'][-1]['version'] = '1.0.12'
+            m.write_private(folder / m.IMAGE_RECEIPT, receipt)
+            m.cleanup_images(folder, {'release': release})
+            self.assertEqual([c[-1] for c in engine.calls if c[:2] == ['image', 'rm']],
+                             ['castlink-easy-web:' + char * 40 for char in 'ab'])
+            self.assertEqual({r['tag'] for r in m.image_receipt(folder)['images']},
+                             {'castlink-easy-web:' + char * 40 for char in 'cdef1'})
+
     def receipt(self, folder, *characters):
         m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [],
             'parents': [{'id': iid(c), 'source': SOURCE, 'stage': 'web-runtime'} for c in characters]})
@@ -133,8 +205,8 @@ class ParentOwnership(unittest.TestCase):
                             {'stopped': {'Image': iid('f')}} if mode == 'stopped' else {})
             with tempfile.TemporaryDirectory() as d, patch.object(m, 'docker', side_effect=engine):
                 folder = Path(d)
-                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a')}]})
-                m.cleanup_images(folder, {'release': {'images': {} if mode == 'stopped' else {'web': current}}})
+                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a'), 'version': '1.0.8'}]})
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {} if mode == 'stopped' else {'web': current}}})
                 self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
 
     def test_update_does_not_adopt_unverified_previous_release_tag(self):
@@ -188,10 +260,10 @@ class ParentOwnership(unittest.TestCase):
                 previous_image['RootFS'] = {'Layers': [iid('1')]}
                 current_image['RootFS'] = {'Layers': [iid('2')]}
                 engine = Engine([previous_image, current_image], {old: iid('a'), current: iid('b')})
-                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a')}]})
-                with patch.object(m, 'docker', side_effect=engine): m.cleanup_images(folder, {'release': {'images': {'web': current}}})
+                m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': iid('a'), 'version': '1.0.8'}]})
+                with patch.object(m, 'docker', side_effect=engine): m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'web': current}}})
                 self.assertFalse(any(c[:2] == ['image', 'rm'] for c in engine.calls))
-                self.assertEqual(m.image_receipt(folder)['images'], [{'tag': old, 'id': iid('a')}], 'sibling refs only protect; never adopt ownership')
+                self.assertEqual(m.image_receipt(folder)['images'], [{'tag': old, 'id': iid('a'), 'version': '1.0.8'}], 'sibling refs only protect; never adopt ownership')
 
     def test_unknown_or_malformed_sibling_history_stops_cleanup_before_docker(self):
         old = 'castlink-easy-web:' + SOURCE

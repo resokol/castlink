@@ -2,7 +2,7 @@
 # Release tooling replaces these four constants. Unpackaged source cannot install.
 [CmdletBinding()]
 param(
-    [ValidateSet('Install', 'Start', 'Stop', 'Status', 'OwnerAccess')][string]$Action = 'Install',
+    [ValidateSet('Install', 'Start', 'Stop', 'Status', 'OwnerAccess', 'Cleanup')][string]$Action = 'Install',
     [string]$Address,
     [string]$MediaIp,
     [string]$TurnHost,
@@ -323,6 +323,7 @@ function Stage-CastlinkPinnedInstaller([string]$Root, [string]$SourcePath) {
         $stream = [IO.FileStream]::new($target,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
     }
+    Initialize-CastlinkLegacyRetention $Root
     return $target
 }
 
@@ -659,7 +660,267 @@ function Register-CastlinkPersistentUpdater($State,$Status,[string]$Directory,[b
     Invoke-CastlinkUpdaterRegistration $file $Language;return $true
 }
 
+# Host housekeeping owns only inventoried package files. It never invokes WSL.
+function Assert-CastlinkRetentionPath([string]$Path) {
+    $full=[IO.Path]::GetFullPath($Path);$base=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer')).TrimEnd('\')
+    if($full -ine $base -and -not $full.StartsWith($base+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Retention path is outside CastLinkServer'}
+    $ancestor=$full
+    while($ancestor){if((Test-Path -LiteralPath $ancestor) -and ((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Retention path contains a reparse point'};$ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+    return $full
+}
+function Read-CastlinkRetentionJson([string]$Path) {
+    $p=Assert-CastlinkRetentionPath $Path
+    if((Get-Item -LiteralPath $p).Length -gt 4194304){throw 'Retention receipt exceeds size bound'}
+    return [IO.File]::ReadAllText($p,[Text.Encoding]::UTF8)|ConvertFrom-Json
+}
+function Write-CastlinkRetention([string]$Root,$Record) {
+    $p=Assert-CastlinkRetentionPath (Join-Path $Root 'disk-retention.json');$tmp=$p+'.new'
+    $null=Assert-CastlinkRetentionPath $tmp
+    $text=$Record|ConvertTo-Json -Depth 16
+    if(@($Record.releases).Count -gt 1024 -or [Text.Encoding]::UTF8.GetByteCount($text) -gt 4194304){throw 'Retention receipt exceeds bounded inventory; previous receipt preserved'}
+    [IO.File]::WriteAllText($tmp,$text,[Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $tmp -Destination $p -Force
+}
+function Read-CastlinkRetention([string]$Root,$State) {
+    $r=Read-CastlinkRetentionJson (Join-Path $Root 'disk-retention.json')
+    if($r.schemaVersion -ne 1 -or $r.owner -cne 'castlink-wsl-retention-v1' -or $r.installationId -cne $State.installationId -or $r.rootPath -cne $Root -or @($r.releases).Count -gt 1024){throw 'Retention ownership mismatch'}
+    return $r
+}
+function Get-CastlinkRetentionVersion([string]$Tag) {
+    $identifier='(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+    $pattern='^server-wsl-v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-'+$identifier+'(?:\.'+$identifier+')*)?)-[a-f0-9]+$'
+    if($Tag -cnotmatch $pattern){throw 'Invalid retention product version'}
+    return $Matches[1]
+}
+function Compare-CastlinkRetentionVersion([string]$Left,[string]$Right) {
+    $a=($Left -split '\+',2)[0] -split '-',2;$b=($Right -split '\+',2)[0] -split '-',2
+    $av=[version]$a[0];$bv=[version]$b[0];$n=$av.CompareTo($bv);if($n){return $n}
+    if($a.Count -eq 1 -and $b.Count -eq 1){return 0};if($a.Count -eq 1){return 1};if($b.Count -eq 1){return -1}
+    $ap=$a[1].Split('.');$bp=$b[1].Split('.')
+    for($i=0;$i -lt [Math]::Min($ap.Count,$bp.Count);$i++){
+        $an=$ap[$i] -cmatch '^[0-9]+$';$bn=$bp[$i] -cmatch '^[0-9]+$'
+        if($an -and $bn){$n=$ap[$i].Length.CompareTo($bp[$i].Length);if(-not $n){$n=[string]::CompareOrdinal($ap[$i],$bp[$i])}}
+        elseif($an){$n=-1}elseif($bn){$n=1}else{$n=[string]::CompareOrdinal($ap[$i],$bp[$i])}
+        if($n){return $n}
+    }
+    return $ap.Count.CompareTo($bp.Count)
+}
+function Get-CastlinkRetentionKeepTags($State,$Record) {
+    $current=Get-CastlinkRetentionVersion $State.releaseTag;$latest=New-Object 'Collections.Generic.Dictionary[string,string]' ([StringComparer]::Ordinal);$prior=New-Object Collections.Generic.List[string]
+    foreach($r in @($Record.releases)){
+        if((Get-CastlinkRetentionVersion $r.releaseTag) -cne $r.version){throw 'Retention version metadata mismatch'}
+        $version=($r.version -split '\+',2)[0]
+        # Registration appends successful records. Rebuild hashes never count as versions.
+        $latest[$version]=$r.releaseTag
+        if((Compare-CastlinkRetentionVersion $version $current) -lt 0 -and -not $prior.Contains($version)){$prior.Add($version);for($i=$prior.Count-1;$i -gt 0;$i--){if((Compare-CastlinkRetentionVersion $prior[$i] $prior[$i-1]) -le 0){break};$v=$prior[$i];$prior[$i]=$prior[$i-1];$prior[$i-1]=$v};if($prior.Count -gt 2){$prior.RemoveAt(2)}}
+    }
+    for($i=0;$i -lt $prior.Count;$i++){for($j=$i+1;$j -lt $prior.Count;$j++){if((Compare-CastlinkRetentionVersion $prior[$i] $prior[$j]) -lt 0){$v=$prior[$i];$prior[$i]=$prior[$j];$prior[$j]=$v}}}
+    # An exact active build wins even if another build of its version was recorded later.
+    $State.releaseTag
+    foreach($version in @($prior|Select-Object -First 2)){$latest[$version]}
+    # Preserve one newer successful package per version when inspecting a downgrade.
+    foreach($version in $latest.Keys){if((Compare-CastlinkRetentionVersion $version $current) -gt 0){$latest[$version]}}
+}
+function Get-CastlinkRetentionReferences {
+    $base=Assert-CastlinkRetentionPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer')
+    $queue=New-Object 'Collections.Generic.Queue[string]';$queue.Enqueue($base);$count=0;$installations=@();$retired=@{}
+    while($queue.Count){
+        $dir=Assert-CastlinkRetentionPath $queue.Dequeue();$count++;if($count -gt 4096){throw 'Retention discovery bound exceeded'}
+        $receipt=Join-Path $dir 'installation.json'
+        if(Test-Path -LiteralPath $receipt){$s=Read-CastlinkRetentionJson $receipt;$installations+=@([pscustomobject]@{directory=$dir;state=$s})}
+        foreach($child in @(Get-ChildItem -LiteralPath $dir -Directory -Force)){
+            $null=Assert-CastlinkRetentionPath $child.FullName
+            if($child.Name -in @('distribution','release','native-panel','lifecycle-cache','lifecycle-packages','retention-packages')){continue}
+            if($child.Name -ceq 'lifecycle-transactions'){
+                foreach($transaction in @(Get-ChildItem -LiteralPath $child.FullName -Directory -Force)){
+                    $journal=Join-Path $transaction.FullName 'journal.json'
+                    if(-not (Test-Path -LiteralPath $journal)){throw 'Unrecorded lifecycle transaction; cleanup deferred'}
+                    $j=Read-CastlinkRetentionJson $journal
+                    if($j.phase -cnotin @('completed','removed','rolled-back','restored')){throw 'Pending lifecycle transaction; cleanup deferred'}
+                    if($j.phase -ceq 'completed' -and $j.kind -ceq 'update' -and $j.sourceRoot -and $j.source.installationId){$retired[(Assert-CastlinkRetentionPath $j.sourceRoot)]=$j.source.installationId}
+                }
+                continue
+            }
+            $queue.Enqueue($child.FullName)
+        }
+    }
+    foreach($item in $installations){
+        $s=$item.state;if($s.phase -ceq 'removed' -or ($retired.ContainsKey($item.directory) -and $retired[$item.directory] -ceq $s.installationId)){continue}
+        if(-not $s.releaseTag){throw 'Incomplete neighboring installation'};$s.releaseTag
+        $ledgerPath=Join-Path $item.directory 'disk-retention.json'
+        if(Test-Path -LiteralPath $ledgerPath){$ledger=Read-CastlinkRetention $item.directory $s;Get-CastlinkRetentionKeepTags $s $ledger}
+    }
+}
+function Get-CastlinkRetentionPlan([string]$Root,$State,$Record) {
+    $null=Assert-CastlinkRetentionPath $Root
+    if($State.phase -cne 'ready' -or $Record.owner -cne 'castlink-wsl-retention-v1' -or $Record.installationId -cne $State.installationId -or $Record.rootPath -cne $Root){throw 'Retention installation ownership mismatch'}
+    $keep=@(Get-CastlinkRetentionKeepTags $State $Record)+@(Get-CastlinkRetentionReferences);$protected=@{}
+    foreach($r in @($Record.releases)){
+        if($r.releaseTag -cin $keep){foreach($f in @($r.files)){$protected[$f.path]=$true}}
+    }
+    $base=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer')).TrimEnd('\');$seen=@{}
+    foreach($r in @($Record.releases)){
+        foreach($f in @($r.files)){
+            $p=Assert-CastlinkRetentionPath $f.path
+            if(-not (Test-Path -LiteralPath $p)){continue}
+            $releaseRoot=if($r.ownedRoot){Assert-CastlinkRetentionPath $r.ownedRoot}else{$Root}
+            # Only verified package archives/helpers. No data, VHDs, exports, logs or arbitrary backups.
+            if(-not ($p.StartsWith((Get-CastlinkRetentionPackageRoot $State)+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or $p.StartsWith((Join-Path $releaseRoot 'release')+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase))){throw 'Retention file scope mismatch'}
+            if($f.sha256 -cnotmatch '^[a-f0-9]{64}$' -or [long]$f.size -le 0){throw 'Invalid retention file identity'}
+            if($protected.ContainsKey($p) -or $seen.ContainsKey($p) -or -not (Test-Path -LiteralPath $p -PathType Leaf)){continue}
+            if((Get-Item -LiteralPath $p).Length -eq $f.size -and (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $f.sha256){$seen[$p]=$true;$f}
+        }
+    }
+}
+function Enter-CastlinkPackageLease {
+    $base=Assert-CastlinkRetentionPath (Join-Path $env:LOCALAPPDATA 'CastLinkServer')
+    $path=Assert-CastlinkRetentionPath (Join-Path $base '.package-operation.lock')
+    try{return [IO.File]::Open($path,'OpenOrCreate','ReadWrite','None')}catch{throw 'Another CastLink package operation is running; housekeeping deferred'}
+}
+function Get-CastlinkRetentionPackageRoot($State) {
+    $id=if($State.logicalInstallationId){$State.logicalInstallationId}else{$State.installationId}
+    if($id -cnotmatch '^[a-f0-9]{32}$'){throw 'Retention package installation identity mismatch'}
+    # Windows PowerShell 5.1 Join-Path preserves embedded forward slashes;
+    # use the same canonical form as the file ownership/scope checks.
+    return [IO.Path]::GetFullPath((Join-Path (Join-Path $env:LOCALAPPDATA 'CastLinkServer/retention-packages') $id))
+}
+function Test-CastlinkRetentionPackageDirectory([string]$Root,$State,[string]$Directory) {
+    if(-not $Directory){return $false}
+    $base=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer')).TrimEnd('\')
+    $dir=[IO.Path]::GetFullPath($Directory).TrimEnd('\')
+    return ($dir -ieq (Join-Path $Root 'release') -or $dir.StartsWith((Get-CastlinkRetentionPackageRoot $State)+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase))
+}
+function Compress-CastlinkRetention($State,$Record) {
+    $keep=@(Get-CastlinkRetentionKeepTags $State $Record);$merged=New-Object 'Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal);$ordered=New-Object Collections.Generic.List[string]
+    foreach($r in @($Record.releases)){
+        $files=@($r.files|Where-Object {Test-Path -LiteralPath (Assert-CastlinkRetentionPath $_.path)})
+        if(-not $files.Count -and $r.releaseTag -cnotin $keep){continue}
+        $key=$r.releaseTag+'|'+$r.ownedRoot
+        if(-not $merged.ContainsKey($key)){$merged[$key]=[pscustomobject]@{version=$r.version;releaseTag=$r.releaseTag;ownedRoot=$r.ownedRoot;files=@()}}else{$null=$ordered.Remove($key)}
+        $ordered.Add($key)
+        $known=@{};foreach($f in @($merged[$key].files)+$files){$known[$f.path+'|'+$f.sha256]=$f}
+        $merged[$key].files=@($known.Values)
+    }
+    $Record.releases=@($ordered|ForEach-Object{$merged[$_]})
+    return $Record
+}
+function Initialize-CastlinkLegacyRetention([string]$Root) {
+    # Published pre-feature managers call this target-owned function at staging.
+    # Only their durable exact readiness receipt permits preparing housekeeping.
+    $base=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer'))
+    if(-not ([IO.Path]::GetFullPath($Root)).StartsWith($base+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){return}
+    $transactions=Join-Path $base 'lifecycle-transactions'
+    if(-not (Test-Path -LiteralPath $transactions)){return}
+    foreach($dir in @(Get-ChildItem -LiteralPath $transactions -Directory)){
+        $path=Join-Path $dir.FullName 'journal.json';if(-not (Test-Path -LiteralPath $path)){continue}
+        $j=Read-CastlinkRetentionJson $path
+        if($j.retentionManaged -or $j.kind -cne 'update' -or $j.phase -cne 'prepare-bindings' -or $j.candidateRoot -cne $Root){continue}
+        $state=Read-CastlinkRetentionJson (Join-Path $Root 'installation.json')
+        if($j.manifestSha256 -cne $script:PackagedManifestSha256 -or $j.candidate.installationId -cne $state.installationId -or $j.candidate.releaseTag -cne $state.releaseTag -or -not $j.ready.ready -or $j.ready.buildId -cne ($state.releaseTag -creplace '^server-wsl-v','')){throw 'Legacy retention readiness identity mismatch'}
+        $lease=Enter-CastlinkPackageLease
+        try{
+            $source=Read-CastlinkRetentionJson (Join-Path $j.sourceRoot 'installation.json')
+            $pin=(Get-FileHash -LiteralPath (Assert-CastlinkRetentionPath $j.sourceManifest) -Algorithm SHA256).Hash.ToLowerInvariant()
+            $source|Add-Member NoteProperty releaseManifestSha256 $pin -Force
+            $package=Get-CastlinkRetentionPackage $j.sourceRoot $source (Join-Path $j.sourceRoot 'release')
+            $cache=Join-Path (Get-CastlinkRetentionPackageRoot $state) ('retained-'+$source.releaseTag+'-'+$pin)
+            $null=Assert-CastlinkRetentionPath $cache;[void][IO.Directory]::CreateDirectory($cache)
+            foreach($f in @($package.files)){
+                $dest=Assert-CastlinkRetentionPath (Join-Path $cache ([IO.Path]::GetFileName($f.path)))
+                if(-not (Test-Path -LiteralPath $dest)){[IO.File]::Copy($f.path,$dest,$false)}
+                if((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash.ToLowerInvariant() -cne $f.sha256){throw 'Retained legacy package copy differs'}
+            }
+            $copied=Get-CastlinkRetentionPackage $j.sourceRoot $source $cache
+            $state.phase='ready' # Only the task receipt is prepared; installed state remains imported until the manager commits.
+            Register-CastlinkRetention $Root $state $j.targetDirectory $j.sourceRoot $pin
+            $record=Read-CastlinkRetention $Root $state;$record|Add-Member NoteProperty preparedTransaction $path -Force
+            foreach($r in @($record.releases)){if($r.releaseTag -ceq $source.releaseTag){$r.files=@($r.files|Where-Object {-not $_.path.StartsWith((Join-Path $j.sourceRoot 'release')+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)})}}
+            $record.releases+=@($copied);$record=Compress-CastlinkRetention $state $record;Write-CastlinkRetention $Root $record
+        }finally{$lease.Dispose()}
+    }
+}
+function Get-CastlinkRetentionPackage([string]$Root,$State,[string]$Directory) {
+    $version=Get-CastlinkRetentionVersion $State.releaseTag;$files=@()
+    $base=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CastLinkServer')).TrimEnd('\')
+    if(-not (Test-CastlinkRetentionPackageDirectory $Root $State $Directory)){return [pscustomobject]@{version=$version;releaseTag=$State.releaseTag;ownedRoot=$Root;files=@()}}
+    if(Test-Path -LiteralPath (Join-Path $Directory 'manifest.json')){
+        $directoryPath=Assert-CastlinkRetentionPath $Directory;$path=Join-Path $directoryPath 'manifest.json'
+        $manifest=Read-CastlinkRetentionJson $path
+        $pin=if($State.releaseManifestSha256){$State.releaseManifestSha256}elseif($State.nativePanel -and $State.nativePanel.manifestSha256){$State.nativePanel.manifestSha256}else{$script:PackagedManifestSha256}
+        if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pin -or $manifest.repository -cne 'resokol/castlink' -or $manifest.channel -cne 'server-wsl' -or $manifest.releaseTag -cne $State.releaseTag -or $manifest.version -cne $version -or $manifest.rootfs.sha256 -cne $State.rootfsSha256){throw 'Retention package provenance mismatch'}
+        $entries=@($manifest.rootfs,$manifest.sources,$manifest.upstreamSources,$manifest.inventory)+@($manifest.nativePanel.files)+@($manifest.lifecycle.helpers)
+        $entries+=@([pscustomobject]@{file='manifest.json';sha256=$pin;size=(Get-Item -LiteralPath $path).Length})
+        $seen=@{}
+        foreach($entry in $entries){
+            if(-not $entry){continue};if($entry.file -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $entry.file.Contains('..')){throw 'Invalid retention package asset'}
+            $p=Assert-CastlinkRetentionPath (Join-Path $directoryPath $entry.file)
+            if(-not (Test-Path -LiteralPath $p)){continue}
+            if(-not $entry.PSObject.Properties['size'] -and $entry.file -ceq 'packages.tsv' -and (Get-Item -LiteralPath $p).Length -le 4194304){$entry|Add-Member NoteProperty size (Get-Item -LiteralPath $p).Length}
+            if($entry.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $entry.size -le 0 -or (Get-Item -LiteralPath $p).Length -ne $entry.size -or (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.sha256){throw 'Retention package file identity mismatch'}
+            if(-not $seen.ContainsKey($p)){$seen[$p]=$true;$files+=@([pscustomobject]@{path=$p;sha256=$entry.sha256;size=[long]$entry.size})}
+        }
+    }
+    return [pscustomobject]@{version=$version;releaseTag=$State.releaseTag;ownedRoot=$Root;files=$files}
+}
+function Assert-CastlinkRetentionTask($Task,$Spec) {
+    if(-not $Task){return}
+    if($Task.TaskName -cne $Spec.taskName -or $Task.TaskPath -cne '\' -or $Task.Description -cne $Spec.description -or -not (Test-CastlinkAccountSid $Task.Principal.UserId $Spec.userSid) -or [string]$Task.Principal.LogonType -cnotin @('Interactive','InteractiveToken') -or [string]$Task.Principal.RunLevel -cnotin @('Limited','LUA') -or @($Task.Actions).Count -ne 1 -or $Task.Actions[0].Execute -ine $Spec.execute -or $Task.Actions[0].Arguments -cne $Spec.arguments -or @($Task.Triggers).Count -ne 1 -or $Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskTimeTrigger' -or [string]$Task.Triggers[0].Repetition.Interval -cne 'PT1H' -or -not $Task.Triggers[0].Enabled -or -not $Task.Settings.Enabled -or [string]$Task.Settings.MultipleInstances -cne 'IgnoreNew' -or [string]$Task.Settings.ExecutionTimeLimit -cne 'PT5M'){throw 'Foreign or edited retention task preserved'}
+}
+function Register-CastlinkRetention([string]$Root,$State,[string]$Directory,[string]$PreviousRoot,[string]$PreviousManifestPin) {
+    $null=Assert-CastlinkRetentionPath $Root
+    if($State.phase -cne 'ready'){throw 'Retention registration requires a ready installation'}
+    $history=@();$previous=$null
+    if($PreviousRoot -and (Test-Path -LiteralPath (Join-Path $PreviousRoot 'disk-retention.json'))){$s=Read-CastlinkRetentionJson (Join-Path $PreviousRoot 'installation.json');$previous=Read-CastlinkRetention $PreviousRoot $s;$history+=@($previous.releases)}
+    $record=$null
+    if(Test-Path -LiteralPath (Join-Path $Root 'disk-retention.json')){$record=Read-CastlinkRetention $Root $State;$history+=@($record.releases)}
+    $package=Get-CastlinkRetentionPackage $Root $State $Directory;$history+=@($package)
+    if($Directory -ine (Join-Path $Root 'release')){$history+=@(Get-CastlinkRetentionPackage $Root $State (Join-Path $Root 'release'))}
+    if($PreviousRoot -and $PreviousRoot -ine $Root){$old=Read-CastlinkRetentionJson (Join-Path $PreviousRoot 'installation.json');if($PreviousManifestPin){$old|Add-Member NoteProperty releaseManifestSha256 $PreviousManifestPin -Force};$history+=@(Get-CastlinkRetentionPackage $PreviousRoot $old (Join-Path $PreviousRoot 'release'))}
+    $staged=Join-Path $Root 'install-server-windows.ps1';$null=Assert-CastlinkRetentionPath $staged
+    if(-not (Test-Path -LiteralPath $staged)){throw 'Pinned retention installer missing'}
+    $hash=(Get-FileHash -LiteralPath $staged -Algorithm SHA256).Hash.ToLowerInvariant()
+    $spec=[pscustomobject]@{taskName=('CastLink-Server-'+$State.installationId+'-Retention');userSid=(Get-CastlinkCurrentUserSid);execute=(Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe');arguments=('-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$staged+'" -Action Cleanup -InstallRoot "'+$Root+'" -NonInteractive');description=('CastLink owned hourly package retention '+$State.installationId+'; script SHA256 '+$hash);helperSha256=$hash}
+    $existing=Get-ScheduledTask -TaskName $spec.taskName -TaskPath '\' -ErrorAction SilentlyContinue
+    if($existing){if(-not $record -or -not $record.task){throw 'Unrecorded retention task preserved'};Assert-CastlinkRetentionTask $existing $record.task}
+    # Compaction owns deduplication and preserves the last successful occurrence.
+    $releases=@($history)
+    $record=[pscustomobject]@{schemaVersion=1;owner='castlink-wsl-retention-v1';installationId=$State.installationId;rootPath=$Root;releases=$releases;task=$spec;leaseProtocol='shared-packages-v1'}
+    $record=Compress-CastlinkRetention $State $record
+    Write-CastlinkRetention $Root $record
+    $action=New-ScheduledTaskAction -Execute $spec.execute -Argument $spec.arguments
+    $trigger=New-ScheduledTaskTrigger -Once -At ([datetime]::Now.AddMinutes(15)) -RepetitionInterval ([TimeSpan]::FromHours(1))
+    $principal=New-ScheduledTaskPrincipal -UserId $spec.userSid -LogonType Interactive -RunLevel Limited
+    $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::FromMinutes(5))
+    Register-ScheduledTask -TaskName $spec.taskName -TaskPath '\' -Description $spec.description -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force|Out-Null
+    Assert-CastlinkRetentionTask (Get-ScheduledTask -TaskName $spec.taskName -TaskPath '\') $spec
+}
+function Unregister-CastlinkRetention([string]$Root,$State) {
+    if(-not (Test-Path -LiteralPath (Join-Path $Root 'disk-retention.json'))){return}
+    $record=Read-CastlinkRetention $Root $State;$spec=$record.task
+    if(-not $spec -or $spec.taskName -cne ('CastLink-Server-'+$State.installationId+'-Retention')){throw 'Retention scheduler receipt mismatch'}
+    $existing=Get-ScheduledTask -TaskName $spec.taskName -TaskPath '\' -ErrorAction SilentlyContinue
+    Assert-CastlinkRetentionTask $existing $spec
+    if($existing){Unregister-ScheduledTask -TaskName $spec.taskName -TaskPath '\' -Confirm:$false}
+}
+function Invoke-CastlinkRetention([string]$Root) {
+    $null=Assert-CastlinkRetentionPath $Root
+    $lease=[IO.File]::Open((Join-Path $Root 'operation.lock'),'OpenOrCreate','ReadWrite','None')
+    $packageLease=$null
+    try{
+        $packageLease=Enter-CastlinkPackageLease
+        $state=Read-CastlinkRetentionJson (Join-Path $Root 'installation.json');$record=Read-CastlinkRetention $Root $state
+        if($record.preparedTransaction){$transaction=Read-CastlinkRetentionJson $record.preparedTransaction;if($transaction.phase -ceq 'rolled-back' -and $transaction.candidateRoot -ceq $Root -and $transaction.candidate.installationId -ceq $state.installationId){Unregister-CastlinkRetention $Root $state;return 0};if($transaction.phase -cne 'completed'){throw 'Prepared retention transaction is not complete'}}
+        if($state.rootPath -cne $Root -or $state.repository -cne 'resokol/castlink' -or $state.phase -cne 'ready' -or (Get-FileHash -LiteralPath $script:InstallerSourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $record.task.helperSha256){throw 'Retention runtime identity mismatch'}
+        $plan=@(Get-CastlinkRetentionPlan $Root $state $record)
+        foreach($f in $plan){$p=Assert-CastlinkRetentionPath $f.path;if((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() -cne $f.sha256){throw 'Retention file changed'};Remove-Item -LiteralPath $p -Force}
+        $record=Compress-CastlinkRetention $state $record;Write-CastlinkRetention $Root $record
+        # Keep provenance and unknown/changed files; this receipt never grants directory deletion.
+        return $plan.Count
+    }finally{if($packageLease){$packageLease.Dispose()};$lease.Dispose()}
+}
+
 function Invoke-CastlinkWindowsInstaller {
+    if($Action -ceq 'Cleanup'){if(-not $InstallRoot){throw 'Explicit retention installation root required'};$null=Invoke-CastlinkRetention $InstallRoot;return}
     if ($Help) {
         Write-Host 'CastLink Server (no Docker): Windows 11 x64 22621+, current WSL 2, mirrored networking and hostAddressLoopback=true (shared WSL settings). Install: .\install-server-windows.ps1 -Address meet.example.com [-MediaIp PUBLIC_IPV4] [-TurnHost turn.example.com]. Controls: -Action Start|Stop|Status|OwnerAccess. New release packages prepare and open the native Start/Stop, tray and statistics panel after installation; it delegates control to this same pinned installer. OwnerAccess writes a private, single-use 15-minute /super-admin invitation to a local file. Initial WSL setup may require administrator consent and a Windows restart. Dedicated distribution/data are preserved on rerun. Use CastLink-Maintenance.cmd or the native Maintenance button for explicit WSL update/removal/restore. Automatic start at sign-in is offered explicitly. An owned background WSL process keeps services running after the installer closes. Public DNS/router forwarding TCP80/443/7881 and UDP3478/7882/30000-30031 are required. Use a released pinned script; this source is not a release.'
         return
@@ -684,7 +945,9 @@ function Invoke-CastlinkWindowsInstaller {
     $state = Get-CastlinkInstallation $InstallRoot $ReleaseTag $Repository $script:PackagedRootfsSha256
     [void][IO.Directory]::CreateDirectory($InstallRoot)
     $lock = [IO.FileStream]::new((Join-Path $InstallRoot 'operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None,4096,[IO.FileOptions]::DeleteOnClose)
+    $packageLease=$null
     try {
+        $packageLease=Enter-CastlinkPackageLease
         # Re-read after acquiring the lease; another invocation may have finished.
         if (Test-Path -LiteralPath (Join-Path $InstallRoot 'installation.json')) { $state = Get-CastlinkInstallation $InstallRoot $ReleaseTag $Repository $script:PackagedRootfsSha256 }
         $newInstallation = $state.phase -cne 'ready'
@@ -766,12 +1029,14 @@ function Invoke-CastlinkWindowsInstaller {
         }
         Assert-CastlinkKeepaliveAlive $state
         $state.phase = 'ready'; Save-CastlinkInstallation $InstallRoot $state
+        $null=Stage-CastlinkPinnedInstaller $InstallRoot $script:InstallerSourcePath
+        Register-CastlinkRetention $InstallRoot $state $cache
         if($newInstallation -and $panelReady){
             try{$null=Register-CastlinkPersistentUpdater $state $status $cache $true $Lang}
             catch{$notice=@{ru='Сервер работает. Постоянный обновлятор не зарегистрирован; запустите install-updater-windows.cmd отдельно.';en='Server is running. The permanent updater was not registered; run install-updater-windows.cmd separately.';'zh-CN'='服务器正在运行。永久更新程序未注册；请单独运行 install-updater-windows.cmd。'};Write-Warning ($notice[$Lang]+' '+$_.Exception.Message)}
         }
         Write-Host ('CastLink is running in '+$state.distroName+'. Open https://'+$Address+'/ after DNS and router forwarding are configured. Internet access and remote WebRTC still require an external client check.')
-    } finally { $lock.Dispose() }
+    } finally { if($packageLease){$packageLease.Dispose()};$lock.Dispose() }
     if ($panelFailure) { throw ('Server services are verified running, but native panel setup failed: '+$panelFailure) }
     if ($panelReady -and -not $NonInteractive) {
         Write-Host ('Native Start/Stop and statistics panel: '+$panelReady.hostPath)

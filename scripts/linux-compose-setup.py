@@ -175,7 +175,7 @@ def ipv4(value):
 
 
 def version_key(value):
-    match = re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?', value or '')
+    match = re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', value or '')
     if not match: return None
     parts = match[4].split('.') if match[4] else []
     if any(not p or (p.isdigit() and len(p) > 1 and p.startswith('0')) for p in parts): return None
@@ -330,10 +330,13 @@ def image_receipt(folder):
             if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not isinstance(entry.get('source'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry.get('id', '')) or not re.fullmatch(r'[a-f0-9]{40}', entry.get('source', '')) or entry.get('stage') not in OWNED_IMAGE_STAGES:
                 raise ValueError('Invalid parent image ownership entry')
         history = receipt.setdefault('successfulReleases', [])
-        if not isinstance(history, list) or len(history) > 2: raise ValueError('Invalid successful image history')
+        if not isinstance(history, list): raise ValueError('Invalid successful image history')
         for release in history:
             if not isinstance(release, dict) or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release.get('commit', '')) or not isinstance(release.get('images'), dict) or any(not isinstance(tag, str) or not IMAGE_TAG.fullmatch(tag) for tag in release['images'].values()):
                 raise ValueError('Invalid successful image set')
+            if 'version' in release and (not isinstance(release['version'], str) or not version_key(release['version'])): raise ValueError('Invalid successful product version')
+        for entry in receipt['images']:
+            if 'version' in entry and (not isinstance(entry['version'], str) or not version_key(entry['version'])): raise ValueError('Invalid owned image product version')
         return receipt
     except FileNotFoundError: return {'schemaVersion': 1, 'images': [], 'parents': [], 'successfulReleases': []}
 
@@ -429,6 +432,44 @@ def remember_images(folder, release):
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 
+def web_retained_images(record):
+    """Sibling evidence adds protection; known expired ownership adds none."""
+    def entries(value):
+        if not isinstance(value, list): raise ValueError('Invalid sibling web image inventory')
+        for item in value:
+            if (not isinstance(item, dict) or not isinstance(item.get('tag'), str) or not IMAGE_TAG.fullmatch(item['tag'])
+                    or not isinstance(item.get('id'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', item['id'])):
+                raise ValueError('Invalid sibling web image identity')
+        return value
+    protected = entries(record.get('current')) + entries(record.get('previous'))
+    owned = entries(record.get('owned'))
+    history = record.get('successfulVersions', [])
+    if not isinstance(history, list): raise ValueError('Invalid sibling web product history')
+    for release in history:
+        if (not isinstance(release, dict) or not version_key(release.get('version'))
+                or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release['commit'])):
+            raise ValueError('Invalid sibling web product version')
+        images = entries(release.get('images'))
+        if not images or any(not item['tag'].endswith(':' + release['commit']) for item in images):
+            raise ValueError('Invalid sibling web successful images')
+        protected += images
+    provenance = record.get('imageVersions', [])
+    if not isinstance(provenance, list): raise ValueError('Invalid sibling web product provenance')
+    versions = {}
+    for item in entries(provenance):
+        version = version_key(item.get('version'))
+        if not version: raise ValueError('Invalid sibling web product provenance')
+        pair = (item['tag'], item['id'])
+        if pair in versions and versions[pair] != version: raise ValueError('Conflicting sibling web product provenance')
+        versions[pair] = version
+    current = version_key(history[0]['version']) if history else None
+    for item in owned:
+        version = versions.get((item['tag'], item['id']))
+        # Old receipts have no version evidence. Reloaded pending pairs have
+        # their provenance cleared and remain protected until healthy success.
+        if not version or not current or version > current: protected.append(item)
+    return protected
+
 def sibling_history_references(folder):
     """Read sibling rollback tags solely as protection, never deletion ownership."""
     keep = set()
@@ -443,24 +484,28 @@ def sibling_history_references(folder):
                 record = image_receipt(folder)
                 sets = [list(release['images'].values()) for release in record['successfulReleases']]
             elif name == '.castlink-retention.json' and all(key in record for key in ['current', 'previous', 'owned', 'directoryIdentity', 'daemonId']):
-                sets = []
-                for key in ['current', 'previous']:
-                    if not isinstance(record[key], list): raise ValueError('Invalid sibling image history')
-                    tags = []
-                    for entry in record[key]:
-                        if not isinstance(entry, dict) or not isinstance(entry.get('id'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', entry['id']): raise ValueError('Invalid sibling image history')
-                        tags.append(entry.get('tag'))
-                    sets.append(tags)
+                sets = [[entry['tag'] for entry in web_retained_images(record)]]
             else:
                 if name == '.castlink-retention.json' and record.get('owner') != 'castlink-windows-retention-v1': raise ValueError('Unknown sibling image history')
                 history = record.get('successfulImageSets', [])
-                if not isinstance(history, list) or len(history) > 2 or not isinstance(record.get('images'), list): raise ValueError('Invalid sibling image history')
+                if not isinstance(history, list) or not isinstance(record.get('images'), list): raise ValueError('Invalid sibling image history')
                 sets = []
                 for release in history:
                     if not isinstance(release, dict) or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release['commit']): raise ValueError('Invalid sibling image history')
                     tags = release.get('images')
                     if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag.endswith(':' + release['commit']) for tag in tags): raise ValueError('Invalid sibling image history')
                     sets.append(tags)
+            # An interrupted sibling update can own loaded images before it
+            # has containers or a successful version. These are protection only.
+            if name != '.castlink-retention.json' or 'successfulImageSets' in record:
+                history = record.get('successfulReleases', record.get('successfulImageSets', []))
+                current = version_key(history[0].get('version')) if history else None
+                staged = []
+                for entry in record.get('images', []):
+                    if not isinstance(entry, dict): raise ValueError('Invalid sibling staged image')
+                    if 'version' in entry and not version_key(entry['version']): raise ValueError('Invalid sibling product version')
+                    if not entry.get('version') or not current or version_key(entry['version']) > current: staged.append(entry.get('tag'))
+                sets.append(staged)
             for tags in sets:
                 if any(not isinstance(tag, str) or not IMAGE_TAG.fullmatch(tag) for tag in tags): raise ValueError('Invalid sibling image history')
                 keep.update(tags)
@@ -473,6 +518,11 @@ def cleanup_images(folder, state):
     receipt = image_receipt(folder)
     keep = set(state['release']['images'].values())
     for release in receipt['successfulReleases']: keep.update(release['images'].values())
+    current_version = version_key(state['release'].get('version'))
+    # Only healthy successful releases supply version provenance. An image with
+    # no such provenance may be an interrupted or future staged update.
+    keep.update(entry['tag'] for entry in receipt['images']
+                if not entry.get('version') or not current_version or version_key(entry['version']) > current_version)
     # Snapshot sibling current and successful rollback references before any
     # Docker deletion, including installations with no remaining containers.
     evidence = [IMAGE_RECEIPT, '.castlink-owned.json', '.castlink-retention.json', 'compose.json', 'compose.yml', 'compose.yaml']
@@ -669,9 +719,24 @@ def remember_successful_release(folder, release):
     # History protects tags only. It never grants deletion ownership to a tag
     # that was not recorded by the verified package loader.
     successful = {'commit': release['commit'], 'images': dict(release['images'])}
+    current = version_key(release.get('version'))
+    if release.get('version') is not None:
+        if not current: raise ValueError('Invalid successful product version')
+        successful['version'] = release['version']
     history = receipt['successfulReleases']
-    if history and history[0] == successful: return
-    receipt['successfulReleases'] = [successful] + [r for r in history if r['commit'] != successful['commit']][:1]
+    candidates = [successful] + [r for r in history if r['commit'] != successful['commit']]
+    lower = sorted({version_key(r.get('version')) for r in candidates
+                    if version_key(r.get('version')) and current and version_key(r['version']) < current}, reverse=True)[:2]
+    retained, seen = [], set()
+    for item in candidates:
+        key = version_key(item.get('version'))
+        if key and current:
+            if key in seen or (key < current and key not in lower): continue
+            seen.add(key)
+        retained.append(item)
+    receipt['successfulReleases'] = retained
+    for entry in receipt['images']:
+        if current and entry['tag'] in successful['images'].values(): entry['version'] = release['version']
     write_private(folder / IMAGE_RECEIPT, receipt)
 
 

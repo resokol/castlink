@@ -305,6 +305,14 @@ def retention_read(folder,identity):
  if record.get('schemaVersion')!=1 or any(record.get(k)!=v for k,v in identity.items()):raise ValueError('VPS retention identity changed')
  for name in ['current','previous','owned']:
   if not isinstance(record.get(name),list) or any(set(item)!={'tag','id'} or not OWN_IMAGE.fullmatch(item['tag']) or not re.fullmatch(r'sha256:[a-f0-9]{64}',item['id']) for item in record[name]):raise ValueError('VPS retention receipt changed')
+ for name in ['successfulVersions','imageVersions']:
+  if not isinstance(record.get(name,[]),list):raise ValueError('VPS product history changed')
+ for entry in record.get('imageVersions',[]):
+  if not isinstance(entry,dict) or set(entry)!={'tag','id','version'} or not OWN_IMAGE.fullmatch(entry['tag']) or not re.fullmatch(r'sha256:[a-f0-9]{64}',entry['id']) or not retention_version_key(entry['version']):raise ValueError('VPS image product version changed')
+ for entry in record.get('successfulVersions',[]):
+  if not isinstance(entry,dict) or not retention_version_key(entry.get('version')) or not isinstance(entry.get('commit'),str) or not re.fullmatch(r'[a-f0-9]{40}',entry['commit']) or not isinstance(entry.get('images'),list) or not entry['images']:raise ValueError('VPS successful product history changed')
+  for item in entry['images']:
+   if not isinstance(item,dict) or set(item)!={'tag','id'} or not OWN_IMAGE.fullmatch(item['tag']) or not item['tag'].endswith(':'+entry['commit']) or not re.fullmatch(r'sha256:[a-f0-9]{64}',item['id']):raise ValueError('VPS successful product images changed')
  return record
 
 def retention_set(tags):
@@ -347,11 +355,61 @@ def retention_track_import(folder,release,previous_model=None):
  installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId']
  identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
  imported=retention_set(release['images'].values())
+ # A reload is a pending attempt even when Docker returns the same old ID.
+ # Its previous healthy version cannot authorize cleanup of this staging load.
+ loaded={(item['tag'],item['id']) for item in imported}
+ record['imageVersions']=[item for item in record.get('imageVersions',[]) if (item['tag'],item['id']) not in loaded]
  if not record['current'] and previous_model is not None:
   record['current']=retention_previous_set(record,previous_model,None)
   imported+=record['current']
  record['owned']=[dict(item) for item in {tuple(sorted(item.items())) for item in record['owned']+imported}]
  replace_private(folder,RETENTION_RECEIPT,json.dumps(record))
+
+def retention_version_key(value):
+ if not isinstance(value,str):return None
+ match=re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?',value)
+ if not match:return None
+ parts=match[4].split('.') if match[4] else []
+ if any(p.isdigit() and len(p)>1 and p.startswith('0') for p in parts):return None
+ return (*map(int,match.group(1,2,3)),not bool(parts),tuple((0,int(p)) if p.isdigit() else (1,p) for p in parts))
+
+def web_retained_images(record):
+    """Sibling evidence adds protection; known expired ownership adds none."""
+    def entries(value):
+        if not isinstance(value, list): raise ValueError('Invalid sibling web image inventory')
+        for item in value:
+            if (not isinstance(item, dict) or not isinstance(item.get('tag'), str) or not OWN_IMAGE.fullmatch(item['tag'])
+                    or not isinstance(item.get('id'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', item['id'])):
+                raise ValueError('Invalid sibling web image identity')
+        return value
+    protected = entries(record.get('current')) + entries(record.get('previous'))
+    owned = entries(record.get('owned'))
+    history = record.get('successfulVersions', [])
+    if not isinstance(history, list): raise ValueError('Invalid sibling web product history')
+    for release in history:
+        if (not isinstance(release, dict) or not retention_version_key(release.get('version'))
+                or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release['commit'])):
+            raise ValueError('Invalid sibling web product version')
+        images = entries(release.get('images'))
+        if not images or any(not item['tag'].endswith(':' + release['commit']) for item in images):
+            raise ValueError('Invalid sibling web successful images')
+        protected += images
+    provenance = record.get('imageVersions', [])
+    if not isinstance(provenance, list): raise ValueError('Invalid sibling web product provenance')
+    versions = {}
+    for item in entries(provenance):
+        version = retention_version_key(item.get('version'))
+        if not version: raise ValueError('Invalid sibling web product provenance')
+        pair = (item['tag'], item['id'])
+        if pair in versions and versions[pair] != version: raise ValueError('Conflicting sibling web product provenance')
+        versions[pair] = version
+    current = retention_version_key(history[0]['version']) if history else None
+    for item in owned:
+        version = versions.get((item['tag'], item['id']))
+        # Old receipts have no version evidence. Reloaded pending pairs have
+        # their provenance cleared and remain protected until healthy success.
+        if not version or not current or version > current: protected.append(item)
+    return protected
 
 def retention_history_refs(sibling):
  refs=set()
@@ -361,26 +419,26 @@ def retention_history_refs(sibling):
   retention_private(location);record=json.loads(location.read_text())
   if not isinstance(record,dict) or record.get('schemaVersion')!=1:raise ValueError('Unknown sibling VPS retention metadata')
   if filename=='.castlink-retention.json' and all(name in record for name in ['current','previous','owned','directoryIdentity','daemonId']):
-   for name in ['current','previous']:
-    if not isinstance(record[name],list):raise ValueError('Invalid sibling VPS image history')
-    for entry in record[name]:
-     if not isinstance(entry,dict) or not isinstance(entry.get('tag'),str) or not OWN_IMAGE.fullmatch(entry['tag']) or not isinstance(entry.get('id'),str) or not re.fullmatch(r'sha256:[a-f0-9]{64}',entry['id']):raise ValueError('Invalid sibling VPS image history')
-     refs.update([entry['tag'],entry['id']])
+   for entry in web_retained_images(record):refs.update([entry['tag'],entry['id']])
    continue
   if filename=='.castlink-retention.json' and record.get('owner')!='castlink-windows-retention-v1':raise ValueError('Unknown sibling VPS retention metadata')
   history_name='successfulReleases' if filename=='.castlink-image-ownership.json' else 'successfulImageSets'
   history=record.get(history_name,[])
-  if not isinstance(history,list) or len(history)>2 or not isinstance(record.get('images'),list):raise ValueError('Invalid sibling VPS image history')
+  if not isinstance(history,list) or not isinstance(record.get('images'),list):raise ValueError('Invalid sibling VPS image history')
   for release in history:
    if not isinstance(release,dict) or not isinstance(release.get('commit'),str) or not re.fullmatch(r'[a-f0-9]{40}',release['commit']):raise ValueError('Invalid sibling VPS image history')
+   if 'version' in release and not retention_version_key(release['version']):raise ValueError('Invalid sibling VPS product version')
    images=release.get('images')
    if history_name=='successfulReleases':
     if not isinstance(images,dict):raise ValueError('Invalid sibling VPS image history')
     images=list(images.values())
    if not isinstance(images,list) or not images or any(not isinstance(tag,str) or not OWN_IMAGE.fullmatch(tag) or not tag.endswith(':'+release['commit']) for tag in images):raise ValueError('Invalid sibling VPS image history')
    refs.update(images)
+  current=retention_version_key(history[0].get('version')) if history else None
   for entry in record['images']:
    if not isinstance(entry,dict) or not isinstance(entry.get('tag'),str) or not OWN_IMAGE.fullmatch(entry['tag']) or not isinstance(entry.get('id'),str) or not re.fullmatch(r'sha256:[a-f0-9]{64}',entry['id']):raise ValueError('Invalid sibling VPS image inventory')
+   if 'version' in entry and not retention_version_key(entry['version']):raise ValueError('Invalid sibling VPS product version')
+   if not entry.get('version') or not current or retention_version_key(entry['version'])>current:refs.add(entry['tag'])
    if entry['tag'] in refs:refs.add(entry['id'])
  return refs
 
@@ -401,6 +459,39 @@ def retention_previous_set(record,previous_model,backup):
  if OWN_IMAGE.fullmatch(reference):return retention_set(service['image'] for service in previous_model['services'].values())
  raise ValueError('VPS previous successful image set unavailable')
 
+def retention_successful_versions(record,release,current,previous,backup):
+ version=release.get('version');key=retention_version_key(version)
+ if version is not None and not key:raise ValueError('Invalid successful VPS product version')
+ if not key:return
+ commit=release.get('commit','')
+ if not re.fullmatch(r'[a-f0-9]{40}',commit) or any(not item['tag'].endswith(':'+commit) for item in current):raise ValueError('VPS successful release identity changed')
+ successful={'version':version,'commit':commit,'images':current};candidates=[successful];previous_version=None
+ # The backup captured the actual healthy runtime build before the update.
+ # Bind its full semantic version to the exact full-commit image inventory.
+ if backup is not None:
+  build=json.loads((backup/'backup.json').read_text()).get('previousBuildId','')
+  match=re.fullmatch(r'(.+)-([a-f0-9]{12})',build) if isinstance(build,str) else None
+  commits={item['tag'].split(':')[1] for item in previous}
+  if match and retention_version_key(match[1]) and len(commits)==1 and next(iter(commits)).startswith(match[2]):
+   previous_version=match[1];candidates.append({'version':previous_version,'commit':next(iter(commits)),'images':previous})
+ candidates+=record.get('successfulVersions',[])
+ lower=sorted({retention_version_key(item['version']) for item in candidates if retention_version_key(item['version'])<key},reverse=True)[:2]
+ kept=[];seen=set()
+ for item in candidates:
+  item_key=retention_version_key(item['version'])
+  if item_key in seen or (item_key<key and item_key not in lower):continue
+  seen.add(item_key);kept.append(item)
+ record['successfulVersions']=kept
+ provenance={(item['tag'],item['id']):item for item in record.get('imageVersions',[])}
+ for item in candidates[:2] if previous_version else candidates[:1]:
+  for image in item['images']:provenance[(image['tag'],image['id'])]=dict(image,version=item['version'])
+ record['imageVersions']=list(provenance.values())
+ earlier=[item for item in kept if retention_version_key(item['version'])<key]
+ # Preserve the legacy fields for older readers while making previous refer
+ # to the previous product version, rather than a superseded same-version build.
+ if previous_version is not None or previous==current:
+  record['previous']=max(earlier,key=lambda item:retention_version_key(item['version']))['images'] if earlier else []
+
 def retention_commit(folder,release,previous_model,backup=None):
  installation_id=json.loads((folder/'.castlink-install.json').read_text())['installationId']
  identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
@@ -408,6 +499,7 @@ def retention_commit(folder,release,previous_model,backup=None):
  previous=retention_previous_set(record,previous_model,backup)
  if record['current']!=current:record['previous']=previous;record['current']=current
  record['owned']=[dict(item) for item in {tuple(sorted(item.items())) for item in record['owned']+previous+current}]
+ retention_successful_versions(record,release,current,previous,backup)
  if backup is not None:
   record['latestBackup']=backup.name
   if not record['archives']:record['archives']=retention_legacy_archives(folder,previous_model)
@@ -518,6 +610,13 @@ def retention_cleanup_staging(folder,record):
 def retention_cleanup_locked(folder,installation_id):
  identity=retention_identity(folder,installation_id);record=retention_read(folder,identity)
  refs=retention_references(folder)|{v for item in record['current']+record['previous'] for v in item.values()}
+ for release in record.get('successfulVersions',[]):
+  refs.update(v for item in release['images'] for v in item.values())
+ current=retention_version_key(record['successfulVersions'][0]['version']) if record.get('successfulVersions') else None
+ versions={(entry['tag'],entry['id']):retention_version_key(entry['version']) for entry in record.get('imageVersions',[])}
+ for item in record['owned']:
+  version=versions.get((item['tag'],item['id']))
+  if not version or not current or version>current:refs.update(item.values())
  owned=record['owned'];known={item['tag']:item['id'] for item in owned};remaining=[]
  for item in owned:
   tag=item['tag'];identifier=item['id']
@@ -534,6 +633,7 @@ def retention_cleanup_locked(folder,installation_id):
   if retention_identity(folder,installation_id)!=identity:raise ValueError('VPS retention identity changed')
   docker('image','rm','--no-prune',tag,timeout=60) # No force; Docker rejects newly acquired container references.
  record['owned']=remaining
+ record['imageVersions']=[entry for entry in record.get('imageVersions',[]) if any(item['tag']==entry['tag'] and item['id']==entry['id'] for item in remaining)]
  backups=folder/'backups';verified=[];backup_warning=False
  if backups.exists():
   retention_private(backups,True)

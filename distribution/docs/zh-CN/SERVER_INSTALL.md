@@ -33,6 +33,17 @@ DNS、路由器端口转发及外部防火墙由管理员配置。[端口与模�
 自定义目录须每次使用相同的绝对 `--state-dir`。无人值守安装支持 `--config` 和
 `--room-creation-password-file`（UTF-8，末尾不换行）。
 
+## Windows/WSL2 安装包自动清理
+
+新版安装程序注册独立的 Windows 任务 `CastLink-Server-<installationId>-Retention`：15 分钟后首次运行，此后用户登录 Windows 期间每小时运行。错过的运行在条件允许时补执行。注册与服务器自动启动选项无关。升级迁移安装包归属记录，注册新安装的任务并注销旧任务；卸载注销对应任务。重新安装较早发布的安装包不会增加此功能。
+
+清理保留当前准确构建和之前两个**产品版本**各自最后成功构建的安装包，按 SemVer 数值顺序比较。同版本的旧构建不会持续累积。仅处理 `%LOCALAPPDATA%\CastLinkServer` 内已通过 manifest/SHA256 验证并记录在 `disk-retention.json` 中的文件。修改过的文件、未知文件、服务器数据、VHD、导出的恢复归档以及该目录以外的安装包均保留。其他安装和未完成操作提供额外保护。清理不会启动 WSL 或重启服务器，也不依赖后续升级。已完成的正常升级仍按原流程注销旧代的发行版。
+
+新的维护窗口下载使用独立的 `retention-packages/<logicalInstallationId>` 目录；文件锁协调清理与安装包验证、使用。历史共享 `lifecycle-packages`、手动选择的安装包（包括本地 `offline` 目录）及 CastLink Updater 的独立缓存不会被接管。旧共享缓存需要单独核实后手动清理。更新器仍按原流程在完成后删除临时产品文件。
+
+在 Windows 任务计划程序中查看该任务的上次运行结果。非零结果表示清理被拒绝，服务器继续运行。手动检查可执行已安装的 `install-server-windows.ps1 -Action Cleanup -InstallRoot "<准确的安装目录>" -NonInteractive`；此命令不执行升级或恢复。
+
+
 ## 无 Docker 的 Windows/WSL2 — 主要 Windows 服务器方案
 
 [稳定版 1.0.12 安装程序](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd)使用独立的 server-wsl 发行渠道。请查看[安装步骤与限制](../../../README.zh-CN.md#windows-11-服务器)。

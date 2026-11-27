@@ -13,9 +13,10 @@ if os.name=='nt':
  def fixture_private_file(location,text):
   with location.open('x',encoding='utf-8') as output:output.write(text)
  m.private_file=fixture_private_file
-iid='11111111-1111-4111-8111-111111111111';project='castlink-easy-'+iid.replace('-','');images={};calls=[];containers=[];daemon='engine-one';systemcalls=[]
+iid='11111111-1111-4111-8111-111111111111';project='castlink-easy-'+iid.replace('-','');images={};versions={};calls=[];containers=[];daemon='engine-one';systemcalls=[]
 def image(tag):
  if tag.startswith('sha256:'):return tag
+ if tag not in images:raise ValueError('image not present')
  return images[tag]
 def docker(*a,**kw):
  calls.append(list(a))
@@ -43,8 +44,9 @@ with tempfile.TemporaryDirectory() as td:
  state={'installationId':iid,'completed':True};(root/'.castlink-install.json').write_text(json.dumps(state))
  def release(letter):
   commit=letter*40;tags={n:'castlink-easy-'+n+':'+commit for n in m.SERVICES}
-  for index,tag in enumerate(tags.values()):images[tag]='sha256:'+letter*62+str(index)*2
-  return {'commit':commit,'images':tags}
+  version='1.0.'+str(8+ord(letter)-ord('a'))
+  for index,tag in enumerate(tags.values()):images[tag]='sha256:'+letter*62+str(index)*2;versions[tag]=version
+  return {'version':version,'commit':commit,'images':tags}
  def model(release):return m.configuration('8.8.8.8',release,iid)['compose']
  # configuration's release contract is unchanged.
  def rel(letter):return dict(release(letter),schemaVersion=1)
@@ -56,12 +58,13 @@ with tempfile.TemporaryDirectory() as td:
   (directory/'postgres.dump').write_bytes(b'PGDMP-fixture')
   with tarfile.open(directory/'web-data.tar','w') as archive:
    info=tarfile.TarInfo('state.json');body=b'{}';info.size=len(body);archive.addfile(info,io.BytesIO(body))
-  record={'installationId':iid,'status':'updated','fileHashes':{n:m.file_sha(directory/n) for n in names},'dataHashes':{n:m.file_sha(directory/n) for n in ['postgres.dump','web-data.tar']}}
+  previous_tag=current['services']['web']['image'];previous_commit=previous_tag.split(':')[1]
+  record={'installationId':iid,'status':'updated','previousBuildId':versions[previous_tag]+'-'+previous_commit[:12],'fileHashes':{n:m.file_sha(directory/n) for n in names},'dataHashes':{n:m.file_sha(directory/n) for n in ['postgres.dump','web-data.tar']}}
   (directory/'backup.json').write_text(json.dumps(record))
   if broken:(directory/'postgres.dump').write_bytes(b'corrupt')
   return directory
  mode=MODE
- if mode in ['rotation','corrupt','references','changed-tag','unknown','sibling-linux','sibling-windows','sibling-web','sibling-owned','same-id']:
+ if mode in ['rotation','corrupt','references','changed-tag','unknown','sibling-linux','sibling-windows','sibling-web','sibling-owned','same-id','sibling-linux-three','sibling-windows-three','sibling-owned-three','sibling-linux-staged','sibling-windows-staged','sibling-owned-staged','sibling-linux-future','sibling-windows-future','sibling-owned-future']:
   backups=[]
   for letter in ['b','c','d']:
    new=rel(letter)
@@ -81,9 +84,16 @@ with tempfile.TemporaryDirectory() as td:
    if letter=='b' and mode.startswith('sibling-'):
     sibling=Path(td)/('castlink-easy-'+'2'*32);sibling.mkdir();(sibling/'compose.json').write_text(json.dumps({'services':{'web':{'image':'foreign:current'}}}))
     tag='castlink-easy-web:'+'a'*40;entry={'tag':tag,'id':images[tag]}
-    if mode=='sibling-linux':receipt={'schemaVersion':1,'images':[entry],'successfulReleases':[{'commit':'a'*40,'images':{'web':tag}}]};name='.castlink-image-ownership.json'
-    elif mode in ['sibling-windows','sibling-owned']:receipt={'schemaVersion':1,'owner':'castlink-windows-retention-v1','images':[entry],'successfulImageSets':[{'commit':'a'*40,'images':[tag]}]};name='.castlink-retention.json' if mode=='sibling-windows' else '.castlink-owned.json'
+    if mode.startswith('sibling-linux'):receipt={'schemaVersion':1,'images':[entry],'successfulReleases':[{'commit':'a'*40,'images':{'web':tag}}]};name='.castlink-image-ownership.json'
+    elif mode.startswith(('sibling-windows','sibling-owned')):receipt={'schemaVersion':1,'owner':'castlink-windows-retention-v1','images':[entry],'successfulImageSets':[{'commit':'a'*40,'images':[tag]}]};name='.castlink-retention.json' if mode.startswith('sibling-windows') else '.castlink-owned.json'
     else:receipt={'schemaVersion':1,'daemonId':daemon,'directoryIdentity':[0,0],'current':[],'previous':[entry],'owned':[entry]};name='.castlink-retention.json'
+    if mode.endswith(('three','staged','future')):
+     native=mode.startswith('sibling-linux');history=[]
+     for char,version in [('d','1.0.11'),('c','1.0.10'),('b','1.0.9')]:
+      image_tag='castlink-easy-web:'+char*40
+      history.append({'version':version,'commit':char*40,'images':{'web':image_tag} if native else [image_tag]})
+     receipt['successfulReleases' if native else 'successfulImageSets']=history if mode.endswith('three') else history[:1]
+     if mode.endswith('future'):entry['version']='1.0.12'
     (sibling/name).write_text(json.dumps(receipt))
    if letter=='b' and mode=='changed-tag':images['castlink-easy-web:'+'a'*40]='sha256:'+'f'*64
    if letter=='b' and mode=='unknown':
@@ -91,19 +101,78 @@ with tempfile.TemporaryDirectory() as td:
    m.retention_cleanup_locked(root,iid)
   before=copy.deepcopy(images);m.retention_cleanup_locked(root,iid);assert images==before
   print(json.dumps({'tags':sorted(images),'backups':[p.name for p in (root/'backups').iterdir()],'calls':calls,'receipt':json.loads((root/m.RETENTION_RECEIPT).read_text()),'manual':(root/'manual.tar.gz').exists(),'archive':(root/'release.tar.gz').exists()}))
+ elif mode in ['restaged-expired','alternating-siblings']:
+  for char in 'bcd':
+   new=rel(char);saved=backup(char);(root/'compose.json').write_text(json.dumps(model(new)));m.retention_commit(root,new,current,saved);current=model(new)
+  record=json.loads((root/m.RETENTION_RECEIPT).read_text())
+  if mode=='restaged-expired':
+   before=copy.deepcopy(record['successfulVersions']);m.retention_track_import(root,old,current)
+   m.retention_cleanup_locked(root,iid)
+   assert all(tag in images for tag in old['images'].values()),'same-identity failed reimport lost staging protection'
+   assert json.loads((root/m.RETENTION_RECEIPT).read_text())['successfulVersions']==before
+  else:
+   other='22222222-2222-4222-8222-222222222222';sibling=Path(td)/('castlink-easy-'+other.replace('-',''));sibling.mkdir()
+   (sibling/'.castlink-install.json').write_text(json.dumps(dict(installationId=other,completed=True)))
+   (sibling/'compose.json').write_text(json.dumps(m.configuration('8.8.4.4',new,other)['compose']))
+   record.update(m.retention_identity(sibling,other));(sibling/m.RETENTION_RECEIPT).write_text(json.dumps(record))
+   for folder,installation in [(root,iid),(sibling,other),(root,iid)]:m.retention_cleanup_locked(folder,installation)
+   assert all(tag not in images for tag in old['images'].values()),'versioned sibling receipts mutually pinned expired images'
+  print(json.dumps({'safe':True}))
+ elif mode in ['same-version','migration','prerelease','future-provenance','invalid-product-metadata']:
+  if mode=='migration':
+   prior=rel('b');current=model(prior);(root/'compose.json').write_text(json.dumps(current))
+   legacy=dict(m.retention_identity(root,iid),schemaVersion=1,current=m.retention_set(prior['images'].values()),previous=m.retention_set(old['images'].values()),owned=m.retention_set(list(old['images'].values())+list(prior['images'].values())),archives=[])
+   (root/m.RETENTION_RECEIPT).write_text(json.dumps(legacy));sequence='cd'
+  else:sequence='bcd' if mode in ['prerelease','future-provenance','invalid-product-metadata'] else 'bcde'
+  if mode=='prerelease':
+   for tag in old['images'].values():versions[tag]='1.0.11-rc.9'
+  for char in sequence:
+   new=rel(char)
+   if mode=='prerelease':
+    new['version']={'b':'1.0.11-rc.10','c':'1.0.11','d':'1.0.12'}[char]
+    for tag in new['images'].values():versions[tag]=new['version']
+   if mode=='same-version' and char=='e':
+    new['version']='1.0.11'
+    for tag in new['images'].values():versions[tag]=new['version']
+   saved=backup(char);(root/'compose.json').write_text(json.dumps(model(new)));m.retention_commit(root,new,current,saved);current=model(new);m.retention_cleanup_locked(root,iid)
+  record=json.loads((root/m.RETENTION_RECEIPT).read_text())
+  expected=['1.0.12','1.0.11','1.0.11-rc.10'] if mode=='prerelease' else ['1.0.11','1.0.10','1.0.9']
+  assert [entry['version'] for entry in record['successfulVersions']]==expected
+  if mode=='same-version':
+   assert all(not t.endswith('d'*40) for t in images),'superseded same-version build survived'
+   assert all(t.endswith(tuple(c*40 for c in 'bce')) for t in images)
+   assert all(t['tag'].endswith('c'*40) for t in record['previous']),'legacy previous field must point to previous product version'
+  elif mode=='migration':
+   assert all(tag in images for tag in old['images'].values()),'unverified legacy version was retired'
+   assert len(record['successfulVersions'])==3,'unknown migration evidence consumed a product-version slot'
+  elif mode=='future-provenance':
+   future=rel('e');m.retention_track_import(root,future);record=json.loads((root/m.RETENTION_RECEIPT).read_text())
+   record['imageVersions']+= [dict(entry,version=future['version']) for entry in record['owned'] if entry['tag'] in future['images'].values()]
+   (root/m.RETENTION_RECEIPT).write_text(json.dumps(record));m.retention_cleanup_locked(root,iid)
+   assert all(tag in images for tag in future['images'].values()),'future owned version was retired'
+  elif mode=='invalid-product-metadata':
+   for key in ['successfulVersions','imageVersions']:
+    broken=copy.deepcopy(record);broken[key][0]['version']='1.0.invalid';(root/m.RETENTION_RECEIPT).write_text(json.dumps(broken))
+    before=copy.deepcopy(images)
+    try:m.retention_cleanup_locked(root,iid);raise AssertionError('invalid product metadata accepted')
+    except ValueError:pass
+    assert images==before
+  print(json.dumps({'safe':True}))
  elif mode=='failed':
   new=rel('b');saved=backup('b');(root/'compose.json').write_text(json.dumps(model(new)));m.retention_commit(root,new,current,saved)
   before=json.loads((root/m.RETENTION_RECEIPT).read_text());failed=rel('c');m.retention_track_import(root,failed)
   after=json.loads((root/m.RETENTION_RECEIPT).read_text());assert after['current']==before['current'] and after['previous']==before['previous']
-  m.retention_cleanup_locked(root,iid);assert all(not t.endswith('c'*40) for t in images)
+  m.retention_cleanup_locked(root,iid);assert all(t in images for t in failed['images'].values())
+  assert json.loads((root/m.RETENTION_RECEIPT).read_text()).get('successfulVersions')==before.get('successfulVersions')
   assert all('castlink-easy-'+n+':'+'b'*40 in images for n in m.SERVICES)
   print(json.dumps({'safe':True}))
  elif mode=='schedule-fails':
   m.RETENTION_SOURCE=Path(SCRIPT).read_text();new=rel('b');saved=backup('b');(root/'compose.json').write_text(json.dumps(model(new)))
   m.retention_commit(root,new,current,saved)
-  newer=rel('c');saved=backup('c');(root/'compose.json').write_text(json.dumps(model(newer)))
+  newer=rel('c');saved=backup('c');(root/'compose.json').write_text(json.dumps(model(newer)));m.retention_commit(root,newer,model(new),saved);current=model(newer)
+  newest=rel('d');saved=backup('d');(root/'compose.json').write_text(json.dumps(model(newest)))
   m.retention_schedule=lambda *a: (_ for _ in ()).throw(ValueError('scheduler unavailable'))
-  result=m.retention_finish(root,newer,model(new),saved,{'outcome':'updated'})
+  result=m.retention_finish(root,newest,current,saved,{'outcome':'updated'})
   assert result['cleanupWarning'] is True
   assert all(not t.endswith('a'*40) for t in images),'scheduler error prevented disk cleanup'
   assert len(list((root/'backups').iterdir()))==1
@@ -195,7 +264,7 @@ with tempfile.TemporaryDirectory() as td:
   assert calls==[];print(json.dumps({'safe':True}))
 `;
 async function run(mode){return JSON.parse((await execute(process.env.CASTLINK_PYTHON||'python3',['-c',harness.replaceAll('SCRIPT',JSON.stringify(script)).replace('MODE',JSON.stringify(mode))],{env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}})).stdout.trim().split('\n').at(-1));}
-test('three successful VPS versions retain two own image sets and one verified generated backup',async()=>{const r=await run('rotation');assert.equal(r.tags.length,8);assert.ok(r.tags.every(t=>t.endsWith('c'.repeat(40))||t.endsWith('d'.repeat(40))));assert.deepEqual(r.backups,['web-'+ 'd'.repeat(12)+'-12345678']);assert.ok(r.calls.filter(a=>a[0]==='image'&&a[1]==='rm').every(a=>a.length===4&&a[2]==='--no-prune'));});
+test('four successful VPS versions retain current plus two earlier product versions and one verified backup',async()=>{const r=await run('rotation');assert.equal(r.tags.length,12);assert.ok(r.tags.every(t=>['b','c','d'].some(c=>t.endsWith(c.repeat(40)))));assert.deepEqual(r.receipt.successfulVersions.map(r=>r.version),['1.0.11','1.0.10','1.0.9']);assert.deepEqual(r.backups,['web-'+ 'd'.repeat(12)+'-12345678']);assert.ok(r.calls.filter(a=>a[0]==='image'&&a[1]==='rm').every(a=>a.length===4&&a[2]==='--no-prune'));});
 test('corrupt latest VPS backup keeps the previous verified snapshot',async()=>{const r=await run('corrupt');assert.ok(r.backups.includes('web-'+ 'c'.repeat(12)+'-12345678'));assert.ok(!r.backups.includes('web-'+ 'b'.repeat(12)+'-12345678'));assert.equal(r.receipt.lastCleanup.status,'warning');});
 test('stopped containers, sibling Compose references and foreign aliases protect image IDs',async()=>{const r=await run('references');for(const name of ['web','livekit','caddy'])assert.ok(r.tags.includes('castlink-easy-'+name+':'+ 'a'.repeat(40)));assert.ok(r.tags.includes('manual:keep'));});
 test('retagged VPS image and unknown files are preserved',async()=>{const changed=await run('changed-tag');assert.ok(changed.tags.includes('castlink-easy-web:'+ 'a'.repeat(40)));const r=await run('unknown');assert.equal(r.manual,true);assert.equal(r.archive,true);assert.ok(r.backups.includes('manual'));});
@@ -203,7 +272,14 @@ test('VPS cleanup refuses changed daemon or installation identity before deletio
 test('hourly VPS scheduler is scoped, idempotent and preserves foreign task content',{skip:process.platform==='win32'},async()=>{const r=await run('schedule');assert.match(r.timer,/OnCalendar=hourly/);assert.match(r.service,/ExecStart=\/usr\/bin\/python3 .* --retention 11111111-1111-4111-8111-111111111111/);assert.doesNotMatch(r.service,/ssh|docker.*start|systemctl/);});
 test('periodic VPS cleanup shares the updater lock and never contacts Docker while locked',{skip:process.platform==='win32'},async()=>{assert.equal((await run('lock')).safe,true);});
 
-test('failed imported release never promotes rollback and is removed when unused',async()=>{assert.equal((await run('failed')).safe,true);});
+test('failed imported release never promotes version history and its uncommitted staging remains protected',async()=>{assert.equal((await run('failed')).safe,true);});
+test('same-version VPS rebuild replaces only its product build without consuming earlier version slots',async()=>{assert.equal((await run('same-version')).safe,true);});
+test('legacy VPS receipt migration recovers actual previous build version and protects unknown history',async()=>{assert.equal((await run('migration')).safe,true);});
+test('VPS semantic ordering keeps rc.10 after rc.9 and below the stable product version',async()=>{assert.equal((await run('prerelease')).safe,true);});
+test('future owned VPS version provenance remains protected',async()=>{assert.equal((await run('future-provenance')).safe,true);});
+test('malformed VPS product history refuses cleanup before image deletion',async()=>{assert.equal((await run('invalid-product-metadata')).safe,true);});
+test('failed retry of an expired successful VPS build clears stale version provenance for the exact loaded identity',async()=>{assert.equal((await run('restaged-expired')).safe,true);});
+test('alternating versioned VPS installations retire shared expired images without mutual history pinning',async()=>{assert.equal((await run('alternating-siblings')).safe,true);});
 test('only hashed owned transfer archives are removed and changed files survive',async()=>{assert.equal((await run('archives')).safe,true);});
 
 test('scheduler failure remains visible while independent committed disk cleanup completes',async()=>{assert.equal((await run('schedule-fails')).safe,true);});
@@ -214,8 +290,10 @@ test('resumed deployment rechecks durable completion state after acquiring the s
 
 test('sibling rollback histories from Linux, Windows and web receipts protect previous image IDs',async()=>{for(const mode of ['sibling-linux','sibling-windows','sibling-web','sibling-owned']){const r=await run(mode);assert.ok(r.tags.includes('castlink-easy-web:'+ 'a'.repeat(40)),mode);}});
 test('unknown sibling retention metadata prevents deletion',async()=>{assert.equal((await run('sibling-unknown')).safe,true);});
+test('three-version sibling Linux and legacy receipts protect history without blocking VPS cleanup',async()=>{for(const kind of ['linux','windows','owned']){const r=await run('sibling-'+kind+'-three');assert.ok(r.tags.includes('castlink-easy-web:'+ 'a'.repeat(40)),kind);assert.ok(r.calls.some(c=>c[0]==='image'&&c[1]==='rm'),'unprotected obsolete images still retire');}});
+test('unversioned and future staged sibling loads protect image IDs before containers exist',async()=>{for(const kind of ['linux','windows','owned'])for(const state of ['staged','future']){const r=await run('sibling-'+kind+'-'+state);assert.ok(r.tags.includes('castlink-easy-web:'+ 'a'.repeat(40)),kind+' '+state);}});
 test('inactive Docker is never contacted or socket-activated by periodic VPS cleanup',{skip:process.platform==='win32'},async()=>{assert.equal((await run('daemon-inactive')).safe,true);});
 
-test('same-ID infrastructure aliases retire obsolete sets while exact configured tags stay',async()=>{const r=await run('same-id');for(const n of ['postgres','livekit','caddy']){assert.ok(r.tags.includes('castlink-easy-'+n+':'+ 'a'.repeat(40)));assert.ok(!r.tags.includes('castlink-easy-'+n+':'+ 'b'.repeat(40)));}assert.equal(r.tags.length,11);});
+test('same-ID infrastructure aliases retain three product sets and exact configured tags',async()=>{const r=await run('same-id');for(const n of ['postgres','livekit','caddy']){assert.ok(r.tags.includes('castlink-easy-'+n+':'+ 'a'.repeat(40)));assert.ok(r.tags.includes('castlink-easy-'+n+':'+ 'b'.repeat(40)));}assert.equal(r.tags.length,15);});
 test('verified abandoned VPS staging removes only unchanged receipted files',async()=>{assert.equal((await run('staging')).safe,true);});
 test('replacement staging directory identity prevents deletion',async()=>{assert.equal((await run('staging-identity')).safe,true);});

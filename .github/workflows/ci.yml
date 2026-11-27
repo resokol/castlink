@@ -16,10 +16,16 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Load pinned SSH packages in stock Windows PowerShell 5.1
         shell: powershell
         run: |
           & scripts/tests/simple-easy-setup-ssh-packages.fixtures.ps1 -ToolsDir (Join-Path $env:RUNNER_TEMP 'castlink-ssh')
+      - name: WSL package retention in stock Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/tests/server-wsl-retention.fixtures.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
   verify:
     # Keep the validated canonical sudo layout used by the fixed-identity CLI gate.

@@ -28,6 +28,37 @@ def release(commit='a' * 40):
 
 
 class LinuxCompose(unittest.TestCase):
+    def test_success_history_keeps_current_and_two_lower_product_versions(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            releases = []
+            for commit, version in [('a', '1.0.8'), ('b', '1.0.10'), ('c', '1.0.9'), ('d', '1.0.10'), ('e', '1.0.11')]:
+                item = dict(release(commit * 40), version=version)
+                releases.append(item)
+                receipt = m.image_receipt(folder)
+                receipt['images'].append({'tag': item['images']['web'], 'id': 'sha256:' + commit * 64})
+                m.write_private(folder / m.IMAGE_RECEIPT, receipt)
+                m.remember_successful_release(folder, item)
+            history = m.image_receipt(folder)['successfulReleases']
+            self.assertEqual([(r['version'], r['commit'][0]) for r in history], [('1.0.11', 'e'), ('1.0.10', 'd'), ('1.0.9', 'c')])
+            self.assertEqual([r['version'] for r in m.image_receipt(folder)['images']], ['1.0.8', '1.0.10', '1.0.9', '1.0.10', '1.0.11'])
+
+    def test_unknown_and_future_history_do_not_consume_previous_version_slots(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            for commit, version in [('a', None), ('b', '1.0.9'), ('c', '1.0.10'), ('d', '1.0.12'), ('e', '1.0.11')]:
+                item = release(commit * 40)
+                if version: item['version'] = version
+                m.remember_successful_release(folder, item)
+            history = m.image_receipt(folder)['successfulReleases']
+            self.assertEqual({r['commit'][0] for r in history}, set('abcde'))
+            self.assertEqual(history[0]['version'], '1.0.11')
+
+    def test_semantic_product_version_order_includes_prereleases_and_build_metadata(self):
+        self.assertLess(m.version_key('1.0.11-rc.9'), m.version_key('1.0.11-rc.10'))
+        self.assertLess(m.version_key('1.0.11-rc.10'), m.version_key('1.0.11'))
+        self.assertEqual(m.version_key('1.0.11+build.1'), m.version_key('1.0.11'))
+
     def test_hourly_cleanup_persists_self_contained_helper_and_owns_lifecycle(self):
         from unittest.mock import patch
         import shutil

@@ -81,6 +81,17 @@ test('WSL artifacts pin one release, source and actual bytes without publishing'
   assert.ok(sums.some(x=>x.endsWith('  install-server-windows.ps1')));
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
 });
+
+test('real WSL installer packages exact source bytes and their pinned template',async()=>{
+ const f=await fixture();try{
+  const original=await fs.readFile(new URL('../install-server-windows.ps1',import.meta.url));
+  await fs.writeFile(path.join(f.root,'scripts/install-server-windows.ps1'),original);
+  const m=await assembleWslPackage(f);
+  const template=m.lifecycle.helpers.find(e=>e.file==='install-server-windows.template.ps1');
+  assert.equal(template.sha256,hash(original));
+  assert.deepEqual(await fs.readFile(path.join(f.output,template.file)),original);
+ }finally{await fs.rm(f.dir,{recursive:true,force:true});}
+});
 test('refuses a source archive or package inventory unrelated to the rootfs',async()=>{
  const f=await fixture();try{
   await fs.writeFile(f.inventory,'unrelated\t1.0\n');
@@ -155,7 +166,9 @@ test('native panel inventory rejects traversal, duplicate or missing helpers bef
 
 test('lifecycle package contract and standalone ZIP pin helpers without circular bootstrap inventory',async()=>{
  const f=await fixture();try{const m=await assembleWslPackage(f);
- assert.equal(m.lifecycle.runtimeContract,'castlink-wsl-pg16-v1');assert.equal(m.lifecycle.postgresMajor,16);assert.deepEqual(m.lifecycle.supportedSources,['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925','server-wsl-v1.0.10-890a903d51f9','server-wsl-v1.0.11-508042e07f6d']);assert.ok(m.rootfs.expandedBytes>0);
+ assert.ok(m.capabilities.includes('three-product-version-retention-v1'));
+ assert.ok(m.capabilities.includes('periodic-retention-v1'));
+ assert.equal(m.lifecycle.runtimeContract,'castlink-wsl-pg16-v1');assert.equal(m.lifecycle.postgresMajor,16);assert.deepEqual(m.lifecycle.supportedSources,['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925','server-wsl-v1.0.10-890a903d51f9', 'server-wsl-v1.0.11-508042e07f6d','server-wsl-v1.0.12-af092db44bcd']);assert.ok(m.rootfs.expandedBytes>0);
  assert.ok(m.inventory.size>0);for(const name of ['server-wsl-maintenance.py','server-wsl-runtime.py','server-wsl-maintenance.ps1','server-wsl-maintenance-ui.ps1','install-server-windows.template.ps1'])assert.ok(m.lifecycle.helpers.some(e=>e.file===name));
  assert.ok(!m.lifecycle.helpers.some(e=>e.file==='maintenance-bootstrap.ps1'));
  const zip=path.join(f.output,'CastLink-Server-WSL-Maintenance.zip');const names=execFileSync(process.env.CASTLINK_PYTHON||'python3',['-c','import zipfile,sys;print(chr(10).join(zipfile.ZipFile(sys.argv[1]).namelist()))',zip],{encoding:'utf8'});assert.ok(names.includes('CastLink-Maintenance.cmd'));assert.ok(names.includes('maintenance-bootstrap.ps1'));assert.ok(!names.includes(m.rootfs.file));
@@ -163,7 +176,7 @@ test('lifecycle package contract and standalone ZIP pin helpers without circular
  }finally{await fs.rm(f.dir,{recursive:true,force:true});}
 });
 test('embedded lifecycle contract mismatch is refused before output',async()=>{
- for(const lifecycle of [null,{schemaVersion:1,runtimeContract:'wrong',postgresMajor:16,supportedSources:[]},{schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:17,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925','server-wsl-v1.0.10-890a903d51f9','server-wsl-v1.0.11-508042e07f6d']}]){const f=await fixture();try{await fs.writeFile(path.join(f.tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12),lifecycle}));f.pack();await assert.rejects(assembleWslPackage(f),/lifecycle|contract|major/i);await assert.rejects(fs.stat(f.output),{code:'ENOENT'});}finally{await fs.rm(f.dir,{recursive:true,force:true});}}
+ for(const lifecycle of [null,{schemaVersion:1,runtimeContract:'wrong',postgresMajor:16,supportedSources:[]},{schemaVersion:1,runtimeContract:'castlink-wsl-pg16-v1',postgresMajor:17,supportedSources:['server-wsl-v1.0.5-rc.1-085b087a2458','server-wsl-v1.0.5-rc.2-af3e309d0926','server-wsl-v1.0.5-rc.3-95ec46463c82','server-wsl-v1.0.6-rc.1-dad063393b53','server-wsl-v1.0.7-0d16de2e782c','server-wsl-v1.0.8-1afa39b54dd7','server-wsl-v1.0.9-35dbb73b5925','server-wsl-v1.0.10-890a903d51f9', 'server-wsl-v1.0.11-508042e07f6d','server-wsl-v1.0.12-af092db44bcd']}]){const f=await fixture();try{await fs.writeFile(path.join(f.tree,'opt/castlink/release.json'),JSON.stringify({schemaVersion:1,version,commit,buildId:version+'-'+commit.slice(0,12),lifecycle}));f.pack();await assert.rejects(assembleWslPackage(f),/lifecycle|contract|major/i);await assert.rejects(fs.stat(f.output),{code:'ENOENT'});}finally{await fs.rm(f.dir,{recursive:true,force:true});}}
 });
 
 test('embedded lifecycle refuses missing published 1.0.6 RC1 or an unknown same-version build',async()=>{
