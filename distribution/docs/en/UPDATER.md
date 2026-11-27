@@ -4,15 +4,15 @@
 
 Connect the updater **once on each computer** running CastLink. Then use the permanent Windows shortcut or Linux command: you do not need to download another maintenance tool manually for every release. The launcher obtains a verified version of its own tool and selects the appropriate product's separate stable channel.
 
-Supports **Windows Client 1.0.1**, **Windows/WSL2 Server 1.0.7**, **Ubuntu/Linux Server 1.0.7** and compatible later releases. Updater version **1.0.0** is independent of product versions. Onboarding does not reinstall the server, change its version or restart services.
+The current releases are **Windows Client 1.0.3** and **CastLink Server 1.0.11** for Windows/WSL2 and Ubuntu/Linux. CastLink Updater itself is at **1.0.0**. Onboarding does not reinstall the server, change its version or restart services.
 
 ## Which older versions can be updated?
 
-**Updating from every old version is not guaranteed.** CastLink Updater uses each product's existing update path; the version number alone is not sufficient.
+Every previously published Windows/WSL2 server version, including release candidates, can update directly to 1.0.11. The table lists the requirements for the other products.
 
 | Product | Requirements |
 | --- | --- |
-| Windows/WSL2 Server → 1.0.7 | Official **1.0.5-rc.1, 1.0.5-rc.2, 1.0.5-rc.3 and 1.0.6-rc.1** releases listed in the target manifest. The exact installed release tag is checked. |
+| Windows/WSL2 Server → 1.0.11 | All seven source versions are supported: **1.0.5-rc.1, 1.0.5-rc.2, 1.0.5-rc.3, 1.0.6-rc.1, 1.0.7, 1.0.8 and 1.0.10**. The updater offers 1.0.11 directly for each. |
 | Windows Client | An installed official Client with readable build metadata. Detection of Client 1.0.0 and selection of 1.0.1 were verified; this does not establish support for every old or modified build. |
 | Linux Server | Installations created by the standalone Linux/Compose installer, with their settings and installation identity intact. Complete or recover an unfinished installation first. Arbitrary manual deployments are not adopted. |
 | Windows/Docker Legacy | Use its original maintenance tool. There is no automatic migration to WSL2 or Linux. |
