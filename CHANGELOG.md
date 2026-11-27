@@ -1,5 +1,11 @@
 # Changelog
 
+## CastLink Server Windows/WSL 1.0.12 — 2026-11-27
+
+- В панели Windows-сервера 1.0.12 нажмите **«Обслуживание»**. Откроется CastLink Updater с выбранным сервером. Установка обновления требует отдельного подтверждения.
+- In the 1.0.12 Windows server panel, click **Maintenance** to open CastLink Updater for that server. Installing an update requires separate confirmation.
+- 在 Windows 服务器 1.0.12 的面板中，点击**维护**即可打开 CastLink Updater 并选中该服务器。安装更新需另行确认。
+
 ## CastLink Server 1.0.11 — 2026-11-27
 
 - **Русский.** В режиме «Окно» основное видео у кастера запрашивает максимальное доступное качество. Миниатюры подбирают слой по размеру. В диагностике связи видны участок сбоя, участник и время. Все ранее опубликованные серверы Windows/WSL2, включая RC, можно обновить до 1.0.11 за один шаг. [Обновление](distribution/UPDATER.md)

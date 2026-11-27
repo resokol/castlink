@@ -2,7 +2,7 @@
 
 # Пакеты CastLink
 
-**Сервер 1.0.11** запрашивает максимальное качество главного видео у кастера в обычном окне. Миниатюры подбирают качество по размеру. В диагностике связи теперь видны участок сбоя, участник и время. Выберите пакет Windows/WSL2 или Linux и проверьте файлы по его `SHA256SUMS`. Версия Windows Client — **1.0.3**.
+Начиная с **1.0.11**, сервер запрашивает максимальное качество главного видео у кастера в обычном окне. Миниатюры подбирают качество по размеру. В диагностике связи теперь видны участок сбоя, участник и время. Выберите пакет Windows/WSL2 или Linux и проверьте файлы по его `SHA256SUMS`. Версия Windows Client — **1.0.3**.
 
 Основная линейка: **Windows Server на WSL2 (без Docker Desktop)**, **Linux Server на Ubuntu** и отдельный **Windows Client**. Подробности, ограничения и план снятия Legacy: [каналы установки](SUPPORTED_INSTALLERS.md).
 
@@ -10,14 +10,14 @@
 
 | CastLink | Назначение | Загрузить |
 | --- | --- | --- |
-| Windows Server / WSL2 | Windows 11 x64, сервер без Docker Desktop. **Стабильный выпуск 1.0.11; основное Windows-направление.** | [1.0.11](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Установщик](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/install-server-windows.ps1) · [Обслуживание](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.11-508042e07f6d/SHA256SUMS) |
+| Windows Server / WSL2 | Windows 11 x64, сервер без Docker Desktop. **Стабильный выпуск 1.0.12; основное Windows-направление.** | [1.0.12](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Установщик](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/install-server-windows.ps1) · [Обслуживание](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/CastLink-Server-WSL-Maintenance.zip) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/server-wsl-v1.0.12-af092db44bcd/SHA256SUMS) |
 | Linux Ubuntu | Отдельный сервер Linux, Docker Engine/Compose (не Docker Desktop на Windows) | [1.0.11](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Установщик](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/install-server.sh) · [CastLink-Linux.tar.gz](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/CastLink-Linux.tar.gz) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/SHA256SUMS) |
 | Windows Client | Отдельное приложение для студии и кастера; сервер не устанавливает | [1.0.3](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Установщик](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/CastLink-Client-1.0.3-35dbb73b5925-setup.exe) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/client-v1.0.3-35dbb73b5925/SHA256SUMS) |
 
 <a id="updater"></a>
 ## CastLink Updater 1.0.0
 
-Отдельный инструмент для поддерживаемых Client, Windows/WSL2 и Linux. Установите его **один раз на каждом компьютере**, затем используйте постоянный ярлык или команду; текущие версии продуктов — Client **1.0.3** и Server **1.0.11**. Проверка не применяет обновление; перед применением требуется подтверждение.
+Отдельный инструмент для поддерживаемых Client, Windows/WSL2 и Linux. Установите его **один раз на каждом компьютере**, затем используйте постоянный ярлык или команду; текущие версии продуктов — Client **1.0.3** и Windows/WSL2 **1.0.12**, Linux **1.0.11**. Проверка не применяет обновление; перед применением требуется подтверждение.
 
 [Установщик Windows](https://castlink.ru/general/downloads/updater/install-updater-windows.cmd) · [Установщик Linux](https://castlink.ru/general/downloads/updater/install-updater-linux.sh) · [Пошаговая инструкция](UPDATER.md). Стабильный выпуск: [`updater-v1.0.0-80b1a2c6f836`](https://github.com/resokol/castlink/releases/tag/updater-v1.0.0-80b1a2c6f836), source `80b1a2c6f8366a799e5bdbae2e015ac42ec3ac78`. [Manifest](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/updater-v1.0.0-80b1a2c6f836/SHA256SUMS). Канал CastLink Updater независим от серверного и клиентского.
 
@@ -35,7 +35,7 @@
 
 Server Setup build: `1.0.4-079fd0f9d4b1` · source: `079fd0f9d4b18215274ff401ba584435e263994f`
 
-Windows/WSL build: `1.0.11-508042e07f6d` · source: `508042e07f6dae18fb0fd353f65e0057ade8ffc5`
+Windows/WSL build: `1.0.12-af092db44bcd` · source: `af092db44bcd00ead745d23089a04d741cfb4d3e`
 
 Linux build: `1.0.11-508042e07f6d` · source: `508042e07f6dae18fb0fd353f65e0057ade8ffc5`
 
@@ -51,11 +51,11 @@ Client build: `1.0.3-35dbb73b5925` · source: `35dbb73b5925797e753d395843a37f39c
 
 **Сервер 1.0.2:** история показателей и журнал событий за 24 часа в Super Admin; данные сохраняются после перезапуска. Linux также включает [install-server.sh](https://github.com/resokol/castlink/releases/download/linux-v1.0.11-508042e07f6d/install-server.sh) для установки одной командой. [Инструкции](SERVER_INSTALL.md) · [Примечания к 1.0.2](RELEASE_NOTES_1_0_2.md).
 
-Windows/WSL2 — отдельный стабильный канал версии 1.0.11. Для обновления существующей WSL-установки используйте ZIP обслуживания этого же выпуска; обновляйте вне эфира, затем страницы студии и кастеров. Обычный Windows Server Setup по-прежнему требует Docker Desktop.
+В панели Windows-сервера 1.0.12 нажмите **«Обслуживание»**. Откроется CastLink Updater с выбранным сервером. Установка обновления требует отдельного подтверждения.
 
 **Обновление прежних Docker-серверов до 1.0.4 (Legacy):** обновляйте только соответствующим Server Setup вне эфира, выбрав прежнюю установку. Для новых Windows-серверов используйте WSL2; для Ubuntu — Linux 1.0.11. Восстановление связи требует 1.0.1 или новее на обоих серверах. Версия Windows Client — 1.0.3; используйте его встроенную проверку обновлений. Если старый клиент не находит выпуск, один раз скачайте установщик 1.0.3 вручную по ссылке выше и проверьте SHA256SUMS. [Восстановление связи](README.md#server-pair-recovery) · [История изменений](../CHANGELOG.md).
 
-[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.11-508042e07f6d) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
+[Client release](https://github.com/resokol/castlink/releases/tag/client-v1.0.3-35dbb73b5925) · [Windows WSL2 release](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) · [Linux release](https://github.com/resokol/castlink/releases/tag/linux-v1.0.11-508042e07f6d) · [Docker Legacy release](https://github.com/resokol/castlink/releases/tag/server-setup-v1.0.4-079fd0f9d4b1)
 
 Исходники сервера 1.0.4: [выпуск](https://github.com/resokol/castlink/releases/tag/source-v1.0.4-079fd0f9d4b1) · [точный коммит](https://github.com/resokol/castlink/tree/079fd0f9d4b18215274ff401ba584435e263994f) · [ZIP](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.zip) · [tar.gz](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/CastLink-Source-1.0.4.tar.gz) · [manifest.json](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/manifest.json) · [SHA256SUMS](https://github.com/resokol/castlink/releases/download/source-v1.0.4-079fd0f9d4b1/SHA256SUMS). Исходники под MIT; архив исходников не является установщиком. Текущая разработка: [ветка main](https://github.com/resokol/castlink/tree/main).
 
