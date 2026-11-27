@@ -36,6 +36,17 @@ saved helper's `status` command. Keep the same absolute `--state-dir` for custom
 locations. Unattended setup supports `--config` and
 `--room-creation-password-file` (UTF-8 without a trailing newline).
 
+## Automatic Windows/WSL2 package cleanup
+
+New installer builds register a separate Windows task, `CastLink-Server-<installationId>-Retention`: first run after 15 minutes, then hourly while the user is signed in. Missed runs start when available. Registration is independent of server autostart. An upgrade transfers package ownership records, registers the new installation's task and unregisters the former task; uninstall unregisters its task. Reinstalling an older published package does not add this feature.
+
+Cleanup retains the exact current build and the latest successful build of each of the two previous **product versions**, ordered numerically by SemVer. Older rebuilds of the same version do not accumulate. It covers only files under `%LOCALAPPDATA%\CastLinkServer` previously verified against the manifest/SHA256 and recorded in `disk-retention.json`. Modified or unknown files, server data, VHDs, exported recovery archives and packages outside this directory remain untouched. Other installations and unfinished operations add protection. Cleanup never starts WSL or restarts the server, and does not depend on another upgrade. The existing completed upgrade still unregisters the former generation's distribution.
+
+New maintenance-window downloads use the separate `retention-packages/<logicalInstallationId>` namespace; a file lease coordinates cleanup with package verification and use. Historical shared `lifecycle-packages`, manually selected packages (including a local `offline` directory), and the separate CastLink Updater cache are not adopted. The old shared cache requires a separate verified manual review. The updater retains its existing cleanup of temporary product payloads after completion.
+
+Check the task's last run result in Windows Task Scheduler. A nonzero result reports refused cleanup; the server keeps running. For a manual check, run the installed `install-server-windows.ps1 -Action Cleanup -InstallRoot "<exact installation directory>" -NonInteractive`; this is not an update or recovery command.
+
+
 ## Docker-free Windows/WSL2 — primary Windows server route
 
 The [stable 1.0.12 installer](https://github.com/resokol/castlink/releases/tag/server-wsl-v1.0.12-af092db44bcd) uses its own server-wsl release channel. See [installation steps and limitations](../../../README.en.md#windows-11-server).

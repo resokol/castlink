@@ -166,7 +166,7 @@ function Resolve-CLUSelectedRoot([string]$Root){
   $dir=$queue.Dequeue();$count++;if($count -gt 4096){throw 'Too many directories to resolve a unique logical installation root'}
   $pointer=Join-Path $dir 'active-generation.json'
   if(Test-Path -LiteralPath $pointer){$v=Read-CLUJson $pointer;if($v.activeRoot -ceq $root){$row=Read-CLUWslInstallation $dir;if($row.activeRoot -ceq $root){$matches+=@($dir)}}}
-  foreach($child in Get-ChildItem -LiteralPath $dir -Directory -Force){if($child.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','lifecycle-generations') -or ($child.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$queue.Enqueue($child.FullName)}
+  foreach($child in Get-ChildItem -LiteralPath $dir -Directory -Force){if($child.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','retention-packages','lifecycle-generations') -or ($child.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$queue.Enqueue($child.FullName)}
  }
  if($matches.Count -ne 1){throw 'Physical generation has no unique logical installation root; ambiguous or moved installation'}
  return $matches[0]
@@ -177,7 +177,7 @@ function Get-CLUInstallations([string]$SelectedRoot){
  $base=Join-Path $env:LOCALAPPDATA 'CastLinkServer';if(Test-Path -LiteralPath $base){$queue=[Collections.Generic.Queue[string]]::new();$queue.Enqueue((Assert-CLUPath $base));$seen=@{};$count=0
   while($queue.Count){$dir=$queue.Dequeue();$count++;if($count -gt 4096){throw 'Too many local server directories; choose an explicit installation'}
    if((Test-Path -LiteralPath (Join-Path $dir 'installation.json')) -or (Test-Path -LiteralPath (Join-Path $dir 'active-generation.json'))){try{$row=Read-CLUWslInstallation $dir;if(-not $seen.ContainsKey($row.identity)){$rows+=@($row);$seen[$row.identity]=$true}}catch{}}
-   foreach($d in Get-ChildItem -LiteralPath $dir -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','lifecycle-generations') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$queue.Enqueue($d.FullName)}
+   foreach($d in Get-ChildItem -LiteralPath $dir -Directory -Force){if($d.Name -in @('distribution','release','native-panel','lifecycle-transactions','lifecycle-cache','lifecycle-packages','retention-packages','lifecycle-generations') -or ($d.Attributes -band [IO.FileAttributes]::ReparsePoint)){continue};$queue.Enqueue($d.FullName)}
   }
  };return $rows
 }

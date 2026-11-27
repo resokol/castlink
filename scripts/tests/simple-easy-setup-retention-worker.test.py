@@ -20,8 +20,8 @@ class RetentionWorkerTests(unittest.TestCase):
         self.a, self.b, self.c = ['castlink-easy-web:' + x * 40 for x in 'abc']
         self.ident = 'sha256:' + '1' * 64
         self.record = dict(schemaVersion=1, owner='castlink-windows-retention-v1', installationId=self.iid,
-                           folder=str(self.folder), daemonId='fixture-engine', successfulImageSets=[dict(commit='c'*40, images=[self.c]), dict(commit='b'*40, images=[self.b])],
-                           images=[dict(tag=t, id=self.ident, preexisting=False) for t in (self.a,self.b,self.c)], parents=[], archives=[])
+                           folder=str(self.folder), daemonId='fixture-engine', successfulImageSets=[dict(version='1.0.11', commit='c'*40, images=[self.c]), dict(version='1.0.10', commit='b'*40, images=[self.b])],
+                           images=[dict(tag=t, id=self.ident, preexisting=False, version='1.0.8') for t in (self.a,self.b,self.c)], parents=[], archives=[])
         self.removed=[]
         def docker(args):
             if args[:2] == ['image','inspect']:
@@ -34,6 +34,21 @@ class RetentionWorkerTests(unittest.TestCase):
     def test_retains_current_and_previous_tags_with_same_image_identity(self):
         self.m.cleanup(self.folder, self.record)
         self.assertEqual(self.removed,[self.a])
+    def test_three_product_versions_are_retained(self):
+        self.record['successfulImageSets'].append(dict(version='1.0.9', commit='a'*40, images=[self.a]))
+        self.m.cleanup(self.folder, self.record)
+        self.assertEqual(self.removed, [])
+    def test_unversioned_and_future_staged_images_are_preserved(self):
+        for version in (None, '1.0.12'):
+            with self.subTest(version=version):
+                self.record['images'][0].pop('version', None)
+                if version: self.record['images'][0]['version'] = version
+                self.m.cleanup(self.folder, self.record)
+                self.assertEqual(self.removed, [])
+    def test_invalid_product_version_refuses_deletion(self):
+        self.record['images'][0]['version'] = '1.0.bad'
+        with self.assertRaises(ValueError): self.m.cleanup(self.folder, self.record)
+        self.assertEqual(self.removed, [])
     def test_changed_and_preexisting_images_are_retained(self):
         self.record['images'][0]['id']='sha256:'+'2'*64
         self.m.cleanup(self.folder,self.record)
@@ -47,6 +62,29 @@ class RetentionWorkerTests(unittest.TestCase):
         (sibling/'.castlink-retention.json').write_text(json.dumps(other))
         self.m.cleanup(self.folder,self.record)
         self.assertEqual(self.removed,[])
+    def test_sibling_unknown_staged_image_is_protected(self):
+        sibling=self.folder.parent/('castlink-easy-'+'2'*32);sibling.mkdir()
+        other=dict(self.record, folder=str(sibling), installationId='22222222-2222-2222-2222-222222222222')
+        other['images']=[dict(tag=self.a, id=self.ident, preexisting=False)]
+        (sibling/'.castlink-retention.json').write_text(json.dumps(other))
+        self.m.cleanup(self.folder,self.record)
+        self.assertEqual(self.removed,[])
+    def test_web_sibling_loaded_owned_staging_is_protected_without_containers(self):
+        sibling=self.folder.parent/('castlink-easy-'+'2'*32);sibling.mkdir()
+        other=dict(schemaVersion=1, installationId='22222222-2222-2222-2222-222222222222',
+                   current=[], previous=[], owned=[dict(tag=self.a, id=self.ident)], directoryIdentity={}, daemonId='engine')
+        (sibling/'.castlink-retention.json').write_text(json.dumps(other))
+        self.m.cleanup(self.folder,self.record)
+        self.assertEqual(self.removed,[])
+    def test_versioned_web_sibling_does_not_pin_known_expired_images(self):
+        sibling=self.folder.parent/('castlink-easy-'+'2'*32);sibling.mkdir()
+        old=dict(tag=self.a,id=self.ident);current=dict(tag=self.c,id=self.ident)
+        other=dict(schemaVersion=1,installationId='22222222-2222-2222-2222-222222222222',current=[current],previous=[],owned=[old,current],
+                   directoryIdentity={},daemonId='engine',successfulVersions=[dict(version='1.0.11',commit='c'*40,images=[current])],
+                   imageVersions=[dict(old,version='1.0.8'),dict(current,version='1.0.11')])
+        (sibling/'.castlink-retention.json').write_text(json.dumps(other))
+        self.m.cleanup(self.folder,self.record)
+        self.assertEqual(self.removed,[self.a])
     def test_mixed_installer_sibling_rollback_references_only_add_protection(self):
         for kind in ('web','native','windows-owned'):
             with self.subTest(kind=kind):

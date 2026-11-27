@@ -174,6 +174,26 @@ class TransferTest(unittest.TestCase):
                          [*previous['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
         self.assert_preserved_upgrade(previous, candidate)
 
+    def test_published_111_upgrades_to_retention_release_preserving_data(self):
+        previous = {**STABLE_107, 'version': '1.0.11',
+                    'commit': '508042e07f6dae18fb0fd353f65e0057ade8ffc5',
+                    'buildId': '1.0.11-508042e07f6d'}
+        candidate = {**previous, 'version': '1.0.13', 'commit': 'b'*40,
+                     'buildId': '1.0.13-'+'b'*12,
+                     'lifecycle': {**previous['lifecycle'], 'supportedSources':
+                         [*previous['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
+        self.assert_preserved_upgrade(previous, candidate)
+
+    def test_published_112_upgrades_to_retention_release_preserving_data(self):
+        previous = {**STABLE_107, 'version': '1.0.12',
+                    'commit': 'af092db44bcd00ead745d23089a04d741cfb4d3e',
+                    'buildId': '1.0.12-af092db44bcd'}
+        candidate = {**previous, 'version': '1.0.13', 'commit': 'b'*40,
+                     'buildId': '1.0.13-'+'b'*12,
+                     'lifecycle': {**previous['lifecycle'], 'supportedSources':
+                         [*previous['lifecycle']['supportedSources'], 'server-wsl-v'+previous['buildId']]}}
+        self.assert_preserved_upgrade(previous, candidate)
+
     def assert_preserved_upgrade(self, previous, candidate):
         self.source=self.fixture('published-source', previous)
         (self.target/'opt/castlink/release.json').write_text(json.dumps(candidate))

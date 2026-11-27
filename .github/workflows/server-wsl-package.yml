@@ -5,7 +5,7 @@ on:
       version:
         description: Candidate version (build only; no release publication)
         required: true
-        default: 1.0.2-rc.1
+        default: 1.0.13
 permissions:
   contents: read
 concurrency:
@@ -16,12 +16,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - name: Windows PowerShell parser and behavioral boundaries
         shell: powershell
         run: |
           $tokens=$null; $errors=$null
           [void][System.Management.Automation.Language.Parser]::ParseFile("$pwd/scripts/install-server-windows.ps1",[ref]$tokens,[ref]$errors)
           if ($errors.Count) { $errors | Format-List; throw 'PowerShell parser failed' }
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/tests/server-wsl-retention.fixtures.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & powershell.exe -NoLogo -NoProfile -STA -ExecutionPolicy Bypass -File scripts/tests/server-wsl-maintenance.fixtures.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & scripts/tests/server-windows.test.ps1

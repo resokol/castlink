@@ -6,7 +6,7 @@
 
 Прямые импорты извлечены статически. Динамические загрузки с вычисляемым именем, HTTP, LiveKit events и SQL-связи не выводятся автоматически и разобраны в главе 03. Экспорт — доступный другим модулям символ, а не обязательно публичный HTTP API. Наличие теста в каталоге не означает, что он запускался.
 
-Всего файлов в Git index: **2098**. Каждый файл ниже имеет отдельную запись.
+Всего файлов в Git index: **2103**. Каждый файл ниже имеет отдельную запись.
 
 ## Корень · 18 файлов
 
@@ -15932,7 +15932,7 @@ CastLink interface assets
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## distribution · 58 файлов
+## distribution · 61 файлов
 
 ### distribution/INSTALL.md
 
@@ -15969,6 +15969,12 @@ CastLink: установка и работа
 [`distribution/RELEASE_NOTES_1_0_0.md`](../../distribution/RELEASE_NOTES_1_0_0.md)
 
 CastLink 1.0.0
+
+### distribution/RELEASE_NOTES_1_0_13.md
+
+[`distribution/RELEASE_NOTES_1_0_13.md`](../../distribution/RELEASE_NOTES_1_0_13.md)
+
+Сервер 1.0.13 — автоматическая очистка
 
 ### distribution/RELEASE_NOTES_1_0_2.md
 
@@ -16084,6 +16090,12 @@ CastLink packages
 
 CastLink 1.0.0
 
+### distribution/docs/en/RELEASE_NOTES_1_0_13.md
+
+[`distribution/docs/en/RELEASE_NOTES_1_0_13.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_13.md)
+
+Server 1.0.13 — automatic cleanup
+
 ### distribution/docs/en/RELEASE_NOTES_1_0_2.md
 
 [`distribution/docs/en/RELEASE_NOTES_1_0_2.md`](../../distribution/docs/en/RELEASE_NOTES_1_0_2.md)
@@ -16192,6 +16204,12 @@ CastLink 软件包
 
 CastLink 1.0.0
 
+### distribution/docs/zh-CN/RELEASE_NOTES_1_0_13.md
+
+[`distribution/docs/zh-CN/RELEASE_NOTES_1_0_13.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_13.md)
+
+服务器 1.0.13 — 自动清理
+
 ### distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md
 
 [`distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md`](../../distribution/docs/zh-CN/RELEASE_NOTES_1_0_2.md)
@@ -16282,7 +16300,7 @@ CastLink 永久更新工具 1.0.0
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## docs · 89 файлов
+## docs · 90 файлов
 
 ### docs/ARCHITECTURE_SELF_HOSTED_RU.md
 
@@ -16564,7 +16582,7 @@ CastLink: где найти и как править элементы интер
 
 [`docs/WORKING_STATE_RU.md`](../WORKING_STATE_RU.md)
 
-Передача слайдов удалённому спикеру — 23.11.2026
+Автоматическая очистка серверных пакетов — подготовка 1.0.13, 27.11.2026
 
 ### docs/design/CASTER_MOBILE_ACTIONS_20261108_RU.md
 
@@ -16739,6 +16757,12 @@ Persistent CastLink Updater Implementation Plan
 [`docs/superpowers/plans/2026-11-21-stable-release.md`](../superpowers/plans/2026-11-21-stable-release.md)
 
 CastLink 1.0.7 stable release plan
+
+### docs/superpowers/plans/2026-11-27-server-retention.md
+
+[`docs/superpowers/plans/2026-11-27-server-retention.md`](../superpowers/plans/2026-11-27-server-retention.md)
+
+Автоматическое обслуживание всех серверных установок CastLink
 
 ### docs/superpowers/specs/2026-11-02-studio-runtime-design.md
 
@@ -17462,7 +17486,7 @@ Remote input, main-only protocol v1
 
 Вспомогательная конфигурация/ресурс; назначение уточняется по исходнику и использующим файлам ниже.
 
-## scripts · 294 файлов
+## scripts · 295 файлов
 
 ### scripts/add-camera-model-metadata.py
 
@@ -19240,6 +19264,12 @@ export function stageActorClosure(repository=root,parent=os.tmpdir()){
 ### scripts/tests/server-wsl-maintenance.test.py
 
 [`scripts/tests/server-wsl-maintenance.test.py`](../../scripts/tests/server-wsl-maintenance.test.py)
+
+Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
+
+### scripts/tests/server-wsl-retention.fixtures.ps1
+
+[`scripts/tests/server-wsl-retention.fixtures.ps1`](../../scripts/tests/server-wsl-retention.fixtures.ps1)
 
 Операторский скрипт; перед запуском проверить аргументы и побочные эффекты в исходнике.
 

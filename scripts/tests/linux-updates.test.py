@@ -72,8 +72,8 @@ class Updates(unittest.TestCase):
             m.cleanup_legacy_backups(folder, {'installationId': 'one'})
             self.assertTrue((folder / 'backups' / names[1]).exists())
 
-    def test_three_updates_retain_two_successful_sets_and_failed_retry_keeps_history(self):
-        def release(c): return {'commit': c * 40, 'images': {service: 'castlink-easy-' + service + ':' + c * 40 for service in ['web', 'postgres', 'livekit', 'caddy', 'turntls']}}
+    def test_four_updates_retain_three_product_versions_and_failed_retry_keeps_history(self):
+        def release(c): return {'version': '1.0.' + str(8 + ord(c) - ord('a')), 'commit': c * 40, 'images': {service: 'castlink-easy-' + service + ':' + c * 40 for service in ['web', 'postgres', 'livekit', 'caddy', 'turntls']}}
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d); tags = {}; calls = []
             def engine(args, **kwargs):
@@ -90,16 +90,17 @@ class Updates(unittest.TestCase):
             state = {'release': release('a'), 'completed': True}
             with patch.object(m, 'docker', side_effect=engine), patch.object(m, 'load_images', side_effect=load), patch.object(m, 'render'), patch.object(m, 'register_cleanup'), patch.object(m, 'cleanup_legacy_backups'), patch.object(m, 'complete'), patch.object(m, 'compose'):
                 load(folder, state['release']); m.remember_images(folder, state['release'])
-                for c in 'bc': m.apply_update(folder, state, folder, release(c), 'en')
-                self.assertEqual(set(tags), {tag for c in 'bc' for tag in release(c)['images'].values()})
+                for c in 'bcd': m.apply_update(folder, state, folder, release(c), 'en')
+                self.assertEqual(set(tags), {tag for c in 'bcd' for tag in release(c)['images'].values()})
                 before = m.image_receipt(folder)['successfulReleases']
                 with patch.object(m, 'compose', side_effect=ValueError('unhealthy')):
-                    with self.assertRaisesRegex(ValueError, 'unhealthy'): m.apply_update(folder, state, folder, release('d'), 'en')
+                    with self.assertRaisesRegex(ValueError, 'unhealthy'): m.apply_update(folder, state, folder, release('e'), 'en')
                 self.assertEqual(m.image_receipt(folder)['successfulReleases'], before)
-                self.assertEqual({r['commit'] for r in before}, {c * 40 for c in 'bc'})
+                self.assertEqual({r['commit'] for r in before}, {c * 40 for c in 'bcd'})
+                self.assertTrue(all('version' not in entry for entry in m.image_receipt(folder)['images'] if entry['tag'].endswith('e' * 40)))
                 state = json.loads((folder / m.STATE).read_text())
-                with patch.object(m, 'compose'): m.apply_update(folder, state, folder, release('d'), 'en')
-                self.assertEqual(set(tags), {tag for c in 'cd' for tag in release(c)['images'].values()})
+                with patch.object(m, 'compose'): m.apply_update(folder, state, folder, release('e'), 'en')
+                self.assertEqual(set(tags), {tag for c in 'cde' for tag in release(c)['images'].values()})
                 self.assertFalse(any('--force' in call or 'prune' in call for call in calls))
 
     def test_periodic_staging_cleanup_removes_only_recorded_intact_artifacts(self):
@@ -252,7 +253,7 @@ class Updates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d)
             m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [
-                {'tag': tag, 'id': 'sha256:' + 'c' * 64} for tag in [old, current, used]]})
+                {'tag': tag, 'id': 'sha256:' + 'c' * 64, 'version': '1.0.8'} for tag in [old, current, used]]})
             def docker(args, **kwargs):
                 calls.append(args)
                 if args[:2] == ['image', 'ls']: return 'sha256:' + 'c' * 64
@@ -262,7 +263,7 @@ class Updates(unittest.TestCase):
                 if args[0] == 'inspect': return used
                 return ''
             with patch.object(m, 'docker', side_effect=docker):
-                m.cleanup_images(folder, {'release': {'images': {'web': current}}})
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'web': current}}})
             self.assertIn(['image', 'rm', '--no-prune', old], calls)
             self.assertFalse(any('--force' in c or 'prune' in c for c in calls))
             self.assertFalse(any(c[:2] == ['image', 'rm'] and c[-1] in [used, current] for c in calls))
@@ -272,7 +273,7 @@ class Updates(unittest.TestCase):
         current = 'castlink-easy-postgres:' + 'b' * 40
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d)
-            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': 'sha256:' + 'c' * 64}]})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': old, 'id': 'sha256:' + 'c' * 64, 'version': '1.0.8'}]})
             calls = []
             def engine(args, **kwargs):
                 calls.append(args)
@@ -283,14 +284,14 @@ class Updates(unittest.TestCase):
                 if args[0] == 'inspect': return current
                 return ''
             with patch.object(m, 'docker', side_effect=engine):
-                m.cleanup_images(folder, {'release': {'images': {'postgres': current}}})
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {'postgres': current}}})
             self.assertIn(['image', 'rm', '--no-prune', old], calls)
 
     def test_cleanup_retry_handles_already_removed_tags_after_partial_failure(self):
         tags = ['castlink-easy-web:' + 'a' * 40, 'castlink-easy-postgres:' + 'a' * 40]
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d); present = set(tags); failed = False
-            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': tag, 'id': 'sha256:' + 'c' * 64} for tag in tags]})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': tag, 'id': 'sha256:' + 'c' * 64, 'version': '1.0.8'} for tag in tags]})
             def engine(args, **kwargs):
                 nonlocal failed
                 if args[:2] == ['image', 'ls']: return 'sha256:' + 'c' * 64 if args[-1] in present else ''
@@ -302,8 +303,8 @@ class Updates(unittest.TestCase):
                     present.remove(args[-1])
                 return ''
             with patch.object(m, 'docker', side_effect=engine):
-                with self.assertRaises(ValueError): m.cleanup_images(folder, {'release': {'images': {}}})
-                m.cleanup_images(folder, {'release': {'images': {}}})
+                with self.assertRaises(ValueError): m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {}}})
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {}}})
             self.assertEqual(present, set())
             self.assertEqual(m.image_receipt(folder)['images'], [])
 
@@ -311,9 +312,10 @@ class Updates(unittest.TestCase):
         tag = 'castlink-easy-web:' + 'a' * 40
         with tempfile.TemporaryDirectory() as d:
             folder = Path(d)
-            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': tag, 'id': 'sha256:' + 'c' * 64}]})
+            m.write_private(folder / m.IMAGE_RECEIPT, {'schemaVersion': 1, 'images': [{'tag': tag, 'id': 'sha256:' + 'c' * 64, 'version': '1.0.8'}]})
             with patch.object(m, 'docker', return_value='sha256:' + 'd' * 64) as engine:
-                m.cleanup_images(folder, {'release': {'images': {}}})
+                m.cleanup_images(folder, {'release': {'version': '1.0.11', 'images': {}}})
+            engine.assert_called()
             self.assertFalse(any(c.args[0][:2] == ['image', 'rm'] for c in engine.call_args_list))
 
 

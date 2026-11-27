@@ -62,7 +62,12 @@ function Register-SimpleImageLoad([string]$Folder,[object]$State,[object]$Releas
       $present=$true;try{$null=Invoke-DeploymentDocker @('image','inspect',$tag,'--format','{{.Id}}')}catch{if($_.Exception.Message -notmatch 'No such image|No such object'){throw};$present=$false}
       $entry=@([pscustomobject]@{tag=$tag;preexisting=$present;id=''});$receipt.images+= $entry
     }
-    if($AfterLoad){$entry[0].id=(Invoke-DeploymentDocker @('image','inspect',$tag,'--format','{{.Id}}')).Trim()}
+    if($AfterLoad){
+      $entry[0].id=(Invoke-DeploymentDocker @('image','inspect',$tag,'--format','{{.Id}}')).Trim()
+      # A retried load is pending even when it resolves to the same old ID.
+      # Successful history still protects active versions independently.
+      $entry[0].PSObject.Properties.Remove('version')
+    }
   }
   Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
   if($AfterLoad){try{Register-SimpleParentImages $Folder $State $Release}catch{Write-Warning ('Supplemental parent ownership unavailable; parent images retained: '+$_.Exception.Message)}}
@@ -180,7 +185,7 @@ function Get-SimpleRuntimeImageReferences([object]$Runtime) {
     if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
     $other=Get-Content -LiteralPath $path -Encoding UTF8 -Raw|ConvertFrom-Json
     if($other.schemaVersion -ne 1 -or $other.installationId -cne $installation.installationId -or $other.folder -cne [IO.Path]::GetFullPath($installation.folder)){throw 'Sibling retained image identity mismatch.'}
-    Get-SimpleSuccessfulImageTags $other
+    Get-SimpleRetentionImageTags $other
   }
 }
 function Get-SimpleRemoteRetainedImageReferences([object]$Compose) {
@@ -275,7 +280,7 @@ function Remove-SimpleObsoleteImages([string]$Folder,[object]$State,[object]$Rel
   # Called only after all deployment health and ingress checks succeed. Never prune.
   $receipt=Open-SimpleOwnership $Folder
   if($receipt.installationId -cne $State.installationId){throw 'Image retention installation mismatch.'}
-  $current=@($Release.images.PSObject.Properties.Value)+@(Get-SimpleSuccessfulImageTags $receipt)
+  $current=@($Release.images.PSObject.Properties.Value)+@(Get-SimpleRetentionImageTags $receipt)
   $obsolete=@($receipt.images|Where-Object{$_.tag -cnotin $current -and $_.id -cmatch '^sha256:[a-f0-9]{64}$'})
   if($obsolete.Count){Remove-SimpleOwnedImages ([pscustomobject]@{images=$obsolete}) $Compose $current}
   $runtime=Read-SimpleRuntimeReceipt
@@ -533,6 +538,27 @@ function Remove-SimpleOwnedRuntime([object]$Receipt) {
   Save-SimpleRuntimeReceipt $Receipt
 }
 
+function Compare-SimpleRetentionVersion([string]$Left,[string]$Right) {
+  $pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
+  $a=[regex]::Match($Left,$pattern);$b=[regex]::Match($Right,$pattern)
+  if(-not $a.Success -or -not $b.Success){throw 'Invalid semantic release version.'}
+  foreach($parsed in @($a,$b)){foreach($identifier in $parsed.Groups[4].Value.Split('.')){if($identifier -cmatch '^0[0-9]+$'){throw 'Invalid semantic prerelease version.'}}}
+  for($part=1;$part -le 3;$part++){
+    $x=$a.Groups[$part].Value;$y=$b.Groups[$part].Value
+    if($x.Length -ne $y.Length){return [Math]::Sign($x.Length-$y.Length)}
+    $order=[string]::CompareOrdinal($x,$y);if($order){return [Math]::Sign($order)}
+  }
+  $ap=$a.Groups[4].Value;$bp=$b.Groups[4].Value
+  if(-not $ap -and -not $bp){return 0};if(-not $ap){return 1};if(-not $bp){return -1}
+  $aa=$ap.Split('.');$bb=$bp.Split('.')
+  for($part=0;$part -lt [Math]::Min($aa.Count,$bb.Count);$part++){
+    $x=$aa[$part];$y=$bb[$part];$xn=$x -cmatch '^[0-9]+$';$yn=$y -cmatch '^[0-9]+$'
+    if($xn -and -not $yn){return -1};if(-not $xn -and $yn){return 1}
+    if($xn -and $yn -and $x.Length -ne $y.Length){return [Math]::Sign($x.Length-$y.Length)}
+    $order=[string]::CompareOrdinal($x,$y);if($order){return [Math]::Sign($order)}
+  }
+  return [Math]::Sign($aa.Count-$bb.Count)
+}
 function Register-SimpleSuccessfulImages([string]$Folder,[object]$State,[object]$Release) {
   if(-not $State.completed -or $Release.commit -cnotmatch '^[a-f0-9]{40}$'){throw 'Only a healthy completed release can enter image history.'}
   $receipt=Open-SimpleOwnership $Folder
@@ -540,8 +566,35 @@ function Register-SimpleSuccessfulImages([string]$Folder,[object]$State,[object]
   $tags=@($Release.images.PSObject.Properties.Value|Select-Object -Unique)
   if(-not $tags.Count -or @($tags|Where-Object{$_ -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $_.EndsWith(':'+$Release.commit,[StringComparison]::Ordinal)}).Count){throw 'Invalid successful image set.'}
   $history=@();if($receipt.PSObject.Properties['successfulImageSets']){$history=@($receipt.successfulImageSets)}
-  $previous=@($history|Where-Object{$_.commit -cne $Release.commit}|Select-Object -First 1)
-  $history=@([pscustomobject]@{commit=[string]$Release.commit;images=$tags})+$previous
+  $version=[string]$Release.version
+  if($version){$null=Compare-SimpleRetentionVersion $version $version}
+  $successful=[pscustomobject]@{commit=[string]$Release.commit;images=$tags}
+  if($version){$successful|Add-Member NoteProperty version $version}
+  # Validate old protection evidence before changing the receipt. Unknown legacy
+  # versions remain protected and never consume either earlier-version slot.
+  $null=@(Get-SimpleSuccessfulImageTags $receipt)
+  $candidates=@($successful)+@($history|Where-Object{$_.commit -cne $Release.commit})
+  $previousVersions=@()
+  if($version){
+    $lower=@($candidates|Where-Object{$_.version -and (Compare-SimpleRetentionVersion $_.version $version) -lt 0})
+    for($slot=0;$slot -lt 2 -and $lower.Count;$slot++){
+      $best=$lower[0].version
+      foreach($item in $lower){if((Compare-SimpleRetentionVersion $item.version $best) -gt 0){$best=$item.version}}
+      $previousVersions+= $best
+      $lower=@($lower|Where-Object{(Compare-SimpleRetentionVersion $_.version $best) -ne 0})
+    }
+  }
+  $history=@();$seen=@()
+  foreach($item in $candidates){
+    if($version -and $item.version){
+      if(@($seen|Where-Object{(Compare-SimpleRetentionVersion $_ $item.version) -eq 0}).Count){continue}
+      if((Compare-SimpleRetentionVersion $item.version $version) -lt 0 -and -not @($previousVersions|Where-Object{(Compare-SimpleRetentionVersion $_ $item.version) -eq 0}).Count){continue}
+      $seen+= $item.version
+    }
+    $history+= $item
+  }
+  # Stamp only successful, already-owned tags. Failed/staged loads stay unknown.
+  foreach($entry in @($receipt.images)){if($version -and $entry.tag -cin $tags){$entry|Add-Member NoteProperty version $version -Force}}
   $receipt|Add-Member -NotePropertyName successfulImageSets -NotePropertyValue $history -Force
   Write-SimpleText (Join-Path $Folder '.castlink-owned.json') ($receipt|ConvertTo-Json -Depth 8)
 }
@@ -559,16 +612,29 @@ function Initialize-SimpleSuccessfulImages([string]$Folder) {
     if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $tag.EndsWith(':'+$saved.commit,[StringComparison]::Ordinal)){return}
     $images|Add-Member -NotePropertyName ('image'+$index++) -NotePropertyValue $tag
   }
-  Register-SimpleSuccessfulImages $Folder $saved ([pscustomobject]@{commit=$saved.commit;images=$images})
+  Register-SimpleSuccessfulImages $Folder $saved ([pscustomobject]@{version=$saved.version;commit=$saved.commit;images=$images})
 }
 function Get-SimpleSuccessfulImageTags([object]$Receipt) {
   if(-not $Receipt.PSObject.Properties['successfulImageSets']){return}
-  if(@($Receipt.successfulImageSets).Count -gt 2){throw 'Too many successful image sets in retention history.'}
   foreach($set in @($Receipt.successfulImageSets)){
+    if($set.version){$null=Compare-SimpleRetentionVersion $set.version $set.version}
     if($set.commit -cnotmatch '^[a-f0-9]{40}$' -or -not @($set.images).Count){throw 'Invalid successful image history.'}
     foreach($tag in @($set.images)){
       if($tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$' -or -not $tag.EndsWith(':'+$set.commit,[StringComparison]::Ordinal)){throw 'Invalid successful image history tag.'}
       $tag
+    }
+  }
+}
+function Get-SimpleRetentionImageTags([object]$Receipt) {
+  Get-SimpleSuccessfulImageTags $Receipt
+  if(-not $Receipt.PSObject.Properties['images']){return}
+  $current=''
+  if($Receipt.successfulImageSets -and @($Receipt.successfulImageSets).Count){$current=[string]@($Receipt.successfulImageSets)[0].version}
+  foreach($entry in @($Receipt.images)){
+    if($entry.version){$null=Compare-SimpleRetentionVersion $entry.version $entry.version}
+    if(-not $entry.version -or -not $current -or (Compare-SimpleRetentionVersion $entry.version $current) -gt 0){
+      if($entry.tag -cnotmatch '^castlink-easy-(web|postgres|livekit|caddy|turntls):[a-f0-9]{40}$'){throw 'Invalid staged image tag.'}
+      $entry.tag
     }
   }
 }
@@ -632,7 +698,7 @@ function Invoke-SimpleScheduledRetention([string]$Folder) {
     if(-not(Test-LinuxEngine $script:DockerExe)){return}
     $receipt=Open-SimpleOwnership $Folder
     if(-not $receipt.PSObject.Properties['daemonId'] -or (Get-SimpleRetentionDaemonId) -cne $receipt.daemonId){throw 'Docker daemon identity changed; housekeeping refused.'}
-    $tags=@(Get-SimpleSuccessfulImageTags $receipt)
+    $tags=@(Get-SimpleRetentionImageTags $receipt)
     if(-not $tags.Count){throw 'No verified successful image history for housekeeping.'}
     $images=[pscustomobject]@{};$index=0;foreach($tag in $tags){$images|Add-Member -NotePropertyName ('image'+$index++) -NotePropertyValue $tag}
     Remove-SimpleObsoleteImages $Folder $installation.state ([pscustomobject]@{images=$images}) $installation.compose

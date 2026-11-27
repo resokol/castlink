@@ -19,6 +19,15 @@ SOURCE = re.compile(r'[a-f0-9]{40}')
 STAGES = ('web-builder', 'web-runtime', 'turntls-builder', 'turntls-runtime')
 
 
+def version_key(value):
+    if not isinstance(value, str): return None
+    match = re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', value)
+    if not match: return None
+    parts = match[4].split('.') if match[4] else []
+    if any(p.isdigit() and len(p) > 1 and p.startswith('0') for p in parts): return None
+    return (*map(int, match.group(1, 2, 3)), not bool(parts), tuple((0, int(p)) if p.isdigit() else (1, p) for p in parts))
+
+
 def docker(arguments):
     env = dict(os.environ)
     for key in ('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'):
@@ -51,16 +60,20 @@ def validate_record(folder, record):
     if not isinstance(record.get('daemonId'), str) or not re.fullmatch(r'[A-Za-z0-9:-]{1,128}', record['daemonId']):
         raise ValueError('Invalid Docker daemon identity')
     history = record.get('successfulImageSets')
-    if not isinstance(history, list) or not 1 <= len(history) <= 2:
+    if not isinstance(history, list) or not history:
         raise ValueError('Invalid successful image history')
     for entry in history:
         if not SOURCE.fullmatch(entry.get('commit', '')) or not isinstance(entry.get('images'), list) or not entry['images']:
             raise ValueError('Invalid successful image set')
-        if any(not isinstance(t, str) or not TAG.fullmatch(t) for t in entry['images']):
+        if any(not isinstance(t, str) or not TAG.fullmatch(t) or not t.endswith(':' + entry['commit']) for t in entry['images']):
             raise ValueError('Invalid retained image tag')
+        if 'version' in entry and not version_key(entry['version']):
+            raise ValueError('Invalid successful product version')
     for entry in record.get('images', []):
         if not TAG.fullmatch(entry.get('tag', '')) or not IMAGE.fullmatch(entry.get('id', '')) or type(entry.get('preexisting')) is not bool:
             raise ValueError('Invalid image ownership')
+        if 'version' in entry and not version_key(entry['version']):
+            raise ValueError('Invalid owned image product version')
 
 
 @contextmanager
@@ -113,6 +126,44 @@ def protection(keep):
     return protected, roots, ancestors
 
 
+def web_retained_images(record):
+    """Sibling evidence adds protection; known expired ownership adds none."""
+    def entries(value):
+        if not isinstance(value, list): raise ValueError('Invalid sibling web image inventory')
+        for item in value:
+            if (not isinstance(item, dict) or not isinstance(item.get('tag'), str) or not TAG.fullmatch(item['tag'])
+                    or not isinstance(item.get('id'), str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', item['id'])):
+                raise ValueError('Invalid sibling web image identity')
+        return value
+    protected = entries(record.get('current')) + entries(record.get('previous'))
+    owned = entries(record.get('owned'))
+    history = record.get('successfulVersions', [])
+    if not isinstance(history, list): raise ValueError('Invalid sibling web product history')
+    for release in history:
+        if (not isinstance(release, dict) or not version_key(release.get('version'))
+                or not isinstance(release.get('commit'), str) or not re.fullmatch(r'[a-f0-9]{40}', release['commit'])):
+            raise ValueError('Invalid sibling web product version')
+        images = entries(release.get('images'))
+        if not images or any(not item['tag'].endswith(':' + release['commit']) for item in images):
+            raise ValueError('Invalid sibling web successful images')
+        protected += images
+    provenance = record.get('imageVersions', [])
+    if not isinstance(provenance, list): raise ValueError('Invalid sibling web product provenance')
+    versions = {}
+    for item in entries(provenance):
+        version = version_key(item.get('version'))
+        if not version: raise ValueError('Invalid sibling web product provenance')
+        pair = (item['tag'], item['id'])
+        if pair in versions and versions[pair] != version: raise ValueError('Conflicting sibling web product provenance')
+        versions[pair] = version
+    current = version_key(history[0]['version']) if history else None
+    for item in owned:
+        version = versions.get((item['tag'], item['id']))
+        # Old receipts have no version evidence. Reloaded pending pairs have
+        # their provenance cleared and remain protected until healthy success.
+        if not version or not current or version > current: protected.append(item)
+    return protected
+
 def sibling_history(folder):
     """Read known sibling histories solely to add protection, never ownership."""
     keep = set()
@@ -132,7 +183,7 @@ def sibling_history(folder):
             iid = str(uuid.UUID(value['installationId']))
             if folder.name != 'castlink-easy-' + iid.replace('-', ''):
                 raise ValueError('Sibling web installer identity mismatch')
-            sets = [[entry['tag'] for entry in value[key]] for key in ('current', 'previous')]
+            sets = [[entry['tag'] for entry in web_retained_images(value)]]
         elif name == '.castlink-owned.json':
             iid = str(uuid.UUID(value['installationId']))
             if folder.name != 'castlink-easy-' + iid.replace('-', ''):
@@ -149,6 +200,16 @@ def sibling_history(folder):
             sets = [list(entry['images'].values()) for entry in value.get('successfulReleases', [])]
         else:
             raise ValueError('Unknown sibling history schema')
+        if name != RECORD or value.get('owner') == OWNER:
+            history = value.get('successfulReleases', value.get('successfulImageSets', []))
+            current = version_key(history[0].get('version')) if history else None
+            staged = []
+            for entry in value.get('images', []):
+                if 'version' in entry and not version_key(entry['version']):
+                    raise ValueError('Invalid sibling product version')
+                if not version_key(entry.get('version')) or not current or version_key(entry['version']) > current:
+                    staged.append(entry.get('tag'))
+            sets.append(staged)
         for tags in sets:
             if not isinstance(tags, list) or any(not isinstance(tag, str) or not TAG.fullmatch(tag) for tag in tags):
                 raise ValueError('Invalid sibling retained image tag')
@@ -158,6 +219,10 @@ def sibling_history(folder):
 
 def references(folder, record):
     keep = {t for entry in record['successfulImageSets'] for t in entry['images']}
+    current = version_key(record['successfulImageSets'][0].get('version')) if record['successfulImageSets'] else None
+    if record['successfulImageSets']:
+        keep.update(entry['tag'] for entry in record['images']
+                    if not version_key(entry.get('version')) or not current or version_key(entry['version']) > current)
     registered = {'castlink-easy-' + record['installationId'].replace('-', '')}
     # Retained data may have no containers. Installers use different folder names.
     for sibling in folder.parent.iterdir():
