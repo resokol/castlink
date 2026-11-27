@@ -780,7 +780,9 @@ function Enter-CastlinkPackageLease {
 function Get-CastlinkRetentionPackageRoot($State) {
     $id=if($State.logicalInstallationId){$State.logicalInstallationId}else{$State.installationId}
     if($id -cnotmatch '^[a-f0-9]{32}$'){throw 'Retention package installation identity mismatch'}
-    return Join-Path (Join-Path $env:LOCALAPPDATA 'CastLinkServer/retention-packages') $id
+    # Windows PowerShell 5.1 Join-Path preserves embedded forward slashes;
+    # use the same canonical form as the file ownership/scope checks.
+    return [IO.Path]::GetFullPath((Join-Path (Join-Path $env:LOCALAPPDATA 'CastLinkServer/retention-packages') $id))
 }
 function Test-CastlinkRetentionPackageDirectory([string]$Root,$State,[string]$Directory) {
     if(-not $Directory){return $false}

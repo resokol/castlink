@@ -15,6 +15,8 @@ function Entry([string]$Version,[string]$Commit){
  return [pscustomobject]@{version=$Version;releaseTag=('server-wsl-v'+$Version+'-'+$Commit);files=@([pscustomobject]@{path=$file;sha256=(Get-FileHash $file).Hash.ToLowerInvariant();size=(Get-Item $file).Length})}
 }
 try{
+ $packageRoot=Get-CastlinkRetentionPackageRoot $state
+ Assert ($packageRoot -ceq [IO.Path]::GetFullPath($packageRoot)) 'package root must use canonical separators for Windows PowerShell 5.1 scope checks'
  $entries=@((Entry '1.0.8' 'dddddddddddd'),(Entry '1.0.9' 'cccccccccccc'),(Entry '1.0.10' 'bbbbbbbbbbbb'),(Entry '1.0.11' 'aaaaaaaaaaaa'))
  $record=[pscustomobject]@{schemaVersion=1;owner='castlink-wsl-retention-v1';installationId=$state.installationId;rootPath=$installation;releases=$entries}
  $plan=@(Get-CastlinkRetentionPlan $installation $state $record)
