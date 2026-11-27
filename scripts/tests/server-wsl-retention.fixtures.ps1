@@ -42,7 +42,8 @@ try{
  [IO.File]::Delete((Join-Path $neighbor 'installation.json'))
  [IO.File]::WriteAllText((Join-Path $neighbor 'installation.json'),'{"installationId":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","phase":"maintenance","releaseTag":"server-wsl-v1.0.8-dddddddddddd"}')
  [IO.File]::WriteAllText((Join-Path $pending 'journal.json'),('{"phase":"completed","kind":"update","sourceRoot":'+(ConvertTo-Json $neighbor -Compress)+',"source":{"installationId":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}'))
- Assert (@(Get-CastlinkRetentionPlan $installation $state $record).Count -eq 1) 'completed update proves retired source no longer protects every old cache'
+ $retiredPlan=@(Get-CastlinkRetentionPlan $installation $state $record)
+ Assert ($retiredPlan.Count -eq 1) ('completed update proves retired source no longer protects every old cache; '+(@{planCount=$retiredPlan.Count;references=@(Get-CastlinkRetentionReferences);sourceRoot=(Read-CastlinkRetentionJson (Join-Path $pending 'journal.json')).sourceRoot;neighbor=$neighbor;actualNeighbor=(Get-Item -LiteralPath $neighbor).FullName}|ConvertTo-Json -Depth 8 -Compress))
  [IO.File]::Delete((Join-Path $neighbor 'installation.json'))
  $entries[0].files[0].path=Join-Path $root 'manual-backup.tar';[IO.File]::WriteAllText($entries[0].files[0].path,'manual')
  Refuses {Get-CastlinkRetentionPlan $installation $state $record}
