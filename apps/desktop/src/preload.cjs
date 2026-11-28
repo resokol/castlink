@@ -31,6 +31,7 @@ if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
     onIntent:listener=>subscribe('castlink:remote-control-intent',listener),
   },
   slides:{version:4,stopSettled:value=>ipcRenderer.invoke('castlink:slides-stop-settled',value),update:value=>ipcRenderer.invoke('castlink:slides-update',value),show:value=>ipcRenderer.invoke('castlink:slides-show',value),hide:id=>ipcRenderer.invoke('castlink:slides-hide',id),onAction:listener=>subscribe('castlink:slides-action',listener)},
+  ...(process.argv.includes('--castlink-vmix=1')&&{vmixOutputs:{version:1,open:slots=>ipcRenderer.invoke('castlink:vmix-open',slots)}}),
   powerPoint:{version:4,prepare:value=>presentationInvoke('prepare',value),start:value=>presentationInvoke('start',value),step:value=>presentationInvoke('step',value),connect:()=>presentationInvoke('connect'),connectShared:value=>presentationInvoke('connectShared',value),status:id=>presentationInvoke('status',id),goTo:value=>presentationInvoke('goTo',value),disconnect:id=>presentationInvoke('disconnect',id)},
   screenShare: {
     beginCapture:()=>ipcRenderer.invoke('castlink:audio-begin'),
@@ -43,6 +44,13 @@ if (role === 'client') contextBridge.exposeInMainWorld('castlinkDesktop', {
     onStop: listener => subscribe('castlink:screen-stop', listener),
     onState: listener => subscribe('castlink:screen-state', listener),
   },
+});
+if (role === 'vmix') contextBridge.exposeInMainWorld('castlinkVmix', {
+  initial: () => ipcRenderer.invoke('castlink:vmix-initial'),
+  pick: mode => ipcRenderer.invoke('castlink:vmix-pick', mode),
+  start: config => ipcRenderer.invoke('castlink:vmix-start', config),
+  stop: () => ipcRenderer.invoke('castlink:vmix-stop'),
+  onStatus: listener => subscribe('castlink:vmix-status', listener),
 });
 if (role === 'picker') contextBridge.exposeInMainWorld('castlinkPicker', {
   sources: () => ipcRenderer.invoke('castlink:capture-sources'),

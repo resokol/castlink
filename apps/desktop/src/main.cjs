@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen, crashReporter } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, desktopCapturer, shell, globalShortcut, nativeTheme, screen, crashReporter, utilityProcess } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -16,25 +16,29 @@ let buildInfo={};
 try{buildInfo=JSON.parse(fs.readFileSync(path.join(__dirname,'../build-info.json'),'utf8'));}catch{}
 const presenterBuild=buildInfo.presenterBuild===true;
 const pptxTestBuild=presenterBuild||process.argv.includes('--pptx-test-build')||buildInfo.testBuild===true;
+const vmixPilotBuild=buildInfo.vmixPilotBuild===true;
+const managedRelease=!pptxTestBuild&&!vmixPilotBuild;
 const allowLoopback=!app.isPackaged||pptxTestBuild&&!presenterBuild;
 const remotePcQaMode=remoteHelperMode&&pptxTestBuild&&!presenterBuild&&process.argv.includes('--remote-pc-allow-loopback-test');
-const applicationName=remoteHelperMode?(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper'):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':'CastLink Client';
+const applicationName=remoteHelperMode?(remotePcQaMode?'CastLink Remote PC Test':'CastLink Remote PC Helper'):presenterBuild?(presentationHelperMode?'CastLink Client Preview Presenter':'CastLink Client Preview'):presentationHelperMode?'CastLink Presentation Helper':pptxTestBuild?'CastLink PPTX Test':vmixPilotBuild?'CastLink vMix Pilot':'CastLink Client';
 app.setName(applicationName);
-if(remoteHelperMode||presentationHelperMode||pptxTestBuild){
+if(remoteHelperMode||presentationHelperMode||!managedRelease){
   const isolatedProfile=path.join(app.getPath('appData'),applicationName);
   fs.mkdirSync(path.join(isolatedProfile,'session'),{recursive:true});
   app.setPath('userData',isolatedProfile);
   app.setPath('sessionData',path.join(isolatedProfile,'session'));
-  if(process.platform==='win32')app.setAppUserModelId?.(remoteHelperMode?'ru.castlink.remote-pc-helper':presenterBuild?(presentationHelperMode?'ru.castlink.client.preview.presenter':'ru.castlink.client.preview'):presentationHelperMode?'ru.castlink.presentation-helper':'ru.castlink.pptx-test');
+  if(process.platform==='win32')app.setAppUserModelId?.(remoteHelperMode?'ru.castlink.remote-pc-helper':presenterBuild?(presentationHelperMode?'ru.castlink.client.preview.presenter':'ru.castlink.client.preview'):presentationHelperMode?'ru.castlink.presentation-helper':vmixPilotBuild?'ru.castlink.client.vmix-pilot':'ru.castlink.pptx-test');
 }
 let launcher, client, picker, finishPicker, pendingSources = [], permissionPolicy, captureDispose, stopController, slideController, setupController, powerPointController;
 let settings = { serverOrigin: 'https://castlink.ru', reserveOrigins: [], locale: 'ru' }, quitting = false;
+let vmixController, waitingForVmixOnExit = false;
 let pickerGeneration = 0, applicationMenu, audioRequested=false, processAudio, pendingDisplay, updateController;
 let selectedDisplay, sharedDisplay,remoteControlController;
 const {randomUUID}=require('node:crypto');
 if(nativeTheme)nativeTheme.themeSource='system';
 const trustedOrigins = new Set();
 const resourcesRoot = () => app.isPackaged ? process.resourcesPath : path.join(__dirname,'../../../artifacts/desktop-native');
+const vmixAvailable = () => process.platform === 'win32' && (!app.isPackaged || fs.existsSync(path.join(resourcesRoot(),'vmix/node_modules/@livekit/rtc-node/package.json')));
 const ui = name => path.join(__dirname, '../ui', name);
 const labels = () => ({
   ru: { connect:'Подключение…', server:'Сервер', change:'Сменить сервер…', exit:'Выйти', close:'Выйти из CastLink?', warning:'Соединение будет закрыто. Камера, микрофон и демонстрация этого приложения остановятся.', cancel:'Отмена', allow:'Разрешить', deny:'Не разрешать', permission:'Разрешение устройств', microphone:'Микрофон', camera:'Камера', display:'Выбор экрана или окна', output:'Выбор устройства вывода звука', fullscreen:'Полноэкранный режим', error:'Не удалось открыть сервер. Проверьте сеть и доверие HTTPS-сертификату.' },
@@ -43,7 +47,9 @@ const labels = () => ({
 }[settings.locale]);
 
 function preferences(role) {
-  return { preload: path.join(__dirname, 'preload.cjs'), additionalArguments: [`--castlink-role=${role}`, `--castlink-locale=${settings.locale}`], nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false, autoplayPolicy:'no-user-gesture-required' };
+  const additionalArguments = [`--castlink-role=${role}`, `--castlink-locale=${settings.locale}`];
+  if (role === 'client' && vmixAvailable()) additionalArguments.push('--castlink-vmix=1');
+  return { preload: path.join(__dirname, 'preload.cjs'), additionalArguments, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, backgroundThrottling: false, autoplayPolicy:'no-user-gesture-required' };
 }
 function isLocal(event, window, name) {
   return !!window && !window.isDestroyed() && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === pathToFileURL(ui(name)).href;
@@ -68,14 +74,32 @@ async function confirmExit() {
   const t=labels();
   return (await dialog.showMessageBox(client, {type:'question',message:t.close,detail:t.warning,buttons:[t.cancel,t.exit],cancelId:0,defaultId:0,noLink:true})).response===1;
 }
+
+async function openVmixFromMenu() {
+  const title = { ru:'Выходы для vMix', en:'vMix outputs', 'zh-CN':'vMix 输出' }[settings.locale];
+  try { await vmixController.openStudio(); }
+  catch (error) {
+    if(!client || client.isDestroyed())return;
+    const hint = error.message === 'VMIX_SLOTS' ? {
+      ru:'Создайте постоянные слоты в разделе «Слоты кастеров».',
+      en:'Create permanent slots in Caster slots.', 'zh-CN':'请在播出者槽位中创建固定槽位。',
+    } : {
+      ru:'Откройте комнату студии с правами управления слотами на сервере с поддержкой слотов кастеров.',
+      en:'Open the studio room with permission to manage caster slots on a compatible server.',
+      'zh-CN':'请在支持播出者槽位的服务器上打开有管理权限的演播室房间。',
+    };
+    await dialog.showMessageBox(client,{type:'info',message:title,detail:hint[settings.locale]});
+  }
+}
 function configureMenu() {
   const t=labels();
   Menu.setApplicationMenu(null);
-  const updateItems=pptxTestBuild?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
+  const updateItems=!managedRelease?[]:[{label:require('./updates.cjs').TEXT[settings.locale].check,click:()=>updateController?.check({manual:true}).finally(configureMenu)},{label:require('./updates.cjs').TEXT[settings.locale].automatic,type:'checkbox',checked:updateController?.automatic()!==false,click:item=>updateController?.setAutomatic(item.checked)},{type:'separator'}];
+  const vmixItems=vmixController?[{label:{ru:'Выходы для vMix…',en:'vMix outputs…','zh-CN':'vMix 输出…'}[settings.locale],click:openVmixFromMenu},{type:'separator'}]:[];
   const crashItems = process.platform === 'win32'
     ? [require('./crash-reports.cjs').menuItem({ app, dialog, shell, locale: settings.locale })]
     : [];
-  applicationMenu=Menu.buildFromTemplate([...updateItems,...crashItems,{label:t.change,click:async()=>{if(await confirmExit()){showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
+  applicationMenu=Menu.buildFromTemplate([...vmixItems,...updateItems,...crashItems,{label:t.change,click:async()=>{if(await confirmExit()){await vmixController?.reset();showLauncher();captureDispose?.();stopController?.dispose();slideController?.dispose();client?.destroy();client=undefined;permissionPolicy?.reset();trustedOrigins.clear();configureMenu();}}},{type:'separator'},{label:t.exit,click:()=>app.quit()}]);
 }
 function createUpdates() {
   const updates=require('./updates.cjs');
@@ -166,14 +190,20 @@ async function connect(value) {
   stopController=require('./stop-panel.cjs').createStopController({client:own,ipcMain,BrowserWindow,globalShortcut,preferences,isLocal,ui,trustedOrigins,getSharedSource:()=>sharedDisplay});
   remoteControlController=require('./remote-pc-desktop.cjs').createRemotePcDesktop({client:own,ipcMain,trustedOrigins,resourcesPath:resourcesRoot(),getSharedSource:()=>sharedDisplay,toolbar:stopController});
   slideController=require('./slide-panel.cjs').createSlideController({client:own,ipcMain,BrowserWindow,preferences,isLocal,ui,trustedOrigins,getWorkArea:bounds=>screen.getDisplayMatching(bounds).workArea});
+  const vmixPanel=vmixAvailable()?require('./vmix-output-panel.cjs').createVmixOutputPanel({client:own,ipcMain,BrowserWindow,utilityProcess,dialog,
+    preferences,isLocal,protectLocal,ui,trustedOrigins,resourcesPath:resourcesRoot(),profile:path.join(app.getPath('userData'),'vmix-outputs.json'),getLocale:()=>settings.locale}):undefined;
+  vmixController=vmixPanel;
   own.webContents.setWindowOpenHandler(({url})=>{try{const parsed=new URL(url);if(['https:','http:','mailto:'].includes(parsed.protocol))shell.openExternal(url).catch(()=>{});else if(isRemoteLaunch(url)){require('./remote-pc-protocol.cjs').parseRemoteLaunch(url);shell.openExternal(url).catch(()=>{});}else if(presenterBuild&&isPresenterLaunch(url)){require('./presenter-protocol.cjs').parsePresenterLaunch(url);shell.openExternal(url).catch(()=>{});}}catch{}return {action:'deny'};});
   own.webContents.on('will-navigate',(event,url)=>{if(!canNavigate(url,trustedOrigins)){event.preventDefault();dialog.showMessageBox(own,{type:'warning',message:labels().error,detail:'Untrusted server origin'});}});
   own.webContents.on('will-redirect',(event,url)=>{if(!canNavigate(url,trustedOrigins))event.preventDefault();});
   own.webContents.on('will-attach-webview',event=>event.preventDefault());
   own.webContents.on('did-start-navigation',(_event,url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace){dismissPicker();void remoteControlController?.releaseCapture();pendingDisplay=selectedDisplay=sharedDisplay=undefined;captureDispose?.reset();stopProcessAudio();createPowerPointController();const origin=new URL(url).origin;permissionPolicy.reset({keepGrants:origin===navigationOrigin});navigationOrigin=origin;stopController?.reset();slideController?.reset();}});
   own.webContents.on('render-process-gone',()=>{dismissPicker();void remoteControlController?.releaseCapture();pendingDisplay=selectedDisplay=sharedDisplay=undefined;stopProcessAudio();powerPointController?.dispose();stopController?.reset();slideController?.reset();});
+  own.webContents.on('did-start-navigation',(_event,_url,inPlace,isMainFrame)=>{if(isMainFrame&&!inPlace)void vmixPanel?.reset();});
+  own.webContents.on('render-process-gone',()=>{void vmixPanel?.reset();});
+  own.once('closed',()=>{void vmixPanel?.dispose().finally(()=>{if(vmixController===vmixPanel)vmixController=undefined;});});
   let confirming=false;
-  own.on('close',event=>{if(quitting)return;event.preventDefault();if(confirming)return;confirming=true;confirmExit().then(allowed=>{if(allowed){quitting=true;own.destroy();app.quit();}}).finally(()=>confirming=false);});
+  own.on('close',event=>{if(quitting)return;event.preventDefault();if(confirming)return;confirming=true;confirmExit().then(async allowed=>{if(allowed){quitting=true;await vmixPanel?.reset();own.destroy();app.quit();}}).finally(()=>confirming=false);});
   own.on('closed',()=>{dismissPicker();void remoteControlController?.releaseCapture();pendingDisplay=selectedDisplay=sharedDisplay=undefined;stopProcessAudio();powerPointController?.dispose();remoteControlController?.dispose();remoteControlController=undefined;captureDispose?.();stopController?.dispose();slideController?.dispose();permissionPolicy?.reset();if(client===own)client=undefined;});
   configureMenu();
   try {
@@ -200,6 +230,7 @@ function receiveInvitation(input) {
     if(client&&!client.isDestroyed()){
       focusApplication();
       if(!await confirmExit())return;
+      await vmixController?.reset();
       showLauncher();
       client.destroy();
     }
@@ -220,7 +251,7 @@ if(remoteHelperMode){
 else {
   if (process.platform === 'win32') crashReporter.start({ uploadToServer: false });
   require('./private-test-basic-auth.cjs').installPrivateTestAuth({app,enabled:pptxTestBuild&&!presenterBuild,file:process.env.CASTLINK_PRIVATE_TEST_AUTH_FILE,getClient:()=>client,getOrigin:()=>settings.serverOrigin});
-  if(app.isPackaged&&!pptxTestBuild){
+  if(app.isPackaged&&managedRelease){
     // electron-builder removes the portable's extracted process.execPath on exit.
     const portable=process.platform==='win32'&&process.env.PORTABLE_EXECUTABLE_FILE;
     for(const scheme of ['castlink-remote','castlink-presenter','castlink']){
@@ -235,12 +266,12 @@ else {
   });
   app.on('open-url',(event,url)=>{event.preventDefault();receiveInvitation(url);});
   app.whenReady().then(()=>{
-    setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
+    if(managedRelease)setupController=require('./setup.cjs').createSetupAdapter({resourcesPath:resourcesRoot()});
     try {const stored=JSON.parse(fs.readFileSync(path.join(app.getPath('userData'),'servers.json'),'utf8'));settings=settingsForDisk(parseServerInput(stored.serverOrigin,allowLoopback),stored.reserveOrigins,stored.locale);}catch{}
-    if(!pptxTestBuild)updateController=createUpdates();
-    ipcMain.handle('castlink:updates',(event,locale)=>{if(pptxTestBuild)throw Error('Updates disabled in the private PPTX test build');if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});
-    ipcMain.handle('castlink:settings',event=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return {...settings,version:app.isPackaged?app.getVersion():require('../../../package.json').version};});
-    ipcMain.handle('castlink:setup',(event,value)=>{if(pptxTestBuild)throw Error('Server setup disabled in the private PPTX test build');if(!isLocal(event,launcher,'start.html')||!value||Object.keys(value).some(key=>!['action','locale'].includes(key)))throw Error('Denied');return setupController.launch(value.action,value.locale);});
+    if(managedRelease)updateController=createUpdates();
+    ipcMain.handle('castlink:updates',(event,locale)=>{if(!managedRelease)throw Error('Updates disabled in this build');if(!isLocal(event,launcher,'start.html')||locale!==undefined&&!['ru','en','zh-CN'].includes(locale))throw Error('Denied');return updateController.check({manual:true,locale}).finally(configureMenu);});
+    ipcMain.handle('castlink:settings',event=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return {...settings,vmixPilotBuild,version:app.isPackaged?app.getVersion():require('../../../package.json').version};});
+    ipcMain.handle('castlink:setup',(event,value)=>{if(!managedRelease)throw Error('Server setup disabled in this build');if(!isLocal(event,launcher,'start.html')||!value||Object.keys(value).some(key=>!['action','locale'].includes(key)))throw Error('Denied');return setupController.launch(value.action,value.locale);});
     ipcMain.handle('castlink:connect',(event,value)=>{if(!isLocal(event,launcher,'start.html'))throw Error('Denied');return connect(value);});
     const clientEvent=event=>require('./ipc-policy.cjs').isClientEvent(event,client,trustedOrigins);
     ipcMain.on('castlink:theme',(event,value)=>{if(clientEvent(event)&&['dark','light'].includes(value)&&nativeTheme)nativeTheme.themeSource=value;});
@@ -253,8 +284,14 @@ else {
     ipcMain.handle('castlink:capture-choose',(event,value)=>{if(!isLocal(event,picker,'capture-picker.html'))throw Error('Denied');const id=typeof value==='string'?value:value?.id;const source=pendingSources.find(s=>s.id===id);const audio=!!source&&typeof value==='object'&&value?.audio===true;if(audio&&(!audioRequested||!/^window:[1-9][0-9]*:0$/.test(id)))throw Error('Choose PowerPoint window for audio');finishPicker?.(source?{source,audio}:null);});
     configureMenu();showLauncher();readyForInvitations=true;
     if(pendingInvitation){const invitation=pendingInvitation;pendingInvitation=undefined;receiveInvitation(invitation);}
-    if(app.isPackaged&&!pptxTestBuild)void updateController.check().finally(configureMenu);
+    if(app.isPackaged&&managedRelease)void updateController.check().finally(configureMenu);
   });
-  app.on('before-quit',event=>{if(client&&!client.isDestroyed()&&!quitting){event.preventDefault();client.close();}});
+  app.on('before-quit',event=>{
+    if(client&&!client.isDestroyed()&&!quitting){event.preventDefault();client.close();return;}
+    if(vmixController?.isRunning()){
+      event.preventDefault();
+      if(!waitingForVmixOnExit){waitingForVmixOnExit=true;void vmixController.reset().finally(()=>app.quit());}
+    }
+  });
   app.on('window-all-closed',()=>app.quit());
 }

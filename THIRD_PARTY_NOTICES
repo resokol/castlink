@@ -51,4 +51,6 @@ license; the CastLink source license does not replace third-party licenses.
 CastLink Windows Client additionally includes Electron 45.4.1 (MIT) and its Chromium/Node.js runtime.
 Electron copyright and Chromium third-party notices are distributed with the runtime
 as LICENSE.electron.txt and LICENSES.chromium.html (or the runtime's equivalent names).
+The desktop vMix outputs use LiveKit RTC Node and RTC FFI (Apache License 2.0)
+and Koffi (MIT). Original notices remain under resources/vmix/node_modules.
 electron-builder is a development-only packaging tool; it is not loaded by the client.

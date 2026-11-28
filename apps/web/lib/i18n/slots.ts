@@ -34,6 +34,8 @@ export const slotsMessages:Record<string,readonly[string,string]>={
  "Постоянные выходы для OBS/vMix. Смена кастера сохраняет ссылки.":["Permanent outputs for OBS/vMix. Changing the caster keeps the links.","用于 OBS/vMix 的固定输出。更换播出者后链接保持不变。"],
  "Имя слота":["Slot name","槽位名称"],
  "Создать слот":["Create slot","创建槽位"],
+ "Выходы для vMix":["vMix outputs","vMix 输出"],
+ "Не удалось открыть выходы для vMix":["Could not open vMix outputs","无法打开 vMix 输出"],
  "Ожидают допуска":["Waiting for admission","等待准入"],
  "Очередь пуста":["Nobody is waiting","暂无等待者"],
  "Создать отдельный инвайт":["Create another invitation","创建另一邀请"],

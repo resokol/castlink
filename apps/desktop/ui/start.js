@@ -15,7 +15,7 @@ function roleCopy(){
   get('role-help').textContent=caster?(manual?c.manualIntro:c.casterIntro):c.studioIntro;
   get('server-label').textContent=caster&&!manual?c.invitation:c.server;
   get('server-hint').textContent=caster&&!manual?c.inviteNote:c.serverHint;
-  get('reserve-settings').hidden=caster;get('studio-setup').hidden=caster;get('caster-manual').hidden=!caster||manual;
+  get('reserve-settings').hidden=caster;get('studio-setup').hidden=caster||get('open-setup').hidden;get('caster-manual').hidden=!caster||manual;
 }
 function translate(){document.documentElement.lang=locale.value;document.querySelectorAll('[data-copy]').forEach(el=>el.textContent=copy[locale.value][el.dataset.copy]);get('theme').setAttribute('aria-label',copy[locale.value].theme);roleCopy();error.hidden=true;}
 function chooseRole(role){selectedRole=role;manual=false;get('server').value=role==='studio'?studioInput:casterInput;get('role-view').hidden=true;get('connect-view').hidden=false;error.hidden=true;roleCopy();get('form-title').focus();}
@@ -29,7 +29,7 @@ for(const id of ['open-setup','studio-open-setup'])get(id).addEventListener('cli
 get('close-setup').addEventListener('click',()=>{get('setup-panel').hidden=true;get('open-setup').focus();});
 get('open-help').addEventListener('click',()=>togglePanel('help-panel',get('help-panel').hidden,'close-help'));
 get('close-help').addEventListener('click',()=>{get('help-panel').hidden=true;get('open-help').focus();});
-window.castlinkLauncher.settings().then(settings=>{locale.value=settings.locale in copy?settings.locale:'ru';studioInput=settings.serverOrigin||'https://castlink.ru';if(selectedRole==='studio')get('server').value=studioInput;get('reserves').value=(settings.reserveOrigins||[]).join('\n');get('version').textContent=settings.version;translate();}).catch(()=>{error.textContent=copy[locale.value].error;error.hidden=false;});
+window.castlinkLauncher.settings().then(settings=>{locale.value=settings.locale in copy?settings.locale:'ru';studioInput=settings.serverOrigin||'https://castlink.ru';if(selectedRole==='studio')get('server').value=studioInput;get('reserves').value=(settings.reserveOrigins||[]).join('\n');get('version').textContent=settings.version;if(settings.vmixPilotBuild)for(const id of ['open-setup','studio-setup','check-updates'])get(id).hidden=true;translate();}).catch(()=>{error.textContent=copy[locale.value].error;error.hidden=false;});
 form.addEventListener('submit',async event=>{event.preventDefault();submit.disabled=true;error.hidden=true;try{await window.castlinkLauncher.connect({role:selectedRole,input:get('server').value,reserves:get('reserves').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),locale:locale.value});}catch{error.textContent=copy[locale.value].error;error.hidden=false;}finally{submit.disabled=false;}});
 document.querySelectorAll('[data-setup]').forEach(button=>button.addEventListener('click',async()=>{const status=get('setup-status');button.disabled=true;status.hidden=true;try{await window.castlinkLauncher.setup({action:button.dataset.setup,locale:locale.value});status.textContent=copy[locale.value].setupStarted;}catch{status.textContent=copy[locale.value].setupError;}finally{button.disabled=false;status.hidden=false;}}));
 get('check-updates').addEventListener('click',async()=>{const button=get('check-updates');button.disabled=true;button.textContent=copy[locale.value].checkingUpdates;try{await window.castlinkLauncher.updates(locale.value);}finally{button.disabled=false;button.textContent=copy[locale.value].checkUpdates;}});

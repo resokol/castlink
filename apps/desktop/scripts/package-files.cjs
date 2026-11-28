@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {resolveTrack}=require('../../../scripts/release-track.cjs');
 function isPackageFile(file){return /^(src\/[a-z][a-z0-9-]*\.cjs|ui\/[a-z][a-z0-9-]*\.(html|css|js)|assets\/castlink-icon\.(svg|ico))$/.test(file);}
 function artifactNames(version,commit){const prefix=`CastLink-Client-${version}-${commit.slice(0,12)}`;return {unified:`CastLink-${version}-${commit.slice(0,12)}-Windows.exe`,portable:prefix+'-win-x64.${ext}',installer:prefix+'-setup.exe'};}
-function stagePackage(root,destination,sourceCommit){
+function stagePackage(root,destination,sourceCommit,{vmixOutputs=false,vmixPilotBuild=false}={}){
   if(!/^[a-f0-9]{40}$/.test(sourceCommit))throw Error('Exact source commit required');
   const product=resolveTrack('client',sourceCommit,root);
   const desktop=path.join(root,'apps/desktop'),manifest=JSON.parse(fs.readFileSync(path.join(desktop,'package.json'),'utf8'));
@@ -13,9 +13,12 @@ function stagePackage(root,destination,sourceCommit){
     if(!isPackageFile(relative)||!fs.lstatSync(source).isFile())continue;
     fs.mkdirSync(path.dirname(path.join(destination,relative)),{recursive:true});fs.copyFileSync(source,path.join(destination,relative));
   }
-  fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:manifest.name,version:product.version,main:manifest.main,author:'CastLink',description:'CastLink Windows Client',license:'MIT'},null,2));
+  const version=vmixPilotBuild?product.version+'-vmix.1':product.version;
+  fs.writeFileSync(path.join(destination,'package.json'),JSON.stringify({name:manifest.name,version,main:manifest.main,author:'CastLink',description:'CastLink Windows Client',license:'MIT'},null,2));
   for(const file of ['LICENSE','THIRD_PARTY_NOTICES'])fs.copyFileSync(path.join(root,file),path.join(destination,file));
-  const info={...product,electron:manifest.devDependencies.electron,systemAudio:false,presentationAudio:'powerpoint-process-only',floatingSlideControls:true,powerPointBridge:4,browserControl:true,remotePcCapture:1,remotePcInput:1,remoteControlBridge:1,remoteControlInputPolicy:2,serverSetup:true,updateChecks:true,manualUpdate:true,autoUpdate:false,signed:false};
+  const info={...product,electron:manifest.devDependencies.electron,systemAudio:false,presentationAudio:'powerpoint-process-only',floatingSlideControls:true,powerPointBridge:4,browserControl:true,remotePcCapture:1,remotePcInput:1,remoteControlBridge:1,remoteControlInputPolicy:2,...(vmixOutputs?{vmixOutputs:1}:{}),serverSetup:true,updateChecks:true,manualUpdate:true,autoUpdate:false,signed:false};
+  if(vmixPilotBuild)Object.assign(info,{version,track:'vmix-pilot',buildNumber:version+'-'+sourceCommit.slice(0,12),vmixPilotBuild:true,
+    serverSetup:false,updateChecks:false,manualUpdate:false,protocolRegistration:false});
   fs.writeFileSync(path.join(destination,'build-info.json'),JSON.stringify(info,null,2));return info;
 }
 module.exports={isPackageFile,stagePackage,artifactNames};

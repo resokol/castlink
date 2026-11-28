@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>CastLink · vMix</title>
+  <link rel="stylesheet" href="vmix-outputs.css">
+</head>
+<body>
+  <header class="window-header">
+    <div class="brand"><img src="../assets/castlink-icon.svg" alt="" width="28" height="28"><span>CastLink</span><span class="location" data-copy="desktop">Desktop / Студия</span></div>
+    <div class="tools"><label><span class="sr-only" data-copy="language">Язык</span><select id="locale"><option value="ru">Русский</option><option value="en">English</option><option value="zh-CN">简体中文</option></select></label><button id="theme" type="button" class="quiet" data-copy="theme">Тема</button></div>
+  </header>
+  <main>
+    <div class="page-title"><h1 data-copy="title">Слоты кастеров</h1><span id="count" class="muted"></span></div>
+    <form id="outputs" novalidate>
+      <section class="panel" aria-labelledby="outputs-title">
+        <div class="settings">
+          <div class="toolbar"><h2 id="outputs-title" data-copy="outputs">Выходы для vMix</h2><div class="actions"><label for="protocol" class="muted" data-copy="protocol">Протокол</label><select id="protocol"><option value="ndi">NDI</option><option value="omt">OMT</option><option value="srt" selected>SRT</option></select><button id="toggle" type="submit" class="primary" disabled data-copy="start">Запустить выходы</button></div></div>
+          <p id="receiver-help" class="muted"></p>
+          <fieldset id="configuration" disabled>
+            <div id="srt-settings" class="srt-settings">
+              <div class="fields">
+                <label><span data-copy="senderMode">Режим CastLink</span><select id="srt-mode"><option value="listener">Listener</option><option value="caller">Caller</option><option value="rendezvous">Rendezvous</option></select></label>
+                <label class="address-field"><span id="address-label">Локальный IP-адрес</span><input id="address" type="text" value="127.0.0.1" autocomplete="off" spellcheck="false" maxlength="255"></label>
+                <label><span data-copy="latency">Задержка, мс</span><input id="latency" type="number" value="200" min="0" max="60000" step="1"></label>
+                <label id="local-address-field" hidden><span data-copy="localAddress">Локальный IP-адрес</span><input id="local-address" type="text" placeholder="0.0.0.0" autocomplete="off" spellcheck="false" maxlength="46"></label>
+              </div>
+              <details id="advanced"><summary data-copy="encryption">Шифрование и Stream ID</summary><div class="fields"><label><span data-copy="passphrase">Пароль (Passphrase)</span><input id="passphrase" type="password" autocomplete="new-password" spellcheck="false"></label><label><span data-copy="keyLength">Длина ключа</span><select id="key-length"><option value="16">AES-128</option><option value="24">AES-192</option><option value="32" selected>AES-256</option></select></label><p class="format muted">H.264 + AAC-LC · MPEG-TS</p></div><p class="muted" data-copy="encryptionHelp">Пароль: 10–79 байт UTF-8. Укажите тот же пароль и ключ в vMix.</p></details>
+            </div>
+            <details class="runtime-settings"><summary data-copy="runtime">Компоненты и качество</summary><div class="runtime-row"><div class="runtime-info"><span id="runtime-label"></span><span id="runtime-path" class="muted"></span></div><button id="pick-runtime" type="button" data-copy="browse">Выбрать файл…</button></div><p id="runtime-help" class="muted"></p><div class="quality-fields"><label><span data-copy="fps">Кадров/с</span><select id="fps"><option value="30">30</option><option value="50">50</option><option value="60">60</option></select></label><label><span data-copy="bitrate">Битрейт, Кбит/с</span><input id="bitrate" type="number" value="8000" min="500" max="25000" step="100"></label></div></details>
+            <div class="runtime-row" id="relay-settings" hidden><div class="runtime-info"><span>srt-live-transmit.exe</span><span id="relay-path" class="muted"></span></div><button id="pick-relay" type="button" data-copy="browse">Выбрать файл…</button></div>
+          </fieldset>
+        </div>
+        <p id="notice" class="notice muted" role="status" data-copy="loading">Загрузка слотов…</p>
+        <p id="error" class="error" role="alert" hidden></p>
+        <div class="columns" aria-hidden="true"><span data-copy="slot">Слот / кастер</span><span data-copy="source">Что передавать</span><span data-copy="receiver">Вход в vMix</span></div>
+        <ol id="slots" aria-label="CastLink outputs"></ol>
+      </section>
+    </form>
+    <p class="footnote muted" data-copy="stable">Назначайте кастеров в студии. При смене кастера вход vMix и имя слота сохраняются.</p>
+  </main>
+  <script src="vmix-outputs.js"></script>
+</body>
+</html>

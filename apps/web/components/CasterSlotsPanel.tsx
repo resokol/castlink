@@ -5,9 +5,16 @@ import type { CasterSlot } from "@/lib/caster-slot-types";
 type Slot=CasterSlot&{cameraPath:string;screenPath:string};
 type Queue={id:string;name:string;identity:string;state:string;proposedSlotId?:string};
 type Data={slots:Slot[];invites:{id:string;path:string}[];queue:Queue[]};
+type VmixSlot=Pick<Slot,"id"|"name"|"cameraPath"|"screenPath">&{assignment?:string};
+type VmixBridge={version:number;open:(slots:VmixSlot[])=>Promise<void>};
 export function CasterSlotsPanel({studioId,roomName,active=true}:{studioId:string;roomName:string;active?:boolean}){
  const {t}=useI18n(),[data,setData]=useState<Data>({slots:[],invites:[],queue:[]}),[name,setName]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState(""),[creating,setCreating]=useState(false),[loading,setLoading]=useState(true);
  const scope=JSON.stringify([studioId,roomName]),generation=useRef(0),flight=useRef(false);
+ const [vmix,setVmix]=useState<VmixBridge>();
+ useEffect(()=>{
+  const bridge=(window as Window & {castlinkDesktop?:{vmixOutputs?:VmixBridge}}).castlinkDesktop?.vmixOutputs;
+  if(bridge?.version===1)setVmix(bridge);
+ },[]);
  useEffect(()=>{const mine=++generation.current,abort=new AbortController();let timer:ReturnType<typeof setTimeout>;setData({slots:[],invites:[],queue:[]});setError("");setMessage("");setName("");setCreating(false);setLoading(true);
   if(!active)return;
   const poll=async()=>{try{if(!flight.current){const response=await fetch(`/api/caster-slots?${new URLSearchParams({studioId,room:roomName})}`,{cache:"no-store",signal:abort.signal});const next=await response.json();if(!response.ok)throw Error(next.error);if(generation.current===mine){setData(next);setLoading(false);setError("");}}}catch(e){if(!abort.signal.aborted&&generation.current===mine){setLoading(false);setError(e instanceof Error?e.message:"Не удалось загрузить слоты");}}finally{if(!abort.signal.aborted)timer=setTimeout(poll,3000);}};
@@ -20,12 +27,21 @@ export function CasterSlotsPanel({studioId,roomName,active=true}:{studioId:strin
   finally{flight.current=false;setBusy(false);}
  };
  const copy=async(path:string)=>{try{await navigator.clipboard.writeText(new URL(path,window.location.origin).href);setError("");setMessage("Ссылка скопирована");}catch{setError("Скопируйте ссылку из поля");}};
+ const openVmix=async()=>{
+  try{
+   await vmix?.open(data.slots.map(({id,name,cameraPath,screenPath,assignment})=>({id,name,cameraPath,screenPath,
+    assignment:data.queue.find(caster=>caster.identity===assignment?.identity)?.name})));
+  }catch{setError("Не удалось открыть выходы для vMix");}
+ };
  const occupied=data.slots.filter(slot=>!!slot.assignment).length;
  const unboundInvites=data.invites.filter(invite=>!data.slots.some(slot=>slot.inviteId===invite.id));
  return <section className="panel caster-slots-panel" hidden={!active} aria-label={t("Слоты кастеров")} aria-busy={busy||loading}>
   <header className="slots-toolbar">
    <div className="slots-title"><h2>{t("Слоты кастеров")}</h2>{!loading&&<span className="slots-count">{t("{used} из {total} занято",{used:occupied,total:data.slots.length})}</span>}<p className="muted">{t("Постоянные выходы для OBS/vMix. Смена кастера сохраняет ссылки.")}</p></div>
-   <button type="button" className="button-primary" disabled={busy} aria-expanded={creating} onClick={()=>setCreating(!creating)}>{t("Создать слот")}</button>
+   <div className="slot-actions">
+    {vmix&&<button type="button" className="button-secondary" disabled={busy||loading||!data.slots.length} onClick={()=>void openVmix()}>{t("Выходы для vMix")}</button>}
+    <button type="button" className="button-primary" disabled={busy} aria-expanded={creating} onClick={()=>setCreating(!creating)}>{t("Создать слот")}</button>
+   </div>
   </header>
   {creating&&<form className="slot-create" onSubmit={e=>{e.preventDefault();void run({action:"create",name});}}><label>{t("Имя слота")}<input autoFocus value={name} maxLength={120} placeholder={t("Например, ведущий")} onChange={e=>setName(e.target.value)}/></label><button className="button-primary" disabled={busy||!name.trim()}>{t("Создать")}</button><button type="button" className="button-secondary" disabled={busy} onClick={()=>setCreating(false)}>{t("Отмена")}</button></form>}
   <div className="slot-queue"><strong>{t("Кастеры в комнате")}{!loading&&<span className="slots-room-count">{data.queue.length}</span>}</strong><div className="slot-roster">{loading?<span className="muted">{t("Загрузка слотов…")}</span>:data.queue.length?data.queue.map(q=><span className="slot-caster-chip" key={q.id}>{q.name}</span>):<span className="muted">{t("Нет подключённых кастеров")}</span>}</div></div>

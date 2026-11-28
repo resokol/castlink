@@ -1,18 +1,28 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
-test('the standard package builds and ships its existing PDF navigation helper alongside PowerPoint and audio',async()=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-standard-package-test-')),commit='a'.repeat(40),calls=[],runtimeProcess={platform:'win32',env:{}};
+test('the standard package ships native presentation helpers and the vMix runtime',async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-standard-package-test-')),commit='a'.repeat(40),calls=[],runtimeProcess={platform:'win32',execPath:'node',env:{npm_execpath:'pnpm.cjs'}};
  let configuration;
  const native=(kind,output)=>{calls.push(kind);fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,kind);return output;};
  const modules={
   'node:fs':fs,'node:path':path,'node:os':os,'node:crypto':require('node:crypto'),
-  'node:child_process':{execFileSync:(_exe,args)=>args[0]==='rev-parse'?commit:''},
+  'node:child_process':{execFileSync:(_exe,args)=>{
+    if(args[0]==='rev-parse')return commit;
+    if(args.includes('deploy')){
+      assert.ok(args.includes('--prod'));
+      const modules=path.join(args.at(-1),'node_modules');
+      for(const name of ['@livekit/rtc-ffi-bindings-win32-x64-msvc','@koromix/koffi-win32-x64']){
+        fs.mkdirSync(path.join(modules,name),{recursive:true});fs.writeFileSync(path.join(modules,name,'package.json'),'{}');
+      }
+    }
+    return '';
+  }},
   './setup-resources.cjs':{stageSetupResources:(_root,resources)=>{const directory=path.join(resources,'setup');fs.mkdirSync(directory,{recursive:true});return{directory};}},
   './updater-resources.cjs':{stageUpdaterResources:(_root,resources)=>{const file=path.join(resources,'updater/castlink-updater.ps1');fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'fixture');return {file};}},
   './build-process-audio.cjs':{buildProcessAudio:(_root,output)=>native('audio',output)},
   './build-remote-pc-input.cjs':{buildRemotePcInput:(_root,output)=>native('remote-input',output)},
   './build-window-slides.cjs':{buildWindowSlides:(_root,output)=>native('window-slides',output)},
-  './package-files.cjs':{stagePackage:()=>({version:'1.0.0',electron:'44.9.0'}),artifactNames:()=>({unified:'portable.exe',portable:'client.zip',installer:'setup.exe'})},
+  './package-files.cjs':{stagePackage:(_root,_stage,_commit,features)=>({version:'1.0.0',electron:'44.9.0',vmixOutputs:features.vmixOutputs}),artifactNames:()=>({unified:'portable.exe',portable:'client.zip',installer:'setup.exe'})},
   'electron-builder':{Platform:{WINDOWS:{createTarget:()=>({})}},Arch:{x64:'x64'},build:async value=>{configuration=value.config;fs.mkdirSync(configuration.directories.output,{recursive:true});return[];}},
  };
  try{
@@ -26,5 +36,6 @@ test('the standard package builds and ships its existing PDF navigation helper a
   assert.ok(configuration.extraResources.some(resource=>resource.to==='powerpoint/Control.ps1'));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='process-audio/CastLink.ProcessAudio.exe'));
   assert.ok(configuration.extraResources.some(resource=>resource.to==='updater/castlink-updater.ps1'),'persistent updater must ship in the future standard client installer');
+  assert.ok(configuration.extraResources.some(resource=>resource.to==='vmix/node_modules'&&resource.from.endsWith(path.join('vmix-runtime','node_modules'))));
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
