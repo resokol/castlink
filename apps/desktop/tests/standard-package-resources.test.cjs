@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 test('the standard package ships native presentation helpers and the vMix runtime',async()=>{
- const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-standard-package-test-')),commit='a'.repeat(40),calls=[],runtimeProcess={platform:'win32',execPath:'node',env:{npm_execpath:'pnpm.cjs'}};
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'castlink-standard-package-test-')),commit='a'.repeat(40),calls=[],runtimeProcess={platform:'win32',execPath:'node',env:{npm_execpath:'pnpm.exe'}};
  let configuration;
  const native=(kind,output)=>{calls.push(kind);fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,kind);return output;};
  const modules={
@@ -9,6 +9,7 @@ test('the standard package ships native presentation helpers and the vMix runtim
   'node:child_process':{execFileSync:(_exe,args)=>{
     if(args[0]==='rev-parse')return commit;
     if(args.includes('deploy')){
+      assert.equal(_exe,'pnpm.exe');
       assert.ok(args.includes('--prod'));
       const modules=path.join(args.at(-1),'node_modules');
       for(const name of ['@livekit/rtc-ffi-bindings-win32-x64-msvc','@koromix/koffi-win32-x64']){

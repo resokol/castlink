@@ -31,7 +31,9 @@ async function main(){
       const packageManager=process.env.npm_execpath;
       if(!packageManager)throw Error('Run package:win through pnpm');
       const deployment=path.join(stage,'vmix-runtime');
-      execFileSync(process.execPath,[packageManager,'--config.inject-workspace-packages=true','--config.node-linker=hoisted','--filter','@castlink/desktop','deploy','--prod','--ignore-scripts',deployment],{cwd:root,stdio:'inherit'});
+      const deploy=['--config.inject-workspace-packages=true','--config.node-linker=hoisted','--filter','@castlink/desktop','deploy','--prod','--ignore-scripts',deployment];
+      if(path.extname(packageManager).toLowerCase()==='.exe')execFileSync(packageManager,deploy,{cwd:root,stdio:'inherit'});
+      else execFileSync(process.execPath,[packageManager,...deploy],{cwd:root,stdio:'inherit'});
       const modules=path.join(deployment,'node_modules');
       for(const name of ['@livekit/rtc-ffi-bindings-win32-x64-msvc','@koromix/koffi-win32-x64']){
         if(!fs.existsSync(path.join(modules,name,'package.json')))throw Error(`Missing CastLink Desktop runtime ${name}`);
